@@ -1,0 +1,12 @@
+.DS_Store
+.env
+.idea/
+.vscode/
+**/bin/
+**/obj/
+**/.dart_tool/
+**/build/
+**/.flutter-plugins*
+**/coverage/
+*.iml
+*.log
