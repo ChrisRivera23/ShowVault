@@ -19,12 +19,18 @@ Completed:
 - ASP.NET Core health and status endpoints created.
 - Flutter analysis and foundational tests passing.
 - ASP.NET Core integration test passing.
+- Foundation pull request merged into `main`.
+- Control plane upgraded to .NET 10 LTS.
+- Versioned Agent command and event contracts created.
+- Venue Agent worker-service foundation created.
+- Agent protocol endpoint and contract tests created.
+- Current API dependency audit reports no known vulnerable packages.
 
-Current draft pull request:
+Current development branch:
 
-- `codex/sprint1-navigation-domain` — responsive application navigation.
+- `codex/agent-contract-foundation` — Venue Agent and protocol boundary foundation.
 
-No production authentication, database schema, Venue Agent, plugin, backup, verification, or restore functionality has been implemented yet.
+No production authentication, database schema, Agent enrollment or transport, plugin, backup, verification, or restore functionality has been implemented yet.
 
 ## Approved product direction
 
@@ -220,8 +226,8 @@ Universal object abstractions will be considered only after real plugin implemen
 
 ## Implementation sequence
 
-1. Upgrade the API foundation from .NET 9 to .NET 10 LTS.
-2. Freeze control-plane and Venue Agent protocol boundaries.
+1. Upgrade the API foundation from .NET 9 to .NET 10 LTS. — Complete
+2. Freeze the initial control-plane and Venue Agent protocol boundary. — In progress
 3. Select the managed OpenID Connect provider.
 4. Implement organizations, venues, memberships, and tenant isolation.
 5. Implement secure Venue Agent enrollment and identity.
@@ -303,4 +309,4 @@ dotnet test tests/ShowVault.Api.Tests/ShowVault.Api.Tests.csproj
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-The immediate next action is architectural foundation work—not feature breadth. Before implementation, resolve the four open decisions above. After approval, update the existing draft branch or begin a new focused branch, validate all tests, and publish through a draft pull request.
+The current work establishes the Venue Agent and its versioned command/event contract on .NET 10. The immediate decision after this batch is the managed identity provider, followed by organizations, venues, memberships, tenant isolation, and secure Agent enrollment. Continue through focused, validated draft pull requests rather than broad placeholder implementation.
