@@ -1,4 +1,5 @@
 using ShowVault.Api.Contracts;
+using ShowVault.AgentContracts;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddProblemDetails();
@@ -14,6 +15,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapHealthChecks("/health");
+app.MapGet("/api/v1/agent-protocol", (HttpContext context) =>
+    Results.Ok(ApiResponse<AgentProtocolDescription>.Success(
+        AgentProtocolDescription.Current,
+        context.TraceIdentifier)));
 app.MapGet("/api/v1/platform/status", (HttpContext context) =>
 {
     var correlationId = context.TraceIdentifier;
