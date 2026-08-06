@@ -25,6 +25,8 @@ Completed:
 - Venue Agent worker-service foundation created.
 - Agent protocol endpoint and contract tests created.
 - Current API dependency audit reports no known vulnerable packages.
+- Auth0 selected as the managed human-identity provider.
+- Provider-independent organization, membership, role, and venue domain foundations created.
 
 Current development branch:
 
@@ -289,7 +291,7 @@ dotnet test tests/ShowVault.Api.Tests/ShowVault.Api.Tests.csproj
 
 ## Decisions still requiring product-owner approval
 
-1. Managed identity provider: Auth0, Supabase Auth, or another OpenID Connect provider.
+1. Auth0 tenant configuration: domain, API audience, and application identifiers.
 2. First real plugin/product integration.
 3. Initial storage targets: local disk only, local plus NAS, or local plus S3-compatible cloud.
 4. First pilot venue and its recovery workflow.
