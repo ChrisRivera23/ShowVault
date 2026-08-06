@@ -3,10 +3,11 @@
 ## System shape
 
 - Flutter client using feature-first organization, Riverpod, and GoRouter.
-- ASP.NET Core 9 API using Clean Architecture and constructor injection.
+- ASP.NET Core 10 API using modular boundaries and constructor injection.
 - PostgreSQL through Entity Framework Core migrations.
 - Versioned REST endpoints with OpenAPI, Problem Details, correlation IDs, and asynchronous operations.
 - Local storage abstraction with cloud-ready adapters.
+- Auth0 validates human identity; ShowVault remains authoritative for organization membership and tenant access.
 
 ## Platform model
 

@@ -26,13 +26,16 @@ Completed:
 - Agent protocol endpoint and contract tests created.
 - Current API dependency audit reports no known vulnerable packages.
 - Auth0 selected as the managed human-identity provider.
+- Auth0 Control Plane API created with RS256 access tokens.
+- ASP.NET Core JWT issuer and audience validation added.
+- Protected identity endpoint added for resolving the external identity subject.
 - Provider-independent organization, membership, role, and venue domain foundations created.
 
 Current development branch:
 
-- `codex/agent-contract-foundation` — Venue Agent and protocol boundary foundation.
+- `codex/auth-tenancy-foundation` — Auth0 and tenant-domain foundation (draft PR #3).
 
-No production authentication, database schema, Agent enrollment or transport, plugin, backup, verification, or restore functionality has been implemented yet.
+Client sign-in, membership persistence, tenant-scoped data access, database schema, Agent enrollment or transport, plugin, backup, verification, and restore functionality have not been implemented yet.
 
 ## Approved product direction
 
@@ -229,9 +232,9 @@ Universal object abstractions will be considered only after real plugin implemen
 ## Implementation sequence
 
 1. Upgrade the API foundation from .NET 9 to .NET 10 LTS. — Complete
-2. Freeze the initial control-plane and Venue Agent protocol boundary. — In progress
-3. Select the managed OpenID Connect provider.
-4. Implement organizations, venues, memberships, and tenant isolation.
+2. Freeze the initial control-plane and Venue Agent protocol boundary. — Complete
+3. Select the managed OpenID Connect provider. — Complete (Auth0)
+4. Implement organizations, venues, memberships, and tenant isolation. — In progress
 5. Implement secure Venue Agent enrollment and identity.
 6. Implement outbound Agent communication and durable local jobs.
 7. Implement the first file-oriented discovery plugin.
@@ -291,7 +294,7 @@ dotnet test tests/ShowVault.Api.Tests/ShowVault.Api.Tests.csproj
 
 ## Decisions still requiring product-owner approval
 
-1. Auth0 tenant configuration: domain, API audience, and application identifiers.
+1. Auth0 native application identifiers and callback/logout URLs once Flutter platform runners exist.
 2. First real plugin/product integration.
 3. Initial storage targets: local disk only, local plus NAS, or local plus S3-compatible cloud.
 4. First pilot venue and its recovery workflow.
@@ -311,4 +314,4 @@ dotnet test tests/ShowVault.Api.Tests/ShowVault.Api.Tests.csproj
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-The current work establishes the Venue Agent and its versioned command/event contract on .NET 10. The immediate decision after this batch is the managed identity provider, followed by organizations, venues, memberships, tenant isolation, and secure Agent enrollment. Continue through focused, validated draft pull requests rather than broad placeholder implementation.
+Draft PR #3 establishes Auth0 as the identity provider, provisions the Control Plane API (`dev-4m7moxkl7dikmtf7.us.auth0.com`, audience `https://api.showvault.app`), validates JWT issuer and audience in ASP.NET Core, exposes the authenticated external subject, and adds provider-independent organization, membership, role, and venue foundations. The next vertical slice is PostgreSQL persistence with tenant-scoped membership and venue access; Flutter Auth0 application setup follows when platform runners and stable application identifiers exist. Continue through focused, validated draft pull requests rather than broad placeholder implementation.

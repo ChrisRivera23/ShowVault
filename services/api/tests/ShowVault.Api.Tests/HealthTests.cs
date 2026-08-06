@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net.Http.Json;
+using System.Net;
 using ShowVault.AgentContracts;
 using Xunit;
 
@@ -27,6 +28,14 @@ public sealed class HealthTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.NotNull(response);
         Assert.Equal(AgentProtocol.Version, response.Payload.Version);
         Assert.Contains(AgentCommandType.CreateBackup, response.Payload.Commands);
+    }
+
+    [Fact]
+    public async Task Identity_endpoint_requires_an_access_token()
+    {
+        var response = await _client.GetAsync("/api/v1/identity");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     private sealed record ProtocolResponse(AgentProtocolDescription Payload);
