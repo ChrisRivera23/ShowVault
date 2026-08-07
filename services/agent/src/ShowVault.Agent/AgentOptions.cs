@@ -74,4 +74,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> LawoMc2ProductionRoots { get; init; } = [];
 
     public IReadOnlyList<string> CalrecApolloArtemisShowRoots { get; init; } = [];
+
+    public IReadOnlyList<string> StuderVistaTitleBackupRoots { get; init; } = [];
 }

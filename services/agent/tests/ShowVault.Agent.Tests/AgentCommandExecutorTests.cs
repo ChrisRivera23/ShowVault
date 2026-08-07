@@ -558,6 +558,15 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     [Path.Combine(_testRoot, "calrec-apollo-artemis")]
             }),
             timeProvider);
+        var studerVistaPlugin = new StuderVistaDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                StuderVistaTitleBackupRoots =
+                    [Path.Combine(_testRoot, "BCK_D950_BACKUP_test")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -587,7 +596,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     digicoSdQuantumPlugin,
                     sslLivePlugin,
                     lawoMc2Plugin,
-                    calrecApolloArtemisPlugin
+                    calrecApolloArtemisPlugin,
+                    studerVistaPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
