@@ -28,4 +28,8 @@ public sealed class AgentOptions
     public IReadOnlyList<string> ResolumeDiscoveryRoots { get; init; } = [];
 
     public IReadOnlyList<string> ResolumeUserDataRoots { get; init; } = [];
+
+    public IReadOnlyList<string> GrandMa2ExportRoots { get; init; } = [];
+
+    public IReadOnlyList<string> GrandMa3ExportRoots { get; init; } = [];
 }

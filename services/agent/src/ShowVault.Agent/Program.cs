@@ -26,6 +26,12 @@ builder.Services
         options => options.ResolumeUserDataRoots.All(Path.IsPathFullyQualified),
         "Every Resolume user-data root must be an absolute path.")
     .Validate(
+        options => options.GrandMa2ExportRoots.All(Path.IsPathFullyQualified),
+        "Every grandMA2 export root must be an absolute path.")
+    .Validate(
+        options => options.GrandMa3ExportRoots.All(Path.IsPathFullyQualified),
+        "Every grandMA3 export root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -61,6 +67,8 @@ builder.Services.AddSingleton<AgentEventDispatcher>();
 builder.Services.AddSingleton<AgentCommandPoller>();
 builder.Services.AddSingleton<IDiscoveryPlugin, FileSystemDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, ResolumeDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, GrandMa2ShowDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, GrandMa3ShowDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();

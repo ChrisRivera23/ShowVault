@@ -371,10 +371,27 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 ResolumeDiscoveryRoots = [_testRoot]
             }),
             timeProvider);
+        var grandMa2Plugin = new GrandMa2ShowDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                GrandMa2ExportRoots = [Path.Combine(_testRoot, "gma2")]
+            }),
+            timeProvider);
+        var grandMa3Plugin = new GrandMa3ShowDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                GrandMa3ExportRoots = [Path.Combine(_testRoot, "grandMA3")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
-            new DiscoveryPluginRegistry([plugin, resolumePlugin]),
+            new DiscoveryPluginRegistry(
+                [plugin, resolumePlugin, grandMa2Plugin, grandMa3Plugin]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
                 Options.Create(new AgentOptions
