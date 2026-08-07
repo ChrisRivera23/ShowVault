@@ -617,6 +617,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     [Path.Combine(_testRoot, "presonus-series-iii")]
             }),
             timeProvider);
+        var biampTesiraPlugin = new BiampTesiraDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                BiampTesiraConfigurationRoots = [Path.Combine(_testRoot, "biamp-tesira")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -653,7 +661,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     soundcraftViPlugin,
                     tascamModelMtrPlugin,
                     rolandM5000Plugin,
-                    preSonusSeriesIiiPlugin
+                    preSonusSeriesIiiPlugin,
+                    biampTesiraPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(

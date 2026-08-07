@@ -88,4 +88,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> RolandM5000ProjectRoots { get; init; } = [];
 
     public IReadOnlyList<string> PreSonusStudioLiveSeriesIiiBackupRoots { get; init; } = [];
+
+    public IReadOnlyList<string> BiampTesiraConfigurationRoots { get; init; } = [];
 }
