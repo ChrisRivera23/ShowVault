@@ -32,7 +32,7 @@ Manufacturer names do not imply automatic support for every product the company 
 - Lab Gruppen
 - Dynacord
 - Electro-Voice — IRIS-Net project discovery implemented; QuickSmart Mobile and PREVIEW remain uncredited pending verified portable export artifacts
-- d&b audiotechnik
+- d&b audiotechnik — shared R1/ArrayCalc `.dbpr` project discovery implemented with legacy and commissioning companions preserved
 - L-Acoustics
 - Meyer Sound
 - NEXO

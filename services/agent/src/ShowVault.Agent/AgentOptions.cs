@@ -108,4 +108,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> DynacordSonicueProjectRoots { get; init; } = [];
 
     public IReadOnlyList<string> ElectroVoiceIrisNetProjectRoots { get; init; } = [];
+
+    public IReadOnlyList<string> DbAudiotechnikR1ProjectRoots { get; init; } = [];
 }
