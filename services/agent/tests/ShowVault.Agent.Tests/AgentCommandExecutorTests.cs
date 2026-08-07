@@ -525,6 +525,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 BlackmagicAtemStateRoots = [Path.Combine(_testRoot, "blackmagic-atem")]
             }),
             timeProvider);
+        var digicoSdQuantumPlugin = new DigicoSdQuantumDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                DigicoSdQuantumSessionRoots = [Path.Combine(_testRoot, "digico-sd-quantum")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -550,7 +558,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     allenHeathSqPlugin,
                     crestronSimplPlugin,
                     shureDesignerPlugin,
-                    blackmagicAtemPlugin
+                    blackmagicAtemPlugin,
+                    digicoSdQuantumPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(

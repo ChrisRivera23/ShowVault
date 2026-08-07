@@ -83,6 +83,9 @@ builder.Services
         options => options.BlackmagicAtemStateRoots.All(Path.IsPathFullyQualified),
         "Every Blackmagic ATEM state root must be an absolute path.")
     .Validate(
+        options => options.DigicoSdQuantumSessionRoots.All(Path.IsPathFullyQualified),
+        "Every DiGiCo SD/Quantum session root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -137,6 +140,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, AllenHeathSqShowDiscoveryPlugin>
 builder.Services.AddSingleton<IDiscoveryPlugin, CrestronSimplDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, ShureDesignerDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, BlackmagicAtemDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, DigicoSdQuantumDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();

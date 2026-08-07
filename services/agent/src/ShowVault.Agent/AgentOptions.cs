@@ -66,4 +66,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> ShureDesignerRoomRoots { get; init; } = [];
 
     public IReadOnlyList<string> BlackmagicAtemStateRoots { get; init; } = [];
+
+    public IReadOnlyList<string> DigicoSdQuantumSessionRoots { get; init; } = [];
 }
