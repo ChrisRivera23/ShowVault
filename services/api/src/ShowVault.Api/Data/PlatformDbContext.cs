@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ShowVault.Platform.Agents;
 using ShowVault.Platform.Organizations;
 using ShowVault.Platform.Venues;
 
@@ -10,6 +11,8 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<Membership> Memberships => Set<Membership>();
     public DbSet<Venue> Venues => Set<Venue>();
+    public DbSet<AgentEnrollment> AgentEnrollments => Set<AgentEnrollment>();
+    public DbSet<VenueAgent> VenueAgents => Set<VenueAgent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -52,6 +55,39 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.HasOne<Organization>()
                 .WithMany()
                 .HasForeignKey(venue => venue.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AgentEnrollment>(entity =>
+        {
+            entity.ToTable("agent_enrollments");
+            entity.HasKey(enrollment => enrollment.Id);
+            entity.Property(enrollment => enrollment.SecretHash).HasMaxLength(32).IsRequired();
+            entity.Property(enrollment => enrollment.CreatedBySubject).HasMaxLength(255).IsRequired();
+            entity.Property(enrollment => enrollment.CreatedAt).IsRequired();
+            entity.Property(enrollment => enrollment.ExpiresAt).IsRequired();
+            entity.Property(enrollment => enrollment.ConsumedAt).IsConcurrencyToken();
+            entity.Property(enrollment => enrollment.RevokedAt);
+            entity.HasIndex(enrollment => enrollment.SecretHash).IsUnique();
+            entity.HasIndex(enrollment => enrollment.VenueId);
+            entity.HasOne<Venue>()
+                .WithMany()
+                .HasForeignKey(enrollment => enrollment.VenueId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<VenueAgent>(entity =>
+        {
+            entity.ToTable("venue_agents");
+            entity.HasKey(agent => agent.Id);
+            entity.Property(agent => agent.Name).HasMaxLength(200).IsRequired();
+            entity.Property(agent => agent.CredentialHash).HasMaxLength(32).IsRequired();
+            entity.Property(agent => agent.CreatedAt).IsRequired();
+            entity.Property(agent => agent.RevokedAt);
+            entity.HasIndex(agent => agent.VenueId);
+            entity.HasOne<Venue>()
+                .WithMany()
+                .HasForeignKey(agent => agent.VenueId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
