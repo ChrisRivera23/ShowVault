@@ -37,7 +37,7 @@ Manufacturer names do not imply automatic support for every product the company 
 - Meyer Sound — MAPP 3D `.mapp` project discovery implemented with `MAPP Backup` autosaves, imported venue drawings, exports, and other exact-root companions preserved
 - NEXO — NS-1 `.nexo`/`.nexo3` project discovery implemented with revisions, imported venue material, exports, and other exact-root companions preserved
 - RCF — deferred pending an official or fixture-verified local RDNet/RDShape project format; current official material documents cloud project/measurement recall and a native RDShape export but not a dependable local extension or signature
-- JBL Professional
+- JBL Professional — Venue Synthesis `.vysn` project discovery implemented with LAC `.lac3`, ArrayLink `.al`, venue, EASE, report, and other exact-root companions preserved
 - Martin Audio
 - Funktion-One
 - Adamson
