@@ -9,6 +9,14 @@ public enum OrganizationRole
     Owner
 }
 
+public static class OrganizationRoleExtensions
+{
+    public static bool CanManageVenues(this OrganizationRole role) => role is
+        OrganizationRole.Manager or
+        OrganizationRole.Administrator or
+        OrganizationRole.Owner;
+}
+
 public sealed record Membership(
     Guid Id,
     Guid OrganizationId,

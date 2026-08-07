@@ -37,4 +37,17 @@ public sealed class OrganizationTests
         Assert.Equal("auth0|user-123", membership.IdentitySubject);
         Assert.Equal(OrganizationRole.Owner, membership.Role);
     }
+
+    [Theory]
+    [InlineData(OrganizationRole.Manager, true)]
+    [InlineData(OrganizationRole.Administrator, true)]
+    [InlineData(OrganizationRole.Owner, true)]
+    [InlineData(OrganizationRole.Technician, false)]
+    [InlineData(OrganizationRole.Viewer, false)]
+    public void Venue_management_is_limited_to_authorized_roles(
+        OrganizationRole role,
+        bool expected)
+    {
+        Assert.Equal(expected, role.CanManageVenues());
+    }
 }

@@ -1,7 +1,10 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ShowVault.Api.Contracts;
+using ShowVault.Api.Data;
+using ShowVault.Api.Endpoints;
 using ShowVault.AgentContracts;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,10 +12,14 @@ var auth0Domain = builder.Configuration["Auth0:Domain"]
     ?? throw new InvalidOperationException("Auth0:Domain configuration is required.");
 var auth0Audience = builder.Configuration["Auth0:Audience"]
     ?? throw new InvalidOperationException("Auth0:Audience configuration is required.");
+var platformConnectionString = builder.Configuration.GetConnectionString("Platform")
+    ?? throw new InvalidOperationException("The Platform connection string is required.");
 
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
+builder.Services.AddDbContext<PlatformDbContext>(options =>
+    options.UseNpgsql(platformConnectionString));
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -64,6 +71,8 @@ app.MapGet("/api/v1/identity", (ClaimsPrincipal user, HttpContext context) =>
         new AuthenticatedIdentity(subject, user.FindFirstValue("name")),
         context.TraceIdentifier));
 }).RequireAuthorization();
+
+app.MapTenantEndpoints();
 
 app.Run();
 

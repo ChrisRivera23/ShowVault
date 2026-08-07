@@ -30,12 +30,14 @@ Completed:
 - ASP.NET Core JWT issuer and audience validation added.
 - Protected identity endpoint added for resolving the external identity subject.
 - Provider-independent organization, membership, role, and venue domain foundations created.
+- PostgreSQL schema and initial EF Core migration created for organizations, memberships, and venues.
+- Authenticated organization and venue endpoints enforce membership and role-based tenant isolation.
 
 Current development branch:
 
 - `codex/auth-tenancy-foundation` — Auth0 and tenant-domain foundation (draft PR #3).
 
-Client sign-in, membership persistence, tenant-scoped data access, database schema, Agent enrollment or transport, plugin, backup, verification, and restore functionality have not been implemented yet.
+Client sign-in, membership administration, Agent enrollment or transport, plugin, backup, verification, and restore functionality have not been implemented yet.
 
 ## Approved product direction
 
@@ -234,7 +236,7 @@ Universal object abstractions will be considered only after real plugin implemen
 1. Upgrade the API foundation from .NET 9 to .NET 10 LTS. — Complete
 2. Freeze the initial control-plane and Venue Agent protocol boundary. — Complete
 3. Select the managed OpenID Connect provider. — Complete (Auth0)
-4. Implement organizations, venues, memberships, and tenant isolation. — In progress
+4. Implement organizations, venues, memberships, and tenant isolation. — Initial vertical slice complete
 5. Implement secure Venue Agent enrollment and identity.
 6. Implement outbound Agent communication and durable local jobs.
 7. Implement the first file-oriented discovery plugin.
@@ -289,6 +291,10 @@ flutter analyze
 flutter test
 
 cd ../../services/api
+dotnet tool restore
+dotnet tool run dotnet-ef migrations has-pending-model-changes \
+  --project src/ShowVault.Api/ShowVault.Api.csproj \
+  --startup-project src/ShowVault.Api/ShowVault.Api.csproj
 dotnet test tests/ShowVault.Api.Tests/ShowVault.Api.Tests.csproj
 ```
 
@@ -314,4 +320,4 @@ dotnet test tests/ShowVault.Api.Tests/ShowVault.Api.Tests.csproj
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-Draft PR #3 establishes Auth0 as the identity provider, provisions the Control Plane API (`dev-4m7moxkl7dikmtf7.us.auth0.com`, audience `https://api.showvault.app`), validates JWT issuer and audience in ASP.NET Core, exposes the authenticated external subject, and adds provider-independent organization, membership, role, and venue foundations. The next vertical slice is PostgreSQL persistence with tenant-scoped membership and venue access; Flutter Auth0 application setup follows when platform runners and stable application identifiers exist. Continue through focused, validated draft pull requests rather than broad placeholder implementation.
+Draft PR #3 establishes Auth0 as the identity provider, provisions the Control Plane API (`dev-4m7moxkl7dikmtf7.us.auth0.com`, audience `https://api.showvault.app`), validates JWT issuer and audience in ASP.NET Core, and implements the first PostgreSQL-backed tenant slice. An authenticated identity can create an organization, list only its memberships, and create or list venues only when its persisted role permits that action. The next vertical slice is secure Venue Agent enrollment and identity. Flutter Auth0 application setup follows when platform runners and stable application identifiers exist. Continue through focused, validated draft pull requests rather than broad placeholder implementation.
