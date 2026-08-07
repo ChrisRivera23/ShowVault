@@ -509,6 +509,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 CrestronSimplProjectRoots = [Path.Combine(_testRoot, "crestron-simpl")]
             }),
             timeProvider);
+        var shureDesignerPlugin = new ShureDesignerDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                ShureDesignerRoomRoots = [Path.Combine(_testRoot, "shure-designer")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -532,7 +540,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     etcEosPlugin,
                     danteControllerPlugin,
                     allenHeathSqPlugin,
-                    crestronSimplPlugin
+                    crestronSimplPlugin,
+                    shureDesignerPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(

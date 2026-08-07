@@ -62,4 +62,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> AllenHeathSqShowRoots { get; init; } = [];
 
     public IReadOnlyList<string> CrestronSimplProjectRoots { get; init; } = [];
+
+    public IReadOnlyList<string> ShureDesignerRoomRoots { get; init; } = [];
 }

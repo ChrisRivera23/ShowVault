@@ -77,6 +77,9 @@ builder.Services
         options => options.CrestronSimplProjectRoots.All(Path.IsPathFullyQualified),
         "Every Crestron SIMPL project root must be an absolute path.")
     .Validate(
+        options => options.ShureDesignerRoomRoots.All(Path.IsPathFullyQualified),
+        "Every Shure Designer room root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -129,6 +132,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, EtcEosShowDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, DanteControllerDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, AllenHeathSqShowDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, CrestronSimplDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, ShureDesignerDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
