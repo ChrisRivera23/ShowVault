@@ -56,10 +56,11 @@ Completed:
 - Authenticated Flutter loading discovers the operator's first accessible organization and venue and renders only live tenant-scoped recovery history; preview data has been removed.
 - Read-only system inventory and exact allowlisted TCP endpoint discovery run through the durable Agent command boundary.
 - The authoritative Version 1 catalog spans professional audio, audio networking/DSP, lighting platforms/protocols, video/media servers, DJ platforms, and projection; Resolume, Yamaha, and grandMA2/grandMA3 are highest priority.
+- Q-SYS Designer offline recovery requires an editable `.qsys` design within an exact locally approved root and preserves colocated plugins, user-library components, scripts, media, notes, and other recovery companions.
 
 Current development branch:
 
-- `codex/yamaha-dme5-dme3` — DME5/DME3 ProVisionaire Design projects and Custom Control Panel companions.
+- `codex/qsys-offline-design` — Q-SYS Designer `.qsys` projects and colocated recovery companions.
 
 The Auth0 Native application is configured. A live login/API proof still needs a deployed API and a native build host. Membership administration, user-requested command cancellation, digital signatures, NAS/cloud storage, and persistent control-plane package records have not been implemented yet.
 
@@ -269,7 +270,7 @@ Universal object abstractions will be considered only after real plugin implemen
 10. Implement a controlled local restore. — Complete (allowlisted test targets)
 11. Display the complete recovery loop in Flutter. — Native client, Auth0 application registration, and authenticated live loading implemented; end-to-end login/API proof awaits a deployed API and a native build host
 12. Add the network-device and system-inventory plugins. — Bounded, read-only system inventory and allowlisted TCP network-device discovery implemented
-13. Implement and pilot the approved Version 1 vendor integrations. — Resolume portable-bundle workflow in progress
+13. Implement and pilot the approved Version 1 vendor integrations. — Resolume, grandMA, Yamaha, and Q-SYS foundations implemented
 14. Add cloud upload and mobile monitoring.
 15. Pilot repeatedly with one real venue.
 
@@ -291,7 +292,8 @@ This section is maintained so a new Codex task can resume without relying on the
 - Draft PR #22 branch: `codex/yamaha-pc-amplifiers`, stacked on PR #21. It adds a separate PC-D/DI amplifier compatibility target for operator-declared ProVisionaire Design `.pvd` projects.
 - Draft PR #23 branch: `codex/yamaha-provisionaire-control`, stacked on PR #22. It requires an editable Control PLUS `.pvcppj` project and preserves exported `.pvksk` Kiosk controllers and companion assets.
 - Draft PR #24 branch: `codex/yamaha-dme5-dme3`, stacked on PR #23. It adds DME5/DME3 as a separate ProVisionaire Design `.pvd` compatibility target and preserves Custom Control Panel exports as companions.
-- Next recommended implementation step: move to the next representative Version 1 platform foundation, Q-SYS offline design recovery, after verifying Q-SYS Designer's current native project and companion formats from official Q-SYS documentation.
+- Current branch: `codex/qsys-offline-design`, based on PR #24. It adds exact-root Q-SYS Designer offline recovery, requires an editable `.qsys` design, and preserves colocated `.qplug` plugins, `.quc` user-library components, and other recovery companions. Official Q-SYS documentation confirms Designer/Core firmware version alignment remains an operator restore prerequisite.
+- Next recommended implementation step: continue the representative platform foundations with ETC Eos show-file recovery after verifying its current native and export formats from official ETC documentation.
 - Auth0 Native application `ShowVault Flutter` is registered and its callback/logout URLs and public Client ID are configured. A live login/API proof still requires a deployed ShowVault API and a native build host; this workstation has only Xcode Command Line Tools.
 - The Product Owner supplied the authoritative Version 1 venue-technology scope in `docs/INTEGRATION_CATALOG.md`, including rekordbox, Serato DJ Pro, Traktor Pro, VirtualDJ, Engine DJ, djay Pro, Mixxx, and Denon Engine OS as mandatory launch targets. Resolume, Yamaha, and grandMA2/grandMA3 are highest priority. Coverage is tracked per tested product/model, platform version, or protocol capability; empty catalog plugins and generic reachability do not qualify.
 - Auth0 is configured for human identity. Agent authentication intentionally remains a separate credential scheme.
@@ -371,4 +373,4 @@ dotnet test tests/ShowVault.Agent.Tests/ShowVault.Agent.Tests.csproj
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-Draft PRs #3 through #11 establish Auth0 tenancy, the Agent-side Scan → Backup → Verify → Restore loop, and tenant recovery history. PR #12 adds native Flutter and Auth0; PR #13 adds system inventory; PR #14 adds protocol 1.2 allowlisted TCP discovery; PRs #15–#16 add Resolume recovery; PR #17 adds grandMA2/grandMA3; PRs #18–#20 add Yamaha DM7, RIVAGE PM, CL/QL, TF, and DM3; PR #21 adds distinct Yamaha DME7 `.pvd` and MTX/MRX `.mtx` recovery targets; PR #22 adds PC-D/DI amplifier project compatibility; PR #23 protects editable ProVisionaire Control PLUS `.pvcppj` projects and exported `.pvksk` Kiosk controllers; PR #24 adds DME5/DME3 `.pvd` compatibility and Custom Control Panel companions. After this Yamaha milestone, the recommended next representative Version 1 platform is Q-SYS offline design recovery. The full 100-target Version 1 scope is preserved in `docs/INTEGRATION_CATALOG.md`. A live Auth0/API proof still requires a deployed API and native build host; full Xcode is not installed here. macOS LaunchDaemon keychain access remains an installer-validation requirement.
+Draft PRs #3 through #11 establish Auth0 tenancy, the Agent-side Scan → Backup → Verify → Restore loop, and tenant recovery history. PR #12 adds native Flutter and Auth0; PR #13 adds system inventory; PR #14 adds protocol 1.2 allowlisted TCP discovery; PRs #15–#16 add Resolume recovery; PR #17 adds grandMA2/grandMA3; PRs #18–#20 add Yamaha DM7, RIVAGE PM, CL/QL, TF, and DM3; PR #21 adds distinct Yamaha DME7 `.pvd` and MTX/MRX `.mtx` recovery targets; PR #22 adds PC-D/DI amplifier project compatibility; PR #23 protects editable ProVisionaire Control PLUS `.pvcppj` projects and exported `.pvksk` Kiosk controllers; PR #24 adds DME5/DME3 `.pvd` compatibility and Custom Control Panel companions. The current `codex/qsys-offline-design` branch adds Q-SYS Designer `.qsys` recovery with colocated companion assets. The next recommended representative platform is ETC Eos show-file recovery. The full 100-target Version 1 scope is preserved in `docs/INTEGRATION_CATALOG.md`. A live Auth0/API proof still requires a deployed API and native build host; full Xcode is not installed here. macOS LaunchDaemon keychain access remains an installer-validation requirement.
