@@ -130,6 +130,63 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal(issuedCommand.Payload.CommandId, recoveryRun.DiscoveryCommandId);
         Assert.Equal("in_progress", recoveryRun.Status);
 
+        var agents = await ownerClient.GetFromJsonAsync<
+            ApiResponse<IReadOnlyList<VenueAgentSummary>>>(
+                $"/api/v1/organizations/{organizationId}/venues/{venueId}/agents");
+        Assert.NotNull(agents);
+        Assert.Equal(enrolledAgent.Payload.AgentId, Assert.Single(agents.Payload).Id);
+
+        var workflowBase = $"/api/v1/organizations/{organizationId}/venues/{venueId}" +
+            $"/agents/{enrolledAgent.Payload.AgentId}/recovery";
+        var discoveryCommand = await PostWorkflowCommandAsync(
+            ownerClient,
+            $"{workflowBase}/discover",
+            new StartRecoveryDiscoveryRequest("showvault.filesystem", "/approved/show", 250));
+        Assert.Equal(AgentCommandType.StartDiscovery, discoveryCommand.Type);
+
+        var backupCommand = await PostWorkflowCommandAsync(
+            ownerClient,
+            $"{workflowBase}/backup",
+            new CreateRecoveryBackupRequest(discoveryCommand.CommandId));
+        Assert.Equal(AgentCommandType.CreateBackup, backupCommand.Type);
+
+        var verifyCommand = await PostWorkflowCommandAsync(
+            ownerClient,
+            $"{workflowBase}/verify",
+            new VerifyRecoveryBackupRequest(backupCommand.CommandId));
+        Assert.Equal(AgentCommandType.VerifyBackup, verifyCommand.Type);
+
+        var restoreCommand = await PostWorkflowCommandAsync(
+            ownerClient,
+            $"{workflowBase}/restore",
+            new StartRecoveryRestoreRequest(
+                backupCommand.CommandId,
+                verifyCommand.CommandId,
+                "/approved/restore"));
+        Assert.Equal(AgentCommandType.StartRestore, restoreCommand.Type);
+
+        var secondBackupCommand = await PostWorkflowCommandAsync(
+            ownerClient,
+            $"{workflowBase}/backup",
+            new CreateRecoveryBackupRequest(discoveryCommand.CommandId));
+        var mismatchedRestore = await ownerClient.PostAsJsonAsync(
+            $"{workflowBase}/restore",
+            new StartRecoveryRestoreRequest(
+                secondBackupCommand.CommandId,
+                verifyCommand.CommandId,
+                "/approved/restore-two"));
+        Assert.Equal(HttpStatusCode.BadRequest, mismatchedRestore.StatusCode);
+
+        var invalidDependency = await ownerClient.PostAsJsonAsync(
+            $"{workflowBase}/backup",
+            new CreateRecoveryBackupRequest(Guid.NewGuid()));
+        Assert.Equal(HttpStatusCode.BadRequest, invalidDependency.StatusCode);
+
+        var forbiddenWorkflow = await outsiderClient.PostAsJsonAsync(
+            $"{workflowBase}/discover",
+            new StartRecoveryDiscoveryRequest("showvault.filesystem", "/approved/show"));
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenWorkflow.StatusCode);
+
         using var invalidAgentClient = CreateAgentClient(
             $"{enrolledAgent.Payload.AgentId}.sva_invalid");
         var invalidIdentity = await invalidAgentClient.GetAsync("/api/v1/agent-identity");
@@ -195,5 +252,17 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         var venue = await response.Content.ReadFromJsonAsync<ApiResponse<VenueSummary>>();
         Assert.NotNull(venue);
         return venue.Payload.Id;
+    }
+
+    private static async Task<AgentCommandEnvelope> PostWorkflowCommandAsync<TRequest>(
+        HttpClient client,
+        string path,
+        TRequest request)
+    {
+        var response = await client.PostAsJsonAsync(path, request);
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        var command = await response.Content.ReadFromJsonAsync<ApiResponse<AgentCommandEnvelope>>();
+        Assert.NotNull(command);
+        return command.Payload;
     }
 }
