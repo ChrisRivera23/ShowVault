@@ -427,6 +427,22 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 YamahaDm3ExportRoots = [Path.Combine(_testRoot, "yamaha-dm3")]
             }),
             timeProvider);
+        var yamahaDme7Plugin = new YamahaDme7DiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaDme7ProjectRoots = [Path.Combine(_testRoot, "yamaha-dme7")]
+            }),
+            timeProvider);
+        var yamahaMtxMrxPlugin = new YamahaMtxMrxDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaMtxMrxProjectRoots = [Path.Combine(_testRoot, "yamaha-mtx-mrx")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -440,7 +456,9 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     yamahaRivagePlugin,
                     yamahaClQlPlugin,
                     yamahaTfPlugin,
-                    yamahaDm3Plugin
+                    yamahaDm3Plugin,
+                    yamahaDme7Plugin,
+                    yamahaMtxMrxPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
