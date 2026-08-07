@@ -39,7 +39,7 @@ Manufacturer names do not imply automatic support for every product the company 
 - RCF — deferred pending an official or fixture-verified local RDNet/RDShape project format; current official material documents cloud project/measurement recall and a native RDShape export but not a dependable local extension or signature
 - JBL Professional — Venue Synthesis `.vysn` project discovery implemented with LAC `.lac3`, ArrayLink `.al`, venue, EASE, report, and other exact-root companions preserved
 - Martin Audio — Vu-Net `.vun` project discovery implemented with revisions, snapshots, presets, zone/device documentation, and other exact-root companions preserved
-- Funktion-One
+- Funktion-One — deferred pending an official or fixture-verified NST Audio D-Net project format; Funktion-One officially links D-Net for F-Series DSP control, but no dependable local project extension or signature is published
 - Adamson
 - Outline
 - DAS Audio
