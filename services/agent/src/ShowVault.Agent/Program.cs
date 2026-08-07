@@ -134,6 +134,9 @@ builder.Services
         options => options.PowersoftArmoniaPlusProjectRoots.All(Path.IsPathFullyQualified),
         "Every Powersoft ArmoniaPlus project root must be an absolute path.")
     .Validate(
+        options => options.CrownAudioArchitectVenueRoots.All(Path.IsPathFullyQualified),
+        "Every Crown Audio Architect venue root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -205,6 +208,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, BoseControlSpaceDiscoveryPlugin>
 builder.Services.AddSingleton<IDiscoveryPlugin, PeaveyNwareDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, AshlyProteaNeDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, PowersoftArmoniaPlusDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, CrownAudioArchitectDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();

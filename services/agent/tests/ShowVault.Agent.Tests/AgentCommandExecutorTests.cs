@@ -663,6 +663,12 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 ControlPlaneUri = new Uri("https://control.test"), Name = "Test Agent",
                 PowersoftArmoniaPlusProjectRoots = [Path.Combine(_testRoot, "powersoft-armoniaplus")]
             }), timeProvider);
+        var crownAudioArchitectPlugin = new CrownAudioArchitectDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"), Name = "Test Agent",
+                CrownAudioArchitectVenueRoots = [Path.Combine(_testRoot, "crown-audio-architect")]
+            }), timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -705,7 +711,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     boseControlSpacePlugin,
                     peaveyNwarePlugin,
                     ashlyProteaNePlugin,
-                    powersoftArmoniaPlusPlugin
+                    powersoftArmoniaPlusPlugin,
+                    crownAudioArchitectPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
