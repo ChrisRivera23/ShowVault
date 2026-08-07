@@ -52,13 +52,15 @@ Completed:
 - `StartRestore` requires passing verification and restores only beneath locally allowed roots into absent or empty targets.
 - Restore copying uses staging, immediate package revalidation, restored-file hashing, atomic publication, restart-safe intent, and write-once evidence.
 - The control plane derives tenant-scoped recovery runs from issued commands and durable Agent outcomes without exposing local filesystem paths.
-- Flutter now presents a responsive Scan → Backup → Verify → Restore history with an honest empty state until native Auth0 sign-in enables live data.
+- Flutter native runners now exist for Android, iOS, macOS, and Windows under the shared `com.showvault.app` identity.
+- The Flutter client uses Auth0 Universal Login, securely restores mobile/macOS sessions, and requests the ShowVault API audience.
+- Authenticated Flutter loading discovers the operator's first accessible organization and venue and renders only live tenant-scoped recovery history with truthful empty and status states; synthetic evidence is never substituted.
 
 Current development branch:
 
-- `codex/recovery-history-read-model` — tenant recovery history and first Flutter recovery-loop view.
+- `codex/flutter-auth0-live-history` — native Flutter runners, Auth0 client sign-in, and live recovery-history loading.
 
-Native client sign-in/live history loading, membership administration, user-requested command cancellation, digital signatures, NAS/cloud storage, and persistent control-plane package records have not been implemented yet.
+Auth0 dashboard application creation is waiting for the Product Owner to sign in on the prepared Chrome tab. Membership administration, user-requested command cancellation, digital signatures, NAS/cloud storage, and persistent control-plane package records have not been implemented yet.
 
 ## Approved product direction
 
@@ -264,7 +266,7 @@ Universal object abstractions will be considered only after real plugin implemen
 8. Define and create the immutable recovery-package format. — Complete (local format 1.0)
 9. Implement cryptographic verification. — Initial structural and SHA-256 integrity verification complete
 10. Implement a controlled local restore. — Complete (allowlisted test targets)
-11. Display the complete recovery loop in Flutter. — Initial read model and truthful empty/status presentation complete; live Auth0 loading next
+11. Display the complete recovery loop in Flutter. — Native client and authenticated live loading implemented; Auth0 dashboard registration pending sign-in
 12. Add the network-device and system-inventory plugins.
 13. Add cloud upload and mobile monitoring.
 14. Pilot repeatedly with one real venue.
@@ -273,10 +275,11 @@ Universal object abstractions will be considered only after real plugin implemen
 
 This section is maintained so a new Codex task can resume without relying on the previous chat transcript.
 
-- Completed draft PR stack: PR #3 `codex/auth-tenancy-foundation`, PR #4 `codex/agent-enrollment-identity`, PR #5 `codex/agent-outbound-queue`, PR #6 `codex/agent-command-delivery`, PR #7 `codex/file-discovery-plugin`, PR #8 `codex/immutable-recovery-package`, PR #9 `codex/package-verification`, and PR #10 `codex/controlled-local-restore`.
-- Active work: `codex/recovery-history-read-model`, stacked on PR #10.
-- This slice adds tenant/venue recovery-run derivation, Agent-bound typed stage linkage, truthful status projection, authorization coverage, strict Flutter response models, and a responsive recovery-loop dashboard without synthetic recovery claims.
-- The next implementation task is native Flutter platform runners, an Auth0 Native application/callback configuration, authenticated API loading, and removal of preview data once the live state is proven. Package signatures remain separate future security work.
+- Completed draft PR stack: PRs #3 through #11, ending with `codex/recovery-history-read-model`.
+- Active work: `codex/flutter-auth0-live-history`, stacked on PR #11.
+- This slice adds native Android/iOS/macOS/Windows runners, the `com.showvault.app` identity, Auth0 Universal Login/session restoration, bearer-authenticated tenant discovery and recovery-history loading, explicit setup/empty/error states, and preserves truthful recovery status presentation without synthetic records.
+- Auth0 application registration is blocked only on the signed-out Dashboard tab. After sign-in, create `ShowVault Flutter` as a Native app and apply the callback/logout URLs in `apps/showvault_app/README.md`; then capture its public Client ID and prove one live login/API load.
+- After live sign-in validation, the next product slice is selecting the first real plugin/product integration and its pilot recovery workflow. Package signatures remain separate future security work.
 - Auth0 is configured for human identity. Agent authentication intentionally remains a separate credential scheme.
 - Exact Codex context-window percentages are not exposed to the assistant. A context compaction occurred while building this slice; this README is the durable source of truth for a new task.
 
@@ -335,10 +338,9 @@ dotnet test tests/ShowVault.Agent.Tests/ShowVault.Agent.Tests.csproj
 
 ## Decisions still requiring product-owner approval
 
-1. Auth0 native application identifiers and callback/logout URLs once Flutter platform runners exist.
-2. First real plugin/product integration.
+1. First real plugin/product integration.
+2. First pilot venue and its recovery workflow.
 3. Initial storage targets: local disk only, local plus NAS, or local plus S3-compatible cloud.
-4. First pilot venue and its recovery workflow.
 
 ## Instructions for a new development conversation
 
@@ -355,4 +357,4 @@ dotnet test tests/ShowVault.Agent.Tests/ShowVault.Agent.Tests.csproj
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-Draft PRs #3 through #10 establish Auth0 tenancy and the complete Agent-side Scan → Backup → Verify → Restore loop. The active history slice derives tenant-scoped, Agent-bound runs from the command/event ledger and presents the first responsive Flutter recovery dashboard without leaking Agent-local paths or inventing recovery evidence. The view remains empty until native runners and Auth0 client configuration provide live authenticated loading. macOS LaunchDaemon keychain access remains an installer-validation requirement. Keep this README current and continue through focused, validated draft pull requests.
+Draft PRs #3 through #11 establish Auth0 tenancy, the complete Agent-side Scan → Backup → Verify → Restore loop, and the tenant recovery read model. The active Flutter slice adds all native runners and authenticated live history while retaining Agent-bound, truthful evidence presentation and no synthetic recovery claims. Auth0 dashboard registration and a live proof await Dashboard sign-in; macOS builds also require full Xcode on this workstation. macOS LaunchDaemon keychain access remains an installer-validation requirement. Keep this README current and continue through focused, validated draft pull requests.
