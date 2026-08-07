@@ -1,7 +1,10 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using ShowVault.Api.Contracts;
+using ShowVault.Api.Data;
 using ShowVault.AgentContracts;
 using Xunit;
 
@@ -54,6 +57,33 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.NotNull(identity);
         Assert.Equal(enrolledAgent.Payload.AgentId, identity.Payload.AgentId);
         Assert.Equal(venueId, identity.Payload.VenueId);
+
+        var agentEvent = AgentEventEnvelope.Create(
+            enrolledAgent.Payload.AgentId,
+            AgentEventType.AgentConnected,
+            "event-correlation",
+            "{}",
+            DateTimeOffset.UtcNow);
+        var firstDelivery = await agentClient.PostAsJsonAsync("/api/v1/agent-events", agentEvent);
+        var duplicateDelivery = await agentClient.PostAsJsonAsync("/api/v1/agent-events", agentEvent);
+        Assert.Equal(HttpStatusCode.Accepted, firstDelivery.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, duplicateDelivery.StatusCode);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            Assert.Equal(1, await database.ReceivedAgentEvents.CountAsync(
+                received => received.EventId == agentEvent.EventId));
+        }
+
+        var mismatchedEvent = agentEvent with
+        {
+            EventId = Guid.NewGuid(),
+            AgentId = Guid.NewGuid()
+        };
+        var forbiddenEvent = await agentClient.PostAsJsonAsync(
+            "/api/v1/agent-events",
+            mismatchedEvent);
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenEvent.StatusCode);
 
         using var invalidAgentClient = CreateAgentClient(
             $"{enrolledAgent.Payload.AgentId}.sva_invalid");
