@@ -549,6 +549,15 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 LawoMc2ProductionRoots = [Path.Combine(_testRoot, "lawo-mc2")]
             }),
             timeProvider);
+        var calrecApolloArtemisPlugin = new CalrecApolloArtemisDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                CalrecApolloArtemisShowRoots =
+                    [Path.Combine(_testRoot, "calrec-apollo-artemis")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -577,7 +586,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     blackmagicAtemPlugin,
                     digicoSdQuantumPlugin,
                     sslLivePlugin,
-                    lawoMc2Plugin
+                    lawoMc2Plugin,
+                    calrecApolloArtemisPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(

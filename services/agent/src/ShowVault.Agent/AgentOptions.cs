@@ -72,4 +72,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> SslLiveShowRoots { get; init; } = [];
 
     public IReadOnlyList<string> LawoMc2ProductionRoots { get; init; } = [];
+
+    public IReadOnlyList<string> CalrecApolloArtemisShowRoots { get; init; } = [];
 }
