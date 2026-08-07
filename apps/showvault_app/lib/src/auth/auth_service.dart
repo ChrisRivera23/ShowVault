@@ -31,7 +31,6 @@ class AuthService {
 
     credentials = await _auth0.webAuthentication().login(
       audience: AppConfig.auth0Audience,
-      useHTTPS: true,
     );
     return _toSession(credentials);
   }
@@ -44,7 +43,7 @@ class AuthService {
       _windowsSession = null;
       return;
     }
-    await _auth0.webAuthentication().logout(useHTTPS: true);
+    await _auth0.webAuthentication().logout();
   }
 
   AuthSession _toSession(Credentials credentials) => AuthSession(
