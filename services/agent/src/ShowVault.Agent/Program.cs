@@ -68,6 +68,9 @@ builder.Services
         options => options.EtcEosShowArchiveRoots.All(Path.IsPathFullyQualified),
         "Every ETC Eos show archive root must be an absolute path.")
     .Validate(
+        options => options.DanteControllerPresetRoots.All(Path.IsPathFullyQualified),
+        "Every Dante Controller preset root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -117,6 +120,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, YamahaProVisionaireControlDiscov
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaDme5Dme3DiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, QsysDesignerDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, EtcEosShowDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, DanteControllerDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();

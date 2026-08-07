@@ -484,6 +484,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 EtcEosShowArchiveRoots = [Path.Combine(_testRoot, "etc-eos")]
             }),
             timeProvider);
+        var danteControllerPlugin = new DanteControllerDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                DanteControllerPresetRoots = [Path.Combine(_testRoot, "dante-controller")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -504,7 +512,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     yamahaControlPlugin,
                     yamahaDme5Dme3Plugin,
                     qsysDesignerPlugin,
-                    etcEosPlugin
+                    etcEosPlugin,
+                    danteControllerPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(

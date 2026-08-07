@@ -56,4 +56,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> QsysDesignerProjectRoots { get; init; } = [];
 
     public IReadOnlyList<string> EtcEosShowArchiveRoots { get; init; } = [];
+
+    public IReadOnlyList<string> DanteControllerPresetRoots { get; init; } = [];
 }
