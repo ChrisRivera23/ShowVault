@@ -10,3 +10,4 @@
 **/coverage/
 *.iml
 *.log
+.prototype/
