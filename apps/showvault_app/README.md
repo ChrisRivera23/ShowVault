@@ -4,7 +4,7 @@ The shared Flutter client targets Android, iOS, macOS, and Windows. It uses Auth
 
 ## Auth0 application
 
-Create one Auth0 application named `ShowVault Flutter` with application type `Native`. The native identity is `com.showvault.app` and the tenant domain currently used by the API is `dev-4m7moxkl7dikmtf7.us.auth0.com`.
+The Auth0 application `ShowVault Flutter` is registered as a Native application. Its public Client ID is configured as the app default, the native identity is `com.showvault.app`, and the tenant domain currently used by the API is `dev-4m7moxkl7dikmtf7.us.auth0.com`.
 
 Configure both Allowed Callback URLs and Allowed Logout URLs with:
 
@@ -26,11 +26,10 @@ Never commit an Auth0 client secret. Native clients use a public Client ID and A
 ```bash
 flutter pub get
 flutter run -d macos \
-  --dart-define=AUTH0_CLIENT_ID=<native-client-id> \
   --dart-define=SHOWVAULT_API_BASE_URL=https://api.showvault.app
 ```
 
-Override `AUTH0_DOMAIN` and `AUTH0_AUDIENCE` only when targeting another environment. When the Android Auth0 domain differs from the repository default, also pass `-Pauth0Domain=<domain>` through Gradle.
+Override `AUTH0_CLIENT_ID`, `AUTH0_DOMAIN`, and `AUTH0_AUDIENCE` only when targeting another environment. When the Android Auth0 domain differs from the repository default, also pass `-Pauth0Domain=<domain>` through Gradle.
 
 ## Verify
 
