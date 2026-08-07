@@ -86,6 +86,12 @@ builder.Services
         options => options.DigicoSdQuantumSessionRoots.All(Path.IsPathFullyQualified),
         "Every DiGiCo SD/Quantum session root must be an absolute path.")
     .Validate(
+        options => options.SslLiveShowRoots.All(Path.IsPathFullyQualified),
+        "Every SSL Live show root must be an absolute path.")
+    .Validate(
+        options => options.LawoMc2ProductionRoots.All(Path.IsPathFullyQualified),
+        "Every Lawo mc² production root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -141,6 +147,8 @@ builder.Services.AddSingleton<IDiscoveryPlugin, CrestronSimplDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, ShureDesignerDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, BlackmagicAtemDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, DigicoSdQuantumDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, SslLiveDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, LawoMc2DiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();

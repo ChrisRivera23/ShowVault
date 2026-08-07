@@ -68,4 +68,8 @@ public sealed class AgentOptions
     public IReadOnlyList<string> BlackmagicAtemStateRoots { get; init; } = [];
 
     public IReadOnlyList<string> DigicoSdQuantumSessionRoots { get; init; } = [];
+
+    public IReadOnlyList<string> SslLiveShowRoots { get; init; } = [];
+
+    public IReadOnlyList<string> LawoMc2ProductionRoots { get; init; } = [];
 }

@@ -533,6 +533,22 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 DigicoSdQuantumSessionRoots = [Path.Combine(_testRoot, "digico-sd-quantum")]
             }),
             timeProvider);
+        var sslLivePlugin = new SslLiveDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                SslLiveShowRoots = [Path.Combine(_testRoot, "ssl-live")]
+            }),
+            timeProvider);
+        var lawoMc2Plugin = new LawoMc2DiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                LawoMc2ProductionRoots = [Path.Combine(_testRoot, "lawo-mc2")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -559,7 +575,9 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     crestronSimplPlugin,
                     shureDesignerPlugin,
                     blackmagicAtemPlugin,
-                    digicoSdQuantumPlugin
+                    digicoSdQuantumPlugin,
+                    sslLivePlugin,
+                    lawoMc2Plugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
