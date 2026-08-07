@@ -6,14 +6,30 @@ import 'package:showvault_app/src/recovery/recovery_run.dart';
 
 class RecoveryHistory {
   const RecoveryHistory({
+    required this.organizationId,
     required this.organizationName,
+    required this.venueId,
     required this.venueName,
+    required this.agents,
     required this.runs,
   });
 
+  final String organizationId;
   final String organizationName;
+  final String venueId;
   final String venueName;
+  final List<VenueAgent> agents;
   final List<RecoveryRun> runs;
+}
+
+class VenueAgent {
+  const VenueAgent({required this.id, required this.name});
+
+  factory VenueAgent.fromJson(Map<String, Object?> json) =>
+      VenueAgent(id: json['id']! as String, name: json['name']! as String);
+
+  final String id;
+  final String name;
 }
 
 class ShowVaultApi {
@@ -25,8 +41,11 @@ class ShowVaultApi {
     final organizations = await _getList('/api/v1/organizations', accessToken);
     if (organizations.isEmpty) {
       return const RecoveryHistory(
+        organizationId: '',
         organizationName: 'No organization',
+        venueId: '',
         venueName: 'No venue',
+        agents: [],
         runs: [],
       );
     }
@@ -39,22 +58,102 @@ class ShowVaultApi {
     );
     if (venues.isEmpty) {
       return RecoveryHistory(
+        organizationId: organizationId,
         organizationName: organization['name']! as String,
+        venueId: '',
         venueName: 'No venue',
+        agents: const [],
         runs: const [],
       );
     }
 
     final venue = venues.first;
+    final venueId = venue['id']! as String;
+    final agents = await _getList(
+      '/api/v1/organizations/$organizationId/venues/$venueId/agents',
+      accessToken,
+    );
     final runs = await _getList(
-      '/api/v1/organizations/$organizationId/venues/${venue['id']}/recovery-runs',
+      '/api/v1/organizations/$organizationId/venues/$venueId/recovery-runs',
       accessToken,
     );
     return RecoveryHistory(
+      organizationId: organizationId,
       organizationName: organization['name']! as String,
+      venueId: venueId,
       venueName: venue['name']! as String,
+      agents: agents.map(VenueAgent.fromJson).toList(growable: false),
       runs: runs.map(RecoveryRun.fromJson).toList(growable: false),
     );
+  }
+
+  Future<String> startDiscovery({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String agentId,
+    required String pluginId,
+    required String rootPath,
+  }) => _issueRecoveryCommand(accessToken, history, agentId, 'discover', {
+    'pluginId': pluginId,
+    'rootPath': rootPath,
+    'maxFiles': 1000,
+  });
+
+  Future<String> createBackup({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String agentId,
+    required String discoveryCommandId,
+  }) => _issueRecoveryCommand(accessToken, history, agentId, 'backup', {
+    'discoveryCommandId': discoveryCommandId,
+  });
+
+  Future<String> verifyBackup({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String agentId,
+    required String backupCommandId,
+  }) => _issueRecoveryCommand(accessToken, history, agentId, 'verify', {
+    'backupCommandId': backupCommandId,
+  });
+
+  Future<String> startRestore({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String agentId,
+    required String backupCommandId,
+    required String verificationCommandId,
+    required String targetPath,
+  }) => _issueRecoveryCommand(accessToken, history, agentId, 'restore', {
+    'backupCommandId': backupCommandId,
+    'verificationCommandId': verificationCommandId,
+    'targetPath': targetPath,
+  });
+
+  Future<String> _issueRecoveryCommand(
+    String accessToken,
+    RecoveryHistory history,
+    String agentId,
+    String stage,
+    Map<String, Object?> payload,
+  ) async {
+    final response = await _client.post(
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
+        '/venues/${history.venueId}/agents/$agentId/recovery/$stage',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(payload),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    final command = body['payload']! as Map<String, Object?>;
+    return command['commandId']! as String;
   }
 
   Future<List<Map<String, Object?>>> _getList(

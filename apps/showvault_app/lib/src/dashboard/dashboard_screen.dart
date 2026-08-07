@@ -118,6 +118,8 @@ class _LiveDashboard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 24),
+            _RecoveryControls(history: history),
+            const SizedBox(height: 24),
             if (history.runs.isEmpty)
               const _CenteredCard(
                 icon: Icons.history_toggle_off_outlined,
@@ -140,6 +142,258 @@ class _LiveDashboard extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _RecoveryControls extends ConsumerStatefulWidget {
+  const _RecoveryControls({required this.history});
+  final RecoveryHistory history;
+
+  @override
+  ConsumerState<_RecoveryControls> createState() => _RecoveryControlsState();
+}
+
+class _RecoveryControlsState extends ConsumerState<_RecoveryControls> {
+  final _pluginController = TextEditingController(text: 'showvault.filesystem');
+  final _rootController = TextEditingController();
+  final _restoreController = TextEditingController();
+  String? _agentId;
+  String? _discoveryCommandId;
+  String? _backupCommandId;
+  String? _verificationCommandId;
+  String? _restoreCommandId;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _pluginController.dispose();
+    _rootController.dispose();
+    _restoreController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _run(
+    String successMessage,
+    Future<String> Function(ShowVaultApi api, String token, String agentId)
+    operation,
+    void Function(String commandId) remember,
+  ) async {
+    final agentId =
+        _agentId ??
+        (widget.history.agents.length == 1
+            ? widget.history.agents.single.id
+            : null);
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (agentId == null || session == null) return;
+    setState(() => _busy = true);
+    try {
+      final commandId = await operation(
+        ref.read(showVaultApiProvider),
+        session.accessToken,
+        agentId,
+      );
+      if (!mounted) return;
+      setState(() => remember(commandId));
+      ref.invalidate(recoveryHistoryProvider);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(successMessage)));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Recovery command failed: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final history = widget.history;
+    final selectedAgent =
+        _agentId ??
+        (history.agents.length == 1 ? history.agents.single.id : null);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Run recovery workflow',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Use exact paths already allowlisted in the selected Venue Agent.',
+            ),
+            const SizedBox(height: 18),
+            if (history.agents.isEmpty)
+              const Text('No active Venue Agent is enrolled.')
+            else ...[
+              DropdownButtonFormField<String>(
+                initialValue: selectedAgent,
+                decoration: const InputDecoration(labelText: 'Venue Agent'),
+                items: [
+                  for (final agent in history.agents)
+                    DropdownMenuItem(value: agent.id, child: Text(agent.name)),
+                ],
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _agentId = value),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _pluginController,
+                enabled: !_busy && _discoveryCommandId == null,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(labelText: 'Plugin ID'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _rootController,
+                enabled: !_busy && _discoveryCommandId == null,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Exact discovery root',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _restoreController,
+                enabled: !_busy && _verificationCommandId != null,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Exact restore target',
+                ),
+              ),
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  FilledButton.icon(
+                    onPressed:
+                        _busy ||
+                            selectedAgent == null ||
+                            _discoveryCommandId != null ||
+                            _pluginController.text.trim().isEmpty ||
+                            _rootController.text.trim().isEmpty
+                        ? null
+                        : () => _run(
+                            'Discovery queued.',
+                            (api, token, agentId) => api.startDiscovery(
+                              accessToken: token,
+                              history: history,
+                              agentId: agentId,
+                              pluginId: _pluginController.text.trim(),
+                              rootPath: _rootController.text,
+                            ),
+                            (id) => _discoveryCommandId = id,
+                          ),
+                    icon: const Icon(Icons.radar_rounded),
+                    label: const Text('1. Scan'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed:
+                        _busy ||
+                            _discoveryCommandId == null ||
+                            _backupCommandId != null
+                        ? null
+                        : () => _run(
+                            'Backup queued.',
+                            (api, token, agentId) => api.createBackup(
+                              accessToken: token,
+                              history: history,
+                              agentId: agentId,
+                              discoveryCommandId: _discoveryCommandId!,
+                            ),
+                            (id) => _backupCommandId = id,
+                          ),
+                    icon: const Icon(Icons.inventory_2_rounded),
+                    label: const Text('2. Backup'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed:
+                        _busy ||
+                            _backupCommandId == null ||
+                            _verificationCommandId != null
+                        ? null
+                        : () => _run(
+                            'Verification queued.',
+                            (api, token, agentId) => api.verifyBackup(
+                              accessToken: token,
+                              history: history,
+                              agentId: agentId,
+                              backupCommandId: _backupCommandId!,
+                            ),
+                            (id) => _verificationCommandId = id,
+                          ),
+                    icon: const Icon(Icons.verified_rounded),
+                    label: const Text('3. Verify'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed:
+                        _busy ||
+                            _verificationCommandId == null ||
+                            _restoreCommandId != null ||
+                            _restoreController.text.trim().isEmpty
+                        ? null
+                        : () => _confirmRestore(history),
+                    icon: const Icon(Icons.restore_rounded),
+                    label: const Text('4. Restore'),
+                  ),
+                  IconButton(
+                    tooltip: 'Refresh live history',
+                    onPressed: _busy
+                        ? null
+                        : () => ref.invalidate(recoveryHistoryProvider),
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmRestore(RecoveryHistory history) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm controlled restore'),
+        content: Text(
+          'Restore the verified package into ${_restoreController.text}? '
+          'The target must be an allowlisted absent or empty directory.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Queue restore'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _run(
+      'Restore queued.',
+      (api, token, agentId) => api.startRestore(
+        accessToken: token,
+        history: history,
+        agentId: agentId,
+        backupCommandId: _backupCommandId!,
+        verificationCommandId: _verificationCommandId!,
+        targetPath: _restoreController.text,
+      ),
+      (id) => _restoreCommandId = id,
     );
   }
 }
