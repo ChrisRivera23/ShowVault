@@ -23,6 +23,9 @@ builder.Services
         options => options.ResolumeDiscoveryRoots.All(Path.IsPathFullyQualified),
         "Every Resolume discovery root must be an absolute path.")
     .Validate(
+        options => options.ResolumeUserDataRoots.All(Path.IsPathFullyQualified),
+        "Every Resolume user-data root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(

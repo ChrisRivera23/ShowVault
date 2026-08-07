@@ -59,7 +59,7 @@ Completed:
 
 Current development branch:
 
-- `codex/resolume-portable-bundle` — first real product integration using a Resolume Collect Media portable show bundle.
+- `codex/resolume-user-data` — extend Resolume recovery from portable bundles to the Arena/Avenue user Documents tree.
 
 The Auth0 Native application is configured. A live login/API proof still needs a deployed API and a native build host. Membership administration, user-requested command cancellation, digital signatures, NAS/cloud storage, and persistent control-plane package records have not been implemented yet.
 
@@ -281,7 +281,8 @@ This section is maintained so a new Codex task can resume without relying on the
 - Draft PR #12 branch: `codex/flutter-auth0-live-history`, stacked on PR #11. It adds native Android/iOS/macOS/Windows runners, Auth0 Universal Login/session restoration, bearer-authenticated tenant discovery and recovery-history loading, and removes all preview recovery records.
 - Draft PR #13 branch: `codex/system-inventory-plugin`, stacked on PR #12. It adds protocol 1.1 `CollectSystemInventory` and bounded, permission-scoped, read-only host inventory.
 - Draft PR #14 branch: `codex/network-device-discovery`, stacked on PR #13. It advances the protocol to 1.2 and adds exact local `host:port` allowlisting, bounded TCP reachability probes, durable results, and completion events without subnet sweeps or banner collection.
-- Active implementation branch: `codex/resolume-portable-bundle`, stacked on the network-discovery branch. It adds the first vendor workflow around a Resolume Collect Media portable show bundle and the existing immutable package/verify/controlled-restore loop.
+- Draft PR #15 branch: `codex/resolume-portable-bundle`, stacked on the network-discovery branch. It adds the first vendor workflow around a Resolume Collect Media portable show bundle and the existing immutable package/verify/controlled-restore loop.
+- Active implementation branch: `codex/resolume-user-data`, stacked on PR #15. It adds a distinct, exact-root recovery unit for compositions, fixtures, preferences, presets, recordings, and shortcut profiles while rejecting arbitrary folders.
 - Auth0 Native application `ShowVault Flutter` is registered and its callback/logout URLs and public Client ID are configured. A live login/API proof still requires a deployed ShowVault API and a native build host; this workstation has only Xcode Command Line Tools.
 - The Product Owner supplied the authoritative Version 1 venue-technology scope in `docs/INTEGRATION_CATALOG.md`, including rekordbox, Serato DJ Pro, Traktor Pro, VirtualDJ, Engine DJ, djay Pro, Mixxx, and Denon Engine OS as mandatory launch targets. Resolume, Yamaha, and grandMA2/grandMA3 are highest priority. Coverage is tracked per tested product/model, platform version, or protocol capability; empty catalog plugins and generic reachability do not qualify.
 - Auth0 is configured for human identity. Agent authentication intentionally remains a separate credential scheme.
@@ -361,4 +362,4 @@ dotnet test tests/ShowVault.Agent.Tests/ShowVault.Agent.Tests.csproj
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-Draft PRs #3 through #11 establish Auth0 tenancy, the Agent-side Scan → Backup → Verify → Restore loop, and tenant recovery history. PR #12 adds native Flutter and Auth0; PR #13 adds system inventory; PR #14 adds protocol 1.2 allowlisted TCP discovery. The active stacked branch starts the full Version 1 catalog with a Resolume Collect Media portable bundle. The Product Owner's complete audio, networking/DSP, lighting, video/media-server, DJ-platform, and projection scope is preserved in `docs/INTEGRATION_CATALOG.md`; Yamaha and MA Lighting share highest priority with Resolume. A live Auth0/API proof still requires a deployed API and native build host; full Xcode is not installed here. macOS LaunchDaemon keychain access remains an installer-validation requirement.
+Draft PRs #3 through #11 establish Auth0 tenancy, the Agent-side Scan → Backup → Verify → Restore loop, and tenant recovery history. PR #12 adds native Flutter and Auth0; PR #13 adds system inventory; PR #14 adds protocol 1.2 allowlisted TCP discovery; PR #15 starts Resolume portable-bundle recovery. The active stacked branch adds Resolume Arena/Avenue user-data recovery. The full 100-target Version 1 scope is preserved in `docs/INTEGRATION_CATALOG.md`; Yamaha and MA Lighting share highest priority with Resolume. A live Auth0/API proof still requires a deployed API and native build host; full Xcode is not installed here. macOS LaunchDaemon keychain access remains an installer-validation requirement.

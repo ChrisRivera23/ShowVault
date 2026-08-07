@@ -26,4 +26,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> NetworkDiscoveryTargets { get; init; } = [];
 
     public IReadOnlyList<string> ResolumeDiscoveryRoots { get; init; } = [];
+
+    public IReadOnlyList<string> ResolumeUserDataRoots { get; init; } = [];
 }

@@ -9,11 +9,22 @@ public sealed class ResolumeDiscoveryPlugin(
 {
     public const string PluginId = "showvault.resolume";
     private const int MaximumFileLimit = 100_000;
+    private static readonly HashSet<string> UserDataDirectories = new(
+        [
+            "Compositions",
+            "Extra Effects",
+            "Fixture Library",
+            "Preferences",
+            "Presets",
+            "Recorded",
+            "Shortcuts"
+        ],
+        StringComparer.OrdinalIgnoreCase);
 
     public AgentPluginManifest Manifest { get; } = new(
         PluginId,
-        "ShowVault Resolume Portable Bundle",
-        "0.1.0",
+        "ShowVault Resolume Recovery",
+        "0.2.0",
         new HashSet<AgentPluginCapability> { AgentPluginCapability.Discovery },
         new HashSet<AgentPluginPermission> { AgentPluginPermission.ReadFiles });
 
@@ -35,16 +46,25 @@ public sealed class ResolumeDiscoveryPlugin(
         }
 
         var rootPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(request.RootPath));
-        if (!options.Value.ResolumeDiscoveryRoots.Any(
-            allowedRoot => IsWithinRoot(rootPath, allowedRoot)))
+        var isPortableBundle = options.Value.ResolumeDiscoveryRoots.Any(
+            allowedRoot => IsWithinRoot(rootPath, allowedRoot));
+        var isUserDataRoot = options.Value.ResolumeUserDataRoots.Any(
+            allowedRoot => IsSamePath(rootPath, allowedRoot));
+        if (!isPortableBundle && !isUserDataRoot)
         {
             throw new UnauthorizedAccessException(
-                $"Resolume bundle is not allowed by the local Agent configuration: {rootPath}");
+                $"Resolume recovery root is not allowed by the local Agent configuration: {rootPath}");
         }
 
         if (!Directory.Exists(rootPath))
         {
-            throw new DirectoryNotFoundException($"Resolume bundle does not exist: {rootPath}");
+            throw new DirectoryNotFoundException($"Resolume recovery root does not exist: {rootPath}");
+        }
+
+        if (isUserDataRoot && !HasResolumeUserDataDirectory(rootPath))
+        {
+            throw new InvalidOperationException(
+                "Resolume user-data root does not contain a recognized product directory.");
         }
 
         var files = new List<DiscoveryFile>();
@@ -101,4 +121,14 @@ public sealed class ResolumeDiscoveryPlugin(
              !relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) &&
              !relativePath.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal));
     }
+
+    private static bool IsSamePath(string requestedPath, string configuredRoot) =>
+        Path.GetRelativePath(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(configuredRoot)),
+            requestedPath) == ".";
+
+    private static bool HasResolumeUserDataDirectory(string rootPath) =>
+        Directory.EnumerateDirectories(rootPath)
+            .Select(Path.GetFileName)
+            .Any(directory => directory is not null && UserDataDirectories.Contains(directory));
 }

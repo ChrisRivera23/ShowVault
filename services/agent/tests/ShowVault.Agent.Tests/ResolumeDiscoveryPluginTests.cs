@@ -47,6 +47,76 @@ public sealed class ResolumeDiscoveryPluginTests : IDisposable
     }
 
     [Fact]
+    public async Task Discovery_hashes_recognized_user_data_tree()
+    {
+        var userData = Path.Combine(_root, "Resolume Arena");
+        Directory.CreateDirectory(Path.Combine(userData, "Compositions"));
+        Directory.CreateDirectory(Path.Combine(userData, "Fixture Library"));
+        Directory.CreateDirectory(Path.Combine(userData, "Presets", "Advanced Output"));
+        Directory.CreateDirectory(Path.Combine(userData, "Shortcuts"));
+        await File.WriteAllTextAsync(
+            Path.Combine(userData, "Compositions", "Venue Show.avc"),
+            "composition");
+        await File.WriteAllTextAsync(
+            Path.Combine(userData, "Fixture Library", "Custom Fixture.xml"),
+            "fixture");
+        await File.WriteAllTextAsync(
+            Path.Combine(userData, "Presets", "Advanced Output", "Main.xml"),
+            "output");
+        await File.WriteAllTextAsync(
+            Path.Combine(userData, "Shortcuts", "OSC.xml"),
+            "shortcuts");
+        var plugin = CreatePlugin(
+            TimeProvider.System,
+            discoveryRoots: [],
+            userDataRoots: [userData]);
+
+        var result = await plugin.DiscoverAsync(
+            new DiscoveryRequest(userData),
+            CancellationToken.None);
+
+        Assert.Equal("0.2.0", result.PluginVersion);
+        Assert.Contains(result.Files,
+            file => file.RelativePath == Path.Combine("Compositions", "Venue Show.avc"));
+        Assert.Contains(result.Files,
+            file => file.RelativePath == Path.Combine("Fixture Library", "Custom Fixture.xml"));
+        Assert.Contains(result.Files,
+            file => file.RelativePath == Path.Combine("Presets", "Advanced Output", "Main.xml"));
+        Assert.Contains(result.Files,
+            file => file.RelativePath == Path.Combine("Shortcuts", "OSC.xml"));
+    }
+
+    [Fact]
+    public async Task Discovery_rejects_user_data_root_without_resolume_directories()
+    {
+        var userData = Path.Combine(_root, "not-resolume");
+        Directory.CreateDirectory(userData);
+        await File.WriteAllTextAsync(Path.Combine(userData, "notes.txt"), "notes");
+        var plugin = CreatePlugin(
+            TimeProvider.System,
+            discoveryRoots: [],
+            userDataRoots: [userData]);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            plugin.DiscoverAsync(new DiscoveryRequest(userData), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Discovery_rejects_child_of_user_data_root()
+    {
+        var userData = Path.Combine(_root, "Resolume Arena");
+        var compositions = Path.Combine(userData, "Compositions");
+        Directory.CreateDirectory(compositions);
+        var plugin = CreatePlugin(
+            TimeProvider.System,
+            discoveryRoots: [],
+            userDataRoots: [userData]);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            plugin.DiscoverAsync(new DiscoveryRequest(compositions), CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Discovery_rejects_bundle_outside_resolume_allowlist()
     {
         Directory.CreateDirectory(_root);
@@ -76,13 +146,17 @@ public sealed class ResolumeDiscoveryPluginTests : IDisposable
         }
     }
 
-    private ResolumeDiscoveryPlugin CreatePlugin(TimeProvider timeProvider) =>
+    private ResolumeDiscoveryPlugin CreatePlugin(
+        TimeProvider timeProvider,
+        IReadOnlyList<string>? discoveryRoots = null,
+        IReadOnlyList<string>? userDataRoots = null) =>
         new(
             Options.Create(new AgentOptions
             {
                 ControlPlaneUri = new Uri("https://control.test"),
                 Name = "Test Agent",
-                ResolumeDiscoveryRoots = [_root]
+                ResolumeDiscoveryRoots = discoveryRoots ?? [_root],
+                ResolumeUserDataRoots = userDataRoots ?? []
             }),
             timeProvider);
 
