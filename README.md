@@ -295,6 +295,18 @@ Universal object abstractions will be considered only after real plugin implemen
 
 This section is maintained so a new Codex task can resume without relying on the previous chat transcript.
 
+### Product Owner work preferences
+
+- Continue autonomously with the next documented implementation step when asked to continue.
+- Research current official vendor documentation before implementing each integration.
+- Implement two or three tasks together only when they are independently safe, clearly bounded, and can be fully verified; otherwise complete one focused task.
+- Use exact locally approved roots, reject incomplete/lookalike data, preserve recovery companions, and keep incompatible product families separate.
+- Run focused tests followed by the complete relevant regression suite.
+- Create a new `codex/` branch for each implementation slice and commit the feature and README handoff separately.
+- Keep responses short and direct to conserve context.
+- End every user-facing reply with an estimated conversation-context percentage. Codex does not expose an exact measurement, so label it as unmeasured.
+- Warn when the estimate approaches 90%. Before recommending a new task, update this README with completed work, branches, commits, tests, research decisions, deferred items, the exact next step, and these work preferences so it can be copied into the next chat.
+
 - Completed draft PR stack: PRs #3 through #11, ending with `codex/recovery-history-read-model`.
 - Draft PR #12 branch: `codex/flutter-auth0-live-history`, stacked on PR #11. It adds native Android/iOS/macOS/Windows runners, Auth0 Universal Login/session restoration, bearer-authenticated tenant discovery and recovery-history loading, and removes all preview recovery records.
 - Draft PR #13 branch: `codex/system-inventory-plugin`, stacked on PR #12. It adds protocol 1.1 `CollectSystemInventory` and bounded, permission-scoped, read-only host inventory.
