@@ -13,6 +13,7 @@ public sealed class AgentCommandExecutor(
     AgentQueueStore queueStore,
     DiscoveryPluginRegistry pluginRegistry,
     SystemInventoryPlugin systemInventoryPlugin,
+    NetworkDeviceDiscoveryPlugin networkDeviceDiscoveryPlugin,
     RecoveryPackageWriter packageWriter,
     RecoveryPackageVerifier packageVerifier,
     RecoveryPackageRestorer packageRestorer,
@@ -69,6 +70,9 @@ public sealed class AgentCommandExecutor(
                     break;
                 case AgentCommandType.CollectSystemInventory:
                     await ExecuteSystemInventoryAsync(identity, command, cancellationToken);
+                    break;
+                case AgentCommandType.DiscoverNetworkDevices:
+                    await ExecuteNetworkDiscoveryAsync(identity, command, cancellationToken);
                     break;
                 case AgentCommandType.CreateBackup:
                     await ExecuteCreateBackupAsync(identity, command, cancellationToken);
@@ -159,6 +163,41 @@ public sealed class AgentCommandExecutor(
                     result.OsArchitecture,
                     result.LogicalProcessorCount,
                     volumeCount = result.Volumes.Count
+                },
+                JsonOptions),
+            cancellationToken);
+    }
+
+    private async Task ExecuteNetworkDiscoveryAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Deserialize<DiscoverNetworkDevicesPayload>(
+            command.Payload,
+            JsonOptions)
+            ?? throw new InvalidOperationException("DiscoverNetworkDevices payload is required.");
+        var result = await networkDeviceDiscoveryPlugin.DiscoverAsync(
+            payload.Targets,
+            payload.TimeoutMilliseconds,
+            cancellationToken);
+        await queueStore.StoreDiscoveryResultAsync(
+            command.CommandId,
+            JsonSerializer.Serialize(result, JsonOptions),
+            result.CompletedAt,
+            cancellationToken);
+        await RecordOutcomeAsync(
+            identity,
+            command,
+            AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Completed,
+            JsonSerializer.Serialize(
+                new
+                {
+                    result.PluginId,
+                    targetCount = result.Devices.Count,
+                    reachableCount = result.Devices.Count(
+                        device => device.Status == NetworkProbeStatus.Reachable)
                 },
                 JsonOptions),
             cancellationToken);
@@ -434,6 +473,10 @@ public sealed class AgentCommandExecutor(
         int MaxFiles = 1_000);
 
     private sealed record CreateBackupPayload(Guid DiscoveryCommandId);
+
+    private sealed record DiscoverNetworkDevicesPayload(
+        IReadOnlyList<string> Targets,
+        int TimeoutMilliseconds = 1_000);
 
     private sealed record VerifyBackupPayload(Guid BackupCommandId);
 

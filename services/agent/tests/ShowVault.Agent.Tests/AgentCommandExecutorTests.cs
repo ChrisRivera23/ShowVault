@@ -110,6 +110,48 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task DiscoverNetworkDevices_persists_allowlisted_probe_results()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var command = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.DiscoverNetworkDevices,
+            "network-correlation",
+            JsonSerializer.Serialize(new
+            {
+                targets = new[] { "console.test:443" },
+                timeoutMilliseconds = 500
+            }),
+            now,
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, now, CancellationToken.None);
+
+        await CreateExecutor(store, now).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+
+        Assert.Single(await store.GetCommandsAsync(
+            LocalAgentCommandStatus.Completed,
+            CancellationToken.None));
+        var resultJson = await store.GetDiscoveryResultJsonAsync(
+            command.CommandId,
+            CancellationToken.None);
+        Assert.Contains("console.test:443", resultJson, StringComparison.Ordinal);
+        using var result = JsonDocument.Parse(resultJson!);
+        Assert.Equal(
+            (int)NetworkProbeStatus.Reachable,
+            result.RootElement.GetProperty("devices")[0].GetProperty("status").GetInt32());
+        var outcome = Assert.Single(await store.GetPendingEventsAsync(
+            now.AddMinutes(1),
+            10,
+            CancellationToken.None)).Envelope;
+        Assert.Contains("reachableCount", outcome.Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Running_command_resumes_after_restart_and_records_failure()
     {
         var now = DateTimeOffset.UtcNow;
@@ -277,6 +319,15 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             store,
             new DiscoveryPluginRegistry([plugin]),
             new SystemInventoryPlugin(timeProvider),
+            new NetworkDeviceDiscoveryPlugin(
+                Options.Create(new AgentOptions
+                {
+                    ControlPlaneUri = new Uri("https://control.test"),
+                    Name = "Test Agent",
+                    NetworkDiscoveryTargets = ["console.test:443"]
+                }),
+                new ReachableNetworkConnector(),
+                timeProvider),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
@@ -299,5 +350,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private sealed class ReachableNetworkConnector : INetworkEndpointConnector
+    {
+        public Task<NetworkProbeStatus> ProbeAsync(
+            NetworkTarget target,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(NetworkProbeStatus.Reachable);
     }
 }

@@ -23,6 +23,12 @@ builder.Services
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
+        options => options.NetworkDiscoveryTargets.Count <= 128 &&
+            options.NetworkDiscoveryTargets.All(NetworkTarget.IsValid) &&
+            options.NetworkDiscoveryTargets.Select(NetworkTarget.Parse).Distinct().Count() ==
+                options.NetworkDiscoveryTargets.Count,
+        "Network discovery requires at most 128 unique host:port targets.")
+    .Validate(
         options => string.IsNullOrWhiteSpace(options.PackageDirectory) ||
             Path.IsPathFullyQualified(options.PackageDirectory),
         "The package directory must be an absolute path when configured.")
@@ -50,6 +56,8 @@ builder.Services.AddSingleton<AgentCommandPoller>();
 builder.Services.AddSingleton<IDiscoveryPlugin, FileSystemDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
+builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
+builder.Services.AddSingleton<NetworkDeviceDiscoveryPlugin>();
 builder.Services.AddSingleton<RecoveryPackageWriter>();
 builder.Services.AddSingleton<RecoveryPackageVerifier>();
 builder.Services.AddSingleton<RecoveryPackageRestorer>();

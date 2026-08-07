@@ -22,4 +22,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> DiscoveryRoots { get; init; } = [];
 
     public IReadOnlyList<string> RestoreRoots { get; init; } = [];
+
+    public IReadOnlyList<string> NetworkDiscoveryTargets { get; init; } = [];
 }
