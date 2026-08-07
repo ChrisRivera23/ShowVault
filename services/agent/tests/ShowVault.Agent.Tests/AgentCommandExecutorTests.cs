@@ -649,6 +649,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 PeaveyNwareProjectRoots = [Path.Combine(_testRoot, "peavey-nware")]
             }),
             timeProvider);
+        var ashlyProteaNePlugin = new AshlyProteaNeDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                AshlyProteaNeProjectRoots = [Path.Combine(_testRoot, "ashly-protea-ne")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -689,7 +697,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     biampTesiraPlugin,
                     symetrixComposerPlugin,
                     boseControlSpacePlugin,
-                    peaveyNwarePlugin
+                    peaveyNwarePlugin,
+                    ashlyProteaNePlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(

@@ -96,4 +96,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> BoseControlSpaceProjectRoots { get; init; } = [];
 
     public IReadOnlyList<string> PeaveyNwareProjectRoots { get; init; } = [];
+
+    public IReadOnlyList<string> AshlyProteaNeProjectRoots { get; init; } = [];
 }

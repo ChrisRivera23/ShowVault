@@ -128,6 +128,9 @@ builder.Services
         options => options.PeaveyNwareProjectRoots.All(Path.IsPathFullyQualified),
         "Every Peavey MediaMatrix NWare project root must be an absolute path.")
     .Validate(
+        options => options.AshlyProteaNeProjectRoots.All(Path.IsPathFullyQualified),
+        "Every Ashly Protea NE project root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -197,6 +200,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, BiampTesiraDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, SymetrixComposerDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, BoseControlSpaceDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, PeaveyNwareDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, AshlyProteaNeDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
