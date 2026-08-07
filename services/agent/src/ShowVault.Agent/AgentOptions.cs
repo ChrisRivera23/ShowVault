@@ -76,4 +76,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> CalrecApolloArtemisShowRoots { get; init; } = [];
 
     public IReadOnlyList<string> StuderVistaTitleBackupRoots { get; init; } = [];
+
+    public IReadOnlyList<string> MidasProShowRoots { get; init; } = [];
 }

@@ -567,6 +567,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     [Path.Combine(_testRoot, "BCK_D950_BACKUP_test")]
             }),
             timeProvider);
+        var midasProPlugin = new MidasProDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                MidasProShowRoots = [Path.Combine(_testRoot, "midas-pro")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -597,7 +605,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     sslLivePlugin,
                     lawoMc2Plugin,
                     calrecApolloArtemisPlugin,
-                    studerVistaPlugin
+                    studerVistaPlugin,
+                    midasProPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
