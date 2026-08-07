@@ -377,7 +377,7 @@ This section is maintained so a new Codex task can resume without relying on the
 - Local prototype prerequisites are installed: Docker Desktop 4.85.0, PostgreSQL 18 in Compose, Xcode 26.6, and CocoaPods 1.17.0. The PostgreSQL schema is migrated, the local API is healthy on loopback HTTP, and the macOS Flutter client builds, authenticates, loads live tenant data, and has completed a controlled recovery workflow through a Keychain-backed native Agent.
 - The Product Owner supplied the authoritative Version 1 venue-technology scope in `docs/INTEGRATION_CATALOG.md`, including rekordbox, Serato DJ Pro, Traktor Pro, VirtualDJ, Engine DJ, djay Pro, Mixxx, and Denon Engine OS as mandatory launch targets. Resolume, Yamaha, and grandMA2/grandMA3 are highest priority. Coverage is tracked per tested product/model, platform version, or protocol capability; empty catalog plugins and generic reachability do not qualify.
 - Auth0 is configured for human identity. Agent authentication intentionally remains a separate credential scheme.
-- Exact Codex context-window percentages are not exposed to the assistant. This conversation is estimated at roughly 60–65% after the Flutter prototype workflow slice (unmeasured).
+- Exact Codex context-window percentages are not exposed to the assistant; repository state and this handoff are authoritative instead of chat history.
 
 ## Explicitly deferred
 
@@ -448,6 +448,21 @@ dotnet test tests/ShowVault.Agent.Tests/ShowVault.Agent.Tests.csproj
 6. Prefer one tested vertical slice over many placeholder modules.
 7. Keep this README current when approved decisions, versions, repository status, or the next implementation step changes.
 8. At significant milestones, update this handoff so another conversation can continue without reconstructing chat history.
+
+### Copy/paste continuation prompt
+
+```text
+Open and read /Users/infamous/Documents/ChatGPT/showvault/README.md in full, then inspect the repository status and current branch. Continue autonomously from the documented next recommended implementation step. Follow the established integration pattern: create a new codex/ branch, research official vendor documentation first, define a dependable exact-root recovery anchor, preserve required companion artifacts, reject incomplete/lookalike roots, add focused tests, run the full Agent suite, update the integration documentation/catalog, and commit the feature and README handoff separately. Preserve all existing user changes and do not broaden the approved scope.
+```
+
+Expected starting state:
+
+- Repository: `/Users/infamous/Documents/ChatGPT/showvault`
+- Branch: `codex/l-acoustics-network-manager-projects`
+- Clean worktree after commits `3537d72` and `1195faf`
+- Verified baseline: 224 Agent tests, 7 API tests, Flutter analysis, and 6 Flutter tests passing
+- Next catalog target: Meyer Sound
+- Parallel operational work still outstanding: deployed-environment proof, real-venue pilot selection, and macOS LaunchDaemon keychain installer validation
 
 ## Handoff snapshot
 
