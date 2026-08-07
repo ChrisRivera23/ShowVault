@@ -106,4 +106,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> LabGruppenLakeSystemRoots { get; init; } = [];
 
     public IReadOnlyList<string> DynacordSonicueProjectRoots { get; init; } = [];
+
+    public IReadOnlyList<string> ElectroVoiceIrisNetProjectRoots { get; init; } = [];
 }

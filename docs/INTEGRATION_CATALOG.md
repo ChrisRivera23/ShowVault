@@ -31,7 +31,7 @@ Manufacturer names do not imply automatic support for every product the company 
 - Crown
 - Lab Gruppen
 - Dynacord
-- Electro-Voice
+- Electro-Voice — IRIS-Net project discovery implemented; QuickSmart Mobile and PREVIEW remain uncredited pending verified portable export artifacts
 - d&b audiotechnik
 - L-Acoustics
 - Meyer Sound
