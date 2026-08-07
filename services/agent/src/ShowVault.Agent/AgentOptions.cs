@@ -50,4 +50,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> YamahaPcDdiProjectRoots { get; init; } = [];
 
     public IReadOnlyList<string> YamahaProVisionaireControlProjectRoots { get; init; } = [];
+
+    public IReadOnlyList<string> YamahaDme5Dme3ProjectRoots { get; init; } = [];
 }

@@ -460,6 +460,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     [Path.Combine(_testRoot, "yamaha-provisionaire-control")]
             }),
             timeProvider);
+        var yamahaDme5Dme3Plugin = new YamahaDme5Dme3DiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaDme5Dme3ProjectRoots = [Path.Combine(_testRoot, "yamaha-dme5-dme3")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -477,7 +485,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     yamahaDme7Plugin,
                     yamahaMtxMrxPlugin,
                     yamahaPcDdiPlugin,
-                    yamahaControlPlugin
+                    yamahaControlPlugin,
+                    yamahaDme5Dme3Plugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(

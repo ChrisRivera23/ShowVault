@@ -1,10 +1,11 @@
 # Yamaha DSP project plugins
 
-ShowVault currently protects three Yamaha installed-sound project families as separate recovery targets:
+ShowVault currently protects four Yamaha installed-sound project families as separate recovery targets:
 
 - `showvault.yamaha-dme7` for DME7 systems designed in ProVisionaire Design (`.pvd`);
 - `showvault.yamaha-mtx-mrx` for MTX/MRX systems designed in MTX-MRX Editor (`.mtx`).
 - `showvault.yamaha-pc-d-di` for PC412-D, PC412-DI, PC406-D, and PC406-DI amplifier systems designed in ProVisionaire Design (`.pvd`).
+- `showvault.yamaha-dme5-dme3` for DME5 and DME3 systems designed in ProVisionaire Design (`.pvd`), including companion Custom Control Panel exports.
 
 Yamaha identifies `.pvd` as the ProVisionaire Design project format containing all ProVisionaire Design settings, and documents ProVisionaire Design as the configuration application for DME7. Yamaha's MTX-MRX Editor guide shows `.mtx` project files and describes the editor as the setup and management application for MTX and MRX processors. ShowVault preserves these opaque vendor files and every regular companion file within the selected recovery root; it does not parse, modify, or claim to validate their internal settings.
 
@@ -16,10 +17,12 @@ Official references:
 - [MTX-MRX Editor overview](https://usa.yamaha.com/products/proaudio/software/mtx_editor/index.html)
 - [PC-D/DI ProVisionaire Design workflow](https://manual.yamaha.com/pa/power_amps/pc-d_di/en/01_Introduction_en.html)
 - [PC Series in ProVisionaire Design](https://manual.yamaha.com/pa/pv/pvd/en/YJ-H0/17_DeviceSheet_PC_en.html)
+- [DME10/7/5/3 in ProVisionaire Design](https://manual.yamaha.com/pa/pv/pvd/en/YJ-H0/13_DeviceSheet_DME7_en.html)
+- [DME5/DME3 Custom Control Panel workflow](https://manual.yamaha.com/pa/pv/pvcp/en/19_CustomControlPanel_en.html)
 
 ## Agent configuration
 
-Configure exact operator-managed directories under `YamahaDme7ProjectRoots`, `YamahaMtxMrxProjectRoots`, and `YamahaPcDdiProjectRoots`. DME7 and PC-D/DI roots must contain at least one `.pvd` project; an MTX/MRX root must contain at least one `.mtx` project. Child-only scans, arbitrary folders, and incompatible project formats are rejected.
+Configure exact operator-managed directories under `YamahaDme7ProjectRoots`, `YamahaMtxMrxProjectRoots`, `YamahaPcDdiProjectRoots`, and `YamahaDme5Dme3ProjectRoots`. DME and PC-D/DI roots must contain at least one `.pvd` project; an MTX/MRX root must contain at least one `.mtx` project. Child-only scans, arbitrary folders, and incompatible project formats are rejected.
 
 The plugin recursively inventories regular files without following links, subject to the command's 1–100,000 file limit. The existing immutable package, independent SHA-256 verification, and controlled restore flow provide the protection path.
 
@@ -33,4 +36,4 @@ The plugin recursively inventories regular files without following links, subjec
 
 ## Compatibility boundary
 
-Cryptographic verification proves that ShowVault preserved the files exactly; it does not prove that the project is compatible with different hardware, firmware, licenses, device topology, or I/O inventory. `.pvd` projects can contain multiple Yamaha product families, and the file extension alone cannot identify which models are present. DME7 and PC-D/DI therefore remain separate operator-declared compatibility targets and each requires real model/version fixtures before Version 1 production-readiness sign-off. MTX/MRX remains separate because its `.mtx` format and editor lifecycle differ.
+Cryptographic verification proves that ShowVault preserved the files exactly; it does not prove that the project is compatible with different hardware, firmware, licenses, device topology, or I/O inventory. `.pvd` projects can contain multiple Yamaha product families, and the file extension alone cannot identify which models are present. DME7, DME5/DME3, and PC-D/DI therefore remain separate operator-declared compatibility targets and each requires real model/version fixtures before Version 1 production-readiness sign-off. DME5/DME3 Custom Control Panels additionally require compatible Control PLUS/Kiosk versions and device-side transfer validation. MTX/MRX remains separate because its `.mtx` format and editor lifecycle differ.

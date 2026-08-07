@@ -64,3 +64,24 @@ public sealed class YamahaPcDdiDiscoveryPlugin(
     protected override bool HasExpectedStructure(string rootPath) =>
         ContainsExtension(rootPath, ".pvd");
 }
+
+public sealed class YamahaDme5Dme3DiscoveryPlugin(
+    IOptions<AgentOptions> options,
+    TimeProvider timeProvider) : ExactRootFileDiscoveryPluginBase(options, timeProvider)
+{
+    public const string PluginId = "showvault.yamaha-dme5-dme3";
+
+    public override AgentPluginManifest Manifest { get; } = new(
+        PluginId,
+        "ShowVault Yamaha DME5/DME3 ProVisionaire Design Project",
+        "0.1.0",
+        new HashSet<AgentPluginCapability> { AgentPluginCapability.Discovery },
+        new HashSet<AgentPluginPermission> { AgentPluginPermission.ReadFiles });
+
+    protected override IReadOnlyList<string> ConfiguredRoots => Options.YamahaDme5Dme3ProjectRoots;
+
+    protected override string ProductName => "Yamaha DME5/DME3";
+
+    protected override bool HasExpectedStructure(string rootPath) =>
+        ContainsExtension(rootPath, ".pvd");
+}

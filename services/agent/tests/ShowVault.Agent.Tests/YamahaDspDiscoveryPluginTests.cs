@@ -109,6 +109,39 @@ public sealed class YamahaDspDiscoveryPluginTests : IDisposable
                 CancellationToken.None));
     }
 
+    [Fact]
+    public async Task Dme5Dme3_preserves_design_project_and_Custom_Control_Panel_export()
+    {
+        var projectRoot = Path.Combine(_root, "dme5-dme3");
+        Directory.CreateDirectory(Path.Combine(projectRoot, "controllers"));
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "InstalledAudio.pvd"), "project");
+        await File.WriteAllTextAsync(
+            Path.Combine(projectRoot, "controllers", "Lobby.pvksk"),
+            "controller");
+
+        var result = await CreateDme5Dme3(projectRoot).DiscoverAsync(
+            new DiscoveryRequest(projectRoot),
+            CancellationToken.None);
+
+        Assert.Equal(YamahaDme5Dme3DiscoveryPlugin.PluginId, result.PluginId);
+        Assert.Contains(result.Files, file => file.RelativePath == "InstalledAudio.pvd");
+        Assert.Contains(result.Files,
+            file => file.RelativePath == Path.Combine("controllers", "Lobby.pvksk"));
+    }
+
+    [Fact]
+    public async Task Dme5Dme3_rejects_controller_without_design_project()
+    {
+        var projectRoot = Path.Combine(_root, "dme-controller-only");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "Lobby.pvksk"), "controller");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateDme5Dme3(projectRoot).DiscoverAsync(
+                new DiscoveryRequest(projectRoot),
+                CancellationToken.None));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))
@@ -144,6 +177,16 @@ public sealed class YamahaDspDiscoveryPluginTests : IDisposable
                 ControlPlaneUri = new Uri("https://control.test"),
                 Name = "Test Agent",
                 YamahaPcDdiProjectRoots = [projectRoot]
+            }),
+            TimeProvider.System);
+
+    private YamahaDme5Dme3DiscoveryPlugin CreateDme5Dme3(string projectRoot) =>
+        new(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaDme5Dme3ProjectRoots = [projectRoot]
             }),
             TimeProvider.System);
 }

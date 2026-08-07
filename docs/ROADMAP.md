@@ -21,7 +21,7 @@
 
 ## Version 1 integration program
 
-The complete launch scope and delivery waves are maintained in [`INTEGRATION_CATALOG.md`](INTEGRATION_CATALOG.md). Resolume portable-bundle/user-data and grandMA2/grandMA3 export recovery are implemented. Yamaha console settings, DME7, MTX/MRX, and PC-D/DI project protection are implemented. ProVisionaire Control PLUS/Kiosk protection is in progress; other Yamaha families follow as separate compatibility targets. Resolume, Yamaha, and MA Lighting remain the highest priorities.
+The complete launch scope and delivery waves are maintained in [`INTEGRATION_CATALOG.md`](INTEGRATION_CATALOG.md). Resolume portable-bundle/user-data and grandMA2/grandMA3 export recovery are implemented. Yamaha console settings, DME7, MTX/MRX, PC-D/DI, and ProVisionaire Control PLUS/Kiosk protection are implemented. DME5/DME3 project and Custom Control Panel companion protection is in progress. After this Yamaha milestone, Q-SYS is the next representative Version 1 platform foundation. Resolume, Yamaha, and MA Lighting remain the highest priorities.
 
 Version 1 readiness requires an explicit support record for every catalog entry. A manufacturer record names tested product families and versions; a protocol record names the supported capability and conformance boundary. Empty plugins and generic reachability do not count as integration coverage.
 

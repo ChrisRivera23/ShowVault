@@ -59,6 +59,9 @@ builder.Services
         options => options.YamahaProVisionaireControlProjectRoots.All(Path.IsPathFullyQualified),
         "Every Yamaha ProVisionaire Control project root must be an absolute path.")
     .Validate(
+        options => options.YamahaDme5Dme3ProjectRoots.All(Path.IsPathFullyQualified),
+        "Every Yamaha DME5/DME3 project root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -105,6 +108,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, YamahaDme7DiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaMtxMrxDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaPcDdiDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaProVisionaireControlDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, YamahaDme5Dme3DiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
