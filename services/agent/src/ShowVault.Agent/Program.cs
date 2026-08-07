@@ -149,6 +149,9 @@ builder.Services
         options => options.DbAudiotechnikR1ProjectRoots.All(Path.IsPathFullyQualified),
         "Every d&b audiotechnik R1 project root must be an absolute path.")
     .Validate(
+        options => options.LAcousticsSoundvisionProjectRoots.All(Path.IsPathFullyQualified),
+        "Every L-Acoustics Soundvision project root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -225,6 +228,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, LabGruppenLakeDiscoveryPlugin>()
 builder.Services.AddSingleton<IDiscoveryPlugin, DynacordSonicueDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, ElectroVoiceIrisNetDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, DbAudiotechnikR1DiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, LAcousticsSoundvisionDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();

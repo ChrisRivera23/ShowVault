@@ -33,7 +33,7 @@ Manufacturer names do not imply automatic support for every product the company 
 - Dynacord
 - Electro-Voice — IRIS-Net project discovery implemented; QuickSmart Mobile and PREVIEW remain uncredited pending verified portable export artifacts
 - d&b audiotechnik — shared R1/ArrayCalc `.dbpr` project discovery implemented with legacy and commissioning companions preserved
-- L-Acoustics
+- L-Acoustics — Soundvision `.xmlp` project discovery implemented with venue and LA Network Manager recovery companions preserved
 - Meyer Sound
 - NEXO
 - RCF
