@@ -21,7 +21,7 @@
 
 ## Version 1 integration program
 
-The complete launch scope and delivery waves are maintained in [`INTEGRATION_CATALOG.md`](INTEGRATION_CATALOG.md). Resolume portable-bundle/user-data and grandMA2/grandMA3 export recovery are implemented. Yamaha DM7, RIVAGE PM, CL/QL, TF, and DM3 settings protection is implemented. DME7 ProVisionaire Design and MTX/MRX Editor project protection is in progress; other Yamaha families follow as separate compatibility targets. Resolume, Yamaha, and MA Lighting remain the highest priorities.
+The complete launch scope and delivery waves are maintained in [`INTEGRATION_CATALOG.md`](INTEGRATION_CATALOG.md). Resolume portable-bundle/user-data and grandMA2/grandMA3 export recovery are implemented. Yamaha console settings, DME7, MTX/MRX, and PC-D/DI project protection are implemented. ProVisionaire Control PLUS/Kiosk protection is in progress; other Yamaha families follow as separate compatibility targets. Resolume, Yamaha, and MA Lighting remain the highest priorities.
 
 Version 1 readiness requires an explicit support record for every catalog entry. A manufacturer record names tested product families and versions; a protocol record names the supported capability and conformance boundary. Empty plugins and generic reachability do not count as integration coverage.
 
