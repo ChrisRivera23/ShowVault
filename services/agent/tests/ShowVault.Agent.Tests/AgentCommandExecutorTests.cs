@@ -591,6 +591,15 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 SoundcraftViShowRoots = [Path.Combine(_testRoot, "soundcraft-vi")]
             }),
             timeProvider);
+        var tascamModelMtrPlugin = new TascamModelMtrDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                TascamModelMtrSongRoots =
+                    [Path.Combine(_testRoot, "MTR", "tascam-song")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -624,7 +633,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     studerVistaPlugin,
                     midasProPlugin,
                     behringerWingPlugin,
-                    soundcraftViPlugin
+                    soundcraftViPlugin,
+                    tascamModelMtrPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(

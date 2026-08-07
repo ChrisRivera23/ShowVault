@@ -107,6 +107,9 @@ builder.Services
         options => options.SoundcraftViShowRoots.All(Path.IsPathFullyQualified),
         "Every Soundcraft Vi show root must be an absolute path.")
     .Validate(
+        options => options.TascamModelMtrSongRoots.All(Path.IsPathFullyQualified),
+        "Every Tascam Model-series MTR song root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -169,6 +172,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, StuderVistaDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, MidasProDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, BehringerWingDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, SoundcraftViDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, TascamModelMtrDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();

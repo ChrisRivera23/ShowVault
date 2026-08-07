@@ -82,4 +82,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> BehringerWingShowRoots { get; init; } = [];
 
     public IReadOnlyList<string> SoundcraftViShowRoots { get; init; } = [];
+
+    public IReadOnlyList<string> TascamModelMtrSongRoots { get; init; } = [];
 }
