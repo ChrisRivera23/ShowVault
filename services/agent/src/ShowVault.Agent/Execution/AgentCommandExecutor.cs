@@ -2,6 +2,7 @@ using System.Text.Json;
 using ShowVault.Agent.Identity;
 using ShowVault.Agent.Plugins;
 using ShowVault.Agent.Queue;
+using ShowVault.Agent.Recovery;
 using ShowVault.AgentContracts;
 
 namespace ShowVault.Agent.Execution;
@@ -9,6 +10,7 @@ namespace ShowVault.Agent.Execution;
 public sealed class AgentCommandExecutor(
     AgentQueueStore queueStore,
     DiscoveryPluginRegistry pluginRegistry,
+    RecoveryPackageWriter packageWriter,
     TimeProvider timeProvider,
     ILogger<AgentCommandExecutor> logger)
 {
@@ -55,38 +57,18 @@ public sealed class AgentCommandExecutor(
     {
         try
         {
-            if (command.Type != AgentCommandType.StartDiscovery)
+            switch (command.Type)
             {
-                throw new InvalidOperationException($"Command type is not executable yet: {command.Type}");
+                case AgentCommandType.StartDiscovery:
+                    await ExecuteDiscoveryAsync(identity, command, cancellationToken);
+                    break;
+                case AgentCommandType.CreateBackup:
+                    await ExecuteCreateBackupAsync(identity, command, cancellationToken);
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        $"Command type is not executable yet: {command.Type}");
             }
-
-            var payload = JsonSerializer.Deserialize<StartDiscoveryPayload>(command.Payload, JsonOptions)
-                ?? throw new InvalidOperationException("StartDiscovery payload is required.");
-            var plugin = pluginRegistry.GetRequired(payload.PluginId);
-            var result = await plugin.DiscoverAsync(
-                new DiscoveryRequest(payload.RootPath, payload.MaxFiles),
-                cancellationToken);
-            var resultJson = JsonSerializer.Serialize(result, JsonOptions);
-            await queueStore.StoreDiscoveryResultAsync(
-                command.CommandId,
-                resultJson,
-                result.CompletedAt,
-                cancellationToken);
-            await RecordOutcomeAsync(
-                identity,
-                command,
-                AgentEventType.JobCompleted,
-                LocalAgentCommandStatus.Completed,
-                JsonSerializer.Serialize(
-                    new
-                    {
-                        result.PluginId,
-                        result.RootPath,
-                        fileCount = result.Files.Count,
-                        result.Truncated
-                    },
-                    JsonOptions),
-                cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -103,6 +85,83 @@ public sealed class AgentCommandExecutor(
                 JsonSerializer.Serialize(new { error = exception.Message }, JsonOptions),
                 cancellationToken);
         }
+    }
+
+    private async Task ExecuteDiscoveryAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Deserialize<StartDiscoveryPayload>(command.Payload, JsonOptions)
+            ?? throw new InvalidOperationException("StartDiscovery payload is required.");
+        var plugin = pluginRegistry.GetRequired(payload.PluginId);
+        var result = await plugin.DiscoverAsync(
+            new DiscoveryRequest(payload.RootPath, payload.MaxFiles),
+            cancellationToken);
+        var resultJson = JsonSerializer.Serialize(result, JsonOptions);
+        await queueStore.StoreDiscoveryResultAsync(
+            command.CommandId,
+            resultJson,
+            result.CompletedAt,
+            cancellationToken);
+        await RecordOutcomeAsync(
+            identity,
+            command,
+            AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Completed,
+            JsonSerializer.Serialize(
+                new
+                {
+                    result.PluginId,
+                    result.RootPath,
+                    fileCount = result.Files.Count,
+                    result.Truncated
+                },
+                JsonOptions),
+            cancellationToken);
+    }
+
+    private async Task ExecuteCreateBackupAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Deserialize<CreateBackupPayload>(command.Payload, JsonOptions)
+            ?? throw new InvalidOperationException("CreateBackup payload is required.");
+        var discoveryJson = await queueStore.GetDiscoveryResultJsonAsync(
+            payload.DiscoveryCommandId,
+            cancellationToken)
+            ?? throw new InvalidOperationException("The referenced discovery result was not found.");
+        var discovery = JsonSerializer.Deserialize<DiscoveryResult>(discoveryJson, JsonOptions)
+            ?? throw new InvalidOperationException("The referenced discovery result is invalid.");
+        var package = await packageWriter.CreateAsync(
+            identity.AgentId,
+            payload.DiscoveryCommandId,
+            discovery,
+            command.IssuedAt,
+            cancellationToken);
+        var manifestJson = JsonSerializer.Serialize(package.Manifest, JsonOptions);
+        await queueStore.StoreRecoveryPackageAsync(
+            command.CommandId,
+            package.PackageId,
+            package.PackagePath,
+            manifestJson,
+            command.IssuedAt,
+            cancellationToken);
+        await RecordOutcomeAsync(
+            identity,
+            command,
+            AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Completed,
+            JsonSerializer.Serialize(
+                new
+                {
+                    package.PackageId,
+                    fileCount = package.Manifest.Files.Count,
+                    formatVersion = package.Manifest.FormatVersion
+                },
+                JsonOptions),
+            cancellationToken);
     }
 
     private async Task RecordOutcomeAsync(
@@ -136,4 +195,6 @@ public sealed class AgentCommandExecutor(
         string PluginId,
         string RootPath,
         int MaxFiles = 1_000);
+
+    private sealed record CreateBackupPayload(Guid DiscoveryCommandId);
 }

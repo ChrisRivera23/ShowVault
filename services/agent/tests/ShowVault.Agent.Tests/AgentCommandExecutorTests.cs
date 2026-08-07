@@ -5,6 +5,7 @@ using ShowVault.Agent.Execution;
 using ShowVault.Agent.Identity;
 using ShowVault.Agent.Plugins;
 using ShowVault.Agent.Queue;
+using ShowVault.Agent.Recovery;
 using ShowVault.AgentContracts;
 using Xunit;
 
@@ -112,6 +113,58 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Equal(AgentEventType.JobFailed, Assert.Single(events).Envelope.Type);
     }
 
+    [Fact]
+    public async Task CreateBackup_packages_a_completed_discovery_and_records_it_durably()
+    {
+        var discoveryRoot = Path.Combine(_testRoot, "backup-source");
+        Directory.CreateDirectory(discoveryRoot);
+        await File.WriteAllTextAsync(Path.Combine(discoveryRoot, "venue.show"), "configuration");
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var discoveryCommand = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartDiscovery,
+            "discovery",
+            JsonSerializer.Serialize(new
+            {
+                pluginId = FileSystemDiscoveryPlugin.PluginId,
+                rootPath = discoveryRoot
+            }),
+            now,
+            TimeSpan.FromMinutes(5));
+        var backupCommand = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CreateBackup,
+            "backup",
+            JsonSerializer.Serialize(new { discoveryCommandId = discoveryCommand.CommandId }),
+            now.AddSeconds(1),
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(discoveryCommand, now, CancellationToken.None);
+        var executor = CreateExecutor(store, now);
+        var identity = new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential");
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await store.EnqueueCommandAsync(backupCommand, now, CancellationToken.None);
+
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+
+        var package = await store.GetRecoveryPackageAsync(
+            backupCommand.CommandId,
+            CancellationToken.None);
+        Assert.NotNull(package);
+        Assert.True(Directory.Exists(package.PackagePath));
+        Assert.True(File.Exists(Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ManifestFileName)));
+        Assert.Equal(
+            "configuration",
+            await File.ReadAllTextAsync(Path.Combine(
+                package.PackagePath,
+                RecoveryPackageFormat.ContentDirectoryName,
+                "venue.show")));
+    }
+
     public Task DisposeAsync()
     {
         if (Directory.Exists(_testRoot))
@@ -136,16 +189,21 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         return new AgentCommandExecutor(
             store,
             new DiscoveryPluginRegistry([plugin]),
+            new RecoveryPackageWriter(CreateOptions()),
             timeProvider,
             NullLogger<AgentCommandExecutor>.Instance);
     }
 
-    private AgentQueueStore CreateStore() => new(Options.Create(new AgentOptions
+    private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions
     {
         ControlPlaneUri = new Uri("https://control.test"),
         Name = "Test Agent",
-        DataDirectory = Path.Combine(_testRoot, "data")
-    }));
+        DataDirectory = Path.Combine(_testRoot, "data"),
+        PackageDirectory = Path.Combine(_testRoot, "packages"),
+        DiscoveryRoots = [_testRoot]
+    });
+
+    private AgentQueueStore CreateStore() => new(CreateOptions());
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {

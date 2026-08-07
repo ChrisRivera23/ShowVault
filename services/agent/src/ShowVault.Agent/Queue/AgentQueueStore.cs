@@ -43,6 +43,14 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS recovery_packages (
+                command_id TEXT PRIMARY KEY,
+                package_id TEXT NOT NULL,
+                package_path TEXT NOT NULL,
+                manifest_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE
+            );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -234,6 +242,53 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
         return await command.ExecuteScalarAsync(cancellationToken) as string;
     }
 
+    public async Task StoreRecoveryPackageAsync(
+        Guid commandId,
+        string packageId,
+        string packagePath,
+        string manifestJson,
+        DateTimeOffset createdAt,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO recovery_packages
+                (command_id, package_id, package_path, manifest_json, created_at)
+            VALUES ($commandId, $packageId, $packagePath, $manifestJson, $createdAt)
+            ON CONFLICT(command_id) DO UPDATE SET
+                package_id = excluded.package_id,
+                package_path = excluded.package_path,
+                manifest_json = excluded.manifest_json,
+                created_at = excluded.created_at;
+            """;
+        command.Parameters.AddWithValue("$commandId", commandId.ToString());
+        command.Parameters.AddWithValue("$packageId", packageId);
+        command.Parameters.AddWithValue("$packagePath", packagePath);
+        command.Parameters.AddWithValue("$manifestJson", manifestJson);
+        command.Parameters.AddWithValue("$createdAt", Format(createdAt));
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task<StoredRecoveryPackage?> GetRecoveryPackageAsync(
+        Guid commandId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT package_id, package_path, manifest_json
+            FROM recovery_packages WHERE command_id = $commandId;
+            """;
+        command.Parameters.AddWithValue("$commandId", commandId.ToString());
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken)
+            ? new StoredRecoveryPackage(reader.GetString(0), reader.GetString(1), reader.GetString(2))
+            : null;
+    }
+
     private async Task UpdateEventAsync(
         string sql,
         Guid eventId,
@@ -287,6 +342,11 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
 }
 
 public sealed record QueuedAgentEvent(AgentEventEnvelope Envelope, int AttemptCount);
+
+public sealed record StoredRecoveryPackage(
+    string PackageId,
+    string PackagePath,
+    string ManifestJson);
 
 public enum LocalAgentCommandStatus
 {
