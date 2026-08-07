@@ -58,4 +58,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> EtcEosShowArchiveRoots { get; init; } = [];
 
     public IReadOnlyList<string> DanteControllerPresetRoots { get; init; } = [];
+
+    public IReadOnlyList<string> AllenHeathSqShowRoots { get; init; } = [];
 }

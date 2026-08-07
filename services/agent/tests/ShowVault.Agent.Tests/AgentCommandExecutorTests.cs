@@ -492,6 +492,15 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 DanteControllerPresetRoots = [Path.Combine(_testRoot, "dante-controller")]
             }),
             timeProvider);
+        var allenHeathSqPlugin = new AllenHeathSqShowDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                AllenHeathSqShowRoots =
+                    [Path.Combine(_testRoot, "AHSQ", "SHOWS", "SHOW0000")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -513,7 +522,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     yamahaDme5Dme3Plugin,
                     qsysDesignerPlugin,
                     etcEosPlugin,
-                    danteControllerPlugin
+                    danteControllerPlugin,
+                    allenHeathSqPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
