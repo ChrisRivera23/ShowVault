@@ -119,6 +119,17 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.DoesNotContain(afterAcknowledgement.Payload, command =>
             command.CommandId == issuedCommand.Payload.CommandId);
 
+        var forbiddenHistory = await outsiderClient.GetAsync(
+            $"/api/v1/organizations/{organizationId}/venues/{venueId}/recovery-runs");
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenHistory.StatusCode);
+        var recoveryHistory = await ownerClient.GetFromJsonAsync<
+            ApiResponse<IReadOnlyList<RecoveryRunSummary>>>(
+                $"/api/v1/organizations/{organizationId}/venues/{venueId}/recovery-runs");
+        Assert.NotNull(recoveryHistory);
+        var recoveryRun = Assert.Single(recoveryHistory.Payload);
+        Assert.Equal(issuedCommand.Payload.CommandId, recoveryRun.DiscoveryCommandId);
+        Assert.Equal("in_progress", recoveryRun.Status);
+
         using var invalidAgentClient = CreateAgentClient(
             $"{enrolledAgent.Payload.AgentId}.sva_invalid");
         var invalidIdentity = await invalidAgentClient.GetAsync("/api/v1/agent-identity");

@@ -8,5 +8,7 @@ void main() {
     for (final label in ['Scan', 'Backup', 'Verify', 'Restore']) {
       expect(find.text(label), findsOneWidget);
     }
+    expect(find.text('Recovery loop proven'), findsOneWidget);
+    expect(find.text('Foundation preview'), findsOneWidget);
   });
 }
