@@ -5,7 +5,10 @@ class AppConfig {
     'AUTH0_DOMAIN',
     defaultValue: 'dev-4m7moxkl7dikmtf7.us.auth0.com',
   );
-  static const auth0ClientId = String.fromEnvironment('AUTH0_CLIENT_ID');
+  static const auth0ClientId = String.fromEnvironment(
+    'AUTH0_CLIENT_ID',
+    defaultValue: 'wxisYnuTvRe3fMg23m5TPoIQh8vOWWKl',
+  );
   static const auth0Audience = String.fromEnvironment(
     'AUTH0_AUDIENCE',
     defaultValue: 'https://api.showvault.app',
