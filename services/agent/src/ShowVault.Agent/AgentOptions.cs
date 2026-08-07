@@ -80,4 +80,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> MidasProShowRoots { get; init; } = [];
 
     public IReadOnlyList<string> BehringerWingShowRoots { get; init; } = [];
+
+    public IReadOnlyList<string> SoundcraftViShowRoots { get; init; } = [];
 }

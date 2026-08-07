@@ -583,6 +583,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 BehringerWingShowRoots = [Path.Combine(_testRoot, "behringer-wing")]
             }),
             timeProvider);
+        var soundcraftViPlugin = new SoundcraftViDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                SoundcraftViShowRoots = [Path.Combine(_testRoot, "soundcraft-vi")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -615,7 +623,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     calrecApolloArtemisPlugin,
                     studerVistaPlugin,
                     midasProPlugin,
-                    behringerWingPlugin
+                    behringerWingPlugin,
+                    soundcraftViPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(

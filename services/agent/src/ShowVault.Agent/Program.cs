@@ -104,6 +104,9 @@ builder.Services
         options => options.BehringerWingShowRoots.All(Path.IsPathFullyQualified),
         "Every Behringer WING show root must be an absolute path.")
     .Validate(
+        options => options.SoundcraftViShowRoots.All(Path.IsPathFullyQualified),
+        "Every Soundcraft Vi show root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -165,6 +168,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, CalrecApolloArtemisDiscoveryPlug
 builder.Services.AddSingleton<IDiscoveryPlugin, StuderVistaDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, MidasProDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, BehringerWingDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, SoundcraftViDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
