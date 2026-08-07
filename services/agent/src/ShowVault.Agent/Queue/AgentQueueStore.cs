@@ -51,6 +51,14 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS package_verifications (
+                command_id TEXT PRIMARY KEY,
+                package_id TEXT NOT NULL,
+                result_json TEXT NOT NULL,
+                evidence_sha256 TEXT NOT NULL,
+                verified_at TEXT NOT NULL,
+                FOREIGN KEY(command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE
+            );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -289,6 +297,51 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
             : null;
     }
 
+    public async Task StorePackageVerificationAsync(
+        Guid commandId,
+        string packageId,
+        string resultJson,
+        string evidenceSha256,
+        DateTimeOffset verifiedAt,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT OR IGNORE INTO package_verifications
+                (command_id, package_id, result_json, evidence_sha256, verified_at)
+            VALUES ($commandId, $packageId, $resultJson, $evidenceSha256, $verifiedAt);
+            """;
+        command.Parameters.AddWithValue("$commandId", commandId.ToString());
+        command.Parameters.AddWithValue("$packageId", packageId);
+        command.Parameters.AddWithValue("$resultJson", resultJson);
+        command.Parameters.AddWithValue("$evidenceSha256", evidenceSha256);
+        command.Parameters.AddWithValue("$verifiedAt", Format(verifiedAt));
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task<StoredPackageVerification?> GetPackageVerificationAsync(
+        Guid commandId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT package_id, result_json, evidence_sha256
+            FROM package_verifications WHERE command_id = $commandId;
+            """;
+        command.Parameters.AddWithValue("$commandId", commandId.ToString());
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken)
+            ? new StoredPackageVerification(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2))
+            : null;
+    }
+
     private async Task UpdateEventAsync(
         string sql,
         Guid eventId,
@@ -347,6 +400,11 @@ public sealed record StoredRecoveryPackage(
     string PackageId,
     string PackagePath,
     string ManifestJson);
+
+public sealed record StoredPackageVerification(
+    string PackageId,
+    string ResultJson,
+    string EvidenceSha256);
 
 public enum LocalAgentCommandStatus
 {

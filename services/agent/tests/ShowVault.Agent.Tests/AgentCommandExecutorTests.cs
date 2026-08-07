@@ -163,6 +163,28 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 package.PackagePath,
                 RecoveryPackageFormat.ContentDirectoryName,
                 "venue.show")));
+
+        var verifyCommand = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.VerifyBackup,
+            "verify",
+            JsonSerializer.Serialize(new { backupCommandId = backupCommand.CommandId }),
+            now.AddSeconds(2),
+            TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(verifyCommand, now, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+
+        var verification = await store.GetPackageVerificationAsync(
+            verifyCommand.CommandId,
+            CancellationToken.None);
+        Assert.NotNull(verification);
+        Assert.Equal(package.PackageId, verification.PackageId);
+        Assert.Equal(64, verification.EvidenceSha256.Length);
+        Assert.Contains("\"passed\":true", verification.ResultJson, StringComparison.Ordinal);
+        Assert.Single((await store.GetCommandsAsync(
+            LocalAgentCommandStatus.Completed,
+            CancellationToken.None)), candidate => candidate.CommandId == verifyCommand.CommandId);
     }
 
     public Task DisposeAsync()
@@ -190,6 +212,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             store,
             new DiscoveryPluginRegistry([plugin]),
             new RecoveryPackageWriter(CreateOptions()),
+            new RecoveryPackageVerifier(),
             timeProvider,
             NullLogger<AgentCommandExecutor>.Instance);
     }

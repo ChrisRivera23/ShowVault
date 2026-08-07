@@ -43,4 +43,4 @@ The referenced `StartDiscovery` result must exist in the Agent's durable SQLite 
 
 ## Trust boundary
 
-Read-only flags discourage accidental modification but are not a cryptographic access-control mechanism. The next slice independently verifies the manifest digest, layout, content sizes, and content hashes and emits immutable verification evidence.
+Read-only flags discourage accidental modification but are not a cryptographic access-control mechanism. `VerifyBackup` independently verifies the manifest digest, exact layout, content sizes, and content hashes and emits immutable verification evidence. Format 1.0 is not digitally signed, so it provides integrity but not creator authenticity.
