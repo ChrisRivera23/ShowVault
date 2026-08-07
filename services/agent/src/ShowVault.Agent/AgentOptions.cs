@@ -54,4 +54,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> YamahaDme5Dme3ProjectRoots { get; init; } = [];
 
     public IReadOnlyList<string> QsysDesignerProjectRoots { get; init; } = [];
+
+    public IReadOnlyList<string> EtcEosShowArchiveRoots { get; init; } = [];
 }

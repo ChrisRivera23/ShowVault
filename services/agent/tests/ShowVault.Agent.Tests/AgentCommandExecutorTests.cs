@@ -476,6 +476,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 QsysDesignerProjectRoots = [Path.Combine(_testRoot, "qsys-designer")]
             }),
             timeProvider);
+        var etcEosPlugin = new EtcEosShowDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                EtcEosShowArchiveRoots = [Path.Combine(_testRoot, "etc-eos")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -495,7 +503,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     yamahaPcDdiPlugin,
                     yamahaControlPlugin,
                     yamahaDme5Dme3Plugin,
-                    qsysDesignerPlugin
+                    qsysDesignerPlugin,
+                    etcEosPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
