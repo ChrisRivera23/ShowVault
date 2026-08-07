@@ -59,6 +59,22 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
                 verified_at TEXT NOT NULL,
                 FOREIGN KEY(command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS recovery_restorations (
+                command_id TEXT PRIMARY KEY,
+                package_id TEXT NOT NULL,
+                target_path TEXT NOT NULL,
+                result_json TEXT NOT NULL,
+                evidence_sha256 TEXT NOT NULL,
+                restored_at TEXT NOT NULL,
+                FOREIGN KEY(command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE
+            );
+            CREATE TABLE IF NOT EXISTS recovery_restore_intents (
+                command_id TEXT PRIMARY KEY,
+                package_id TEXT NOT NULL,
+                target_path TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE
+            );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -342,6 +358,94 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
             : null;
     }
 
+    public async Task StoreRecoveryRestorationAsync(
+        Guid commandId,
+        string packageId,
+        string targetPath,
+        string resultJson,
+        string evidenceSha256,
+        DateTimeOffset restoredAt,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT OR IGNORE INTO recovery_restorations
+                (command_id, package_id, target_path, result_json, evidence_sha256, restored_at)
+            VALUES ($commandId, $packageId, $targetPath, $resultJson, $evidenceSha256, $restoredAt);
+            """;
+        command.Parameters.AddWithValue("$commandId", commandId.ToString());
+        command.Parameters.AddWithValue("$packageId", packageId);
+        command.Parameters.AddWithValue("$targetPath", targetPath);
+        command.Parameters.AddWithValue("$resultJson", resultJson);
+        command.Parameters.AddWithValue("$evidenceSha256", evidenceSha256);
+        command.Parameters.AddWithValue("$restoredAt", Format(restoredAt));
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task StoreRecoveryRestoreIntentAsync(
+        Guid commandId,
+        string packageId,
+        string targetPath,
+        DateTimeOffset createdAt,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT OR IGNORE INTO recovery_restore_intents
+                (command_id, package_id, target_path, created_at)
+            VALUES ($commandId, $packageId, $targetPath, $createdAt);
+            """;
+        command.Parameters.AddWithValue("$commandId", commandId.ToString());
+        command.Parameters.AddWithValue("$packageId", packageId);
+        command.Parameters.AddWithValue("$targetPath", targetPath);
+        command.Parameters.AddWithValue("$createdAt", Format(createdAt));
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task<StoredRecoveryRestoreIntent?> GetRecoveryRestoreIntentAsync(
+        Guid commandId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT package_id, target_path
+            FROM recovery_restore_intents WHERE command_id = $commandId;
+            """;
+        command.Parameters.AddWithValue("$commandId", commandId.ToString());
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken)
+            ? new StoredRecoveryRestoreIntent(reader.GetString(0), reader.GetString(1))
+            : null;
+    }
+
+    public async Task<StoredRecoveryRestoration?> GetRecoveryRestorationAsync(
+        Guid commandId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT package_id, target_path, result_json, evidence_sha256
+            FROM recovery_restorations WHERE command_id = $commandId;
+            """;
+        command.Parameters.AddWithValue("$commandId", commandId.ToString());
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken)
+            ? new StoredRecoveryRestoration(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3))
+            : null;
+    }
+
     private async Task UpdateEventAsync(
         string sql,
         Guid eventId,
@@ -405,6 +509,14 @@ public sealed record StoredPackageVerification(
     string PackageId,
     string ResultJson,
     string EvidenceSha256);
+
+public sealed record StoredRecoveryRestoration(
+    string PackageId,
+    string TargetPath,
+    string ResultJson,
+    string EvidenceSha256);
+
+public sealed record StoredRecoveryRestoreIntent(string PackageId, string TargetPath);
 
 public enum LocalAgentCommandStatus
 {

@@ -148,6 +148,45 @@ public sealed class AgentQueueStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Restoration_evidence_is_inserted_once_and_survives_restart()
+    {
+        var command = AgentCommandEnvelope.Create(
+            Guid.NewGuid(),
+            AgentCommandType.StartRestore,
+            "restoration-evidence",
+            "{}",
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, DateTimeOffset.UtcNow, CancellationToken.None);
+        await store.StoreRecoveryRestorationAsync(
+            command.CommandId,
+            "package-id",
+            "/restore/first",
+            "{\"passed\":true}",
+            "first-digest",
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+        await store.StoreRecoveryRestorationAsync(
+            command.CommandId,
+            "different-package",
+            "/restore/second",
+            "{\"passed\":false}",
+            "second-digest",
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        var stored = await CreateStore().GetRecoveryRestorationAsync(
+            command.CommandId,
+            CancellationToken.None);
+
+        Assert.NotNull(stored);
+        Assert.Equal("package-id", stored.PackageId);
+        Assert.Equal("/restore/first", stored.TargetPath);
+        Assert.Equal("first-digest", stored.EvidenceSha256);
+    }
+
+    [Fact]
     public async Task Failed_delivery_remains_durable_until_retry_succeeds()
     {
         var now = DateTimeOffset.UtcNow;

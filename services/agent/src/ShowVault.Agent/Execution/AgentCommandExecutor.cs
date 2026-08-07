@@ -14,6 +14,7 @@ public sealed class AgentCommandExecutor(
     DiscoveryPluginRegistry pluginRegistry,
     RecoveryPackageWriter packageWriter,
     RecoveryPackageVerifier packageVerifier,
+    RecoveryPackageRestorer packageRestorer,
     TimeProvider timeProvider,
     ILogger<AgentCommandExecutor> logger)
 {
@@ -70,6 +71,9 @@ public sealed class AgentCommandExecutor(
                     break;
                 case AgentCommandType.VerifyBackup:
                     await ExecuteVerifyBackupAsync(identity, command, cancellationToken);
+                    break;
+                case AgentCommandType.StartRestore:
+                    await ExecuteRestoreAsync(identity, command, cancellationToken);
                     break;
                 default:
                     throw new InvalidOperationException(
@@ -255,6 +259,115 @@ public sealed class AgentCommandExecutor(
             cancellationToken);
     }
 
+    private async Task ExecuteRestoreAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Deserialize<StartRestorePayload>(command.Payload, JsonOptions)
+            ?? throw new InvalidOperationException("StartRestore payload is required.");
+        var package = await queueStore.GetRecoveryPackageAsync(
+            payload.BackupCommandId,
+            cancellationToken)
+            ?? throw new InvalidOperationException("The referenced recovery package was not found.");
+        var verification = await queueStore.GetPackageVerificationAsync(
+            payload.VerificationCommandId,
+            cancellationToken)
+            ?? throw new InvalidOperationException("The referenced package verification was not found.");
+        ValidatePassingVerification(payload.VerificationCommandId, package.PackageId, verification);
+
+        var storedRestoration = await queueStore.GetRecoveryRestorationAsync(
+            command.CommandId,
+            cancellationToken);
+        RecoveryRestorationResult result;
+        string resultJson;
+        string evidenceSha256;
+        if (storedRestoration is null)
+        {
+            result = await packageRestorer.RestoreAsync(
+                command.CommandId,
+                identity.AgentId,
+                package,
+                payload.VerificationCommandId,
+                payload.TargetPath,
+                command.IssuedAt,
+                cancellationToken);
+            resultJson = RecoveryPackageRestorer.Serialize(result);
+            evidenceSha256 = HashEvidence(resultJson);
+            await queueStore.StoreRecoveryRestorationAsync(
+                command.CommandId,
+                package.PackageId,
+                result.TargetPath,
+                resultJson,
+                evidenceSha256,
+                command.IssuedAt,
+                cancellationToken);
+        }
+        else
+        {
+            if (storedRestoration.PackageId != package.PackageId ||
+                HashEvidence(storedRestoration.ResultJson) != storedRestoration.EvidenceSha256)
+            {
+                throw new InvalidOperationException("Stored restoration evidence is invalid.");
+            }
+
+            resultJson = storedRestoration.ResultJson;
+            evidenceSha256 = storedRestoration.EvidenceSha256;
+            result = JsonSerializer.Deserialize<RecoveryRestorationResult>(resultJson, JsonOptions)
+                ?? throw new InvalidOperationException("Stored restoration evidence is invalid.");
+            if (result.RestorationId != command.CommandId ||
+                result.PackageId != package.PackageId ||
+                result.VerificationId != payload.VerificationCommandId)
+            {
+                throw new InvalidOperationException("Stored restoration evidence identity is invalid.");
+            }
+        }
+
+        await RecordOutcomeAsync(
+            identity,
+            command,
+            AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Completed,
+            JsonSerializer.Serialize(
+                new
+                {
+                    result.RestorationId,
+                    result.PackageId,
+                    result.VerificationId,
+                    result.TargetPath,
+                    result.Passed,
+                    result.FileCount,
+                    evidenceSha256
+                },
+                JsonOptions),
+            cancellationToken);
+    }
+
+    private static void ValidatePassingVerification(
+        Guid verificationCommandId,
+        string packageId,
+        StoredPackageVerification verification)
+    {
+        if (verification.PackageId != packageId ||
+            HashEvidence(verification.ResultJson) != verification.EvidenceSha256)
+        {
+            throw new InvalidOperationException("Package verification evidence is invalid.");
+        }
+
+        var result = JsonSerializer.Deserialize<RecoveryPackageVerificationResult>(
+            verification.ResultJson,
+            JsonOptions)
+            ?? throw new InvalidOperationException("Package verification evidence is invalid.");
+        if (!result.Passed || result.VerificationId != verificationCommandId ||
+            result.PackageId != packageId)
+        {
+            throw new InvalidOperationException("A passing verification is required before restore.");
+        }
+    }
+
+    private static string HashEvidence(string resultJson) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(resultJson)));
+
     private async Task RecordOutcomeAsync(
         StoredAgentIdentity identity,
         AgentCommandEnvelope command,
@@ -290,4 +403,9 @@ public sealed class AgentCommandExecutor(
     private sealed record CreateBackupPayload(Guid DiscoveryCommandId);
 
     private sealed record VerifyBackupPayload(Guid BackupCommandId);
+
+    private sealed record StartRestorePayload(
+        Guid BackupCommandId,
+        Guid VerificationCommandId,
+        string TargetPath);
 }
