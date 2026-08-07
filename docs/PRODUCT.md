@@ -34,7 +34,7 @@ Every screen should answer: “What does the user need to do right now to protec
 
 ## Version 1 production integrations
 
-The Product Owner-approved launch scope is maintained in [`INTEGRATION_CATALOG.md`](INTEGRATION_CATALOG.md). It covers professional audio manufacturers, audio networking and DSP, lighting platforms and protocols, video/media servers, and projection. Resolume, Yamaha, and MA Lighting grandMA2/grandMA3 are highest priority.
+The Product Owner-approved launch scope is maintained in [`INTEGRATION_CATALOG.md`](INTEGRATION_CATALOG.md). It covers professional audio manufacturers, audio networking and DSP, lighting platforms and protocols, video/media servers, DJ platforms, and projection. Resolume, Yamaha, and MA Lighting grandMA2/grandMA3 are highest priority.
 
 Product-specific breadth will be defined honestly per tested model, software/firmware version, and recovery workflow rather than claiming that one plugin covers every product made by a manufacturer. Protocol support is recorded as a capability, not mislabeled as a vendor integration.
 

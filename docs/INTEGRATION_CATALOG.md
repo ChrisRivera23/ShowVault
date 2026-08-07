@@ -102,6 +102,17 @@ Manufacturer names do not imply automatic support for every product the company 
 - Isadora
 - Ventana
 
+## DJ platforms
+
+- rekordbox
+- Serato DJ Pro
+- Traktor Pro
+- VirtualDJ
+- Engine DJ
+- djay Pro
+- Mixxx
+- Denon Engine OS
+
 ## Projection
 
 - Christie
@@ -124,6 +135,7 @@ Manufacturer names do not imply automatic support for every product the company 
 2. Representative platform foundations: Q-SYS, ETC Eos, Dante/Dante Controller, Allen & Heath, Crestron, Shure, and Blackmagic Design.
 3. Remaining audio manufacturers and audio-networking/DSP targets.
 4. Remaining lighting platforms and protocol capabilities.
-5. Remaining video/media-server and projection targets.
+5. DJ platforms, beginning with their documented library/export and device-media workflows.
+6. Remaining video/media-server and projection targets.
 
 Work remains vertical and evidence-based inside each wave. Parallel catalog placeholders, untested compatibility badges, and generic network reachability presented as product support are prohibited.
