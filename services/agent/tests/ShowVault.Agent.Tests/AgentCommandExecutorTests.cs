@@ -293,6 +293,55 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Equal(64, restoration.EvidenceSha256.Length);
     }
 
+    [Fact]
+    public async Task Resolume_discovery_flows_into_immutable_recovery_package()
+    {
+        var bundle = Path.Combine(_testRoot, "resolume-bundle");
+        Directory.CreateDirectory(bundle);
+        await File.WriteAllTextAsync(Path.Combine(bundle, "Venue.avc"), "composition");
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var discovery = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartDiscovery,
+            "resolume-discovery",
+            JsonSerializer.Serialize(new
+            {
+                pluginId = ResolumeDiscoveryPlugin.PluginId,
+                rootPath = bundle
+            }),
+            now,
+            TimeSpan.FromMinutes(5));
+        var backup = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CreateBackup,
+            "resolume-backup",
+            JsonSerializer.Serialize(new { discoveryCommandId = discovery.CommandId }),
+            now.AddSeconds(1),
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(discovery, now, CancellationToken.None);
+        var executor = CreateExecutor(store, now);
+        var identity = new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential");
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await store.EnqueueCommandAsync(backup, now, CancellationToken.None);
+
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+
+        var package = await store.GetRecoveryPackageAsync(
+            backup.CommandId,
+            CancellationToken.None);
+        Assert.NotNull(package);
+        Assert.Contains(ResolumeDiscoveryPlugin.PluginId, package.ManifestJson, StringComparison.Ordinal);
+        Assert.Equal(
+            "composition",
+            await File.ReadAllTextAsync(Path.Combine(
+                package.PackagePath,
+                RecoveryPackageFormat.ContentDirectoryName,
+                "Venue.avc")));
+    }
+
     public Task DisposeAsync()
     {
         if (Directory.Exists(_testRoot))
@@ -314,10 +363,18 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 DiscoveryRoots = [_testRoot]
             }),
             timeProvider);
+        var resolumePlugin = new ResolumeDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                ResolumeDiscoveryRoots = [_testRoot]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
-            new DiscoveryPluginRegistry([plugin]),
+            new DiscoveryPluginRegistry([plugin, resolumePlugin]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
                 Options.Create(new AgentOptions

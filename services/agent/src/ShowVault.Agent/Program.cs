@@ -20,6 +20,9 @@ builder.Services
         options => options.DiscoveryRoots.All(Path.IsPathFullyQualified),
         "Every discovery root must be an absolute path.")
     .Validate(
+        options => options.ResolumeDiscoveryRoots.All(Path.IsPathFullyQualified),
+        "Every Resolume discovery root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -54,6 +57,7 @@ builder.Services.AddSingleton<AgentQueueStore>();
 builder.Services.AddSingleton<AgentEventDispatcher>();
 builder.Services.AddSingleton<AgentCommandPoller>();
 builder.Services.AddSingleton<IDiscoveryPlugin, FileSystemDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, ResolumeDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
