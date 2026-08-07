@@ -78,6 +78,56 @@ public sealed class YamahaConsoleDiscoveryPluginTests : IDisposable
             plugin.DiscoverAsync(new DiscoveryRequest(child), CancellationToken.None));
     }
 
+    [Theory]
+    [InlineData("Venue.CLF")]
+    [InlineData("Venue.clf")]
+    public async Task ClQl_recognizes_shared_settings_format(string fileName)
+    {
+        var exportRoot = Path.Combine(_root, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(exportRoot);
+        await File.WriteAllTextAsync(Path.Combine(exportRoot, fileName), "settings");
+
+        var result = await CreateClQl(exportRoot).DiscoverAsync(
+            new DiscoveryRequest(exportRoot),
+            CancellationToken.None);
+
+        Assert.Equal(YamahaClQlDiscoveryPlugin.PluginId, result.PluginId);
+        Assert.Contains(result.Files, file => file.RelativePath == fileName);
+    }
+
+    [Fact]
+    public async Task Tf_recognizes_console_data_and_preset_companions()
+    {
+        var exportRoot = Path.Combine(_root, "tf-export");
+        Directory.CreateDirectory(Path.Combine(exportRoot, "presets"));
+        await File.WriteAllTextAsync(Path.Combine(exportRoot, "Venue.tff"), "settings");
+        await File.WriteAllTextAsync(
+            Path.Combine(exportRoot, "presets", "Vocal.tfp"),
+            "preset");
+
+        var result = await CreateTf(exportRoot).DiscoverAsync(
+            new DiscoveryRequest(exportRoot),
+            CancellationToken.None);
+
+        Assert.Equal(YamahaTfDiscoveryPlugin.PluginId, result.PluginId);
+        Assert.Contains(result.Files, file => file.RelativePath == "Venue.tff");
+        Assert.Contains(result.Files,
+            file => file.RelativePath == Path.Combine("presets", "Vocal.tfp"));
+    }
+
+    [Fact]
+    public async Task Tf_rejects_clql_settings_export()
+    {
+        var exportRoot = Path.Combine(_root, "wrong-family");
+        Directory.CreateDirectory(exportRoot);
+        await File.WriteAllTextAsync(Path.Combine(exportRoot, "Venue.CLF"), "settings");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateTf(exportRoot).DiscoverAsync(
+                new DiscoveryRequest(exportRoot),
+                CancellationToken.None));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))
@@ -105,6 +155,26 @@ public sealed class YamahaConsoleDiscoveryPluginTests : IDisposable
                 ControlPlaneUri = new Uri("https://control.test"),
                 Name = "Test Agent",
                 YamahaRivageExportRoots = [exportRoot]
+            }),
+            TimeProvider.System);
+
+    private YamahaClQlDiscoveryPlugin CreateClQl(string exportRoot) =>
+        new(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaClQlExportRoots = [exportRoot]
+            }),
+            TimeProvider.System);
+
+    private YamahaTfDiscoveryPlugin CreateTf(string exportRoot) =>
+        new(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaTfExportRoots = [exportRoot]
             }),
             TimeProvider.System);
 

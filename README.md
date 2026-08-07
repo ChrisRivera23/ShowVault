@@ -59,7 +59,7 @@ Completed:
 
 Current development branch:
 
-- `codex/yamaha-console-exports` — distinct Yamaha DM7 and RIVAGE PM settings-export recovery units.
+- `codex/yamaha-clql-tf-exports` — shared CL/QL `.CLF` and distinct TF `.TFF` settings-export recovery.
 
 The Auth0 Native application is configured. A live login/API proof still needs a deployed API and a native build host. Membership administration, user-requested command cancellation, digital signatures, NAS/cloud storage, and persistent control-plane package records have not been implemented yet.
 
@@ -284,7 +284,8 @@ This section is maintained so a new Codex task can resume without relying on the
 - Draft PR #15 branch: `codex/resolume-portable-bundle`, stacked on the network-discovery branch. It adds the first vendor workflow around a Resolume Collect Media portable show bundle and the existing immutable package/verify/controlled-restore loop.
 - Draft PR #16 branch: `codex/resolume-user-data`, stacked on PR #15. It adds a distinct, exact-root recovery unit for compositions, fixtures, preferences, presets, recordings, and shortcut profiles while rejecting arbitrary folders.
 - Draft PR #17 branch: `codex/grandma-show-backups`, stacked on PR #16. It adds distinct exact-root grandMA2 and grandMA3 USB/export discovery and preserves their separate version-compatibility boundaries.
-- Active implementation branch: `codex/yamaha-console-exports`, stacked on PR #17. It adds exact-root DM7 `.dm7f` and current/legacy RIVAGE PM settings-export recovery as separate compatibility targets.
+- Draft PR #18 branch: `codex/yamaha-console-exports`, stacked on PR #17. It adds exact-root DM7 `.dm7f` and current/legacy RIVAGE PM settings-export recovery as separate compatibility targets.
+- Active implementation branch: `codex/yamaha-clql-tf-exports`, stacked on PR #18. It adds exact-root CL/QL `.CLF` and TF `.TFF` settings-export recovery with cross-family rejection.
 - Auth0 Native application `ShowVault Flutter` is registered and its callback/logout URLs and public Client ID are configured. A live login/API proof still requires a deployed ShowVault API and a native build host; this workstation has only Xcode Command Line Tools.
 - The Product Owner supplied the authoritative Version 1 venue-technology scope in `docs/INTEGRATION_CATALOG.md`, including rekordbox, Serato DJ Pro, Traktor Pro, VirtualDJ, Engine DJ, djay Pro, Mixxx, and Denon Engine OS as mandatory launch targets. Resolume, Yamaha, and grandMA2/grandMA3 are highest priority. Coverage is tracked per tested product/model, platform version, or protocol capability; empty catalog plugins and generic reachability do not qualify.
 - Auth0 is configured for human identity. Agent authentication intentionally remains a separate credential scheme.
@@ -364,4 +365,4 @@ dotnet test tests/ShowVault.Agent.Tests/ShowVault.Agent.Tests.csproj
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-Draft PRs #3 through #11 establish Auth0 tenancy, the Agent-side Scan → Backup → Verify → Restore loop, and tenant recovery history. PR #12 adds native Flutter and Auth0; PR #13 adds system inventory; PR #14 adds protocol 1.2 allowlisted TCP discovery; PRs #15–#16 add Resolume recovery; PR #17 adds grandMA2/grandMA3 export protection. The active stacked branch begins Yamaha with DM7 and RIVAGE PM settings exports. The full 100-target Version 1 scope is preserved in `docs/INTEGRATION_CATALOG.md`. A live Auth0/API proof still requires a deployed API and native build host; full Xcode is not installed here. macOS LaunchDaemon keychain access remains an installer-validation requirement.
+Draft PRs #3 through #11 establish Auth0 tenancy, the Agent-side Scan → Backup → Verify → Restore loop, and tenant recovery history. PR #12 adds native Flutter and Auth0; PR #13 adds system inventory; PR #14 adds protocol 1.2 allowlisted TCP discovery; PRs #15–#16 add Resolume recovery; PR #17 adds grandMA2/grandMA3; PR #18 begins Yamaha with DM7 and RIVAGE PM. The active stacked branch adds Yamaha CL/QL and TF settings exports. The full 100-target Version 1 scope is preserved in `docs/INTEGRATION_CATALOG.md`. A live Auth0/API proof still requires a deployed API and native build host; full Xcode is not installed here. macOS LaunchDaemon keychain access remains an installer-validation requirement.

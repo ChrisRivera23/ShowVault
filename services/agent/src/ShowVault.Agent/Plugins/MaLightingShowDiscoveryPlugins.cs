@@ -102,6 +102,21 @@ public abstract class ExactRootFileDiscoveryPluginBase(
     protected static bool HasDirectory(string rootPath, params string[] segments) =>
         Directory.Exists(Path.Combine([rootPath, .. segments]));
 
+    protected static bool ContainsExtension(string rootPath, string extension) =>
+        Directory.EnumerateFiles(
+            rootPath,
+            "*",
+            new EnumerationOptions
+            {
+                RecurseSubdirectories = true,
+                IgnoreInaccessible = false,
+                AttributesToSkip = FileAttributes.ReparsePoint
+            })
+            .Any(path => string.Equals(
+                Path.GetExtension(path),
+                extension,
+                StringComparison.OrdinalIgnoreCase));
+
     private static bool IsSamePath(string requestedPath, string configuredRoot) =>
         Path.GetRelativePath(
             Path.TrimEndingDirectorySeparator(Path.GetFullPath(configuredRoot)),

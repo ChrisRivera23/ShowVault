@@ -21,21 +21,6 @@ public sealed class YamahaDm7DiscoveryPlugin(
 
     protected override bool HasExpectedStructure(string rootPath) =>
         ContainsExtension(rootPath, ".dm7f");
-
-    private static bool ContainsExtension(string rootPath, string extension) =>
-        Directory.EnumerateFiles(
-            rootPath,
-            "*",
-            new EnumerationOptions
-            {
-                RecurseSubdirectories = true,
-                IgnoreInaccessible = false,
-                AttributesToSkip = FileAttributes.ReparsePoint
-            })
-            .Any(path => string.Equals(
-                Path.GetExtension(path),
-                extension,
-                StringComparison.OrdinalIgnoreCase));
 }
 
 public sealed class YamahaRivageDiscoveryPlugin(
@@ -69,4 +54,46 @@ public sealed class YamahaRivageDiscoveryPlugin(
                 AttributesToSkip = FileAttributes.ReparsePoint
             })
             .Any(path => SettingsExtensions.Contains(Path.GetExtension(path)));
+}
+
+public sealed class YamahaClQlDiscoveryPlugin(
+    IOptions<AgentOptions> options,
+    TimeProvider timeProvider) : ExactRootFileDiscoveryPluginBase(options, timeProvider)
+{
+    public const string PluginId = "showvault.yamaha-cl-ql";
+
+    public override AgentPluginManifest Manifest { get; } = new(
+        PluginId,
+        "ShowVault Yamaha CL/QL Settings Export",
+        "0.1.0",
+        new HashSet<AgentPluginCapability> { AgentPluginCapability.Discovery },
+        new HashSet<AgentPluginPermission> { AgentPluginPermission.ReadFiles });
+
+    protected override IReadOnlyList<string> ConfiguredRoots => Options.YamahaClQlExportRoots;
+
+    protected override string ProductName => "Yamaha CL/QL";
+
+    protected override bool HasExpectedStructure(string rootPath) =>
+        ContainsExtension(rootPath, ".clf");
+}
+
+public sealed class YamahaTfDiscoveryPlugin(
+    IOptions<AgentOptions> options,
+    TimeProvider timeProvider) : ExactRootFileDiscoveryPluginBase(options, timeProvider)
+{
+    public const string PluginId = "showvault.yamaha-tf";
+
+    public override AgentPluginManifest Manifest { get; } = new(
+        PluginId,
+        "ShowVault Yamaha TF Settings Export",
+        "0.1.0",
+        new HashSet<AgentPluginCapability> { AgentPluginCapability.Discovery },
+        new HashSet<AgentPluginPermission> { AgentPluginPermission.ReadFiles });
+
+    protected override IReadOnlyList<string> ConfiguredRoots => Options.YamahaTfExportRoots;
+
+    protected override string ProductName => "Yamaha TF";
+
+    protected override bool HasExpectedStructure(string rootPath) =>
+        ContainsExtension(rootPath, ".tff");
 }

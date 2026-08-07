@@ -36,4 +36,8 @@ public sealed class AgentOptions
     public IReadOnlyList<string> YamahaDm7ExportRoots { get; init; } = [];
 
     public IReadOnlyList<string> YamahaRivageExportRoots { get; init; } = [];
+
+    public IReadOnlyList<string> YamahaClQlExportRoots { get; init; } = [];
+
+    public IReadOnlyList<string> YamahaTfExportRoots { get; init; } = [];
 }
