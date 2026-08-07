@@ -85,6 +85,40 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
             mismatchedEvent);
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenEvent.StatusCode);
 
+        var forbiddenCommand = await outsiderClient.PostAsJsonAsync(
+            $"/api/v1/organizations/{organizationId}/venues/{venueId}/agents/{enrolledAgent.Payload.AgentId}/commands",
+            new IssueAgentCommandRequest(AgentCommandType.StartDiscovery, "{}"));
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenCommand.StatusCode);
+
+        var issueCommand = await ownerClient.PostAsJsonAsync(
+            $"/api/v1/organizations/{organizationId}/venues/{venueId}/agents/{enrolledAgent.Payload.AgentId}/commands",
+            new IssueAgentCommandRequest(AgentCommandType.StartDiscovery, "{\"scope\":\"local\"}"));
+        Assert.Equal(HttpStatusCode.Accepted, issueCommand.StatusCode);
+        var issuedCommand = await issueCommand.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>();
+        Assert.NotNull(issuedCommand);
+
+        var poll = await agentClient.GetFromJsonAsync<
+            ApiResponse<IReadOnlyList<AgentCommandEnvelope>>>("/api/v1/agent-commands");
+        Assert.NotNull(poll);
+        Assert.Contains(poll.Payload, command =>
+            command.CommandId == issuedCommand.Payload.CommandId);
+
+        var firstAcknowledgement = await agentClient.PostAsync(
+            $"/api/v1/agent-commands/{issuedCommand.Payload.CommandId}/acknowledge",
+            null);
+        var duplicateAcknowledgement = await agentClient.PostAsync(
+            $"/api/v1/agent-commands/{issuedCommand.Payload.CommandId}/acknowledge",
+            null);
+        Assert.Equal(HttpStatusCode.NoContent, firstAcknowledgement.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, duplicateAcknowledgement.StatusCode);
+
+        var afterAcknowledgement = await agentClient.GetFromJsonAsync<
+            ApiResponse<IReadOnlyList<AgentCommandEnvelope>>>("/api/v1/agent-commands");
+        Assert.NotNull(afterAcknowledgement);
+        Assert.DoesNotContain(afterAcknowledgement.Payload, command =>
+            command.CommandId == issuedCommand.Payload.CommandId);
+
         using var invalidAgentClient = CreateAgentClient(
             $"{enrolledAgent.Payload.AgentId}.sva_invalid");
         var invalidIdentity = await invalidAgentClient.GetAsync("/api/v1/agent-identity");

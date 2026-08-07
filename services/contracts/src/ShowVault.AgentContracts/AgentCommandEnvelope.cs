@@ -15,6 +15,15 @@ public sealed record AgentCommandEnvelope(
         AgentCommandType type,
         string correlationId,
         string payload,
+        TimeSpan validity) =>
+        Create(agentId, type, correlationId, payload, DateTimeOffset.UtcNow, validity);
+
+    public static AgentCommandEnvelope Create(
+        Guid agentId,
+        AgentCommandType type,
+        string correlationId,
+        string payload,
+        DateTimeOffset issuedAt,
         TimeSpan validity)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(correlationId);
@@ -32,7 +41,6 @@ public sealed record AgentCommandEnvelope(
                 "Command validity must be positive.");
         }
 
-        var issuedAt = DateTimeOffset.UtcNow;
         return new AgentCommandEnvelope(
             Guid.NewGuid(),
             agentId,

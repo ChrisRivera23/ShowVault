@@ -140,14 +140,20 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
 
     public async Task<IReadOnlyList<AgentCommandEnvelope>> GetPendingCommandsAsync(
         CancellationToken cancellationToken)
+        => await GetCommandsAsync(LocalAgentCommandStatus.Pending, cancellationToken);
+
+    public async Task<IReadOnlyList<AgentCommandEnvelope>> GetCommandsAsync(
+        LocalAgentCommandStatus status,
+        CancellationToken cancellationToken)
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT envelope_json FROM command_queue
-            WHERE status = 'pending' ORDER BY issued_at;
+            WHERE status = $status ORDER BY issued_at;
             """;
+        command.Parameters.AddWithValue("$status", Format(status));
         var commands = new List<AgentCommandEnvelope>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
@@ -157,6 +163,32 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
         }
 
         return commands;
+    }
+
+    public async Task<bool> TryTransitionCommandAsync(
+        Guid commandId,
+        LocalAgentCommandStatus expectedStatus,
+        LocalAgentCommandStatus nextStatus,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        if (!IsAllowedTransition(expectedStatus, nextStatus))
+        {
+            return false;
+        }
+
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE command_queue SET status = $nextStatus, updated_at = $updatedAt
+            WHERE command_id = $commandId AND status = $expectedStatus;
+            """;
+        command.Parameters.AddWithValue("$commandId", commandId.ToString());
+        command.Parameters.AddWithValue("$expectedStatus", Format(expectedStatus));
+        command.Parameters.AddWithValue("$nextStatus", Format(nextStatus));
+        command.Parameters.AddWithValue("$updatedAt", Format(now));
+        return await command.ExecuteNonQueryAsync(cancellationToken) == 1;
     }
 
     private async Task UpdateEventAsync(
@@ -193,6 +225,31 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
 
     private static string Format(DateTimeOffset value) =>
         value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+
+    private static string Format(LocalAgentCommandStatus status) =>
+        status.ToString().ToLowerInvariant();
+
+    private static bool IsAllowedTransition(
+        LocalAgentCommandStatus current,
+        LocalAgentCommandStatus next) =>
+        (current, next) switch
+        {
+            (LocalAgentCommandStatus.Pending, LocalAgentCommandStatus.Running) => true,
+            (LocalAgentCommandStatus.Pending, LocalAgentCommandStatus.Cancelled) => true,
+            (LocalAgentCommandStatus.Running, LocalAgentCommandStatus.Completed) => true,
+            (LocalAgentCommandStatus.Running, LocalAgentCommandStatus.Failed) => true,
+            (LocalAgentCommandStatus.Running, LocalAgentCommandStatus.Cancelled) => true,
+            _ => false
+        };
 }
 
 public sealed record QueuedAgentEvent(AgentEventEnvelope Envelope, int AttemptCount);
+
+public enum LocalAgentCommandStatus
+{
+    Pending,
+    Running,
+    Completed,
+    Failed,
+    Cancelled
+}

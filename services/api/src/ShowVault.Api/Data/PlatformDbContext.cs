@@ -14,6 +14,7 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
     public DbSet<AgentEnrollment> AgentEnrollments => Set<AgentEnrollment>();
     public DbSet<VenueAgent> VenueAgents => Set<VenueAgent>();
     public DbSet<ReceivedAgentEvent> ReceivedAgentEvents => Set<ReceivedAgentEvent>();
+    public DbSet<IssuedAgentCommand> IssuedAgentCommands => Set<IssuedAgentCommand>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -108,6 +109,26 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.HasOne<VenueAgent>()
                 .WithMany()
                 .HasForeignKey(agentEvent => agentEvent.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<IssuedAgentCommand>(entity =>
+        {
+            entity.ToTable("issued_agent_commands");
+            entity.HasKey(command => command.CommandId);
+            entity.Property(command => command.AgentId).IsRequired();
+            entity.Property(command => command.Type).HasConversion<string>().HasMaxLength(32);
+            entity.Property(command => command.ProtocolVersion).HasMaxLength(20).IsRequired();
+            entity.Property(command => command.IssuedAt).IsRequired();
+            entity.Property(command => command.ExpiresAt).IsRequired();
+            entity.Property(command => command.CorrelationId).HasMaxLength(100).IsRequired();
+            entity.Property(command => command.Payload).HasColumnType("jsonb").IsRequired();
+            entity.Property(command => command.Status).HasConversion<string>().HasMaxLength(32);
+            entity.Property(command => command.Status).IsConcurrencyToken();
+            entity.HasIndex(command => new { command.AgentId, command.Status, command.IssuedAt });
+            entity.HasOne<VenueAgent>()
+                .WithMany()
+                .HasForeignKey(command => command.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

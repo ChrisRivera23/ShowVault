@@ -25,9 +25,15 @@ builder.Services.AddHttpClient<AgentEventClient>((services, client) =>
     var options = services.GetRequiredService<Microsoft.Extensions.Options.IOptions<AgentOptions>>();
     client.BaseAddress = options.Value.ControlPlaneUri;
 });
+builder.Services.AddHttpClient<AgentCommandClient>((services, client) =>
+{
+    var options = services.GetRequiredService<Microsoft.Extensions.Options.IOptions<AgentOptions>>();
+    client.BaseAddress = options.Value.ControlPlaneUri;
+});
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<AgentQueueStore>();
 builder.Services.AddSingleton<AgentEventDispatcher>();
+builder.Services.AddSingleton<AgentCommandPoller>();
 builder.Services.AddSingleton<AgentIdentityBootstrapper>();
 if (OperatingSystem.IsWindowsVersionAtLeast(5, 1, 2600))
 {
