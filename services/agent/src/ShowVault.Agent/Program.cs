@@ -3,6 +3,7 @@ using ShowVault.Agent.Identity;
 using ShowVault.Agent.Communication;
 using ShowVault.Agent.Execution;
 using ShowVault.Agent.Plugins;
+using ShowVault.Agent.Recovery;
 using ShowVault.Agent.Queue;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -18,6 +19,10 @@ builder.Services
     .Validate(
         options => options.DiscoveryRoots.All(Path.IsPathFullyQualified),
         "Every discovery root must be an absolute path.")
+    .Validate(
+        options => string.IsNullOrWhiteSpace(options.PackageDirectory) ||
+            Path.IsPathFullyQualified(options.PackageDirectory),
+        "The package directory must be an absolute path when configured.")
     .ValidateOnStart();
 
 builder.Services.AddHttpClient<AgentEnrollmentClient>((services, client) =>
@@ -41,6 +46,7 @@ builder.Services.AddSingleton<AgentEventDispatcher>();
 builder.Services.AddSingleton<AgentCommandPoller>();
 builder.Services.AddSingleton<IDiscoveryPlugin, FileSystemDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
+builder.Services.AddSingleton<RecoveryPackageWriter>();
 builder.Services.AddSingleton<AgentCommandExecutor>();
 builder.Services.AddSingleton<AgentIdentityBootstrapper>();
 if (OperatingSystem.IsWindowsVersionAtLeast(5, 1, 2600))
