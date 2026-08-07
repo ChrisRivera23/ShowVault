@@ -102,4 +102,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> PowersoftArmoniaPlusProjectRoots { get; init; } = [];
 
     public IReadOnlyList<string> CrownAudioArchitectVenueRoots { get; init; } = [];
+
+    public IReadOnlyList<string> LabGruppenLakeSystemRoots { get; init; } = [];
 }
