@@ -517,6 +517,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 ShureDesignerRoomRoots = [Path.Combine(_testRoot, "shure-designer")]
             }),
             timeProvider);
+        var blackmagicAtemPlugin = new BlackmagicAtemDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                BlackmagicAtemStateRoots = [Path.Combine(_testRoot, "blackmagic-atem")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -541,7 +549,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     danteControllerPlugin,
                     allenHeathSqPlugin,
                     crestronSimplPlugin,
-                    shureDesignerPlugin
+                    shureDesignerPlugin,
+                    blackmagicAtemPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(

@@ -80,6 +80,9 @@ builder.Services
         options => options.ShureDesignerRoomRoots.All(Path.IsPathFullyQualified),
         "Every Shure Designer room root must be an absolute path.")
     .Validate(
+        options => options.BlackmagicAtemStateRoots.All(Path.IsPathFullyQualified),
+        "Every Blackmagic ATEM state root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -133,6 +136,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, DanteControllerDiscoveryPlugin>(
 builder.Services.AddSingleton<IDiscoveryPlugin, AllenHeathSqShowDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, CrestronSimplDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, ShureDesignerDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, BlackmagicAtemDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
