@@ -13,6 +13,7 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
     public DbSet<Venue> Venues => Set<Venue>();
     public DbSet<AgentEnrollment> AgentEnrollments => Set<AgentEnrollment>();
     public DbSet<VenueAgent> VenueAgents => Set<VenueAgent>();
+    public DbSet<ReceivedAgentEvent> ReceivedAgentEvents => Set<ReceivedAgentEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -95,6 +96,21 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.HasOne<Venue>()
                 .WithMany()
                 .HasForeignKey(agent => agent.VenueId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ReceivedAgentEvent>(entity =>
+        {
+            entity.ToTable("received_agent_events");
+            entity.HasKey(agentEvent => agentEvent.EventId);
+            entity.Property(agentEvent => agentEvent.Type).HasConversion<string>().HasMaxLength(32);
+            entity.Property(agentEvent => agentEvent.ProtocolVersion).HasMaxLength(20).IsRequired();
+            entity.Property(agentEvent => agentEvent.CorrelationId).HasMaxLength(100).IsRequired();
+            entity.Property(agentEvent => agentEvent.Payload).HasColumnType("jsonb").IsRequired();
+            entity.HasIndex(agentEvent => new { agentEvent.AgentId, agentEvent.ReceivedAt });
+            entity.HasOne<VenueAgent>()
+                .WithMany()
+                .HasForeignKey(agentEvent => agentEvent.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

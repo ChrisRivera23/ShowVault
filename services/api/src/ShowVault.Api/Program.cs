@@ -98,6 +98,7 @@ app.MapGet("/api/v1/identity", (ClaimsPrincipal user, HttpContext context) =>
 
 app.MapTenantEndpoints();
 app.MapAgentEnrollmentEndpoints();
+app.MapAgentCommunicationEndpoints();
 
 app.Run();
 
