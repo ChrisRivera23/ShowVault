@@ -633,6 +633,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 SymetrixComposerSiteRoots = [Path.Combine(_testRoot, "symetrix-composer")]
             }),
             timeProvider);
+        var boseControlSpacePlugin = new BoseControlSpaceDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                BoseControlSpaceProjectRoots = [Path.Combine(_testRoot, "bose-controlspace")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -671,7 +679,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     rolandM5000Plugin,
                     preSonusSeriesIiiPlugin,
                     biampTesiraPlugin,
-                    symetrixComposerPlugin
+                    symetrixComposerPlugin,
+                    boseControlSpacePlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
