@@ -49,12 +49,14 @@ Completed:
 - Recovery package manifests use format 1.0 and record source/plugin identity, hashes, dependencies, relationships, restore prerequisites, compatibility rules, and verification evidence.
 - `VerifyBackup` independently validates exact package structure, manifest identity, file sizes, and SHA-256 content hashes without following links.
 - Verification results are stored once with an evidence digest; detected corruption completes with a failed integrity result rather than an executor error.
+- `StartRestore` requires passing verification and restores only beneath locally allowed roots into absent or empty targets.
+- Restore copying uses staging, immediate package revalidation, restored-file hashing, atomic publication, restart-safe intent, and write-once evidence.
 
 Current development branch:
 
-- `codex/package-verification` — independent structural and cryptographic package verification.
+- `codex/controlled-local-restore` — verified, allowlisted, controlled local restoration.
 
-Client sign-in, membership administration, user-requested command cancellation, controlled restore, digital signatures, NAS/cloud storage, and control-plane package metadata have not been implemented yet.
+Client sign-in, membership administration, user-requested command cancellation, Flutter recovery-loop visibility, digital signatures, NAS/cloud storage, and control-plane package read models have not been implemented yet.
 
 ## Approved product direction
 
@@ -259,8 +261,8 @@ Universal object abstractions will be considered only after real plugin implemen
 7. Implement the first file-oriented discovery plugin. — Complete (generic locally allowlisted filesystem integration)
 8. Define and create the immutable recovery-package format. — Complete (local format 1.0)
 9. Implement cryptographic verification. — Initial structural and SHA-256 integrity verification complete
-10. Implement a controlled local restore. — Next
-11. Display the complete recovery loop in Flutter.
+10. Implement a controlled local restore. — Complete (allowlisted test targets)
+11. Display the complete recovery loop in Flutter. — Next, with a control-plane recovery read model
 12. Add the network-device and system-inventory plugins.
 13. Add cloud upload and mobile monitoring.
 14. Pilot repeatedly with one real venue.
@@ -269,10 +271,10 @@ Universal object abstractions will be considered only after real plugin implemen
 
 This section is maintained so a new Codex task can resume without relying on the previous chat transcript.
 
-- Completed draft PR stack: PR #3 `codex/auth-tenancy-foundation`, PR #4 `codex/agent-enrollment-identity`, PR #5 `codex/agent-outbound-queue`, PR #6 `codex/agent-command-delivery`, PR #7 `codex/file-discovery-plugin`, and PR #8 `codex/immutable-recovery-package`.
-- Active work: `codex/package-verification`, stacked on PR #8.
-- This slice adds untrusted package parsing, no-follow exact-layout inspection, manifest/package identity checks, independent content hashing, write-once local evidence, evidence digests, and resumable `VerifyBackup` execution.
-- The next implementation task is a controlled local restore into a new explicitly allowed target, followed by a restoration verification record. Package signatures remain separate future security work.
+- Completed draft PR stack: PR #3 `codex/auth-tenancy-foundation`, PR #4 `codex/agent-enrollment-identity`, PR #5 `codex/agent-outbound-queue`, PR #6 `codex/agent-command-delivery`, PR #7 `codex/file-discovery-plugin`, PR #8 `codex/immutable-recovery-package`, and PR #9 `codex/package-verification`.
+- Active work: `codex/controlled-local-restore`, stacked on PR #9.
+- This slice adds locally allowlisted strict-descendant targets, passing-verification enforcement, pre-restore revalidation, no-follow staging, restored-content hashing, atomic publication, durable restore intents, restart adoption of only matching published targets, and write-once restoration evidence.
+- The next implementation task is a control-plane recovery read model derived from Agent outcome events and the first Flutter view of the Scan → Backup → Verify → Restore loop. Package signatures remain separate future security work.
 - Auth0 is configured for human identity. Agent authentication intentionally remains a separate credential scheme.
 - Exact Codex context-window percentages are not exposed to the assistant. A context compaction occurred while building this slice; this README is the durable source of truth for a new task.
 
@@ -351,4 +353,4 @@ dotnet test tests/ShowVault.Agent.Tests/ShowVault.Agent.Tests.csproj
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-Draft PRs #3 through #8 establish Auth0 tenancy, secure Agent identity, durable communication, allowlisted filesystem discovery, and atomic content-addressed recovery packages. The active verification slice executes `VerifyBackup`, treats packages as untrusted input, verifies exact structure and SHA-256 integrity, and records immutable local evidence. The next vertical slice should restore a verified package into an explicitly allowed empty target and record restoration evidence. macOS LaunchDaemon keychain access remains an installer-validation requirement. Keep this README current and continue through focused, validated draft pull requests.
+Draft PRs #3 through #9 establish Auth0 tenancy, secure Agent identity, durable communication, allowlisted filesystem discovery, atomic recovery packages, and independent integrity verification. The active restore slice executes `StartRestore` only against passing evidence and an explicitly allowed empty target, atomically publishes re-hashed content, and records restart-safe restoration evidence. The next vertical slice should derive a control-plane recovery read model from Agent outcomes and display the first complete Scan → Backup → Verify → Restore history in Flutter. macOS LaunchDaemon keychain access remains an installer-validation requirement. Keep this README current and continue through focused, validated draft pull requests.

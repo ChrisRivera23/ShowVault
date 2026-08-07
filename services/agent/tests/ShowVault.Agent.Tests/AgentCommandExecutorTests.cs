@@ -24,6 +24,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     public Task InitializeAsync()
     {
         Directory.CreateDirectory(_testRoot);
+        Directory.CreateDirectory(Path.Combine(_testRoot, "restores"));
         return Task.CompletedTask;
     }
 
@@ -334,6 +335,33 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Single((await store.GetCommandsAsync(
             LocalAgentCommandStatus.Completed,
             CancellationToken.None)), candidate => candidate.CommandId == verifyCommand.CommandId);
+
+        var restoreTarget = Path.Combine(_testRoot, "restores", "restored-venue");
+        var restoreCommand = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartRestore,
+            "restore",
+            JsonSerializer.Serialize(new
+            {
+                backupCommandId = backupCommand.CommandId,
+                verificationCommandId = verifyCommand.CommandId,
+                targetPath = restoreTarget
+            }),
+            now.AddSeconds(3),
+            TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(restoreCommand, now, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+
+        Assert.Equal(
+            "configuration",
+            await File.ReadAllTextAsync(Path.Combine(restoreTarget, "venue.show")));
+        var restoration = await store.GetRecoveryRestorationAsync(
+            restoreCommand.CommandId,
+            CancellationToken.None);
+        Assert.NotNull(restoration);
+        Assert.Equal(package.PackageId, restoration.PackageId);
+        Assert.Equal(64, restoration.EvidenceSha256.Length);
     }
 
     [Theory]
@@ -446,11 +474,13 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 DiscoveryRoots = [_testRoot]
             }),
             timeProvider);
+        var verifier = new RecoveryPackageVerifier(CreateOptions());
         return new AgentCommandExecutor(
             store,
             new DiscoveryPluginRegistry([plugin]),
             new RecoveryPackageWriter(CreateOptions()),
-            new RecoveryPackageVerifier(CreateOptions()),
+            verifier,
+            new RecoveryPackageRestorer(CreateOptions(), verifier, store),
             timeProvider,
             logger ?? NullLogger<AgentCommandExecutor>.Instance);
     }
@@ -478,7 +508,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Name = "Test Agent",
         DataDirectory = Path.Combine(_testRoot, "data"),
         PackageDirectory = Path.Combine(_testRoot, "packages"),
-        DiscoveryRoots = [_testRoot]
+        DiscoveryRoots = [_testRoot],
+        RestoreRoots = [Path.Combine(_testRoot, "restores")]
     });
 
     private AgentQueueStore CreateStore() => new(CreateOptions());
