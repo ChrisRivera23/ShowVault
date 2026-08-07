@@ -34,7 +34,7 @@ Manufacturer names do not imply automatic support for every product the company 
 - Electro-Voice — IRIS-Net project discovery implemented; QuickSmart Mobile and PREVIEW remain uncredited pending verified portable export artifacts
 - d&b audiotechnik — shared R1/ArrayCalc `.dbpr` project discovery implemented with legacy and commissioning companions preserved
 - L-Acoustics — Soundvision `.xmlp` project discovery implemented with venue and LA Network Manager recovery companions preserved
-- Meyer Sound
+- Meyer Sound — MAPP 3D `.mapp` project discovery implemented with `MAPP Backup` autosaves, imported venue drawings, exports, and other exact-root companions preserved
 - NEXO
 - RCF
 - JBL Professional
