@@ -1,6 +1,8 @@
 using ShowVault.Agent;
 using ShowVault.Agent.Identity;
 using ShowVault.Agent.Communication;
+using ShowVault.Agent.Execution;
+using ShowVault.Agent.Plugins;
 using ShowVault.Agent.Queue;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -13,6 +15,9 @@ builder.Services
         options => options.ControlPlaneUri.Scheme == Uri.UriSchemeHttps ||
             (options.ControlPlaneUri.Scheme == Uri.UriSchemeHttp && options.ControlPlaneUri.IsLoopback),
         "The control plane URI must use HTTPS except for loopback development.")
+    .Validate(
+        options => options.DiscoveryRoots.All(Path.IsPathFullyQualified),
+        "Every discovery root must be an absolute path.")
     .ValidateOnStart();
 
 builder.Services.AddHttpClient<AgentEnrollmentClient>((services, client) =>
@@ -34,6 +39,9 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<AgentQueueStore>();
 builder.Services.AddSingleton<AgentEventDispatcher>();
 builder.Services.AddSingleton<AgentCommandPoller>();
+builder.Services.AddSingleton<IDiscoveryPlugin, FileSystemDiscoveryPlugin>();
+builder.Services.AddSingleton<DiscoveryPluginRegistry>();
+builder.Services.AddSingleton<AgentCommandExecutor>();
 builder.Services.AddSingleton<AgentIdentityBootstrapper>();
 if (OperatingSystem.IsWindowsVersionAtLeast(5, 1, 2600))
 {

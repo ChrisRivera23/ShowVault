@@ -16,4 +16,6 @@ public sealed class AgentOptions
     public string? EnrollmentCode { get; init; }
 
     public string? DataDirectory { get; init; }
+
+    public IReadOnlyList<string> DiscoveryRoots { get; init; } = [];
 }
