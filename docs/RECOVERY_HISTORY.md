@@ -17,4 +17,4 @@ Each `StartDiscovery` command begins a run. Later stages are linked through thei
 
 The latest linked command represents each stage. Durable outcome events determine `completed` or `failed`; acknowledged commands without outcomes are `in_progress`; unacknowledged commands are `pending`; and missing stages are `not_started`. Malformed linkage payloads are ignored rather than breaking the entire venue history.
 
-The first Flutter recovery dashboard includes a strict model for this response and a responsive four-stage history presentation. It currently displays clearly labeled foundation preview data because native Auth0 client sign-in and live API loading have not yet been configured. Preview content must not be interpreted as venue evidence.
+The Flutter recovery dashboard includes a strict model for this response and a responsive four-stage history presentation. Native Auth0 Universal Login supplies the API bearer token; the client discovers the first accessible organization and venue before loading this endpoint. The prior foundation preview has been removed, so every displayed recovery run comes from the tenant-scoped control-plane response.

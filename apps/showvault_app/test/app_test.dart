@@ -3,12 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:showvault_app/src/app.dart';
 
 void main() {
-  testWidgets('shows the four primary workflows', (tester) async {
+  testWidgets('requires an Auth0 client before showing tenant data', (
+    tester,
+  ) async {
     await tester.pumpWidget(const ProviderScope(child: ShowVaultApp()));
-    for (final label in ['Scan', 'Backup', 'Verify', 'Restore']) {
-      expect(find.text(label), findsOneWidget);
-    }
-    expect(find.text('Recovery loop proven'), findsOneWidget);
-    expect(find.text('Foundation preview'), findsOneWidget);
+    expect(find.text('Auth0 client configuration required'), findsOneWidget);
+    expect(find.text('Foundation preview'), findsNothing);
   });
 }

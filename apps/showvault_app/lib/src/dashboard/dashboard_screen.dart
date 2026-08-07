@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:showvault_app/src/api/showvault_api.dart';
+import 'package:showvault_app/src/auth/auth_provider.dart';
+import 'package:showvault_app/src/config/app_config.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
 import 'package:showvault_app/src/recovery/recovery_run.dart';
 
@@ -8,8 +11,80 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final runs = ref.watch(recoveryHistoryProvider);
-    final latest = runs.first;
+    if (!AppConfig.hasAuth0Client) return const _ConfigurationRequired();
+    return ref
+        .watch(authSessionProvider)
+        .when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => _AuthPrompt(error: error),
+          data: (session) => session == null
+              ? const _AuthPrompt()
+              : ref
+                    .watch(recoveryHistoryProvider)
+                    .when(
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (error, _) => _LoadError(error: error),
+                      data: (history) => _LiveDashboard(history: history),
+                    ),
+        );
+  }
+}
+
+class _ConfigurationRequired extends StatelessWidget {
+  const _ConfigurationRequired();
+
+  @override
+  Widget build(BuildContext context) => const _CenteredCard(
+    icon: Icons.settings_suggest_outlined,
+    title: 'Auth0 client configuration required',
+    message:
+        'Run with --dart-define=AUTH0_CLIENT_ID=… to connect this native client. See the Flutter app README for the complete command.',
+  );
+}
+
+class _AuthPrompt extends ConsumerWidget {
+  const _AuthPrompt({this.error});
+  final Object? error;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => _CenteredCard(
+    icon: Icons.lock_outline,
+    title: 'Sign in to ShowVault',
+    message: error == null
+        ? 'Use your operator identity to load live, tenant-scoped recovery history.'
+        : 'Sign-in did not complete. $error',
+    action: FilledButton.icon(
+      onPressed: () => ref.read(authSessionProvider.notifier).login(),
+      icon: const Icon(Icons.login),
+      label: const Text('Sign in with Auth0'),
+    ),
+  );
+}
+
+class _LoadError extends ConsumerWidget {
+  const _LoadError({required this.error});
+  final Object error;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => _CenteredCard(
+    icon: Icons.cloud_off_outlined,
+    title: 'Live history unavailable',
+    message: '$error',
+    action: FilledButton.icon(
+      onPressed: () => ref.invalidate(recoveryHistoryProvider),
+      icon: const Icon(Icons.refresh),
+      label: const Text('Retry'),
+    ),
+  );
+}
+
+class _LiveDashboard extends ConsumerWidget {
+  const _LiveDashboard({required this.history});
+  final RecoveryHistory history;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = Theme.of(context).colorScheme;
     return Center(
       child: ConstrainedBox(
@@ -21,7 +96,6 @@ class DashboardScreen extends ConsumerWidget {
               alignment: WrapAlignment.spaceBetween,
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: 16,
-              runSpacing: 12,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -32,93 +106,35 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'One clear history from discovery to proven recovery.',
+                      '${history.organizationName} • ${history.venueName}',
                       style: TextStyle(color: colors.onSurfaceVariant),
                     ),
                   ],
                 ),
                 const Chip(
-                  avatar: Icon(Icons.visibility_outlined, size: 18),
-                  label: Text('Foundation preview'),
+                  avatar: Icon(Icons.cloud_done_outlined, size: 18),
+                  label: Text('Live data'),
                 ),
               ],
             ),
             const SizedBox(height: 24),
-            _ReadinessCard(run: latest),
+            if (history.runs.isEmpty)
+              const _CenteredCard(
+                icon: Icons.history_toggle_off_outlined,
+                title: 'No recovery runs yet',
+                message:
+                    'Live tenant access is working. A completed Agent workflow will appear here.',
+              )
+            else
+              _HistoryContent(runs: history.runs),
             const SizedBox(height: 24),
-            Text(
-              'Recovery loop',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 12),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final columns = constraints.maxWidth >= 900
-                    ? 4
-                    : constraints.maxWidth >= 520
-                    ? 2
-                    : 1;
-                final width =
-                    (constraints.maxWidth - (columns - 1) * 12) / columns;
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    for (final stage in latest.stages)
-                      SizedBox(
-                        width: width,
-                        child: _StageCard(stage: stage),
-                      ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 28),
-            Text(
-              'Recent recovery runs',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: colors.primaryContainer,
-                          child: Icon(
-                            Icons.dns_outlined,
-                            color: colors.onPrimaryContainer,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                latest.agentName,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const Text('Complete recovery rehearsal'),
-                            ],
-                          ),
-                        ),
-                        _StatusBadge(status: latest.status),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'Preview data • Live venue history follows Auth0 client sign-in.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () =>
+                    ref.read(authSessionProvider.notifier).logout(),
+                icon: const Icon(Icons.logout),
+                label: const Text('Sign out'),
               ),
             ),
           ],
@@ -128,43 +144,124 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
+class _HistoryContent extends StatelessWidget {
+  const _HistoryContent({required this.runs});
+  final List<RecoveryRun> runs;
+
+  @override
+  Widget build(BuildContext context) {
+    final latest = runs.first;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ReadinessCard(run: latest),
+        const SizedBox(height: 24),
+        Text('Recovery loop', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 900
+                ? 4
+                : constraints.maxWidth >= 520
+                ? 2
+                : 1;
+            final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (final stage in latest.stages)
+                  SizedBox(
+                    width: width,
+                    child: _StageCard(stage: stage),
+                  ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 28),
+        Text(
+          'Recent recovery runs',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 12),
+        for (final run in runs)
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.dns_outlined),
+              title: Text(run.agentName),
+              subtitle: Text(run.startedAt.toLocal().toString()),
+              trailing: _StatusBadge(status: run.status),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _CenteredCard extends StatelessWidget {
+  const _CenteredCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.action,
+  });
+  final IconData icon;
+  final String title;
+  final String message;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 560),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 46),
+              const SizedBox(height: 18),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(message, textAlign: TextAlign.center),
+              if (action != null) ...[const SizedBox(height: 22), action!],
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _ReadinessCard extends StatelessWidget {
   const _ReadinessCard({required this.run});
-
   final RecoveryRun run;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final completed = run.status == RecoveryRunStatus.completed;
     return Card(
-      color: colors.primaryContainer,
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundColor: colors.primary,
-              child: Icon(
-                Icons.shield_rounded,
-                color: colors.onPrimary,
-                size: 30,
-              ),
+            Icon(
+              completed ? Icons.shield_rounded : Icons.pending_actions_rounded,
+              size: 42,
             ),
             const SizedBox(width: 18),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Recovery loop proven',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 5),
-                  const Text(
-                    'Scan, package integrity, and controlled restore all have evidence.',
-                  ),
-                ],
+              child: Text(
+                completed
+                    ? 'Recovery loop proven'
+                    : 'Recovery loop in progress',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
           ],
@@ -176,60 +273,32 @@ class _ReadinessCard extends StatelessWidget {
 
 class _StageCard extends StatelessWidget {
   const _StageCard({required this.stage});
-
   final RecoveryStage stage;
-
-  static const _content = {
-    RecoveryStageKind.scan: (Icons.radar_rounded, 'Scan', 'Inventory captured'),
-    RecoveryStageKind.backup: (
-      Icons.inventory_2_rounded,
-      'Backup',
-      'Immutable package',
-    ),
-    RecoveryStageKind.verify: (
-      Icons.verified_rounded,
-      'Verify',
-      'SHA-256 evidence',
-    ),
-    RecoveryStageKind.restore: (
-      Icons.restore_rounded,
-      'Restore',
-      'Controlled target',
-    ),
+  static const labels = {
+    RecoveryStageKind.scan: (Icons.radar_rounded, 'Scan'),
+    RecoveryStageKind.backup: (Icons.inventory_2_rounded, 'Backup'),
+    RecoveryStageKind.verify: (Icons.verified_rounded, 'Verify'),
+    RecoveryStageKind.restore: (Icons.restore_rounded, 'Restore'),
   };
 
   @override
   Widget build(BuildContext context) {
-    final content = _content[stage.kind]!;
-    final colors = Theme.of(context).colorScheme;
+    final label = labels[stage.kind]!;
     final completed = stage.status == RecoveryStageStatus.completed;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Row(
           children: [
-            Icon(content.$1, color: colors.primary, size: 30),
+            Icon(label.$1, size: 30),
             const SizedBox(width: 14),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    content.$2,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    content.$3,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+              child: Text(
+                label.$2,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
-            Icon(
-              completed ? Icons.check_circle : Icons.radio_button_unchecked,
-              color: completed ? colors.primary : colors.outline,
-            ),
+            Icon(completed ? Icons.check_circle : Icons.radio_button_unchecked),
           ],
         ),
       ),
@@ -239,14 +308,15 @@ class _StageCard extends StatelessWidget {
 
 class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.status});
-
   final RecoveryRunStatus status;
 
   @override
   Widget build(BuildContext context) => Chip(
-    avatar: const Icon(Icons.check_circle, size: 17),
-    label: Text(
-      status == RecoveryRunStatus.completed ? 'Completed' : 'In progress',
-    ),
+    label: Text(switch (status) {
+      RecoveryRunStatus.pending => 'Pending',
+      RecoveryRunStatus.inProgress => 'In progress',
+      RecoveryRunStatus.completed => 'Completed',
+      RecoveryRunStatus.failed => 'Failed',
+    }),
   );
 }
