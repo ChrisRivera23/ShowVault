@@ -641,6 +641,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 BoseControlSpaceProjectRoots = [Path.Combine(_testRoot, "bose-controlspace")]
             }),
             timeProvider);
+        var peaveyNwarePlugin = new PeaveyNwareDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                PeaveyNwareProjectRoots = [Path.Combine(_testRoot, "peavey-nware")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -680,7 +688,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     preSonusSeriesIiiPlugin,
                     biampTesiraPlugin,
                     symetrixComposerPlugin,
-                    boseControlSpacePlugin
+                    boseControlSpacePlugin,
+                    peaveyNwarePlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(

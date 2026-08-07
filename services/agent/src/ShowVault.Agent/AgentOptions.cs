@@ -94,4 +94,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> SymetrixComposerSiteRoots { get; init; } = [];
 
     public IReadOnlyList<string> BoseControlSpaceProjectRoots { get; init; } = [];
+
+    public IReadOnlyList<string> PeaveyNwareProjectRoots { get; init; } = [];
 }
