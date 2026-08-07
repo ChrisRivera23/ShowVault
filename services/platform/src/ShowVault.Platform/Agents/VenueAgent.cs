@@ -14,13 +14,15 @@ public sealed class VenueAgent
         Name = name;
         CredentialHash = credentialHash;
         CreatedAt = createdAt;
+        CredentialRotatedAt = createdAt;
     }
 
     public Guid Id { get; }
     public Guid VenueId { get; }
     public string Name { get; }
-    public byte[] CredentialHash { get; }
+    public byte[] CredentialHash { get; private set; }
     public DateTimeOffset CreatedAt { get; }
+    public DateTimeOffset CredentialRotatedAt { get; private set; }
     public DateTimeOffset? RevokedAt { get; private set; }
 
     public static VenueAgent Create(
@@ -56,4 +58,21 @@ public sealed class VenueAgent
     }
 
     public void Revoke(DateTimeOffset now) => RevokedAt ??= now;
+
+    public void RotateCredential(byte[] credentialHash, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(credentialHash);
+        if (credentialHash.Length != 32)
+        {
+            throw new ArgumentException("Credential hash must be 32 bytes.", nameof(credentialHash));
+        }
+
+        if (RevokedAt is not null)
+        {
+            throw new InvalidOperationException("A revoked Agent credential cannot be rotated.");
+        }
+
+        CredentialHash = credentialHash.ToArray();
+        CredentialRotatedAt = now;
+    }
 }

@@ -18,6 +18,7 @@ jobs:
       - run: dotnet test services/api/tests/ShowVault.Api.Tests/ShowVault.Api.Tests.csproj
       - run: dotnet test services/contracts/tests/ShowVault.AgentContracts.Tests/ShowVault.AgentContracts.Tests.csproj
       - run: dotnet test services/platform/tests/ShowVault.Platform.Tests/ShowVault.Platform.Tests.csproj
+      - run: dotnet test services/agent/tests/ShowVault.Agent.Tests/ShowVault.Agent.Tests.csproj
       - run: dotnet build services/agent/src/ShowVault.Agent/ShowVault.Agent.csproj --configuration Release
 
   flutter:

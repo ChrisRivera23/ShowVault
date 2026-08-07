@@ -81,8 +81,12 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.ToTable("venue_agents");
             entity.HasKey(agent => agent.Id);
             entity.Property(agent => agent.Name).HasMaxLength(200).IsRequired();
-            entity.Property(agent => agent.CredentialHash).HasMaxLength(32).IsRequired();
+            entity.Property(agent => agent.CredentialHash)
+                .HasMaxLength(32)
+                .IsRequired()
+                .IsConcurrencyToken();
             entity.Property(agent => agent.CreatedAt).IsRequired();
+            entity.Property(agent => agent.CredentialRotatedAt).IsRequired();
             entity.Property(agent => agent.RevokedAt);
             entity.HasIndex(agent => agent.VenueId);
             entity.HasOne<Venue>()

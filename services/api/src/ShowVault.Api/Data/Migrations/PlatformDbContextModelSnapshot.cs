@@ -74,9 +74,13 @@ namespace ShowVault.Api.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<byte[]>("CredentialHash")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("bytea");
+
+                    b.Property<DateTimeOffset>("CredentialRotatedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
                         .IsRequired()

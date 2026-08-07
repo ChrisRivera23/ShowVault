@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using ShowVault.Api.Contracts;
+using ShowVault.AgentContracts;
 using Xunit;
 
 namespace ShowVault.Api.Tests;
@@ -59,11 +60,27 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         var invalidIdentity = await invalidAgentClient.GetAsync("/api/v1/agent-identity");
         Assert.Equal(HttpStatusCode.Unauthorized, invalidIdentity.StatusCode);
 
+        var rotationResponse = await agentClient.PostAsync(
+            "/api/v1/agents/rotate-credential",
+            null);
+        Assert.Equal(HttpStatusCode.OK, rotationResponse.StatusCode);
+        Assert.Equal("no-store", rotationResponse.Headers.CacheControl?.ToString());
+        var rotation = await rotationResponse.Content.ReadFromJsonAsync<
+            ApiResponse<RotateAgentCredentialResponse>>();
+        Assert.NotNull(rotation);
+
+        var replacedIdentity = await agentClient.GetAsync("/api/v1/agent-identity");
+        Assert.Equal(HttpStatusCode.Unauthorized, replacedIdentity.StatusCode);
+
+        using var rotatedAgentClient = CreateAgentClient(rotation.Payload.Credential);
+        var rotatedIdentity = await rotatedAgentClient.GetAsync("/api/v1/agent-identity");
+        Assert.Equal(HttpStatusCode.OK, rotatedIdentity.StatusCode);
+
         var revokeResponse = await ownerClient.DeleteAsync(
             $"/api/v1/organizations/{organizationId}/venues/{venueId}/agents/{enrolledAgent.Payload.AgentId}");
         Assert.Equal(HttpStatusCode.NoContent, revokeResponse.StatusCode);
 
-        var revokedIdentity = await agentClient.GetAsync("/api/v1/agent-identity");
+        var revokedIdentity = await rotatedAgentClient.GetAsync("/api/v1/agent-identity");
         Assert.Equal(HttpStatusCode.Unauthorized, revokedIdentity.StatusCode);
     }
 

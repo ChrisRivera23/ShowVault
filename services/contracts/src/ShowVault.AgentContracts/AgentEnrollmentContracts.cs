@@ -1,4 +1,4 @@
-namespace ShowVault.Api.Contracts;
+namespace ShowVault.AgentContracts;
 
 public sealed record CreateAgentEnrollmentResponse(
     Guid EnrollmentId,
@@ -13,3 +13,5 @@ public sealed record EnrollAgentResponse(
     string Credential);
 
 public sealed record AgentIdentityResponse(Guid AgentId, Guid VenueId);
+
+public sealed record RotateAgentCredentialResponse(string Credential, DateTimeOffset RotatedAt);

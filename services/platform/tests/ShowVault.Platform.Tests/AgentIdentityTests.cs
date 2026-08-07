@@ -41,4 +41,19 @@ public sealed class AgentIdentityTests
 
         Assert.Equal(revokedAt, agent.RevokedAt);
     }
+
+    [Fact]
+    public void Credential_rotation_replaces_hash_and_records_time()
+    {
+        var createdAt = DateTimeOffset.UtcNow;
+        var originalHash = RandomNumberGenerator.GetBytes(32);
+        var replacementHash = RandomNumberGenerator.GetBytes(32);
+        var agent = VenueAgent.Create(Guid.NewGuid(), "Agent", originalHash, createdAt);
+        var rotatedAt = createdAt.AddDays(30);
+
+        agent.RotateCredential(replacementHash, rotatedAt);
+
+        Assert.Equal(replacementHash, agent.CredentialHash);
+        Assert.Equal(rotatedAt, agent.CredentialRotatedAt);
+    }
 }

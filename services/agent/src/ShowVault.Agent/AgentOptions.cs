@@ -7,8 +7,11 @@ public sealed class AgentOptions
     public const string SectionName = "Agent";
 
     [Required]
-    public Guid AgentId { get; init; }
+    public required Uri ControlPlaneUri { get; init; }
 
     [Required]
-    public required Uri ControlPlaneUri { get; init; }
+    [MaxLength(200)]
+    public required string Name { get; init; }
+
+    public string? EnrollmentCode { get; init; }
 }

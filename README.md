@@ -34,12 +34,15 @@ Completed:
 - Authenticated organization and venue endpoints enforce membership and role-based tenant isolation.
 - Venue-scoped Agent enrollment codes are short-lived, single-use, hashed at rest, and rate-limited.
 - Durable Agent credentials use a separate authentication scheme and can be revoked by authorized venue managers.
+- Venue Agent first-run bootstrap exchanges a one-time code and reuses its stored identity on restart.
+- Agent credentials are stored in Windows Credential Manager or the macOS Keychain, never appsettings or SQLite.
+- Agent credential rotation replaces the stored credential and invalidates the prior credential immediately.
 
 Current development branch:
 
 - `codex/agent-enrollment-identity` — secure Venue Agent enrollment and machine-identity foundation.
 
-Client sign-in, membership administration, Agent-side credential storage/bootstrap, outbound Agent transport, plugin, backup, verification, and restore functionality have not been implemented yet.
+Client sign-in, membership administration, outbound Agent transport, durable local jobs, plugin, backup, verification, and restore functionality have not been implemented yet.
 
 ## Approved product direction
 
@@ -239,8 +242,8 @@ Universal object abstractions will be considered only after real plugin implemen
 2. Freeze the initial control-plane and Venue Agent protocol boundary. — Complete
 3. Select the managed OpenID Connect provider. — Complete (Auth0)
 4. Implement organizations, venues, memberships, and tenant isolation. — Initial vertical slice complete
-5. Implement secure Venue Agent enrollment and identity. — Control-plane slice complete; Agent-side bootstrap in progress
-6. Implement outbound Agent communication and durable local jobs.
+5. Implement secure Venue Agent enrollment and identity. — Initial end-to-end slice complete
+6. Implement outbound Agent communication and durable local jobs. — Next
 7. Implement the first file-oriented discovery plugin.
 8. Define and create the immutable recovery-package format.
 9. Implement cryptographic verification.
@@ -322,4 +325,4 @@ dotnet test tests/ShowVault.Api.Tests/ShowVault.Api.Tests.csproj
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-Draft PR #3 establishes Auth0 and the PostgreSQL-backed tenant boundary. The stacked `codex/agent-enrollment-identity` branch adds the control-plane half of secure Agent enrollment: authorized venue managers create 15-minute single-use codes, Agents exchange them for independently authenticated credentials, only hashes are persisted, exchanges are rate-limited, and credentials are revocable. The next vertical slice is Agent-side enrollment bootstrap and OS-keychain credential storage, followed by authenticated outbound communication and the durable local job queue. Flutter Auth0 application setup follows when platform runners and stable application identifiers exist. Continue through focused, validated draft pull requests rather than broad placeholder implementation.
+Draft PR #3 establishes Auth0 and the PostgreSQL-backed tenant boundary. The stacked `codex/agent-enrollment-identity` branch adds secure Agent enrollment end to end: authorized venue managers create 15-minute single-use codes, Agents exchange them for independently authenticated credentials, only hashes are persisted server-side, and the Agent stores its credential in Windows Credential Manager or the macOS Keychain. Replay, cross-tenant access, invalid credentials, replaced credentials, and revoked credentials are rejected. The next vertical slice is authenticated outbound Agent communication and a durable SQLite job queue. macOS LaunchDaemon access to its process account's default keychain must be validated during installer work. Flutter Auth0 application setup follows when platform runners and stable application identifiers exist. Continue through focused, validated draft pull requests rather than broad placeholder implementation.

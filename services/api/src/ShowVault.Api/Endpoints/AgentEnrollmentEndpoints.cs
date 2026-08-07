@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
 using ShowVault.Api.Security;
+using ShowVault.AgentContracts;
 using ShowVault.Platform.Agents;
 using ShowVault.Platform.Organizations;
 
@@ -28,6 +29,11 @@ public static class AgentEnrollmentEndpoints
         endpoints.MapPost("/api/v1/agents/enroll", EnrollAgentAsync)
             .RequireRateLimiting("agent-enrollment");
         endpoints.MapGet("/api/v1/agent-identity", GetAgentIdentity)
+            .RequireAuthorization(new AuthorizeAttribute
+            {
+                AuthenticationSchemes = AgentAuthenticationHandler.SchemeName
+            });
+        endpoints.MapPost("/api/v1/agents/rotate-credential", RotateCredentialAsync)
             .RequireAuthorization(new AuthorizeAttribute
             {
                 AuthenticationSchemes = AgentAuthenticationHandler.SchemeName
@@ -150,6 +156,44 @@ public static class AgentEnrollmentEndpoints
 
         return Results.Ok(ApiResponse<AgentIdentityResponse>.Success(
             new AgentIdentityResponse(agentId, venueId),
+            context.TraceIdentifier));
+    }
+
+    private static async Task<IResult> RotateCredentialAsync(
+        ClaimsPrincipal user,
+        HttpContext context,
+        PlatformDbContext database,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(user.FindFirstValue("agent_id"), out var agentId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var agent = await database.VenueAgents.SingleOrDefaultAsync(
+            candidate => candidate.Id == agentId,
+            cancellationToken);
+        if (agent is null || agent.RevokedAt is not null)
+        {
+            return Results.Unauthorized();
+        }
+
+        var secret = AgentSecrets.Generate("sva_");
+        var rotatedAt = timeProvider.GetUtcNow();
+        agent.RotateCredential(AgentSecrets.Hash(secret), rotatedAt);
+        try
+        {
+            await database.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Results.Conflict();
+        }
+
+        context.Response.Headers.CacheControl = "no-store";
+        return Results.Ok(ApiResponse<RotateAgentCredentialResponse>.Success(
+            new RotateAgentCredentialResponse($"{agent.Id}.{secret}", rotatedAt),
             context.TraceIdentifier));
     }
 
