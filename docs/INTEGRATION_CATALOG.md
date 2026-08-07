@@ -36,7 +36,7 @@ Manufacturer names do not imply automatic support for every product the company 
 - L-Acoustics — Soundvision `.xmlp` project discovery implemented with venue and LA Network Manager recovery companions preserved
 - Meyer Sound — MAPP 3D `.mapp` project discovery implemented with `MAPP Backup` autosaves, imported venue drawings, exports, and other exact-root companions preserved
 - NEXO — NS-1 `.nexo`/`.nexo3` project discovery implemented with revisions, imported venue material, exports, and other exact-root companions preserved
-- RCF
+- RCF — deferred pending an official or fixture-verified local RDNet/RDShape project format; current official material documents cloud project/measurement recall and a native RDShape export but not a dependable local extension or signature
 - JBL Professional
 - Martin Audio
 - Funktion-One
