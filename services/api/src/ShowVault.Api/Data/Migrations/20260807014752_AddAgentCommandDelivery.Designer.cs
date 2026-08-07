@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ShowVault.Api.Data;
@@ -11,9 +12,11 @@ using ShowVault.Api.Data;
 namespace ShowVault.Api.Data.Migrations
 {
     [DbContext(typeof(PlatformDbContext))]
-    partial class PlatformDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260807014752_AddAgentCommandDelivery")]
+    partial class AddAgentCommandDelivery
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -26,9 +29,6 @@ namespace ShowVault.Api.Data.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("ActivationRequestId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset?>("ConsumedAt")
@@ -45,9 +45,6 @@ namespace ShowVault.Api.Data.Migrations
 
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("IssuedAgentId")
-                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset?>("RevokedAt")
                         .HasColumnType("timestamp with time zone");
@@ -178,9 +175,6 @@ namespace ShowVault.Api.Data.Migrations
 
                     b.Property<DateTimeOffset>("CredentialRotatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("LastCredentialRotationRequestId")
-                        .HasColumnType("uuid");
 
                     b.Property<string>("Name")
                         .IsRequired()

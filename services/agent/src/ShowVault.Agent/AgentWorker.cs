@@ -12,6 +12,7 @@ public sealed class AgentWorker(
     AgentIdentityBootstrapper identityBootstrapper,
     AgentQueueStore queueStore,
     AgentEventDispatcher eventDispatcher,
+    AgentCommandPoller commandPoller,
     TimeProvider timeProvider) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -36,6 +37,7 @@ public sealed class AgentWorker(
         do
         {
             await eventDispatcher.DispatchPendingOnceAsync(identity, stoppingToken);
+            await commandPoller.PollOnceAsync(identity, stoppingToken);
         }
         while (await timer.WaitForNextTickAsync(stoppingToken));
     }

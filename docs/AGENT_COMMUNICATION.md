@@ -14,14 +14,22 @@
 
 The SQLite database contains operational queue data only. Agent credentials remain exclusively in the operating-system credential store.
 
-## Command queue boundary
+## Current command flow
 
-Typed `AgentCommandEnvelope` values can be inserted idempotently into the durable SQLite command queue and survive restart. Command retrieval, acknowledgement, state transitions, cancellation, and execution are intentionally deferred to the next vertical slice.
+1. An authorized organization owner, administrator, or manager issues a typed command for an active Agent in one of that organization's venues.
+2. The control plane validates the JSON payload and validity window, then persists the versioned envelope in PostgreSQL.
+3. The authenticated Agent polls up to 25 pending, unexpired commands.
+4. The Agent rejects envelopes with a different Agent ID, unsupported protocol version, or expired validity window.
+5. Each valid envelope is inserted idempotently into local SQLite before the Agent acknowledges it.
+6. The control plane records acknowledgement idempotently and omits acknowledged commands from later polls.
+7. Local command transitions use conditional updates. The allowed transitions are `pending` to `running` or `cancelled`, and `running` to `completed`, `failed`, or `cancelled`.
+
+This provides at-least-once delivery with local deduplication: a lost acknowledgement can cause another poll, but it cannot create a second local command.
 
 ## Next implementation slice
 
-- Persist control-plane commands scoped to one Agent.
-- Add authenticated polling with protocol-version validation.
-- Persist commands locally before acknowledging receipt.
-- Add resumable status transitions and event emission.
-- Connect `StartDiscovery` to the first file-oriented plugin only after the queue semantics are proven.
+- Define the minimal plugin manifest and file-oriented discovery contract.
+- Implement the first-party file discovery plugin.
+- Connect `StartDiscovery` to a command executor that uses the durable state transitions.
+- Emit typed completion/failure events through the existing event outbox.
+- Add cancellation once there is a real operation boundary to cancel.

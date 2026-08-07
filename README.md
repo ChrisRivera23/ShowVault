@@ -40,12 +40,15 @@ Completed:
 - Pending enrollment and rotation state makes server activation recoverable after response loss, local credential-store failure, or process restart.
 - Venue Agent events and typed commands are durably queued in local SQLite.
 - Authenticated event delivery retries with stable event IDs and PostgreSQL deduplication.
+- Authorized venue managers can issue typed, expiring commands to a specific Agent.
+- Agents poll with their separate credential, validate protocol/identity/expiry, persist commands to SQLite, and only then acknowledge receipt.
+- Control-plane acknowledgements are idempotent, and local command state transitions are conditional and restart-safe.
 
 Current development branch:
 
-- `codex/agent-outbound-queue` — authenticated Agent event delivery and durable local queue.
+- `codex/agent-command-delivery` — durable control-plane command delivery and local command lifecycle.
 
-Client sign-in, membership administration, inbound command retrieval/execution, plugin, backup, verification, and restore functionality have not been implemented yet.
+Client sign-in, membership administration, command execution/cancellation, plugin, backup, verification, and restore functionality have not been implemented yet.
 
 ## Approved product direction
 
@@ -246,8 +249,8 @@ Universal object abstractions will be considered only after real plugin implemen
 3. Select the managed OpenID Connect provider. — Complete (Auth0)
 4. Implement organizations, venues, memberships, and tenant isolation. — Initial vertical slice complete
 5. Implement secure Venue Agent enrollment and identity. — Initial end-to-end slice complete
-6. Implement outbound Agent communication and durable local jobs. — Event-outbox and command-queue foundation complete
-7. Implement the first file-oriented discovery plugin.
+6. Implement outbound Agent communication and durable local jobs. — Durable event delivery and command receipt complete; execution follows with the first plugin
+7. Implement the first file-oriented discovery plugin. — Next
 8. Define and create the immutable recovery-package format.
 9. Implement cryptographic verification.
 10. Implement a controlled local restore.
@@ -255,6 +258,17 @@ Universal object abstractions will be considered only after real plugin implemen
 12. Add the network-device and system-inventory plugins.
 13. Add cloud upload and mobile monitoring.
 14. Pilot repeatedly with one real venue.
+
+## Conversation handoff
+
+This section is maintained so a new Codex task can resume without relying on the previous chat transcript.
+
+- Completed draft PR stack: PR #3 `codex/auth-tenancy-foundation`, PR #4 `codex/agent-enrollment-identity`, and PR #5 `codex/agent-outbound-queue`.
+- Active work: `codex/agent-command-delivery`, stacked on PR #5.
+- This slice adds PostgreSQL-issued Agent commands, manager authorization, authenticated polling, protocol/identity/expiry checks, local SQLite persistence before acknowledgement, idempotent acknowledgement, and guarded local states (`pending`, `running`, `completed`, `failed`, `cancelled`).
+- The next implementation task is the first file-oriented discovery plugin and the minimal command executor that moves `StartDiscovery` through the durable state machine and emits outcome events.
+- Auth0 is configured for human identity. Agent authentication intentionally remains a separate credential scheme.
+- Exact Codex context-window percentages are not exposed to the assistant. A context compaction occurred while building this slice; this README is the durable source of truth for a new task.
 
 ## Explicitly deferred
 
