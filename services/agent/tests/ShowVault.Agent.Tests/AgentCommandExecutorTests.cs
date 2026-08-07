@@ -74,6 +74,42 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CollectSystemInventory_persists_inventory_and_completes_durably()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var command = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CollectSystemInventory,
+            "inventory-correlation",
+            "{}",
+            now,
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, now, CancellationToken.None);
+
+        await CreateExecutor(store, now).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+
+        Assert.Single(await store.GetCommandsAsync(
+            LocalAgentCommandStatus.Completed,
+            CancellationToken.None));
+        var inventoryJson = await store.GetDiscoveryResultJsonAsync(
+            command.CommandId,
+            CancellationToken.None);
+        Assert.Contains(SystemInventoryPlugin.PluginId, inventoryJson, StringComparison.Ordinal);
+        Assert.Contains("logicalProcessorCount", inventoryJson, StringComparison.Ordinal);
+        var outcome = Assert.Single(await store.GetPendingEventsAsync(
+            now.AddMinutes(1),
+            10,
+            CancellationToken.None)).Envelope;
+        Assert.Equal(AgentEventType.JobCompleted, outcome.Type);
+        Assert.Contains("volumeCount", outcome.Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Running_command_resumes_after_restart_and_records_failure()
     {
         var now = DateTimeOffset.UtcNow;
@@ -240,6 +276,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         return new AgentCommandExecutor(
             store,
             new DiscoveryPluginRegistry([plugin]),
+            new SystemInventoryPlugin(timeProvider),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),

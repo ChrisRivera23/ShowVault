@@ -49,6 +49,7 @@ builder.Services.AddSingleton<AgentEventDispatcher>();
 builder.Services.AddSingleton<AgentCommandPoller>();
 builder.Services.AddSingleton<IDiscoveryPlugin, FileSystemDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
+builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<RecoveryPackageWriter>();
 builder.Services.AddSingleton<RecoveryPackageVerifier>();
 builder.Services.AddSingleton<RecoveryPackageRestorer>();

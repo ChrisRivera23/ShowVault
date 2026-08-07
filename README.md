@@ -266,7 +266,7 @@ Universal object abstractions will be considered only after real plugin implemen
 9. Implement cryptographic verification. — Initial structural and SHA-256 integrity verification complete
 10. Implement a controlled local restore. — Complete (allowlisted test targets)
 11. Display the complete recovery loop in Flutter. — Native client, Auth0 application registration, and authenticated live loading implemented; end-to-end login/API proof awaits a deployed API and a native build host
-12. Add the network-device and system-inventory plugins.
+12. Add the network-device and system-inventory plugins. — Read-only system-inventory plugin implemented; bounded network-device discovery remains next
 13. Add cloud upload and mobile monitoring.
 14. Pilot repeatedly with one real venue.
 
@@ -275,10 +275,10 @@ Universal object abstractions will be considered only after real plugin implemen
 This section is maintained so a new Codex task can resume without relying on the previous chat transcript.
 
 - Completed draft PR stack: PRs #3 through #11, ending with `codex/recovery-history-read-model`.
-- Active work: `codex/flutter-auth0-live-history`, stacked on PR #11.
-- This slice adds native Android/iOS/macOS/Windows runners, the `com.showvault.app` identity, Auth0 Universal Login/session restoration, bearer-authenticated tenant discovery and recovery-history loading, explicit setup/empty/error states, and removes all preview recovery records.
+- Draft PR #12 branch: `codex/flutter-auth0-live-history`, stacked on PR #11. It adds native Android/iOS/macOS/Windows runners, Auth0 Universal Login/session restoration, bearer-authenticated tenant discovery and recovery-history loading, and removes all preview recovery records.
+- Active work: `codex/system-inventory-plugin`, stacked on PR #12. It adds the protocol 1.1 `CollectSystemInventory` command and a bounded, permission-scoped, read-only host inventory plugin with durable results and completion events.
 - Auth0 Native application `ShowVault Flutter` is registered and its callback/logout URLs and public Client ID are configured. A live login/API proof still requires a deployed ShowVault API and a native build host; this workstation has only Xcode Command Line Tools.
-- The next numbered implementation slice is system-inventory and network-device discovery. Start with a bounded, read-only system-inventory plugin; the first vendor-specific product integration and pilot workflow remain Product Owner decisions.
+- The next implementation slice is bounded, allowlisted network-device discovery. The first vendor-specific product integration and pilot workflow remain Product Owner decisions.
 - Auth0 is configured for human identity. Agent authentication intentionally remains a separate credential scheme.
 - Exact Codex context-window percentages are not exposed to the assistant. A context compaction occurred while building this slice; this README is the durable source of truth for a new task.
 
@@ -356,4 +356,4 @@ dotnet test tests/ShowVault.Agent.Tests/ShowVault.Agent.Tests.csproj
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-Draft PRs #3 through #11 establish Auth0 tenancy, the complete Agent-side Scan → Backup → Verify → Restore loop, and the tenant recovery read model. Draft PR #12 adds all native Flutter runners, the registered Auth0 Native client, and authenticated live history while removing preview data. A live login/API proof requires a deployed API and a native build host; full Xcode is not installed on this workstation. The next focused slice begins implementation-sequence item 12 with bounded, read-only system inventory. macOS LaunchDaemon keychain access remains an installer-validation requirement. Keep this README current and continue through focused, validated draft pull requests.
+Draft PRs #3 through #11 establish Auth0 tenancy, the complete Agent-side Scan → Backup → Verify → Restore loop, and the tenant recovery read model. Draft PR #12 adds all native Flutter runners, the registered Auth0 Native client, and authenticated live history while removing preview data. The active stacked branch implements protocol 1.1 and bounded, read-only system inventory; network-device discovery follows. A live login/API proof requires a deployed API and a native build host; full Xcode is not installed on this workstation. macOS LaunchDaemon keychain access remains an installer-validation requirement. Keep this README current and continue through focused, validated draft pull requests.
