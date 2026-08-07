@@ -76,6 +76,39 @@ public sealed class YamahaDspDiscoveryPluginTests : IDisposable
                 CancellationToken.None));
     }
 
+    [Fact]
+    public async Task PcDdi_recognizes_ProVisionaire_Design_project_and_companions()
+    {
+        var projectRoot = Path.Combine(_root, "pc-d-di");
+        Directory.CreateDirectory(Path.Combine(projectRoot, "speaker-data"));
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "Amplifiers.pvd"), "project");
+        await File.WriteAllTextAsync(
+            Path.Combine(projectRoot, "speaker-data", "restore-notes.txt"),
+            "notes");
+
+        var result = await CreatePcDdi(projectRoot).DiscoverAsync(
+            new DiscoveryRequest(projectRoot),
+            CancellationToken.None);
+
+        Assert.Equal(YamahaPcDdiDiscoveryPlugin.PluginId, result.PluginId);
+        Assert.Contains(result.Files, file => file.RelativePath == "Amplifiers.pvd");
+        Assert.Contains(result.Files,
+            file => file.RelativePath == Path.Combine("speaker-data", "restore-notes.txt"));
+    }
+
+    [Fact]
+    public async Task PcDdi_rejects_MtxMrx_project()
+    {
+        var projectRoot = Path.Combine(_root, "pc-wrong-family");
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "Amplifiers.mtx"), "project");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreatePcDdi(projectRoot).DiscoverAsync(
+                new DiscoveryRequest(projectRoot),
+                CancellationToken.None));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))
@@ -101,6 +134,16 @@ public sealed class YamahaDspDiscoveryPluginTests : IDisposable
                 ControlPlaneUri = new Uri("https://control.test"),
                 Name = "Test Agent",
                 YamahaMtxMrxProjectRoots = [projectRoot]
+            }),
+            TimeProvider.System);
+
+    private YamahaPcDdiDiscoveryPlugin CreatePcDdi(string projectRoot) =>
+        new(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaPcDdiProjectRoots = [projectRoot]
             }),
             TimeProvider.System);
 }

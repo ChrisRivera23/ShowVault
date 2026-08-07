@@ -53,6 +53,9 @@ builder.Services
         options => options.YamahaMtxMrxProjectRoots.All(Path.IsPathFullyQualified),
         "Every Yamaha MTX/MRX project root must be an absolute path.")
     .Validate(
+        options => options.YamahaPcDdiProjectRoots.All(Path.IsPathFullyQualified),
+        "Every Yamaha PC-D/DI project root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -97,6 +100,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, YamahaTfDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaDm3DiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaDme7DiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaMtxMrxDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, YamahaPcDdiDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();

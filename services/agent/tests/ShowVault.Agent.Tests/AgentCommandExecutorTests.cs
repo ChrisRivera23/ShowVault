@@ -443,6 +443,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 YamahaMtxMrxProjectRoots = [Path.Combine(_testRoot, "yamaha-mtx-mrx")]
             }),
             timeProvider);
+        var yamahaPcDdiPlugin = new YamahaPcDdiDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaPcDdiProjectRoots = [Path.Combine(_testRoot, "yamaha-pc-d-di")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -458,7 +466,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     yamahaTfPlugin,
                     yamahaDm3Plugin,
                     yamahaDme7Plugin,
-                    yamahaMtxMrxPlugin
+                    yamahaMtxMrxPlugin,
+                    yamahaPcDdiPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
