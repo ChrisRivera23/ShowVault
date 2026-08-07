@@ -625,6 +625,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 BiampTesiraConfigurationRoots = [Path.Combine(_testRoot, "biamp-tesira")]
             }),
             timeProvider);
+        var symetrixComposerPlugin = new SymetrixComposerDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                SymetrixComposerSiteRoots = [Path.Combine(_testRoot, "symetrix-composer")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -662,7 +670,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     tascamModelMtrPlugin,
                     rolandM5000Plugin,
                     preSonusSeriesIiiPlugin,
-                    biampTesiraPlugin
+                    biampTesiraPlugin,
+                    symetrixComposerPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(

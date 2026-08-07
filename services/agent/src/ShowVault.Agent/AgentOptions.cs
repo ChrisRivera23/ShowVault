@@ -90,4 +90,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> PreSonusStudioLiveSeriesIiiBackupRoots { get; init; } = [];
 
     public IReadOnlyList<string> BiampTesiraConfigurationRoots { get; init; } = [];
+
+    public IReadOnlyList<string> SymetrixComposerSiteRoots { get; init; } = [];
 }

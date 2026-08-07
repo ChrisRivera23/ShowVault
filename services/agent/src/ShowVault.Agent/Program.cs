@@ -119,6 +119,9 @@ builder.Services
         options => options.BiampTesiraConfigurationRoots.All(Path.IsPathFullyQualified),
         "Every Biamp Tesira configuration root must be an absolute path.")
     .Validate(
+        options => options.SymetrixComposerSiteRoots.All(Path.IsPathFullyQualified),
+        "Every Symetrix Composer site root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -185,6 +188,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, TascamModelMtrDiscoveryPlugin>()
 builder.Services.AddSingleton<IDiscoveryPlugin, RolandM5000DiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, PreSonusStudioLiveSeriesIiiDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, BiampTesiraDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, SymetrixComposerDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
