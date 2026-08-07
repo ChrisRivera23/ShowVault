@@ -128,6 +128,46 @@ public sealed class YamahaConsoleDiscoveryPluginTests : IDisposable
                 CancellationToken.None));
     }
 
+    [Fact]
+    public async Task Dm3_requires_all_settings_and_preserves_scenes_and_presets()
+    {
+        var exportRoot = Path.Combine(_root, "dm3-export");
+        Directory.CreateDirectory(Path.Combine(exportRoot, "library"));
+        await File.WriteAllTextAsync(Path.Combine(exportRoot, "Venue.DM3F"), "all settings");
+        await File.WriteAllTextAsync(
+            Path.Combine(exportRoot, "library", "Opening.DM3S"),
+            "scene");
+        await File.WriteAllTextAsync(
+            Path.Combine(exportRoot, "library", "Vocal.DM3P"),
+            "preset");
+
+        var result = await CreateDm3(exportRoot).DiscoverAsync(
+            new DiscoveryRequest(exportRoot),
+            CancellationToken.None);
+
+        Assert.Equal(YamahaDm3DiscoveryPlugin.PluginId, result.PluginId);
+        Assert.Contains(result.Files, file => file.RelativePath == "Venue.DM3F");
+        Assert.Contains(result.Files,
+            file => file.RelativePath == Path.Combine("library", "Opening.DM3S"));
+        Assert.Contains(result.Files,
+            file => file.RelativePath == Path.Combine("library", "Vocal.DM3P"));
+    }
+
+    [Theory]
+    [InlineData("OnlyScene.DM3S")]
+    [InlineData("OnlyPreset.DM3P")]
+    public async Task Dm3_rejects_partial_artifact_without_all_settings(string fileName)
+    {
+        var exportRoot = Path.Combine(_root, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(exportRoot);
+        await File.WriteAllTextAsync(Path.Combine(exportRoot, fileName), "partial");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateDm3(exportRoot).DiscoverAsync(
+                new DiscoveryRequest(exportRoot),
+                CancellationToken.None));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))
@@ -175,6 +215,16 @@ public sealed class YamahaConsoleDiscoveryPluginTests : IDisposable
                 ControlPlaneUri = new Uri("https://control.test"),
                 Name = "Test Agent",
                 YamahaTfExportRoots = [exportRoot]
+            }),
+            TimeProvider.System);
+
+    private YamahaDm3DiscoveryPlugin CreateDm3(string exportRoot) =>
+        new(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaDm3ExportRoots = [exportRoot]
             }),
             TimeProvider.System);
 

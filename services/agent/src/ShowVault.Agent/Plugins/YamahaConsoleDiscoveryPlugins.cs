@@ -97,3 +97,24 @@ public sealed class YamahaTfDiscoveryPlugin(
     protected override bool HasExpectedStructure(string rootPath) =>
         ContainsExtension(rootPath, ".tff");
 }
+
+public sealed class YamahaDm3DiscoveryPlugin(
+    IOptions<AgentOptions> options,
+    TimeProvider timeProvider) : ExactRootFileDiscoveryPluginBase(options, timeProvider)
+{
+    public const string PluginId = "showvault.yamaha-dm3";
+
+    public override AgentPluginManifest Manifest { get; } = new(
+        PluginId,
+        "ShowVault Yamaha DM3 Settings Export",
+        "0.1.0",
+        new HashSet<AgentPluginCapability> { AgentPluginCapability.Discovery },
+        new HashSet<AgentPluginPermission> { AgentPluginPermission.ReadFiles });
+
+    protected override IReadOnlyList<string> ConfiguredRoots => Options.YamahaDm3ExportRoots;
+
+    protected override string ProductName => "Yamaha DM3";
+
+    protected override bool HasExpectedStructure(string rootPath) =>
+        ContainsExtension(rootPath, ".dm3f");
+}
