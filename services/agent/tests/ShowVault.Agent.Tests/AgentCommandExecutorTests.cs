@@ -608,6 +608,15 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 RolandM5000ProjectRoots = [Path.Combine(_testRoot, "roland-m5000")]
             }),
             timeProvider);
+        var preSonusSeriesIiiPlugin = new PreSonusStudioLiveSeriesIiiDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                PreSonusStudioLiveSeriesIiiBackupRoots =
+                    [Path.Combine(_testRoot, "presonus-series-iii")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -643,7 +652,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     behringerWingPlugin,
                     soundcraftViPlugin,
                     tascamModelMtrPlugin,
-                    rolandM5000Plugin
+                    rolandM5000Plugin,
+                    preSonusSeriesIiiPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
