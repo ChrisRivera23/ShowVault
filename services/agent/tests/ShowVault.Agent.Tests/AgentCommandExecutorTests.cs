@@ -657,6 +657,12 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 AshlyProteaNeProjectRoots = [Path.Combine(_testRoot, "ashly-protea-ne")]
             }),
             timeProvider);
+        var powersoftArmoniaPlusPlugin = new PowersoftArmoniaPlusDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"), Name = "Test Agent",
+                PowersoftArmoniaPlusProjectRoots = [Path.Combine(_testRoot, "powersoft-armoniaplus")]
+            }), timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -698,7 +704,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     symetrixComposerPlugin,
                     boseControlSpacePlugin,
                     peaveyNwarePlugin,
-                    ashlyProteaNePlugin
+                    ashlyProteaNePlugin,
+                    powersoftArmoniaPlusPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
