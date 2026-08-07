@@ -19,20 +19,11 @@
 7. Plugin SDK and initial production plugins
 8. Internal testing, beta, and public release
 
-## Version 1 integration order
+## Version 1 integration program
 
-1. Resolume portable show bundle
-2. grandMA2 and grandMA3 show backup workflows
-3. Yamaha product-family workflow selected from pilot venue hardware
-4. Q-SYS
-5. ETC Eos
-6. Dante
-7. Crestron
-8. Shure
-9. Allen & Heath
-10. Blackmagic Design
+The complete launch scope and delivery waves are maintained in [`INTEGRATION_CATALOG.md`](INTEGRATION_CATALOG.md). Work begins with Resolume portable show bundles, then grandMA2/grandMA3 and a Yamaha workflow selected from pilot hardware. Resolume, Yamaha, and MA Lighting remain the highest priorities.
 
-Resolume, Yamaha, and grandMA2/grandMA3 are the highest-priority venue integrations. All ten listed families are required before Version 1 release; each must ship as a tested vertical recovery workflow rather than a catalog placeholder.
+Version 1 readiness requires an explicit support record for every catalog entry. A manufacturer record names tested product families and versions; a protocol record names the supported capability and conformance boundary. Empty plugins and generic reachability do not count as integration coverage.
 
 ## Deferred
 
