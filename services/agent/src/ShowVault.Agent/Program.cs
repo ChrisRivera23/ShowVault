@@ -161,6 +161,9 @@ builder.Services
         options => options.JblVenueSynthesisProjectRoots.All(Path.IsPathFullyQualified),
         "Every JBL Venue Synthesis project root must be an absolute path.")
     .Validate(
+        options => options.MartinAudioVuNetProjectRoots.All(Path.IsPathFullyQualified),
+        "Every Martin Audio Vu-Net project root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -241,6 +244,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, LAcousticsSoundvisionDiscoveryPl
 builder.Services.AddSingleton<IDiscoveryPlugin, MeyerSoundMapp3dDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, NexoNs1DiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, JblVenueSynthesisDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, MartinAudioVuNetDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
