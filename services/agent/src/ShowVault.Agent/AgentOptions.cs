@@ -32,4 +32,8 @@ public sealed class AgentOptions
     public IReadOnlyList<string> GrandMa2ExportRoots { get; init; } = [];
 
     public IReadOnlyList<string> GrandMa3ExportRoots { get; init; } = [];
+
+    public IReadOnlyList<string> YamahaDm7ExportRoots { get; init; } = [];
+
+    public IReadOnlyList<string> YamahaRivageExportRoots { get; init; } = [];
 }

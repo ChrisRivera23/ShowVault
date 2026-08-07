@@ -32,6 +32,12 @@ builder.Services
         options => options.GrandMa3ExportRoots.All(Path.IsPathFullyQualified),
         "Every grandMA3 export root must be an absolute path.")
     .Validate(
+        options => options.YamahaDm7ExportRoots.All(Path.IsPathFullyQualified),
+        "Every Yamaha DM7 export root must be an absolute path.")
+    .Validate(
+        options => options.YamahaRivageExportRoots.All(Path.IsPathFullyQualified),
+        "Every Yamaha RIVAGE PM export root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -69,6 +75,8 @@ builder.Services.AddSingleton<IDiscoveryPlugin, FileSystemDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, ResolumeDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, GrandMa2ShowDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, GrandMa3ShowDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, YamahaDm7DiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, YamahaRivageDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();

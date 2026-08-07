@@ -387,11 +387,34 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 GrandMa3ExportRoots = [Path.Combine(_testRoot, "grandMA3")]
             }),
             timeProvider);
+        var yamahaDm7Plugin = new YamahaDm7DiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaDm7ExportRoots = [Path.Combine(_testRoot, "yamaha-dm7")]
+            }),
+            timeProvider);
+        var yamahaRivagePlugin = new YamahaRivageDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaRivageExportRoots = [Path.Combine(_testRoot, "yamaha-rivage")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
             new DiscoveryPluginRegistry(
-                [plugin, resolumePlugin, grandMa2Plugin, grandMa3Plugin]),
+                [
+                    plugin,
+                    resolumePlugin,
+                    grandMa2Plugin,
+                    grandMa3Plugin,
+                    yamahaDm7Plugin,
+                    yamahaRivagePlugin
+                ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
                 Options.Create(new AgentOptions

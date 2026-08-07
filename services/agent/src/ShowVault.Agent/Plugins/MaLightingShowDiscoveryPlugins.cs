@@ -3,7 +3,7 @@ using Microsoft.Extensions.Options;
 
 namespace ShowVault.Agent.Plugins;
 
-public abstract class MaLightingShowDiscoveryPluginBase(
+public abstract class ExactRootFileDiscoveryPluginBase(
     IOptions<AgentOptions> options,
     TimeProvider timeProvider) : IDiscoveryPlugin
 {
@@ -112,7 +112,7 @@ public abstract class MaLightingShowDiscoveryPluginBase(
 
 public sealed class GrandMa2ShowDiscoveryPlugin(
     IOptions<AgentOptions> options,
-    TimeProvider timeProvider) : MaLightingShowDiscoveryPluginBase(options, timeProvider)
+    TimeProvider timeProvider) : ExactRootFileDiscoveryPluginBase(options, timeProvider)
 {
     public const string PluginId = "showvault.malighting-grandma2";
 
@@ -142,7 +142,7 @@ public sealed class GrandMa2ShowDiscoveryPlugin(
 
 public sealed class GrandMa3ShowDiscoveryPlugin(
     IOptions<AgentOptions> options,
-    TimeProvider timeProvider) : MaLightingShowDiscoveryPluginBase(options, timeProvider)
+    TimeProvider timeProvider) : ExactRootFileDiscoveryPluginBase(options, timeProvider)
 {
     public const string PluginId = "showvault.malighting-grandma3";
 
