@@ -60,4 +60,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> DanteControllerPresetRoots { get; init; } = [];
 
     public IReadOnlyList<string> AllenHeathSqShowRoots { get; init; } = [];
+
+    public IReadOnlyList<string> CrestronSimplProjectRoots { get; init; } = [];
 }

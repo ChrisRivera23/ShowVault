@@ -501,6 +501,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     [Path.Combine(_testRoot, "AHSQ", "SHOWS", "SHOW0000")]
             }),
             timeProvider);
+        var crestronSimplPlugin = new CrestronSimplDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                CrestronSimplProjectRoots = [Path.Combine(_testRoot, "crestron-simpl")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -523,7 +531,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     qsysDesignerPlugin,
                     etcEosPlugin,
                     danteControllerPlugin,
-                    allenHeathSqPlugin
+                    allenHeathSqPlugin,
+                    crestronSimplPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
