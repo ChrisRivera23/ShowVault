@@ -62,6 +62,9 @@ builder.Services
         options => options.YamahaDme5Dme3ProjectRoots.All(Path.IsPathFullyQualified),
         "Every Yamaha DME5/DME3 project root must be an absolute path.")
     .Validate(
+        options => options.QsysDesignerProjectRoots.All(Path.IsPathFullyQualified),
+        "Every Q-SYS Designer project root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -109,6 +112,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, YamahaMtxMrxDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaPcDdiDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaProVisionaireControlDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaDme5Dme3DiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, QsysDesignerDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
