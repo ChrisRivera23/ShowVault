@@ -101,6 +101,9 @@ builder.Services
         options => options.MidasProShowRoots.All(Path.IsPathFullyQualified),
         "Every Midas PRO Series show root must be an absolute path.")
     .Validate(
+        options => options.BehringerWingShowRoots.All(Path.IsPathFullyQualified),
+        "Every Behringer WING show root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -161,6 +164,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, LawoMc2DiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, CalrecApolloArtemisDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, StuderVistaDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, MidasProDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, BehringerWingDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();

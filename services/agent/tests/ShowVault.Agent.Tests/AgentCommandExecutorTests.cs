@@ -575,6 +575,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 MidasProShowRoots = [Path.Combine(_testRoot, "midas-pro")]
             }),
             timeProvider);
+        var behringerWingPlugin = new BehringerWingDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                BehringerWingShowRoots = [Path.Combine(_testRoot, "behringer-wing")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -606,7 +614,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     lawoMc2Plugin,
                     calrecApolloArtemisPlugin,
                     studerVistaPlugin,
-                    midasProPlugin
+                    midasProPlugin,
+                    behringerWingPlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
