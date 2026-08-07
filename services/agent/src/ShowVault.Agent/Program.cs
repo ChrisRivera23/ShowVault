@@ -110,6 +110,9 @@ builder.Services
         options => options.TascamModelMtrSongRoots.All(Path.IsPathFullyQualified),
         "Every Tascam Model-series MTR song root must be an absolute path.")
     .Validate(
+        options => options.RolandM5000ProjectRoots.All(Path.IsPathFullyQualified),
+        "Every Roland M-5000 project root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -173,6 +176,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, MidasProDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, BehringerWingDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, SoundcraftViDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, TascamModelMtrDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, RolandM5000DiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();

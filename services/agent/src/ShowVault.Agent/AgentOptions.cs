@@ -84,4 +84,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> SoundcraftViShowRoots { get; init; } = [];
 
     public IReadOnlyList<string> TascamModelMtrSongRoots { get; init; } = [];
+
+    public IReadOnlyList<string> RolandM5000ProjectRoots { get; init; } = [];
 }

@@ -600,6 +600,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     [Path.Combine(_testRoot, "MTR", "tascam-song")]
             }),
             timeProvider);
+        var rolandM5000Plugin = new RolandM5000DiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                RolandM5000ProjectRoots = [Path.Combine(_testRoot, "roland-m5000")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -634,7 +642,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     midasProPlugin,
                     behringerWingPlugin,
                     soundcraftViPlugin,
-                    tascamModelMtrPlugin
+                    tascamModelMtrPlugin,
+                    rolandM5000Plugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(
