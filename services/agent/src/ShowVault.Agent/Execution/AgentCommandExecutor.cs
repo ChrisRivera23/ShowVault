@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
 using ShowVault.Agent.Identity;
 using ShowVault.Agent.Plugins;
 using ShowVault.Agent.Queue;
@@ -11,6 +13,7 @@ public sealed class AgentCommandExecutor(
     AgentQueueStore queueStore,
     DiscoveryPluginRegistry pluginRegistry,
     RecoveryPackageWriter packageWriter,
+    RecoveryPackageVerifier packageVerifier,
     TimeProvider timeProvider,
     ILogger<AgentCommandExecutor> logger)
 {
@@ -91,6 +94,9 @@ public sealed class AgentCommandExecutor(
                     break;
                 case AgentCommandType.CreateBackup:
                     await ExecuteCreateBackupAsync(identity, command, cancellationToken);
+                    break;
+                case AgentCommandType.VerifyBackup:
+                    await ExecuteVerifyBackupAsync(identity, command, cancellationToken);
                     break;
                 default:
                     throw new InvalidOperationException(
@@ -197,6 +203,91 @@ public sealed class AgentCommandExecutor(
             cancellationToken);
     }
 
+    private async Task ExecuteVerifyBackupAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Deserialize<VerifyBackupPayload>(command.Payload, JsonOptions)
+            ?? throw new InvalidOperationException("VerifyBackup payload is required.");
+        var package = await queueStore.GetRecoveryPackageAsync(
+            payload.BackupCommandId,
+            cancellationToken)
+            ?? throw new InvalidOperationException("The referenced recovery package was not found.");
+        var storedVerification = await queueStore.GetPackageVerificationAsync(
+            command.CommandId,
+            cancellationToken);
+        RecoveryPackageVerificationResult result;
+        string resultJson;
+        string evidenceSha256;
+        if (storedVerification is null)
+        {
+            result = await packageVerifier.VerifyAsync(
+                command.CommandId,
+                identity.AgentId,
+                package.PackageId,
+                package.PackagePath,
+                command.IssuedAt,
+                cancellationToken);
+            resultJson = RecoveryPackageVerifier.Serialize(result);
+            evidenceSha256 = Convert.ToHexStringLower(
+                SHA256.HashData(Encoding.UTF8.GetBytes(resultJson)));
+            await queueStore.StorePackageVerificationAsync(
+                command.CommandId,
+                package.PackageId,
+                resultJson,
+                evidenceSha256,
+                command.IssuedAt,
+                cancellationToken);
+        }
+        else
+        {
+            if (storedVerification.PackageId != package.PackageId)
+            {
+                throw new InvalidOperationException(
+                    "Stored verification evidence references a different package.");
+            }
+
+            resultJson = storedVerification.ResultJson;
+            evidenceSha256 = storedVerification.EvidenceSha256;
+            var actualEvidenceSha256 = Convert.ToHexStringLower(
+                SHA256.HashData(Encoding.UTF8.GetBytes(resultJson)));
+            if (!string.Equals(
+                actualEvidenceSha256,
+                evidenceSha256,
+                StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Stored verification evidence digest is invalid.");
+            }
+
+            result = JsonSerializer.Deserialize<RecoveryPackageVerificationResult>(
+                resultJson,
+                JsonOptions)
+                ?? throw new InvalidOperationException("Stored verification evidence is invalid.");
+            if (result.VerificationId != command.CommandId || result.PackageId != package.PackageId)
+            {
+                throw new InvalidOperationException("Stored verification evidence identity is invalid.");
+            }
+        }
+
+        await RecordOutcomeAsync(
+            identity,
+            command,
+            AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Completed,
+            JsonSerializer.Serialize(
+                new
+                {
+                    result.VerificationId,
+                    result.PackageId,
+                    result.Passed,
+                    levels = result.Levels.Select(level => new { level.Level, level.Passed }),
+                    evidenceSha256
+                },
+                JsonOptions),
+            cancellationToken);
+    }
+
     private async Task RecordOutcomeAsync(
         StoredAgentIdentity identity,
         AgentCommandEnvelope command,
@@ -242,4 +333,6 @@ public sealed class AgentCommandExecutor(
         int MaxFiles = 1_000);
 
     private sealed record CreateBackupPayload(Guid DiscoveryCommandId);
+
+    private sealed record VerifyBackupPayload(Guid BackupCommandId);
 }

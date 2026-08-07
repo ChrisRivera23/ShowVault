@@ -47,6 +47,7 @@ builder.Services.AddSingleton<AgentCommandPoller>();
 builder.Services.AddSingleton<IDiscoveryPlugin, FileSystemDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<RecoveryPackageWriter>();
+builder.Services.AddSingleton<RecoveryPackageVerifier>();
 builder.Services.AddSingleton<AgentCommandExecutor>();
 builder.Services.AddSingleton<AgentIdentityBootstrapper>();
 if (OperatingSystem.IsWindowsVersionAtLeast(5, 1, 2600))
