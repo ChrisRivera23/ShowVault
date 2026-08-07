@@ -675,6 +675,12 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 ControlPlaneUri = new Uri("https://control.test"), Name = "Test Agent",
                 LabGruppenLakeSystemRoots = [Path.Combine(_testRoot, "lab-gruppen-lake")]
             }), timeProvider);
+        var dynacordSonicuePlugin = new DynacordSonicueDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"), Name = "Test Agent",
+                DynacordSonicueProjectRoots = [Path.Combine(_testRoot, "dynacord-sonicue")]
+            }), timeProvider);
         var verifier = new RecoveryPackageVerifier();
         return new AgentCommandExecutor(
             store,
@@ -719,7 +725,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     ashlyProteaNePlugin,
                     powersoftArmoniaPlusPlugin,
                     crownAudioArchitectPlugin,
-                    labGruppenLakePlugin
+                    labGruppenLakePlugin,
+                    dynacordSonicuePlugin
                 ]),
             new SystemInventoryPlugin(timeProvider),
             new NetworkDeviceDiscoveryPlugin(

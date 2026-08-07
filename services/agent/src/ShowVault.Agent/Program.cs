@@ -140,6 +140,9 @@ builder.Services
         options => options.LabGruppenLakeSystemRoots.All(Path.IsPathFullyQualified),
         "Every Lab Gruppen Lake system root must be an absolute path.")
     .Validate(
+        options => options.DynacordSonicueProjectRoots.All(Path.IsPathFullyQualified),
+        "Every Dynacord SONICUE project root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -213,6 +216,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, AshlyProteaNeDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, PowersoftArmoniaPlusDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, CrownAudioArchitectDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, LabGruppenLakeDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, DynacordSonicueDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
