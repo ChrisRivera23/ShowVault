@@ -155,6 +155,9 @@ builder.Services
         options => options.MeyerSoundMapp3dProjectRoots.All(Path.IsPathFullyQualified),
         "Every Meyer Sound MAPP 3D project root must be an absolute path.")
     .Validate(
+        options => options.NexoNs1ProjectRoots.All(Path.IsPathFullyQualified),
+        "Every NEXO NS-1 project root must be an absolute path.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -233,6 +236,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, ElectroVoiceIrisNetDiscoveryPlug
 builder.Services.AddSingleton<IDiscoveryPlugin, DbAudiotechnikR1DiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, LAcousticsSoundvisionDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, MeyerSoundMapp3dDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, NexoNs1DiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();

@@ -114,4 +114,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> LAcousticsSoundvisionProjectRoots { get; init; } = [];
 
     public IReadOnlyList<string> MeyerSoundMapp3dProjectRoots { get; init; } = [];
+
+    public IReadOnlyList<string> NexoNs1ProjectRoots { get; init; } = [];
 }

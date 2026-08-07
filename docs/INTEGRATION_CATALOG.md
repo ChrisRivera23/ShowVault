@@ -35,7 +35,7 @@ Manufacturer names do not imply automatic support for every product the company 
 - d&b audiotechnik — shared R1/ArrayCalc `.dbpr` project discovery implemented with legacy and commissioning companions preserved
 - L-Acoustics — Soundvision `.xmlp` project discovery implemented with venue and LA Network Manager recovery companions preserved
 - Meyer Sound — MAPP 3D `.mapp` project discovery implemented with `MAPP Backup` autosaves, imported venue drawings, exports, and other exact-root companions preserved
-- NEXO
+- NEXO — NS-1 `.nexo`/`.nexo3` project discovery implemented with revisions, imported venue material, exports, and other exact-root companions preserved
 - RCF
 - JBL Professional
 - Martin Audio
