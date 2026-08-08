@@ -120,6 +120,7 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
             $"{candidatePath}/{candidateId}/validate",
             new ValidateRecoveryCandidateRequest(500));
         Assert.Equal(HttpStatusCode.Accepted, validationResponse.StatusCode);
+        Guid validationCommandId;
         using (var scope = factory.Services.CreateScope())
         {
             var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
@@ -139,7 +140,61 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
             Assert.Equal(candidateId, validationPayload!.CandidateId);
             Assert.Equal(500, validationPayload.MaxFiles);
             Assert.DoesNotContain("path", validationCommand.Payload, StringComparison.OrdinalIgnoreCase);
+            validationCommandId = validationCommand.CommandId;
         }
+        var validationOutcome = new AgentEventEnvelope(
+            validationCommandId,
+            enrolledAgent.Payload.AgentId,
+            AgentEventType.JobCompleted,
+            AgentProtocol.Version,
+            DateTimeOffset.UtcNow,
+            "validation-outcome",
+            "{\"candidateId\":\"" + candidateId +
+                "\",\"pluginId\":\"showvault.resolume\",\"fileCount\":12,\"truncated\":false}");
+        Assert.Equal(
+            HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", validationOutcome)).StatusCode);
+        var validatedCandidates = await ownerClient.GetFromJsonAsync<
+            ApiResponse<IReadOnlyList<RecoveryCandidateSummary>>>(candidatePath);
+        var validatedCandidate = Assert.Single(validatedCandidates!.Payload);
+        Assert.Equal("passed", validatedCandidate.ValidationStatus);
+        Assert.Equal(12, validatedCandidate.ValidationFileCount);
+        Assert.False(validatedCandidate.ValidationTruncated);
+        var backupResponse = await ownerClient.PostAsync(
+            $"{candidatePath}/{candidateId}/backup",
+            null);
+        Assert.Equal(HttpStatusCode.Accepted, backupResponse.StatusCode);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            var candidateBackupCommand = await database.IssuedAgentCommands.SingleAsync(command =>
+                command.AgentId == enrolledAgent.Payload.AgentId &&
+                command.Type == AgentCommandType.CreateBackup);
+            Assert.Contains(validationCommandId.ToString(), candidateBackupCommand.Payload, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("path", candidateBackupCommand.Payload, StringComparison.OrdinalIgnoreCase);
+        }
+        var retryValidationResponse = await ownerClient.PostAsJsonAsync(
+            $"{candidatePath}/{candidateId}/validate",
+            new ValidateRecoveryCandidateRequest(500));
+        var retryValidation = await retryValidationResponse.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>();
+        Assert.NotNull(retryValidation);
+        var failedOutcome = new AgentEventEnvelope(
+            retryValidation.Payload.CommandId,
+            enrolledAgent.Payload.AgentId,
+            AgentEventType.JobFailed,
+            AgentProtocol.Version,
+            DateTimeOffset.UtcNow,
+            "validation-failed",
+            "{\"error\":\"Recognized recovery content was not found.\"}");
+        Assert.Equal(
+            HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", failedOutcome)).StatusCode);
+        var failedCandidates = await ownerClient.GetFromJsonAsync<
+            ApiResponse<IReadOnlyList<RecoveryCandidateSummary>>>(candidatePath);
+        var failedCandidate = Assert.Single(failedCandidates!.Payload);
+        Assert.Equal("failed", failedCandidate.ValidationStatus);
+        Assert.Equal("Recognized recovery content was not found.", failedCandidate.ValidationMessage);
 
         var mismatchedEvent = agentEvent with
         {

@@ -142,8 +142,11 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.Property(candidate => candidate.CandidateType).HasMaxLength(80).IsRequired();
             entity.Property(candidate => candidate.Evidence).HasMaxLength(500).IsRequired();
             entity.Property(candidate => candidate.Decision).HasConversion<string>().HasMaxLength(32);
+            entity.Property(candidate => candidate.ValidationStatus).HasConversion<string>().HasMaxLength(32);
+            entity.Property(candidate => candidate.ValidationMessage).HasMaxLength(500);
             entity.Property(candidate => candidate.DecidedBySubject).HasMaxLength(255);
             entity.HasIndex(candidate => new { candidate.AgentId, candidate.DetectedAt });
+            entity.HasIndex(candidate => candidate.ValidationCommandId).IsUnique();
             entity.HasOne<VenueAgent>()
                 .WithMany()
                 .HasForeignKey(candidate => candidate.AgentId)

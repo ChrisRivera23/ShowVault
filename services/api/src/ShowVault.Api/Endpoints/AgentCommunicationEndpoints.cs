@@ -69,6 +69,10 @@ public static class AgentCommunicationEndpoints
             envelope,
             timeProvider.GetUtcNow()));
         AddRecoveryCandidates(database, envelope);
+        await UpdateRecoveryCandidateValidationAsync(
+            database,
+            envelope,
+            cancellationToken);
         try
         {
             await database.SaveChangesAsync(cancellationToken);
@@ -85,6 +89,82 @@ public static class AgentCommunicationEndpoints
         }
 
         return Results.Accepted();
+    }
+
+    private static async Task UpdateRecoveryCandidateValidationAsync(
+        PlatformDbContext database,
+        AgentEventEnvelope envelope,
+        CancellationToken cancellationToken)
+    {
+        if (envelope.Type is not (AgentEventType.JobCompleted or AgentEventType.JobFailed))
+        {
+            return;
+        }
+
+        var command = await database.IssuedAgentCommands.AsNoTracking().SingleOrDefaultAsync(
+            candidate => candidate.CommandId == envelope.EventId &&
+                candidate.AgentId == envelope.AgentId &&
+                candidate.Type == AgentCommandType.ValidateRecoveryCandidate,
+            cancellationToken);
+        if (command is null)
+        {
+            return;
+        }
+
+        ValidateRecoveryCandidatePayload? commandPayload;
+        try
+        {
+            commandPayload = JsonSerializer.Deserialize<ValidateRecoveryCandidatePayload>(command.Payload);
+        }
+        catch (JsonException)
+        {
+            return;
+        }
+
+        if (commandPayload is null)
+        {
+            return;
+        }
+
+        var candidate = await database.RecoveryCandidates.SingleOrDefaultAsync(
+            item => item.Id == commandPayload.CandidateId &&
+                item.AgentId == envelope.AgentId &&
+                item.ValidationCommandId == envelope.EventId &&
+                item.ValidationStatus == RecoveryCandidateValidationStatus.Pending,
+            cancellationToken);
+        if (candidate is null)
+        {
+            return;
+        }
+
+        try
+        {
+            using var outcome = JsonDocument.Parse(envelope.Payload);
+            if (envelope.Type == AgentEventType.JobCompleted &&
+                outcome.RootElement.TryGetProperty("fileCount", out var countElement) &&
+                countElement.TryGetInt32(out var fileCount) && fileCount >= 0 &&
+                outcome.RootElement.TryGetProperty("truncated", out var truncatedElement) &&
+                truncatedElement.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            {
+                candidate.CompleteValidation(
+                    fileCount,
+                    truncatedElement.GetBoolean(),
+                    envelope.OccurredAt);
+                return;
+            }
+
+            var message = outcome.RootElement.TryGetProperty("error", out var errorElement) &&
+                errorElement.ValueKind == JsonValueKind.String
+                ? errorElement.GetString()
+                : "Agent returned invalid validation evidence.";
+            candidate.FailValidation(
+                string.IsNullOrWhiteSpace(message) ? "Candidate validation failed." : message[..Math.Min(message.Length, 500)],
+                envelope.OccurredAt);
+        }
+        catch (JsonException)
+        {
+            candidate.FailValidation("Agent returned invalid validation evidence.", envelope.OccurredAt);
+        }
     }
 
     private static void AddRecoveryCandidates(

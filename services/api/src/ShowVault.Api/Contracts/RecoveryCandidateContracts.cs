@@ -10,7 +10,13 @@ public sealed record RecoveryCandidateSummary(
     string Evidence,
     string Decision,
     DateTimeOffset DetectedAt,
-    DateTimeOffset? DecidedAt);
+    DateTimeOffset? DecidedAt,
+    Guid? ValidationCommandId,
+    string? ValidationStatus,
+    int? ValidationFileCount,
+    bool? ValidationTruncated,
+    string? ValidationMessage,
+    DateTimeOffset? ValidatedAt);
 
 public sealed record DecideRecoveryCandidateRequest(bool Approved);
 

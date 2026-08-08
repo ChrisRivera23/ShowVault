@@ -14,10 +14,13 @@ final recoveryHistoryProvider = FutureProvider<RecoveryHistory>((ref) async {
       .watch(showVaultApiProvider)
       .loadRecoveryHistory(session.accessToken);
   if (history.runs.any(
-    (run) =>
-        run.status == RecoveryRunStatus.pending ||
-        run.status == RecoveryRunStatus.inProgress,
-  )) {
+        (run) =>
+            run.status == RecoveryRunStatus.pending ||
+            run.status == RecoveryRunStatus.inProgress,
+      ) ||
+      history.candidates.any(
+        (candidate) => candidate.validationStatus == 'pending',
+      )) {
     final timer = Timer(const Duration(seconds: 3), ref.invalidateSelf);
     ref.onDispose(timer.cancel);
   }

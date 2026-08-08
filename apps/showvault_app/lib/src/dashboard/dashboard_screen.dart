@@ -193,6 +193,7 @@ class _CandidateOnboarding extends ConsumerWidget {
             history: history,
             candidateId: candidate.id,
           );
+      ref.invalidate(recoveryHistoryProvider);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Product validation queued.')),
@@ -202,6 +203,33 @@ class _CandidateOnboarding extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Product validation failed: $error')),
       );
+    }
+  }
+
+  Future<void> _backup(
+    BuildContext context,
+    WidgetRef ref,
+    RecoveryCandidate candidate,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .backupRecoveryCandidate(
+            accessToken: session.accessToken,
+            history: history,
+            candidateId: candidate.id,
+          );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Recovery backup queued.')));
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Recovery backup failed: $error')));
     }
   }
 
@@ -234,17 +262,31 @@ class _CandidateOnboarding extends ConsumerWidget {
                   leading: const Icon(Icons.devices_other_outlined),
                   title: Text(candidate.productName),
                   subtitle: Text(
-                    '${candidate.candidateType} • ${candidate.agentName}\n${candidate.evidence}',
+                    '${candidate.candidateType} • ${candidate.agentName}\n'
+                    '${candidate.evidence}${_validationDetail(candidate)}',
                   ),
                   isThreeLine: true,
                   trailing: candidate.decision == 'approved'
                       ? candidate.candidateType == 'UserDataRoot'
-                            ? FilledButton.icon(
-                                onPressed: () =>
-                                    _validate(context, ref, candidate),
-                                icon: const Icon(Icons.fact_check_outlined),
-                                label: const Text('Validate'),
-                              )
+                            ? candidate.validationStatus == 'pending'
+                                  ? const Chip(label: Text('Validating'))
+                                  : candidate.validationStatus == 'passed'
+                                  ? FilledButton.icon(
+                                      onPressed: () =>
+                                          _backup(context, ref, candidate),
+                                      icon: const Icon(
+                                        Icons.inventory_2_outlined,
+                                      ),
+                                      label: const Text('Back up'),
+                                    )
+                                  : FilledButton.icon(
+                                      onPressed: () =>
+                                          _validate(context, ref, candidate),
+                                      icon: const Icon(
+                                        Icons.fact_check_outlined,
+                                      ),
+                                      label: const Text('Validate'),
+                                    )
                             : const Chip(label: Text('Approved'))
                       : Wrap(
                           spacing: 8,
@@ -267,6 +309,16 @@ class _CandidateOnboarding extends ConsumerWidget {
       ),
     );
   }
+
+  String _validationDetail(
+    RecoveryCandidate candidate,
+  ) => switch (candidate.validationStatus) {
+    'passed' =>
+      '\nValidated • ${candidate.validationFileCount ?? 0} files${candidate.validationTruncated == true ? ' • truncated' : ''}',
+    'failed' =>
+      '\nValidation failed • ${candidate.validationMessage ?? 'Unknown error'}',
+    _ => '',
+  };
 }
 
 class _RecoveryControls extends ConsumerStatefulWidget {

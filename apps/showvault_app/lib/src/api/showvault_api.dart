@@ -32,6 +32,10 @@ class RecoveryCandidate {
     required this.candidateType,
     required this.evidence,
     required this.decision,
+    this.validationStatus,
+    this.validationFileCount,
+    this.validationTruncated,
+    this.validationMessage,
   });
 
   factory RecoveryCandidate.fromJson(Map<String, Object?> json) =>
@@ -42,6 +46,10 @@ class RecoveryCandidate {
         candidateType: json['candidateType']! as String,
         evidence: json['evidence']! as String,
         decision: json['decision']! as String,
+        validationStatus: json['validationStatus'] as String?,
+        validationFileCount: json['validationFileCount'] as int?,
+        validationTruncated: json['validationTruncated'] as bool?,
+        validationMessage: json['validationMessage'] as String?,
       );
 
   final String id;
@@ -50,6 +58,10 @@ class RecoveryCandidate {
   final String candidateType;
   final String evidence;
   final String decision;
+  final String? validationStatus;
+  final int? validationFileCount;
+  final bool? validationTruncated;
+  final String? validationMessage;
 }
 
 class VenueAgent {
@@ -163,6 +175,26 @@ class ShowVaultApi {
         'Content-Type': 'application/json',
       },
       body: jsonEncode({'maxFiles': 1000}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    final command = body['payload']! as Map<String, Object?>;
+    return command['commandId']! as String;
+  }
+
+  Future<String> backupRecoveryCandidate({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String candidateId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
+        '/venues/${history.venueId}/recovery-candidates/$candidateId/backup',
+      ),
+      headers: {'Authorization': 'Bearer $accessToken'},
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ShowVaultApiException(response.statusCode);

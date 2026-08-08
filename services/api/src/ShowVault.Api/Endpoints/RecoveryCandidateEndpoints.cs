@@ -25,6 +25,10 @@ public static class RecoveryCandidateEndpoints
                 "/api/v1/organizations/{organizationId:guid}/venues/{venueId:guid}/recovery-candidates/{candidateId:guid}/validate",
                 ValidateAsync)
             .RequireAuthorization();
+        endpoints.MapPost(
+                "/api/v1/organizations/{organizationId:guid}/venues/{venueId:guid}/recovery-candidates/{candidateId:guid}/backup",
+                BackupAsync)
+            .RequireAuthorization();
         return endpoints;
     }
 
@@ -73,6 +77,50 @@ public static class RecoveryCandidateEndpoints
             timeProvider.GetUtcNow(),
             TimeSpan.FromHours(1));
         database.IssuedAgentCommands.Add(IssuedAgentCommand.FromEnvelope(command));
+        candidate.StartValidation(command.CommandId);
+        await database.SaveChangesAsync(cancellationToken);
+        return Results.Accepted(
+            $"/api/v1/agent-commands/{command.CommandId}",
+            ApiResponse<AgentCommandEnvelope>.Success(command, context.TraceIdentifier));
+    }
+
+    private static async Task<IResult> BackupAsync(
+        Guid organizationId,
+        Guid venueId,
+        Guid candidateId,
+        ClaimsPrincipal user,
+        HttpContext context,
+        PlatformDbContext database,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var subject = user.FindFirstValue("sub");
+        if (!await HasVenueAccessAsync(database, organizationId, venueId, subject, true, cancellationToken))
+        {
+            return Results.Forbid();
+        }
+
+        var candidate = await database.RecoveryCandidates.SingleOrDefaultAsync(
+            item => item.Id == candidateId &&
+                item.Decision == RecoveryCandidateDecision.Approved &&
+                item.ValidationStatus == RecoveryCandidateValidationStatus.Passed &&
+                item.ValidationCommandId != null &&
+                database.VenueAgents.Any(agent =>
+                    agent.Id == item.AgentId && agent.VenueId == venueId && agent.RevokedAt == null),
+            cancellationToken);
+        if (candidate is null)
+        {
+            return Results.BadRequest();
+        }
+
+        var command = AgentCommandEnvelope.Create(
+            candidate.AgentId,
+            AgentCommandType.CreateBackup,
+            context.TraceIdentifier,
+            JsonSerializer.Serialize(new { discoveryCommandId = candidate.ValidationCommandId!.Value }),
+            timeProvider.GetUtcNow(),
+            TimeSpan.FromHours(1));
+        database.IssuedAgentCommands.Add(IssuedAgentCommand.FromEnvelope(command));
         await database.SaveChangesAsync(cancellationToken);
         return Results.Accepted(
             $"/api/v1/agent-commands/{command.CommandId}",
@@ -113,7 +161,15 @@ public static class RecoveryCandidateEndpoints
             record.Candidate.Evidence,
             record.Candidate.Decision.ToString().ToLowerInvariant(),
             record.Candidate.DetectedAt,
-            record.Candidate.DecidedAt)).ToArray();
+            record.Candidate.DecidedAt,
+            record.Candidate.ValidationCommandId,
+            record.Candidate.ValidationStatus == null
+                ? null
+                : record.Candidate.ValidationStatus.ToString()!.ToLowerInvariant(),
+            record.Candidate.ValidationFileCount,
+            record.Candidate.ValidationTruncated,
+            record.Candidate.ValidationMessage,
+            record.Candidate.ValidatedAt)).ToArray();
         return Results.Ok(ApiResponse<IReadOnlyList<RecoveryCandidateSummary>>.Success(
             candidates,
             context.TraceIdentifier));

@@ -18,7 +18,7 @@ void main() {
           '/api/v1/organizations/org-id/venues/venue-id/agents' =>
             '[{"id":"agent-id","name":"Control Agent","createdAt":"2026-08-07T02:00:00Z"}]',
           '/api/v1/organizations/org-id/venues/venue-id/recovery-candidates' =>
-            '[{"id":"candidate-id","agentName":"Control Agent","productName":"Resolume Arena","candidateType":"UserDataRoot","evidence":"Standard Resolume user-data location","decision":"pending"}]',
+            '[{"id":"candidate-id","agentName":"Control Agent","productName":"Resolume Arena","candidateType":"UserDataRoot","evidence":"Standard Resolume user-data location","decision":"approved","validationStatus":"passed","validationFileCount":12,"validationTruncated":false}]',
           _ =>
             '[{"discoveryCommandId":"command-id","agentName":"Control Agent","startedAt":"2026-08-07T02:14:00Z","status":"completed","stages":[{"stage":"scan","status":"completed","occurredAt":"2026-08-07T02:15:00Z"},{"stage":"backup","status":"completed","occurredAt":null},{"stage":"verify","status":"completed","occurredAt":null},{"stage":"restore","status":"completed","occurredAt":null}]}]',
         };
@@ -33,6 +33,8 @@ void main() {
     expect(history.agents.single.id, 'agent-id');
     expect(history.runs.single.agentName, 'Control Agent');
     expect(history.candidates.single.productName, 'Resolume Arena');
+    expect(history.candidates.single.validationStatus, 'passed');
+    expect(history.candidates.single.validationFileCount, 12);
     expect(requestedPaths, [
       '/api/v1/organizations',
       '/api/v1/organizations/org-id/venues',
@@ -170,6 +172,39 @@ void main() {
       '/api/v1/organizations/org-id/venues/venue-id/recovery-candidates/candidate-id/validate',
     );
     expect(captured.body, '{"maxFiles":1000}');
+    expect(captured.body, isNot(contains('path')));
+  });
+
+  test('queues candidate backup without a path', () async {
+    late http.Request captured;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response('{"payload":{"commandId":"backup-id"}}', 202);
+      }),
+    );
+    const history = RecoveryHistory(
+      organizationId: 'org-id',
+      organizationName: 'ShowVault',
+      venueId: 'venue-id',
+      venueName: 'Main Stage',
+      agents: [],
+      candidates: [],
+      runs: [],
+    );
+
+    final commandId = await api.backupRecoveryCandidate(
+      accessToken: 'access-token',
+      history: history,
+      candidateId: 'candidate-id',
+    );
+
+    expect(commandId, 'backup-id');
+    expect(captured.method, 'POST');
+    expect(
+      captured.url.path,
+      '/api/v1/organizations/org-id/venues/venue-id/recovery-candidates/candidate-id/backup',
+    );
     expect(captured.body, isNot(contains('path')));
   });
 }

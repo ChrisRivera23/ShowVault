@@ -7,6 +7,13 @@ public enum RecoveryCandidateDecision
     Rejected
 }
 
+public enum RecoveryCandidateValidationStatus
+{
+    Pending,
+    Passed,
+    Failed
+}
+
 public sealed class RecoveryCandidate
 {
     private RecoveryCandidate(
@@ -38,6 +45,12 @@ public sealed class RecoveryCandidate
     public RecoveryCandidateDecision Decision { get; private set; }
     public string? DecidedBySubject { get; private set; }
     public DateTimeOffset? DecidedAt { get; private set; }
+    public Guid? ValidationCommandId { get; private set; }
+    public RecoveryCandidateValidationStatus? ValidationStatus { get; private set; }
+    public int? ValidationFileCount { get; private set; }
+    public bool? ValidationTruncated { get; private set; }
+    public string? ValidationMessage { get; private set; }
+    public DateTimeOffset? ValidatedAt { get; private set; }
 
     public static RecoveryCandidate Detected(
         Guid id,
@@ -74,5 +87,52 @@ public sealed class RecoveryCandidate
         Decision = decision;
         DecidedBySubject = subject;
         DecidedAt = decidedAt;
+        ValidationCommandId = null;
+        ValidationStatus = null;
+        ValidationFileCount = null;
+        ValidationTruncated = null;
+        ValidationMessage = null;
+        ValidatedAt = null;
+    }
+
+    public void StartValidation(Guid commandId)
+    {
+        if (Decision != RecoveryCandidateDecision.Approved || commandId == Guid.Empty)
+        {
+            throw new InvalidOperationException("Only an approved candidate can be validated.");
+        }
+
+        ValidationCommandId = commandId;
+        ValidationStatus = RecoveryCandidateValidationStatus.Pending;
+        ValidationFileCount = null;
+        ValidationTruncated = null;
+        ValidationMessage = null;
+        ValidatedAt = null;
+    }
+
+    public void CompleteValidation(int fileCount, bool truncated, DateTimeOffset validatedAt)
+    {
+        if (ValidationStatus != RecoveryCandidateValidationStatus.Pending || fileCount < 0)
+        {
+            throw new InvalidOperationException("Candidate validation is not pending.");
+        }
+
+        ValidationStatus = RecoveryCandidateValidationStatus.Passed;
+        ValidationFileCount = fileCount;
+        ValidationTruncated = truncated;
+        ValidatedAt = validatedAt;
+    }
+
+    public void FailValidation(string message, DateTimeOffset validatedAt)
+    {
+        if (ValidationStatus != RecoveryCandidateValidationStatus.Pending)
+        {
+            throw new InvalidOperationException("Candidate validation is not pending.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        ValidationStatus = RecoveryCandidateValidationStatus.Failed;
+        ValidationMessage = message;
+        ValidatedAt = validatedAt;
     }
 }
