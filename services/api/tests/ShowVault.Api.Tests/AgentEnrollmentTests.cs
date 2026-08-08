@@ -145,6 +145,20 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal("completed", discoveredProposal.DiscoveryStatus);
         Assert.Equal(32, discoveredProposal.AttemptedHostCount);
         Assert.Equal(3, discoveredProposal.RespondingHostCount);
+        var identifyPath = $"{proposalPath}/{proposalId}/identify-ma-lighting";
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
+            identifyPath, new IdentifyMaLightingRequest())).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await ownerClient.PostAsJsonAsync(
+            identifyPath, new IdentifyMaLightingRequest(501))).StatusCode);
+        var identificationResponse = await ownerClient.PostAsJsonAsync(
+            identifyPath, new IdentifyMaLightingRequest(500));
+        Assert.Equal(HttpStatusCode.Accepted, identificationResponse.StatusCode);
+        var identificationCommand = (await identificationResponse.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>())!.Payload;
+        Assert.Equal(AgentCommandType.IdentifyMaLighting, identificationCommand.Type);
+        Assert.Contains(subnetCommand.CommandId.ToString(), identificationCommand.Payload,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("192.168", identificationCommand.Payload, StringComparison.Ordinal);
         var candidatePath =
             $"/api/v1/organizations/{organizationId}/venues/{venueId}/recovery-candidates";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.GetAsync(candidatePath)).StatusCode);

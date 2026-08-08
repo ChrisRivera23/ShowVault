@@ -17,7 +17,30 @@ public static class SubnetProposalEndpoints
         endpoints.MapGet(path, ListAsync).RequireAuthorization();
         endpoints.MapPut(path + "/{proposalId:guid}/decision", DecideAsync).RequireAuthorization();
         endpoints.MapPost(path + "/{proposalId:guid}/discover", DiscoverAsync).RequireAuthorization();
+        endpoints.MapPost(path + "/{proposalId:guid}/identify-ma-lighting", IdentifyMaLightingAsync).RequireAuthorization();
         return endpoints;
+    }
+
+    private static async Task<IResult> IdentifyMaLightingAsync(Guid organizationId, Guid venueId, Guid proposalId,
+        IdentifyMaLightingRequest request, ClaimsPrincipal user, HttpContext context,
+        PlatformDbContext db, TimeProvider time, CancellationToken ct)
+    {
+        var subject = user.FindFirstValue("sub");
+        if (!await HasAccess(db, organizationId, venueId, subject, true, ct)) return Results.Forbid();
+        if (request.TimeoutMilliseconds is < 100 or > 500) return Results.BadRequest();
+        var proposal = await db.SubnetProposals.SingleOrDefaultAsync(p => p.Id == proposalId &&
+            p.Decision == SubnetProposalDecision.Approved &&
+            p.DiscoveryStatus == SubnetDiscoveryStatus.Completed && p.RespondingHostCount > 0 &&
+            db.VenueAgents.Any(a => a.Id == p.AgentId && a.VenueId == venueId && a.RevokedAt == null), ct);
+        if (proposal?.DiscoveryCommandId is not Guid discoveryCommandId) return Results.BadRequest();
+        var command = AgentCommandEnvelope.Create(proposal.AgentId, AgentCommandType.IdentifyMaLighting,
+            context.TraceIdentifier, JsonSerializer.Serialize(new IdentifyMaLightingPayload(
+                proposal.Id, discoveryCommandId, request.TimeoutMilliseconds)),
+            time.GetUtcNow(), TimeSpan.FromMinutes(10));
+        db.IssuedAgentCommands.Add(IssuedAgentCommand.FromEnvelope(command));
+        await db.SaveChangesAsync(ct);
+        return Results.Accepted($"/api/v1/agent-commands/{command.CommandId}",
+            ApiResponse<AgentCommandEnvelope>.Success(command, context.TraceIdentifier));
     }
 
     private static async Task<IResult> ListAsync(Guid organizationId, Guid venueId,

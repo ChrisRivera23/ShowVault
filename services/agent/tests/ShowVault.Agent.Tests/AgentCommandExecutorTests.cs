@@ -234,6 +234,22 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         var discoveryOutcome = (await store.GetPendingEventsAsync(now.AddMinutes(1), 10,
             CancellationToken.None)).Single(item => item.Envelope.EventId == discoveryCommand.CommandId).Envelope;
         Assert.DoesNotContain("192.168.10.1", discoveryOutcome.Payload, StringComparison.Ordinal);
+
+        var identifyCommand = AgentCommandEnvelope.Create(agentId, AgentCommandType.IdentifyMaLighting,
+            "ma-identification", JsonSerializer.Serialize(new IdentifyMaLightingPayload(
+                proposalId, discoveryCommand.CommandId, 250)), now.AddSeconds(2), TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(identifyCommand, now.AddSeconds(2), CancellationToken.None);
+        await CreateExecutor(store, now.AddSeconds(2)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+
+        var identificationJson = await store.GetDiscoveryResultJsonAsync(
+            identifyCommand.CommandId, CancellationToken.None);
+        Assert.Contains("\"identifiedHostCount\":4", identificationJson, StringComparison.Ordinal);
+        Assert.Contains("grandMA3", identificationJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("192.168.10.1", identificationJson, StringComparison.Ordinal);
+        var identificationOutcome = (await store.GetPendingEventsAsync(now.AddMinutes(1), 10,
+            CancellationToken.None)).Single(item => item.Envelope.EventId == identifyCommand.CommandId).Envelope;
+        Assert.DoesNotContain("192.168.10.1", identificationOutcome.Payload, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -921,6 +937,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 new ReachableNetworkConnector(),
                 timeProvider),
             new ApprovedSubnetDiscovery(new ReachableSubnetProbe(), timeProvider),
+            new MaLightingNetworkIdentification(new GrandMa3Probe(), timeProvider),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
@@ -945,6 +962,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             System.Net.IPAddress address,
             TimeSpan timeout,
             CancellationToken cancellationToken) => Task.FromResult(true);
+    }
+
+    private sealed class GrandMa3Probe : IMaLightingProtocolProbe
+    {
+        public Task<string?> IdentifyAsync(
+            System.Net.IPAddress address,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) => Task.FromResult<string?>("grandMA3");
     }
 
     private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions

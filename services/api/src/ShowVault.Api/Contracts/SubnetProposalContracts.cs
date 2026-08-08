@@ -9,3 +9,5 @@ public sealed record SubnetProposalSummary(Guid Id, Guid AgentId, string AgentNa
 public sealed record DecideSubnetProposalRequest(bool Approved);
 
 public sealed record DiscoverSubnetRequest(int MaxHosts = 32, int TimeoutMilliseconds = 500);
+
+public sealed record IdentifyMaLightingRequest(int TimeoutMilliseconds = 500);
