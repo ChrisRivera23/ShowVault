@@ -25,11 +25,11 @@ System inventory now includes bounded local recovery candidates and read-only lo
 
 Subnet derivation considers only active physical Ethernet and Wi-Fi interfaces with private IPv4 unicast addresses and contiguous usable masks. It excludes loopback, link-local, tunnel, PPP, VPN/virtual/container/bridge-like interfaces, public addresses, /31-/32 prefixes, and network or broadcast addresses. A directly assigned network broader than /24 is narrowed to the /24 containing the Agent, proposals are deduplicated and capped at eight, and evidence reports the interface class and bounding decision without exposing the host address. Collection opens no sockets and contacts no hosts. Protocol 1.5 persists opaque proposals within their Agent and venue tenancy, native onboarding supports manager approve/reject review, and decisions are recorded in Agent-local SQLite. Approval does not authorize or start discovery.
 
-Protocol 1.6 adds a second manager action for one approved proposal. The Agent resolves its CIDR locally and performs reachability-only ICMP checks against at most 32 usable addresses, with 100-500 ms per-host timeouts and concurrency capped at eight. The durable local/control-plane result contains only attempted and responding counts correlated to the exact command and proposal. It contains no host addresses, ports, banners, or product claims, and it performs no synchronization.
+Protocol 1.6 adds a second manager action for one approved proposal. The Agent resolves its CIDR locally and performs reachability-only ICMP checks against at most 32 usable addresses, with 100-500 ms per-host timeouts and concurrency capped at eight. Responding addresses are retained only in Agent SQLite and keyed by the exact authorization command and proposal. Durable path-free results and control-plane events contain only attempted and responding counts; they contain no host addresses, ports, banners, or product claims, and discovery performs no synchronization. Rejecting the proposal removes its locally retained host sets.
 
 ## Next slices
 
-1. Retain responding addresses only in Agent-local storage and correlate them to the exact bounded authorization without publishing them.
-2. Add separately authorized protocol-aware MA Lighting, Yamaha, and L-Acoustics identification without representing ICMP or an open port as product support.
+1. Add separately authorized protocol-aware MA Lighting identification using only one exact locally retained responding-host authorization, without representing ICMP or an open port as product support.
+2. Extend the same primary-evidence model to Yamaha and L-Acoustics.
 3. Publish only bounded path-free product evidence for operator review.
 4. Expand standard-location providers for supported workstation applications and export workflows.
