@@ -43,10 +43,16 @@ public sealed class SystemInventoryPluginTests
 
     private static SystemInventoryPlugin CreatePlugin(TimeProvider timeProvider) => new(
         timeProvider,
-        new LocalRecoveryCandidateDiscovery(new EmptyLocationProvider()));
+        new LocalRecoveryCandidateDiscovery(new EmptyLocationProvider()),
+        new LocalSubnetProposalDiscovery(new EmptyInterfaceProvider()));
 
     private sealed class EmptyLocationProvider : IHostStandardLocationProvider
     {
         public IReadOnlyList<StandardLocationCandidate> GetCandidates() => [];
+    }
+
+    private sealed class EmptyInterfaceProvider : ILocalInterfaceProvider
+    {
+        public IReadOnlyList<LocalInterfaceAddress> GetAddresses() => [];
     }
 }

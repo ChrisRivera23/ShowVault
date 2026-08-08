@@ -262,6 +262,8 @@ public sealed class AgentCommandExecutor(
                     result.LogicalProcessorCount,
                     volumeCount = result.Volumes.Count,
                     recoveryCandidateCount = result.RecoveryCandidates.Count,
+                    subnetProposalCount = result.SubnetProposals.Count,
+                    subnetProposals = result.SubnetProposals,
                     recoveryCandidates = result.RecoveryCandidates.Select(candidate => new
                     {
                         candidate.CandidateId,

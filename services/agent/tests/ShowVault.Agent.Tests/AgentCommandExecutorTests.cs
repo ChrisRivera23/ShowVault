@@ -108,6 +108,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Equal(AgentEventType.JobCompleted, outcome.Type);
         Assert.Contains("volumeCount", outcome.Payload, StringComparison.Ordinal);
         Assert.Contains("recoveryCandidates", outcome.Payload, StringComparison.Ordinal);
+        Assert.Contains("subnetProposals", outcome.Payload, StringComparison.Ordinal);
         Assert.DoesNotContain("rootPath", outcome.Payload, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -865,7 +866,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 ]),
             new SystemInventoryPlugin(
                 timeProvider,
-                new LocalRecoveryCandidateDiscovery(new EmptyStandardLocationProvider())),
+                new LocalRecoveryCandidateDiscovery(new EmptyStandardLocationProvider()),
+                new LocalSubnetProposalDiscovery(new EmptyInterfaceProvider())),
             new NetworkDeviceDiscoveryPlugin(
                 Options.Create(new AgentOptions
                 {
@@ -886,6 +888,11 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     private sealed class EmptyStandardLocationProvider : IHostStandardLocationProvider
     {
         public IReadOnlyList<StandardLocationCandidate> GetCandidates() => [];
+    }
+
+    private sealed class EmptyInterfaceProvider : ILocalInterfaceProvider
+    {
+        public IReadOnlyList<LocalInterfaceAddress> GetAddresses() => [];
     }
 
     private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions

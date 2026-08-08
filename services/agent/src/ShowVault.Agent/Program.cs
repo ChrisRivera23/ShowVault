@@ -262,6 +262,8 @@ builder.Services.AddSingleton<IDiscoveryPlugin, DasAudioAlmaDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<IHostStandardLocationProvider, HostStandardLocationProvider>();
 builder.Services.AddSingleton<LocalRecoveryCandidateDiscovery>();
+builder.Services.AddSingleton<ILocalInterfaceProvider, LocalInterfaceProvider>();
+builder.Services.AddSingleton<LocalSubnetProposalDiscovery>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
 builder.Services.AddSingleton<NetworkDeviceDiscoveryPlugin>();
