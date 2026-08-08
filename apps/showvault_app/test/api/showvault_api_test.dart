@@ -19,6 +19,8 @@ void main() {
             '[{"id":"agent-id","name":"Control Agent","createdAt":"2026-08-07T02:00:00Z"}]',
           '/api/v1/organizations/org-id/venues/venue-id/recovery-candidates' =>
             '[{"id":"candidate-id","agentName":"Control Agent","productName":"Resolume Arena","candidateType":"UserDataRoot","evidence":"Standard Resolume user-data location","decision":"approved","validationStatus":"passed","validationFileCount":12,"validationTruncated":false}]',
+          '/api/v1/organizations/org-id/venues/venue-id/subnet-proposals' =>
+            '[{"id":"proposal-id","agentName":"Control Agent","network":"192.168.10.0","prefixLength":24,"interfaceType":"Ethernet","evidence":"No hosts contacted","decision":"pending"}]',
           _ =>
             '[{"discoveryCommandId":"command-id","agentName":"Control Agent","startedAt":"2026-08-07T02:14:00Z","status":"completed","stages":[{"stage":"scan","status":"completed","occurredAt":"2026-08-07T02:15:00Z"},{"stage":"backup","status":"completed","occurredAt":null},{"stage":"verify","status":"completed","occurredAt":null},{"stage":"restore","status":"completed","occurredAt":null}]}]',
         };
@@ -35,12 +37,14 @@ void main() {
     expect(history.candidates.single.productName, 'Resolume Arena');
     expect(history.candidates.single.validationStatus, 'passed');
     expect(history.candidates.single.validationFileCount, 12);
+    expect(history.subnetProposals.single.network, '192.168.10.0');
     expect(requestedPaths, [
       '/api/v1/organizations',
       '/api/v1/organizations/org-id/venues',
       '/api/v1/organizations/org-id/venues/venue-id/agents',
       '/api/v1/organizations/org-id/venues/venue-id/recovery-runs',
       '/api/v1/organizations/org-id/venues/venue-id/recovery-candidates',
+      '/api/v1/organizations/org-id/venues/venue-id/subnet-proposals',
     ]);
   });
 
@@ -137,6 +141,39 @@ void main() {
     expect(
       captured.url.path,
       '/api/v1/organizations/org-id/venues/venue-id/recovery-candidates/candidate-id/decision',
+    );
+    expect(captured.body, '{"approved":true}');
+  });
+
+  test('records a subnet proposal decision without starting discovery', () async {
+    late http.Request captured;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response('', 204);
+      }),
+    );
+    const history = RecoveryHistory(
+      organizationId: 'org-id',
+      organizationName: 'ShowVault',
+      venueId: 'venue-id',
+      venueName: 'Main Stage',
+      agents: [],
+      candidates: [],
+      runs: [],
+    );
+
+    await api.decideSubnetProposal(
+      accessToken: 'access-token',
+      history: history,
+      proposalId: 'proposal-id',
+      approved: true,
+    );
+
+    expect(captured.method, 'PUT');
+    expect(
+      captured.url.path,
+      '/api/v1/organizations/org-id/venues/venue-id/subnet-proposals/proposal-id/decision',
     );
     expect(captured.body, '{"approved":true}');
   });

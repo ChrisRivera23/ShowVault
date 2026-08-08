@@ -77,6 +77,9 @@ public sealed class AgentCommandExecutor(
                 case AgentCommandType.ApplyRecoveryCandidateDecision:
                     await ExecuteRecoveryCandidateDecisionAsync(identity, command, cancellationToken);
                     break;
+                case AgentCommandType.ApplySubnetProposalDecision:
+                    await ExecuteSubnetProposalDecisionAsync(identity, command, cancellationToken);
+                    break;
                 case AgentCommandType.ValidateRecoveryCandidate:
                     await ExecuteRecoveryCandidateValidationAsync(identity, command, cancellationToken);
                     break;
@@ -233,6 +236,28 @@ public sealed class AgentCommandExecutor(
             cancellationToken);
     }
 
+    private async Task ExecuteSubnetProposalDecisionAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Deserialize<ApplySubnetProposalDecisionPayload>(command.Payload, JsonOptions)
+            ?? throw new InvalidOperationException("Subnet proposal decision payload is required.");
+        if (payload.ProposalId == Guid.Empty || !await queueStore.ApplySubnetProposalDecisionAsync(
+                payload.ProposalId, payload.Approved, command.IssuedAt, cancellationToken))
+        {
+            throw new InvalidOperationException("The subnet proposal is not present in this Agent's local inventory.");
+        }
+
+        await RecordOutcomeAsync(
+            identity,
+            command,
+            AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Completed,
+            JsonSerializer.Serialize(payload, JsonOptions),
+            cancellationToken);
+    }
+
     private async Task ExecuteSystemInventoryAsync(
         StoredAgentIdentity identity,
         AgentCommandEnvelope command,
@@ -246,6 +271,10 @@ public sealed class AgentCommandExecutor(
             cancellationToken);
         await queueStore.StoreRecoveryCandidatesAsync(
             result.RecoveryCandidates,
+            result.CollectedAt,
+            cancellationToken);
+        await queueStore.StoreSubnetProposalsAsync(
+            result.SubnetProposals,
             result.CollectedAt,
             cancellationToken);
         await RecordOutcomeAsync(

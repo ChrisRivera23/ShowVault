@@ -95,6 +95,21 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options) : IApprovedR
                 FOREIGN KEY(candidate_id) REFERENCES recovery_candidates(candidate_id)
                     ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS subnet_proposals (
+                proposal_id TEXT PRIMARY KEY,
+                network TEXT NOT NULL,
+                prefix_length INTEGER NOT NULL,
+                interface_type TEXT NOT NULL,
+                evidence TEXT NOT NULL,
+                detected_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS approved_subnets (
+                proposal_id TEXT PRIMARY KEY,
+                network TEXT NOT NULL,
+                prefix_length INTEGER NOT NULL,
+                approved_at TEXT NOT NULL,
+                FOREIGN KEY(proposal_id) REFERENCES subnet_proposals(proposal_id) ON DELETE CASCADE
+            );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -315,6 +330,62 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options) : IApprovedR
         }
 
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    public async Task StoreSubnetProposalsAsync(
+        IReadOnlyList<LocalSubnetProposal> proposals,
+        DateTimeOffset detectedAt,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        foreach (var proposal in proposals)
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT OR IGNORE INTO subnet_proposals
+                    (proposal_id, network, prefix_length, interface_type, evidence, detected_at)
+                VALUES ($id, $network, $prefix, $type, $evidence, $detectedAt);
+                """;
+            command.Parameters.AddWithValue("$id", proposal.ProposalId.ToString());
+            command.Parameters.AddWithValue("$network", proposal.Network);
+            command.Parameters.AddWithValue("$prefix", proposal.PrefixLength);
+            command.Parameters.AddWithValue("$type", proposal.InterfaceType);
+            command.Parameters.AddWithValue("$evidence", proposal.Evidence);
+            command.Parameters.AddWithValue("$detectedAt", Format(detectedAt));
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
+
+    public async Task<bool> ApplySubnetProposalDecisionAsync(
+        Guid proposalId,
+        bool approved,
+        DateTimeOffset decidedAt,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = approved
+            ? """
+                INSERT INTO approved_subnets (proposal_id, network, prefix_length, approved_at)
+                SELECT proposal_id, network, prefix_length, $decidedAt
+                FROM subnet_proposals WHERE proposal_id = $id
+                ON CONFLICT(proposal_id) DO UPDATE SET approved_at = excluded.approved_at;
+                """
+            : "DELETE FROM approved_subnets WHERE proposal_id = $id;";
+        command.Parameters.AddWithValue("$id", proposalId.ToString());
+        command.Parameters.AddWithValue("$decidedAt", Format(decidedAt));
+        var affected = await command.ExecuteNonQueryAsync(cancellationToken);
+        if (approved)
+        {
+            return affected == 1;
+        }
+
+        await using var exists = connection.CreateCommand();
+        exists.CommandText = "SELECT COUNT(*) FROM subnet_proposals WHERE proposal_id = $id;";
+        exists.Parameters.AddWithValue("$id", proposalId.ToString());
+        return Convert.ToInt64(await exists.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) == 1;
     }
 
     public async Task<bool> ApplyRecoveryCandidateDecisionAsync(

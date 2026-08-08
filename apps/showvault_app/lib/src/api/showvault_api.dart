@@ -13,6 +13,7 @@ class RecoveryHistory {
     required this.agents,
     required this.candidates,
     required this.runs,
+    this.subnetProposals = const [],
   });
 
   final String organizationId;
@@ -22,6 +23,30 @@ class RecoveryHistory {
   final List<VenueAgent> agents;
   final List<RecoveryCandidate> candidates;
   final List<RecoveryRun> runs;
+  final List<SubnetProposal> subnetProposals;
+}
+
+class SubnetProposal {
+  const SubnetProposal({
+    required this.id,
+    required this.agentName,
+    required this.network,
+    required this.prefixLength,
+    required this.interfaceType,
+    required this.evidence,
+    required this.decision,
+  });
+  factory SubnetProposal.fromJson(Map<String, Object?> json) => SubnetProposal(
+    id: json['id']! as String,
+    agentName: json['agentName']! as String,
+    network: json['network']! as String,
+    prefixLength: json['prefixLength']! as int,
+    interfaceType: json['interfaceType']! as String,
+    evidence: json['evidence']! as String,
+    decision: json['decision']! as String,
+  );
+  final String id, agentName, network, interfaceType, evidence, decision;
+  final int prefixLength;
 }
 
 class RecoveryCandidate {
@@ -125,6 +150,10 @@ class ShowVaultApi {
       '/api/v1/organizations/$organizationId/venues/$venueId/recovery-candidates',
       accessToken,
     );
+    final subnetProposals = await _getList(
+      '/api/v1/organizations/$organizationId/venues/$venueId/subnet-proposals',
+      accessToken,
+    );
     return RecoveryHistory(
       organizationId: organizationId,
       organizationName: organization['name']! as String,
@@ -134,8 +163,33 @@ class ShowVaultApi {
       candidates: candidates
           .map(RecoveryCandidate.fromJson)
           .toList(growable: false),
+      subnetProposals: subnetProposals
+          .map(SubnetProposal.fromJson)
+          .toList(growable: false),
       runs: runs.map(RecoveryRun.fromJson).toList(growable: false),
     );
+  }
+
+  Future<void> decideSubnetProposal({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String proposalId,
+    required bool approved,
+  }) async {
+    final response = await _client.put(
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/v1/organizations/'
+        '${history.organizationId}/venues/${history.venueId}/subnet-proposals/$proposalId/decision',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'approved': approved}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
   }
 
   Future<void> decideRecoveryCandidate({

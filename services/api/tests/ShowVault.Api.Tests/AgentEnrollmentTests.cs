@@ -82,6 +82,17 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
             "inventory-correlation",
             System.Text.Json.JsonSerializer.Serialize(new
             {
+                subnetProposals = new[]
+                {
+                    new
+                    {
+                        proposalId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                        network = "192.168.10.0",
+                        prefixLength = 24,
+                        interfaceType = "Ethernet",
+                        evidence = "Active Ethernet interface; no hosts were contacted"
+                    }
+                },
                 recoveryCandidates = new[]
                 {
                     new
@@ -98,6 +109,13 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal(
             HttpStatusCode.Accepted,
             (await agentClient.PostAsJsonAsync("/api/v1/agent-events", candidateEvent)).StatusCode);
+        var proposalId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var proposalPath = $"/api/v1/organizations/{organizationId}/venues/{venueId}/subnet-proposals";
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.GetAsync(proposalPath)).StatusCode);
+        var proposals = await ownerClient.GetFromJsonAsync<ApiResponse<IReadOnlyList<SubnetProposalSummary>>>(proposalPath);
+        Assert.Equal("192.168.10.0", Assert.Single(proposals!.Payload).Network);
+        Assert.Equal(HttpStatusCode.NoContent, (await ownerClient.PutAsJsonAsync(
+            $"{proposalPath}/{proposalId}/decision", new DecideSubnetProposalRequest(true))).StatusCode);
         var candidatePath =
             $"/api/v1/organizations/{organizationId}/venues/{venueId}/recovery-candidates";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.GetAsync(candidatePath)).StatusCode);

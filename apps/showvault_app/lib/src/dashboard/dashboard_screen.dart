@@ -120,6 +120,8 @@ class _LiveDashboard extends ConsumerWidget {
             const SizedBox(height: 24),
             _CandidateOnboarding(history: history),
             const SizedBox(height: 24),
+            _SubnetOnboarding(history: history),
+            const SizedBox(height: 24),
             _RecoveryControls(history: history),
             const SizedBox(height: 24),
             if (history.runs.isEmpty)
@@ -141,6 +143,94 @@ class _LiveDashboard extends ConsumerWidget {
                 label: const Text('Sign out'),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SubnetOnboarding extends ConsumerWidget {
+  const _SubnetOnboarding({required this.history});
+  final RecoveryHistory history;
+
+  Future<void> _decide(
+    BuildContext context,
+    WidgetRef ref,
+    SubnetProposal proposal,
+    bool approved,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .decideSubnetProposal(
+            accessToken: session.accessToken,
+            history: history,
+            proposalId: proposal.id,
+            approved: approved,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Subnet decision failed: $error')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visible = history.subnetProposals.where(
+      (p) => p.decision != 'rejected',
+    );
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Venue network proposals',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Review directly connected local subnets. Approval records scope only and does not start a scan.',
+            ),
+            const SizedBox(height: 16),
+            if (visible.isEmpty)
+              const Text('No subnets are waiting for review.')
+            else
+              for (final proposal in visible)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.lan_outlined),
+                  title: Text('${proposal.network}/${proposal.prefixLength}'),
+                  subtitle: Text(
+                    '${proposal.interfaceType} • ${proposal.agentName}\n${proposal.evidence}',
+                  ),
+                  isThreeLine: true,
+                  trailing: proposal.decision == 'approved'
+                      ? const Chip(label: Text('Approved — not scanned'))
+                      : Wrap(
+                          spacing: 8,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () =>
+                                  _decide(context, ref, proposal, false),
+                              child: const Text('Reject'),
+                            ),
+                            FilledButton(
+                              onPressed: () =>
+                                  _decide(context, ref, proposal, true),
+                              child: const Text('Approve'),
+                            ),
+                          ],
+                        ),
+                ),
           ],
         ),
       ),

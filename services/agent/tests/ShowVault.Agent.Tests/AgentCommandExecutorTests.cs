@@ -194,6 +194,32 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Subnet_decision_resolves_only_an_Agent_local_proposal()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var proposalId = Guid.NewGuid();
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.StoreSubnetProposalsAsync([
+            new LocalSubnetProposal(proposalId, "192.168.10.0", 24, "Ethernet",
+                "Active Ethernet interface; no hosts were contacted", true)
+        ], now, CancellationToken.None);
+        var command = AgentCommandEnvelope.Create(agentId, AgentCommandType.ApplySubnetProposalDecision,
+            "subnet-decision", JsonSerializer.Serialize(new ApplySubnetProposalDecisionPayload(proposalId, true)),
+            now, TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(command, now, CancellationToken.None);
+
+        await CreateExecutor(store, now).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+
+        Assert.Single(await store.GetCommandsAsync(LocalAgentCommandStatus.Completed, CancellationToken.None));
+        var outcome = Assert.Single(await store.GetPendingEventsAsync(now.AddMinutes(1), 10,
+            CancellationToken.None)).Envelope;
+        Assert.Contains(proposalId.ToString(), outcome.Payload, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Approved_candidate_validation_resolves_local_path_and_emits_path_free_result()
     {
         var now = DateTimeOffset.UtcNow;

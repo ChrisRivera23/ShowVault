@@ -4,6 +4,8 @@ public sealed record ApplyRecoveryCandidateDecisionPayload(Guid CandidateId, boo
 
 public sealed record ValidateRecoveryCandidatePayload(Guid CandidateId, int MaxFiles = 1_000);
 
+public sealed record ApplySubnetProposalDecisionPayload(Guid ProposalId, bool Approved);
+
 public sealed record AgentCommandEnvelope(
     Guid CommandId,
     Guid AgentId,

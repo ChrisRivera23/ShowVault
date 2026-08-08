@@ -102,6 +102,7 @@ app.MapAgentCommunicationEndpoints();
 app.MapRecoveryHistoryEndpoints();
 app.MapRecoveryWorkflowEndpoints();
 app.MapRecoveryCandidateEndpoints();
+app.MapSubnetProposalEndpoints();
 
 app.Run();
 

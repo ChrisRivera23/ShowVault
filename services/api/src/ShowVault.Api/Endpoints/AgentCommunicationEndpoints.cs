@@ -69,6 +69,7 @@ public static class AgentCommunicationEndpoints
             envelope,
             timeProvider.GetUtcNow()));
         AddRecoveryCandidates(database, envelope);
+        AddSubnetProposals(database, envelope);
         await UpdateRecoveryCandidateValidationAsync(
             database,
             envelope,
@@ -232,6 +233,30 @@ public static class AgentCommunicationEndpoints
 
         var text = value.GetString();
         return string.IsNullOrWhiteSpace(text) || text.Length > maximumLength ? null : text;
+    }
+
+    private static void AddSubnetProposals(PlatformDbContext database, AgentEventEnvelope envelope)
+    {
+        if (envelope.Type != AgentEventType.JobCompleted) return;
+        try
+        {
+            using var payload = JsonDocument.Parse(envelope.Payload);
+            if (!payload.RootElement.TryGetProperty("subnetProposals", out var proposals) ||
+                proposals.ValueKind != JsonValueKind.Array) return;
+            foreach (var item in proposals.EnumerateArray().Take(8))
+            {
+                if (!item.TryGetProperty("proposalId", out var idValue) || !idValue.TryGetGuid(out var id) ||
+                    id == Guid.Empty || !item.TryGetProperty("prefixLength", out var prefixValue) ||
+                    !prefixValue.TryGetInt32(out var prefix) || prefix is < 24 or > 30) continue;
+                var network = ReadBoundedString(item, "network", 15);
+                var type = ReadBoundedString(item, "interfaceType", 40);
+                var evidence = ReadBoundedString(item, "evidence", 500);
+                if (network is null || type is null || evidence is null) continue;
+                database.SubnetProposals.Add(SubnetProposal.Detected(
+                    id, envelope.AgentId, network, prefix, type, evidence, envelope.OccurredAt));
+            }
+        }
+        catch (JsonException) { }
     }
 
     private static async Task<IResult> IssueCommandAsync(

@@ -16,6 +16,7 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
     public DbSet<ReceivedAgentEvent> ReceivedAgentEvents => Set<ReceivedAgentEvent>();
     public DbSet<IssuedAgentCommand> IssuedAgentCommands => Set<IssuedAgentCommand>();
     public DbSet<RecoveryCandidate> RecoveryCandidates => Set<RecoveryCandidate>();
+    public DbSet<SubnetProposal> SubnetProposals => Set<SubnetProposal>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -150,6 +151,19 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.HasOne<VenueAgent>()
                 .WithMany()
                 .HasForeignKey(candidate => candidate.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<SubnetProposal>(entity =>
+        {
+            entity.ToTable("subnet_proposals");
+            entity.HasKey(proposal => proposal.Id);
+            entity.Property(proposal => proposal.Network).HasMaxLength(15).IsRequired();
+            entity.Property(proposal => proposal.InterfaceType).HasMaxLength(40).IsRequired();
+            entity.Property(proposal => proposal.Evidence).HasMaxLength(500).IsRequired();
+            entity.Property(proposal => proposal.Decision).HasConversion<string>().HasMaxLength(32);
+            entity.Property(proposal => proposal.DecidedBySubject).HasMaxLength(255);
+            entity.HasIndex(proposal => new { proposal.AgentId, proposal.DetectedAt });
+            entity.HasOne<VenueAgent>().WithMany().HasForeignKey(proposal => proposal.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

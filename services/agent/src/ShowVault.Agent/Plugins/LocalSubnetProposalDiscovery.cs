@@ -13,6 +13,7 @@ public sealed record LocalInterfaceAddress(
     IPAddress SubnetMask);
 
 public sealed record LocalSubnetProposal(
+    Guid ProposalId,
     string Network,
     int PrefixLength,
     string InterfaceType,
@@ -111,6 +112,7 @@ public sealed class LocalSubnetProposalDiscovery(ILocalInterfaceProvider interfa
                 ? $"; narrowed from the directly assigned /{assignedPrefix} network to /{proposedPrefix}"
                 : string.Empty;
             proposals.Add(new LocalSubnetProposal(
+                Guid.NewGuid(),
                 network.ToString(),
                 proposedPrefix,
                 item.InterfaceType.ToString(),
