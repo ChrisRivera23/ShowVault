@@ -162,7 +162,8 @@ public sealed class AgentCommandExecutor(
                     result.OperatingSystem,
                     result.OsArchitecture,
                     result.LogicalProcessorCount,
-                    volumeCount = result.Volumes.Count
+                    volumeCount = result.Volumes.Count,
+                    recoveryCandidateCount = result.RecoveryCandidates.Count
                 },
                 JsonOptions),
             cancellationToken);

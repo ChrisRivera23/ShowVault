@@ -17,9 +17,12 @@ public sealed record SystemInventoryResult(
     string OsArchitecture,
     string ProcessArchitecture,
     int LogicalProcessorCount,
-    IReadOnlyList<SystemVolume> Volumes);
+    IReadOnlyList<SystemVolume> Volumes,
+    IReadOnlyList<LocalRecoveryCandidate> RecoveryCandidates);
 
-public sealed class SystemInventoryPlugin(TimeProvider timeProvider)
+public sealed class SystemInventoryPlugin(
+    TimeProvider timeProvider,
+    LocalRecoveryCandidateDiscovery candidateDiscovery)
 {
     public const string PluginId = "showvault.system-inventory";
     private const int MaximumVolumeCount = 64;
@@ -29,7 +32,11 @@ public sealed class SystemInventoryPlugin(TimeProvider timeProvider)
         "ShowVault System Inventory",
         "0.1.0",
         new HashSet<AgentPluginCapability> { AgentPluginCapability.SystemInventory },
-        new HashSet<AgentPluginPermission> { AgentPluginPermission.ReadSystemInformation });
+        new HashSet<AgentPluginPermission>
+        {
+            AgentPluginPermission.ReadSystemInformation,
+            AgentPluginPermission.ReadFiles
+        });
 
     public Task<SystemInventoryResult> CollectAsync(CancellationToken cancellationToken)
     {
@@ -48,7 +55,8 @@ public sealed class SystemInventoryPlugin(TimeProvider timeProvider)
             RuntimeInformation.OSArchitecture.ToString(),
             RuntimeInformation.ProcessArchitecture.ToString(),
             Environment.ProcessorCount,
-            volumes));
+            volumes,
+            candidateDiscovery.Discover()));
     }
 
     private static SystemVolume ReadVolume(DriveInfo drive)

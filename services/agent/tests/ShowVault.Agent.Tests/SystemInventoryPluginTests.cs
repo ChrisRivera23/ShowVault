@@ -9,7 +9,7 @@ public sealed class SystemInventoryPluginTests
     public async Task Inventory_collects_bounded_read_only_host_metadata()
     {
         var now = DateTimeOffset.UtcNow;
-        var plugin = new SystemInventoryPlugin(new FixedTimeProvider(now));
+        var plugin = CreatePlugin(new FixedTimeProvider(now));
 
         var result = await plugin.CollectAsync(CancellationToken.None);
 
@@ -22,13 +22,13 @@ public sealed class SystemInventoryPluginTests
         Assert.Contains(
             AgentPluginPermission.ReadSystemInformation,
             plugin.Manifest.Permissions);
-        Assert.DoesNotContain(AgentPluginPermission.ReadFiles, plugin.Manifest.Permissions);
+        Assert.Contains(AgentPluginPermission.ReadFiles, plugin.Manifest.Permissions);
     }
 
     [Fact]
     public async Task Inventory_honors_cancellation_before_reading_the_host()
     {
-        var plugin = new SystemInventoryPlugin(TimeProvider.System);
+        var plugin = CreatePlugin(TimeProvider.System);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
@@ -39,5 +39,14 @@ public sealed class SystemInventoryPluginTests
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private static SystemInventoryPlugin CreatePlugin(TimeProvider timeProvider) => new(
+        timeProvider,
+        new LocalRecoveryCandidateDiscovery(new EmptyLocationProvider()));
+
+    private sealed class EmptyLocationProvider : IHostStandardLocationProvider
+    {
+        public IReadOnlyList<StandardLocationCandidate> GetCandidates() => [];
     }
 }

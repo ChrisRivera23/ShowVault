@@ -27,11 +27,11 @@ Use `osx-x64` for Intel Macs. The staged directory contains the self-contained p
 
 Create an `appsettings.json` outside the package. It must contain the real HTTPS control-plane URI, Agent name, and only explicitly approved recovery roots. Do not place an enrollment code or durable credential in this file.
 
-For the LIV pilot, configure separate roots for:
+Until automatic candidate approval is connected to the onboarding UI, advanced attended testing may configure separate roots for:
 
 - Resolume compositions and user data on the macOS media server.
 - grandMA2 exports copied to an approved location reachable by this Agent, if that workflow is hosted on the same Mac.
-- Yamaha DM7 Compact all-settings exports copied to an approved location reachable by this Agent.
+- Yamaha DM7 all-settings exports copied to an approved location reachable by this Agent.
 - L-Acoustics Soundvision/LA Network Manager recovery material copied to an approved location reachable by this Agent.
 - Recovery packages and controlled restore targets owned or deliberately readable/writable by `_showvault`.
 

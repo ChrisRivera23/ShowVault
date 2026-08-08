@@ -258,6 +258,8 @@ builder.Services.AddSingleton<IDiscoveryPlugin, JblVenueSynthesisDiscoveryPlugin
 builder.Services.AddSingleton<IDiscoveryPlugin, MartinAudioVuNetDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, DasAudioAlmaDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
+builder.Services.AddSingleton<IHostStandardLocationProvider, HostStandardLocationProvider>();
+builder.Services.AddSingleton<LocalRecoveryCandidateDiscovery>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
 builder.Services.AddSingleton<NetworkDeviceDiscoveryPlugin>();

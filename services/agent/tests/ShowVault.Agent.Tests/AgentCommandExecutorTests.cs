@@ -728,7 +728,9 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     labGruppenLakePlugin,
                     dynacordSonicuePlugin
                 ]),
-            new SystemInventoryPlugin(timeProvider),
+            new SystemInventoryPlugin(
+                timeProvider,
+                new LocalRecoveryCandidateDiscovery(new EmptyStandardLocationProvider())),
             new NetworkDeviceDiscoveryPlugin(
                 Options.Create(new AgentOptions
                 {
@@ -743,6 +745,12 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
             timeProvider,
             NullLogger<AgentCommandExecutor>.Instance);
+
+    }
+
+    private sealed class EmptyStandardLocationProvider : IHostStandardLocationProvider
+    {
+        public IReadOnlyList<StandardLocationCandidate> GetCandidates() => [];
     }
 
     private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions
