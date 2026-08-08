@@ -14,6 +14,7 @@ public sealed class AgentCommandExecutor(
     DiscoveryPluginRegistry pluginRegistry,
     SystemInventoryPlugin systemInventoryPlugin,
     NetworkDeviceDiscoveryPlugin networkDeviceDiscoveryPlugin,
+    ApprovedSubnetDiscovery approvedSubnetDiscovery,
     RecoveryPackageWriter packageWriter,
     RecoveryPackageVerifier packageVerifier,
     RecoveryPackageRestorer packageRestorer,
@@ -73,6 +74,9 @@ public sealed class AgentCommandExecutor(
                     break;
                 case AgentCommandType.DiscoverNetworkDevices:
                     await ExecuteNetworkDiscoveryAsync(identity, command, cancellationToken);
+                    break;
+                case AgentCommandType.DiscoverApprovedSubnet:
+                    await ExecuteApprovedSubnetDiscoveryAsync(identity, command, cancellationToken);
                     break;
                 case AgentCommandType.ApplyRecoveryCandidateDecision:
                     await ExecuteRecoveryCandidateDecisionAsync(identity, command, cancellationToken);
@@ -339,6 +343,23 @@ public sealed class AgentCommandExecutor(
                 },
                 JsonOptions),
             cancellationToken);
+    }
+
+    private async Task ExecuteApprovedSubnetDiscoveryAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Deserialize<DiscoverApprovedSubnetPayload>(command.Payload, JsonOptions)
+            ?? throw new InvalidOperationException("Approved subnet discovery payload is required.");
+        var subnet = await queueStore.GetApprovedSubnetAsync(payload.ProposalId, cancellationToken)
+            ?? throw new InvalidOperationException("The subnet is not approved on this Agent.");
+        var result = await approvedSubnetDiscovery.DiscoverAsync(
+            subnet, payload.MaxHosts, payload.TimeoutMilliseconds, cancellationToken);
+        await queueStore.StoreDiscoveryResultAsync(command.CommandId,
+            JsonSerializer.Serialize(result, JsonOptions), result.CompletedAt, cancellationToken);
+        await RecordOutcomeAsync(identity, command, AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Completed, JsonSerializer.Serialize(result, JsonOptions), cancellationToken);
     }
 
     private async Task ExecuteCreateBackupAsync(

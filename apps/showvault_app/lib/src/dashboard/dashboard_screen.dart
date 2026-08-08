@@ -181,6 +181,31 @@ class _SubnetOnboarding extends ConsumerWidget {
     }
   }
 
+  Future<void> _discover(
+    BuildContext context,
+    WidgetRef ref,
+    SubnetProposal proposal,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .discoverSubnet(
+            accessToken: session.accessToken,
+            history: history,
+            proposalId: proposal.id,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Subnet discovery failed: $error')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = history.subnetProposals.where(
@@ -210,11 +235,22 @@ class _SubnetOnboarding extends ConsumerWidget {
                   leading: const Icon(Icons.lan_outlined),
                   title: Text('${proposal.network}/${proposal.prefixLength}'),
                   subtitle: Text(
-                    '${proposal.interfaceType} • ${proposal.agentName}\n${proposal.evidence}',
+                    '${proposal.interfaceType} • ${proposal.agentName}\n'
+                    '${proposal.evidence}${_discoveryDetail(proposal)}',
                   ),
                   isThreeLine: true,
                   trailing: proposal.decision == 'approved'
-                      ? const Chip(label: Text('Approved — not scanned'))
+                      ? proposal.discoveryStatus == 'pending'
+                            ? const Chip(label: Text('Discovering'))
+                            : FilledButton(
+                                onPressed: () =>
+                                    _discover(context, ref, proposal),
+                                child: Text(
+                                  proposal.discoveryStatus == null
+                                      ? 'Authorize discovery'
+                                      : 'Discover again',
+                                ),
+                              )
                       : Wrap(
                           spacing: 8,
                           children: [
@@ -236,6 +272,17 @@ class _SubnetOnboarding extends ConsumerWidget {
       ),
     );
   }
+
+  String _discoveryDetail(
+    SubnetProposal proposal,
+  ) => switch (proposal.discoveryStatus) {
+    'completed' =>
+      '\nDiscovery complete • ${proposal.respondingHostCount ?? 0} of '
+          '${proposal.attemptedHostCount ?? 0} hosts responded • reachability only',
+    'failed' =>
+      '\nDiscovery failed • ${proposal.discoveryMessage ?? 'Unknown error'}',
+    _ => '',
+  };
 }
 
 class _CandidateOnboarding extends ConsumerWidget {

@@ -116,6 +116,35 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal("192.168.10.0", Assert.Single(proposals!.Payload).Network);
         Assert.Equal(HttpStatusCode.NoContent, (await ownerClient.PutAsJsonAsync(
             $"{proposalPath}/{proposalId}/decision", new DecideSubnetProposalRequest(true))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await ownerClient.PostAsJsonAsync(
+            $"{proposalPath}/{proposalId}/discover", new DiscoverSubnetRequest(33, 500))).StatusCode);
+        var subnetDiscoveryResponse = await ownerClient.PostAsJsonAsync(
+            $"{proposalPath}/{proposalId}/discover", new DiscoverSubnetRequest(32, 500));
+        Assert.Equal(HttpStatusCode.Accepted, subnetDiscoveryResponse.StatusCode);
+        var subnetCommand = (await subnetDiscoveryResponse.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>())!.Payload;
+        Assert.Equal(AgentCommandType.DiscoverApprovedSubnet, subnetCommand.Type);
+        Assert.DoesNotContain("192.168", subnetCommand.Payload, StringComparison.Ordinal);
+        var subnetOutcome = new AgentEventEnvelope(
+            subnetCommand.CommandId,
+            enrolledAgent.Payload.AgentId,
+            AgentEventType.JobCompleted,
+            AgentProtocol.Version,
+            DateTimeOffset.UtcNow,
+            subnetCommand.CorrelationId,
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                proposalId,
+                attemptedHostCount = 32,
+                respondingHostCount = 3
+            }));
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", subnetOutcome)).StatusCode);
+        proposals = await ownerClient.GetFromJsonAsync<ApiResponse<IReadOnlyList<SubnetProposalSummary>>>(proposalPath);
+        var discoveredProposal = Assert.Single(proposals!.Payload);
+        Assert.Equal("completed", discoveredProposal.DiscoveryStatus);
+        Assert.Equal(32, discoveredProposal.AttemptedHostCount);
+        Assert.Equal(3, discoveredProposal.RespondingHostCount);
         var candidatePath =
             $"/api/v1/organizations/{organizationId}/venues/{venueId}/recovery-candidates";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.GetAsync(candidatePath)).StatusCode);

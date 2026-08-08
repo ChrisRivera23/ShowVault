@@ -217,6 +217,18 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         var outcome = Assert.Single(await store.GetPendingEventsAsync(now.AddMinutes(1), 10,
             CancellationToken.None)).Envelope;
         Assert.Contains(proposalId.ToString(), outcome.Payload, StringComparison.OrdinalIgnoreCase);
+
+        var discoveryCommand = AgentCommandEnvelope.Create(agentId, AgentCommandType.DiscoverApprovedSubnet,
+            "subnet-discovery", JsonSerializer.Serialize(new DiscoverApprovedSubnetPayload(proposalId, 4, 250)),
+            now.AddSeconds(1), TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(discoveryCommand, now.AddSeconds(1), CancellationToken.None);
+        await CreateExecutor(store, now.AddSeconds(1)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+
+        Assert.Equal(2, (await store.GetCommandsAsync(LocalAgentCommandStatus.Completed, CancellationToken.None)).Count);
+        var discoveryJson = await store.GetDiscoveryResultJsonAsync(discoveryCommand.CommandId, CancellationToken.None);
+        Assert.Contains("\"attemptedHostCount\":4", discoveryJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("192.168.10.1", discoveryJson, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -903,6 +915,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 }),
                 new ReachableNetworkConnector(),
                 timeProvider),
+            new ApprovedSubnetDiscovery(new ReachableSubnetProbe(), timeProvider),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
@@ -919,6 +932,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     private sealed class EmptyInterfaceProvider : ILocalInterfaceProvider
     {
         public IReadOnlyList<LocalInterfaceAddress> GetAddresses() => [];
+    }
+
+    private sealed class ReachableSubnetProbe : ISubnetReachabilityProbe
+    {
+        public Task<bool> IsReachableAsync(
+            System.Net.IPAddress address,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) => Task.FromResult(true);
     }
 
     private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions

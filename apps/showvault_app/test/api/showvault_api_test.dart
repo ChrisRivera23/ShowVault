@@ -178,6 +178,39 @@ void main() {
     expect(captured.body, '{"approved":true}');
   });
 
+  test('separately authorizes bounded subnet discovery', () async {
+    late http.Request captured;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response('{"payload":{"commandId":"subnet-command"}}', 202);
+      }),
+    );
+    const history = RecoveryHistory(
+      organizationId: 'org-id',
+      organizationName: 'ShowVault',
+      venueId: 'venue-id',
+      venueName: 'Main Stage',
+      agents: [],
+      candidates: [],
+      runs: [],
+    );
+
+    final commandId = await api.discoverSubnet(
+      accessToken: 'access-token',
+      history: history,
+      proposalId: 'proposal-id',
+    );
+
+    expect(commandId, 'subnet-command');
+    expect(captured.method, 'POST');
+    expect(
+      captured.url.path,
+      '/api/v1/organizations/org-id/venues/venue-id/subnet-proposals/proposal-id/discover',
+    );
+    expect(captured.body, '{"maxHosts":32,"timeoutMilliseconds":500}');
+  });
+
   test('queues path-free approved candidate validation', () async {
     late http.Request captured;
     final api = ShowVaultApi(

@@ -388,6 +388,21 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options) : IApprovedR
         return Convert.ToInt64(await exists.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) == 1;
     }
 
+    public async Task<ApprovedSubnet?> GetApprovedSubnetAsync(
+        Guid proposalId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT proposal_id, network, prefix_length FROM approved_subnets WHERE proposal_id = $id;";
+        command.Parameters.AddWithValue("$id", proposalId.ToString());
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken)
+            ? new ApprovedSubnet(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetInt32(2))
+            : null;
+    }
+
     public async Task<bool> ApplyRecoveryCandidateDecisionAsync(
         Guid candidateId,
         bool approved,

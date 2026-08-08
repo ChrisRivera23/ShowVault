@@ -267,6 +267,8 @@ builder.Services.AddSingleton<LocalSubnetProposalDiscovery>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
 builder.Services.AddSingleton<NetworkDeviceDiscoveryPlugin>();
+builder.Services.AddSingleton<ISubnetReachabilityProbe, IcmpSubnetReachabilityProbe>();
+builder.Services.AddSingleton<ApprovedSubnetDiscovery>();
 builder.Services.AddSingleton<RecoveryPackageWriter>();
 builder.Services.AddSingleton<RecoveryPackageVerifier>();
 builder.Services.AddSingleton<RecoveryPackageRestorer>();

@@ -16,6 +16,7 @@ public static class SubnetProposalEndpoints
         var path = "/api/v1/organizations/{organizationId:guid}/venues/{venueId:guid}/subnet-proposals";
         endpoints.MapGet(path, ListAsync).RequireAuthorization();
         endpoints.MapPut(path + "/{proposalId:guid}/decision", DecideAsync).RequireAuthorization();
+        endpoints.MapPost(path + "/{proposalId:guid}/discover", DiscoverAsync).RequireAuthorization();
         return endpoints;
     }
 
@@ -31,7 +32,31 @@ public static class SubnetProposalEndpoints
             .OrderByDescending(x => x.p.DetectedAt).Select(x =>
             new SubnetProposalSummary(x.p.Id, x.p.AgentId, x.Name, x.p.Network, x.p.PrefixLength,
                 x.p.InterfaceType, x.p.Evidence, x.p.Decision.ToString().ToLowerInvariant(),
-                x.p.DetectedAt, x.p.DecidedAt)).ToArray(), context.TraceIdentifier));
+                x.p.DetectedAt, x.p.DecidedAt, x.p.DiscoveryCommandId,
+                x.p.DiscoveryStatus?.ToString().ToLowerInvariant(), x.p.AttemptedHostCount,
+                x.p.RespondingHostCount, x.p.DiscoveryMessage, x.p.DiscoveredAt)).ToArray(), context.TraceIdentifier));
+    }
+
+    private static async Task<IResult> DiscoverAsync(Guid organizationId, Guid venueId, Guid proposalId,
+        DiscoverSubnetRequest request, ClaimsPrincipal user, HttpContext context,
+        PlatformDbContext db, TimeProvider time, CancellationToken ct)
+    {
+        var subject = user.FindFirstValue("sub");
+        if (!await HasAccess(db, organizationId, venueId, subject, true, ct)) return Results.Forbid();
+        if (request.MaxHosts is < 1 or > 32 || request.TimeoutMilliseconds is < 100 or > 500)
+            return Results.BadRequest();
+        var proposal = await db.SubnetProposals.SingleOrDefaultAsync(p => p.Id == proposalId &&
+            p.Decision == SubnetProposalDecision.Approved && db.VenueAgents.Any(a =>
+                a.Id == p.AgentId && a.VenueId == venueId && a.RevokedAt == null), ct);
+        if (proposal is null) return Results.BadRequest();
+        var command = AgentCommandEnvelope.Create(proposal.AgentId, AgentCommandType.DiscoverApprovedSubnet,
+            context.TraceIdentifier, JsonSerializer.Serialize(new DiscoverApprovedSubnetPayload(
+                proposal.Id, request.MaxHosts, request.TimeoutMilliseconds)), time.GetUtcNow(), TimeSpan.FromMinutes(10));
+        db.IssuedAgentCommands.Add(IssuedAgentCommand.FromEnvelope(command));
+        proposal.StartDiscovery(command.CommandId);
+        await db.SaveChangesAsync(ct);
+        return Results.Accepted($"/api/v1/agent-commands/{command.CommandId}",
+            ApiResponse<AgentCommandEnvelope>.Success(command, context.TraceIdentifier));
     }
 
     private static async Task<IResult> DecideAsync(Guid organizationId, Guid venueId, Guid proposalId,

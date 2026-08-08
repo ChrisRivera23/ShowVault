@@ -6,6 +6,11 @@ public sealed record ValidateRecoveryCandidatePayload(Guid CandidateId, int MaxF
 
 public sealed record ApplySubnetProposalDecisionPayload(Guid ProposalId, bool Approved);
 
+public sealed record DiscoverApprovedSubnetPayload(
+    Guid ProposalId,
+    int MaxHosts = 32,
+    int TimeoutMilliseconds = 500);
+
 public sealed record AgentCommandEnvelope(
     Guid CommandId,
     Guid AgentId,

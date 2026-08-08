@@ -35,6 +35,10 @@ class SubnetProposal {
     required this.interfaceType,
     required this.evidence,
     required this.decision,
+    this.discoveryStatus,
+    this.attemptedHostCount,
+    this.respondingHostCount,
+    this.discoveryMessage,
   });
   factory SubnetProposal.fromJson(Map<String, Object?> json) => SubnetProposal(
     id: json['id']! as String,
@@ -44,9 +48,17 @@ class SubnetProposal {
     interfaceType: json['interfaceType']! as String,
     evidence: json['evidence']! as String,
     decision: json['decision']! as String,
+    discoveryStatus: json['discoveryStatus'] as String?,
+    attemptedHostCount: json['attemptedHostCount'] as int?,
+    respondingHostCount: json['respondingHostCount'] as int?,
+    discoveryMessage: json['discoveryMessage'] as String?,
   );
   final String id, agentName, network, interfaceType, evidence, decision;
   final int prefixLength;
+  final String? discoveryStatus;
+  final int? attemptedHostCount;
+  final int? respondingHostCount;
+  final String? discoveryMessage;
 }
 
 class RecoveryCandidate {
@@ -190,6 +202,29 @@ class ShowVaultApi {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ShowVaultApiException(response.statusCode);
     }
+  }
+
+  Future<String> discoverSubnet({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String proposalId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
+        '/venues/${history.venueId}/subnet-proposals/$proposalId/discover',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'maxHosts': 32, 'timeoutMilliseconds': 500}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    return (body['payload']! as Map<String, Object?>)['commandId']! as String;
   }
 
   Future<void> decideRecoveryCandidate({

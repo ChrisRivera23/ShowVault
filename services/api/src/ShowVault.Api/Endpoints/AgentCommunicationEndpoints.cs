@@ -74,6 +74,7 @@ public static class AgentCommunicationEndpoints
             database,
             envelope,
             cancellationToken);
+        await UpdateSubnetDiscoveryAsync(database, envelope, cancellationToken);
         try
         {
             await database.SaveChangesAsync(cancellationToken);
@@ -165,6 +166,46 @@ public static class AgentCommunicationEndpoints
         catch (JsonException)
         {
             candidate.FailValidation("Agent returned invalid validation evidence.", envelope.OccurredAt);
+        }
+    }
+
+    private static async Task UpdateSubnetDiscoveryAsync(
+        PlatformDbContext database,
+        AgentEventEnvelope envelope,
+        CancellationToken cancellationToken)
+    {
+        var command = await database.IssuedAgentCommands.SingleOrDefaultAsync(item =>
+            item.CommandId == envelope.EventId && item.AgentId == envelope.AgentId &&
+            item.Type == AgentCommandType.DiscoverApprovedSubnet, cancellationToken);
+        if (command is null) return;
+        DiscoverApprovedSubnetPayload? request;
+        try { request = JsonSerializer.Deserialize<DiscoverApprovedSubnetPayload>(command.Payload); }
+        catch (JsonException) { return; }
+        if (request is null) return;
+        var proposal = await database.SubnetProposals.SingleOrDefaultAsync(item =>
+            item.Id == request.ProposalId && item.AgentId == envelope.AgentId &&
+            item.DiscoveryCommandId == envelope.EventId && item.DiscoveryStatus == SubnetDiscoveryStatus.Pending,
+            cancellationToken);
+        if (proposal is null) return;
+        try
+        {
+            using var outcome = JsonDocument.Parse(envelope.Payload);
+            if (envelope.Type == AgentEventType.JobCompleted &&
+                outcome.RootElement.TryGetProperty("attemptedHostCount", out var attemptedValue) &&
+                attemptedValue.TryGetInt32(out var attempted) &&
+                outcome.RootElement.TryGetProperty("respondingHostCount", out var respondingValue) &&
+                respondingValue.TryGetInt32(out var responding))
+            {
+                proposal.CompleteDiscovery(attempted, responding, envelope.OccurredAt);
+                return;
+            }
+            var message = outcome.RootElement.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.String
+                ? error.GetString() : "Agent returned invalid subnet discovery evidence.";
+            proposal.FailDiscovery(string.IsNullOrWhiteSpace(message) ? "Subnet discovery failed." : message[..Math.Min(500, message.Length)], envelope.OccurredAt);
+        }
+        catch (JsonException)
+        {
+            proposal.FailDiscovery("Agent returned invalid subnet discovery evidence.", envelope.OccurredAt);
         }
     }
 
