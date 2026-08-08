@@ -21,13 +21,12 @@ Network discovery must derive candidate interfaces and subnets locally, exclude 
 
 ## Current slice
 
-System inventory now includes bounded local recovery candidates. The first provider checks standard macOS and Windows Resolume Arena/Avenue application and user-data locations across local user profiles. Missing and inaccessible locations are ignored. Detected paths are stored only in the Agent's local discovery result; durable remote candidate/approval models and onboarding UI are not implemented yet.
+System inventory now includes bounded local recovery candidates. The first provider checks standard macOS and Windows Resolume Arena/Avenue application and user-data locations across local user profiles. Missing and inaccessible locations are ignored. Detected paths remain only in the Agent's local discovery result. The Agent publishes opaque IDs plus bounded product/type/evidence metadata; the control plane persists tenant-scoped decisions, and the native dashboard supports manager approve/reject review without receiving paths. Approval does not yet authorize local file access.
 
 ## Next slices
 
-1. Add control-plane candidate and approval records without exposing filesystem paths outside the intended venue/Agent boundary.
-2. Surface detected systems in native onboarding with an approve/reject workflow.
-3. Convert approved candidates into durable Agent-local allowlists.
-4. Detect network interfaces and propose bounded venue subnets for approval.
-5. Add protocol-aware MA Lighting, Yamaha, and L-Acoustics discovery without representing an open TCP port as product support.
-6. Expand standard-location providers for supported workstation applications and export workflows.
+1. Deliver approved opaque candidate IDs to the originating Agent and convert them into durable exact local allowlists.
+2. Start product validation from approved candidates without manual path entry.
+3. Detect network interfaces and propose bounded venue subnets for approval.
+4. Add protocol-aware MA Lighting, Yamaha, and L-Acoustics discovery without representing an open TCP port as product support.
+5. Expand standard-location providers for supported workstation applications and export workflows.
