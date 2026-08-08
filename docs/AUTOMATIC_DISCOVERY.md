@@ -31,9 +31,11 @@ Protocol 1.7 adds a separate manager action for grandMA3 identification after a 
 
 The control plane correlates identification outcomes to the exact Agent, proposal, discovery authorization, and pending identification command. It persists bounded path-free pending/completed/failed state, attempted and matched counts, product-family evidence, failure details, and completion time. Native onboarding polls pending work and displays the result for operator review without receiving host addresses. A new proposal decision or bounded discovery clears stale identification evidence.
 
+Protocol 1.8 adds a separate manager-authorized Yamaha DME7 check using only the responders retained by one exact bounded discovery. The Agent uses Yamaha's documented TCP port 49280 and sends only the documented LF-terminated `devinfo productname` and `devinfo manufacturer` read queries. A match requires exact `DME7` and `Yamaha Corporation` responses. Addresses, matches, and bounded response handling remain Agent-local; path-free completion contains attempted/matched counts and `Yamaha DME7`. An open port, partial response, another Yamaha model, or generic reachability is not product evidence.
+
 ## Next slices
 
-1. Extend the same separately authorized primary-evidence model to Yamaha.
-2. Extend it to L-Acoustics after Yamaha is proven.
+1. Persist bounded path-free Yamaha DME7 identification state/evidence without overwriting grandMA3 results and expose a separate native review action.
+2. Extend the model to L-Acoustics after Yamaha review is proven.
 3. Define a documented primary-evidence network signature before adding grandMA2 identification.
 4. Expand standard-location providers for supported workstation applications and export workflows.
