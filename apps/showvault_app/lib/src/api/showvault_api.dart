@@ -39,6 +39,11 @@ class SubnetProposal {
     this.attemptedHostCount,
     this.respondingHostCount,
     this.discoveryMessage,
+    this.identificationStatus,
+    this.identificationAttemptedHostCount,
+    this.identifiedHostCount,
+    this.identifiedProductFamilies,
+    this.identificationMessage,
   });
   factory SubnetProposal.fromJson(Map<String, Object?> json) => SubnetProposal(
     id: json['id']! as String,
@@ -52,6 +57,12 @@ class SubnetProposal {
     attemptedHostCount: json['attemptedHostCount'] as int?,
     respondingHostCount: json['respondingHostCount'] as int?,
     discoveryMessage: json['discoveryMessage'] as String?,
+    identificationStatus: json['identificationStatus'] as String?,
+    identificationAttemptedHostCount:
+        json['identificationAttemptedHostCount'] as int?,
+    identifiedHostCount: json['identifiedHostCount'] as int?,
+    identifiedProductFamilies: json['identifiedProductFamilies'] as String?,
+    identificationMessage: json['identificationMessage'] as String?,
   );
   final String id, agentName, network, interfaceType, evidence, decision;
   final int prefixLength;
@@ -59,6 +70,11 @@ class SubnetProposal {
   final int? attemptedHostCount;
   final int? respondingHostCount;
   final String? discoveryMessage;
+  final String? identificationStatus;
+  final int? identificationAttemptedHostCount;
+  final int? identifiedHostCount;
+  final String? identifiedProductFamilies;
+  final String? identificationMessage;
 }
 
 class RecoveryCandidate {
@@ -219,6 +235,29 @@ class ShowVaultApi {
         'Content-Type': 'application/json',
       },
       body: jsonEncode({'maxHosts': 32, 'timeoutMilliseconds': 500}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    return (body['payload']! as Map<String, Object?>)['commandId']! as String;
+  }
+
+  Future<String> identifyMaLighting({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String proposalId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
+        '/venues/${history.venueId}/subnet-proposals/$proposalId/identify-ma-lighting',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'timeoutMilliseconds': 500}),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ShowVaultApiException(response.statusCode);

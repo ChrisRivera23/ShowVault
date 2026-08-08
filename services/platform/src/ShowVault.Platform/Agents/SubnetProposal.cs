@@ -4,6 +4,7 @@ using System.Net;
 
 public enum SubnetProposalDecision { Pending, Approved, Rejected }
 public enum SubnetDiscoveryStatus { Pending, Completed, Failed }
+public enum ProductIdentificationStatus { Pending, Completed, Failed }
 
 public sealed class SubnetProposal
 {
@@ -32,6 +33,13 @@ public sealed class SubnetProposal
     public int? RespondingHostCount { get; private set; }
     public string? DiscoveryMessage { get; private set; }
     public DateTimeOffset? DiscoveredAt { get; private set; }
+    public Guid? IdentificationCommandId { get; private set; }
+    public ProductIdentificationStatus? IdentificationStatus { get; private set; }
+    public int? IdentificationAttemptedHostCount { get; private set; }
+    public int? IdentifiedHostCount { get; private set; }
+    public string? IdentifiedProductFamilies { get; private set; }
+    public string? IdentificationMessage { get; private set; }
+    public DateTimeOffset? IdentifiedAt { get; private set; }
 
     public static SubnetProposal Detected(Guid id, Guid agentId, string network, int prefixLength,
         string interfaceType, string evidence, DateTimeOffset detectedAt)
@@ -59,6 +67,7 @@ public sealed class SubnetProposal
         Decision = decision; DecidedBySubject = subject; DecidedAt = at;
         DiscoveryCommandId = null; DiscoveryStatus = null; AttemptedHostCount = null;
         RespondingHostCount = null; DiscoveryMessage = null; DiscoveredAt = null;
+        ClearIdentification();
     }
 
     public void StartDiscovery(Guid commandId)
@@ -67,6 +76,7 @@ public sealed class SubnetProposal
             throw new InvalidOperationException("Only an approved subnet can be authorized for discovery.");
         DiscoveryCommandId = commandId; DiscoveryStatus = SubnetDiscoveryStatus.Pending;
         AttemptedHostCount = null; RespondingHostCount = null; DiscoveryMessage = null; DiscoveredAt = null;
+        ClearIdentification();
     }
 
     public void CompleteDiscovery(int attempted, int responding, DateTimeOffset at)
@@ -82,5 +92,48 @@ public sealed class SubnetProposal
         if (DiscoveryStatus != SubnetDiscoveryStatus.Pending) throw new InvalidOperationException("Subnet discovery is not pending.");
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         DiscoveryStatus = SubnetDiscoveryStatus.Failed; DiscoveryMessage = message; DiscoveredAt = at;
+    }
+
+    public void StartIdentification(Guid commandId)
+    {
+        if (DiscoveryStatus != SubnetDiscoveryStatus.Completed || RespondingHostCount is null or <= 0 ||
+            commandId == Guid.Empty)
+            throw new InvalidOperationException("Product identification requires completed discovery with responders.");
+        ClearIdentification();
+        IdentificationCommandId = commandId;
+        IdentificationStatus = ProductIdentificationStatus.Pending;
+    }
+
+    public void CompleteIdentification(int attempted, int identified, string productFamilies, DateTimeOffset at)
+    {
+        if (IdentificationStatus != ProductIdentificationStatus.Pending || attempted is < 1 or > 32 ||
+            identified < 0 || identified > attempted || string.IsNullOrWhiteSpace(productFamilies))
+            throw new InvalidOperationException("Product identification result is invalid.");
+        IdentificationStatus = ProductIdentificationStatus.Completed;
+        IdentificationAttemptedHostCount = attempted;
+        IdentifiedHostCount = identified;
+        IdentifiedProductFamilies = productFamilies;
+        IdentifiedAt = at;
+    }
+
+    public void FailIdentification(string message, DateTimeOffset at)
+    {
+        if (IdentificationStatus != ProductIdentificationStatus.Pending)
+            throw new InvalidOperationException("Product identification is not pending.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        IdentificationStatus = ProductIdentificationStatus.Failed;
+        IdentificationMessage = message;
+        IdentifiedAt = at;
+    }
+
+    private void ClearIdentification()
+    {
+        IdentificationCommandId = null;
+        IdentificationStatus = null;
+        IdentificationAttemptedHostCount = null;
+        IdentifiedHostCount = null;
+        IdentifiedProductFamilies = null;
+        IdentificationMessage = null;
+        IdentifiedAt = null;
     }
 }

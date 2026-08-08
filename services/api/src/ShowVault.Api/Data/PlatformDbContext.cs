@@ -163,9 +163,13 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.Property(proposal => proposal.Decision).HasConversion<string>().HasMaxLength(32);
             entity.Property(proposal => proposal.DiscoveryStatus).HasConversion<string>().HasMaxLength(32);
             entity.Property(proposal => proposal.DiscoveryMessage).HasMaxLength(500);
+            entity.Property(proposal => proposal.IdentificationStatus).HasConversion<string>().HasMaxLength(32);
+            entity.Property(proposal => proposal.IdentifiedProductFamilies).HasMaxLength(200);
+            entity.Property(proposal => proposal.IdentificationMessage).HasMaxLength(500);
             entity.Property(proposal => proposal.DecidedBySubject).HasMaxLength(255);
             entity.HasIndex(proposal => new { proposal.AgentId, proposal.DetectedAt });
             entity.HasIndex(proposal => proposal.DiscoveryCommandId).IsUnique();
+            entity.HasIndex(proposal => proposal.IdentificationCommandId).IsUnique();
             entity.HasOne<VenueAgent>().WithMany().HasForeignKey(proposal => proposal.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

@@ -206,6 +206,31 @@ class _SubnetOnboarding extends ConsumerWidget {
     }
   }
 
+  Future<void> _identifyMaLighting(
+    BuildContext context,
+    WidgetRef ref,
+    SubnetProposal proposal,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .identifyMaLighting(
+            accessToken: session.accessToken,
+            history: history,
+            proposalId: proposal.id,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('MA Lighting identification failed: $error')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = history.subnetProposals.where(
@@ -236,20 +261,37 @@ class _SubnetOnboarding extends ConsumerWidget {
                   title: Text('${proposal.network}/${proposal.prefixLength}'),
                   subtitle: Text(
                     '${proposal.interfaceType} • ${proposal.agentName}\n'
-                    '${proposal.evidence}${_discoveryDetail(proposal)}',
+                    '${proposal.evidence}${_discoveryDetail(proposal)}${_identificationDetail(proposal)}',
                   ),
                   isThreeLine: true,
                   trailing: proposal.decision == 'approved'
                       ? proposal.discoveryStatus == 'pending'
                             ? const Chip(label: Text('Discovering'))
-                            : FilledButton(
-                                onPressed: () =>
-                                    _discover(context, ref, proposal),
-                                child: Text(
-                                  proposal.discoveryStatus == null
-                                      ? 'Authorize discovery'
-                                      : 'Discover again',
-                                ),
+                            : proposal.identificationStatus == 'pending'
+                            ? const Chip(label: Text('Identifying grandMA3'))
+                            : Wrap(
+                                spacing: 8,
+                                children: [
+                                  OutlinedButton(
+                                    onPressed: () =>
+                                        _discover(context, ref, proposal),
+                                    child: Text(
+                                      proposal.discoveryStatus == null
+                                          ? 'Authorize discovery'
+                                          : 'Discover again',
+                                    ),
+                                  ),
+                                  if (proposal.discoveryStatus == 'completed' &&
+                                      (proposal.respondingHostCount ?? 0) > 0)
+                                    FilledButton(
+                                      onPressed: () => _identifyMaLighting(
+                                        context,
+                                        ref,
+                                        proposal,
+                                      ),
+                                      child: const Text('Identify grandMA3'),
+                                    ),
+                                ],
                               )
                       : Wrap(
                           spacing: 8,
@@ -281,6 +323,19 @@ class _SubnetOnboarding extends ConsumerWidget {
           '${proposal.attemptedHostCount ?? 0} hosts responded • reachability only',
     'failed' =>
       '\nDiscovery failed • ${proposal.discoveryMessage ?? 'Unknown error'}',
+    _ => '',
+  };
+
+  String _identificationDetail(
+    SubnetProposal proposal,
+  ) => switch (proposal.identificationStatus) {
+    'completed' =>
+      '\nMA Lighting review • ${proposal.identifiedHostCount ?? 0} of '
+          '${proposal.identificationAttemptedHostCount ?? 0} identified • '
+          '${proposal.identifiedProductFamilies ?? 'none'} • addresses remain local',
+    'failed' =>
+      '\nMA Lighting identification failed • '
+          '${proposal.identificationMessage ?? 'Unknown error'}',
     _ => '',
   };
 }

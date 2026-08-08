@@ -75,6 +75,7 @@ public static class AgentCommunicationEndpoints
             envelope,
             cancellationToken);
         await UpdateSubnetDiscoveryAsync(database, envelope, cancellationToken);
+        await UpdateMaLightingIdentificationAsync(database, envelope, cancellationToken);
         try
         {
             await database.SaveChangesAsync(cancellationToken);
@@ -206,6 +207,64 @@ public static class AgentCommunicationEndpoints
         catch (JsonException)
         {
             proposal.FailDiscovery("Agent returned invalid subnet discovery evidence.", envelope.OccurredAt);
+        }
+    }
+
+    private static async Task UpdateMaLightingIdentificationAsync(
+        PlatformDbContext database,
+        AgentEventEnvelope envelope,
+        CancellationToken cancellationToken)
+    {
+        var command = await database.IssuedAgentCommands.SingleOrDefaultAsync(item =>
+            item.CommandId == envelope.EventId && item.AgentId == envelope.AgentId &&
+            item.Type == AgentCommandType.IdentifyMaLighting, cancellationToken);
+        if (command is null) return;
+        IdentifyMaLightingPayload? request;
+        try { request = JsonSerializer.Deserialize<IdentifyMaLightingPayload>(command.Payload); }
+        catch (JsonException) { return; }
+        if (request is null) return;
+        var proposal = await database.SubnetProposals.SingleOrDefaultAsync(item =>
+            item.Id == request.ProposalId && item.AgentId == envelope.AgentId &&
+            item.DiscoveryCommandId == request.DiscoveryCommandId &&
+            item.IdentificationCommandId == envelope.EventId &&
+            item.IdentificationStatus == ProductIdentificationStatus.Pending,
+            cancellationToken);
+        if (proposal is null) return;
+        try
+        {
+            using var outcome = JsonDocument.Parse(envelope.Payload);
+            if (envelope.Type == AgentEventType.JobCompleted &&
+                outcome.RootElement.TryGetProperty("attemptedHostCount", out var attemptedValue) &&
+                attemptedValue.TryGetInt32(out var attempted) &&
+                outcome.RootElement.TryGetProperty("identifiedHostCount", out var identifiedValue) &&
+                identifiedValue.TryGetInt32(out var identified) &&
+                outcome.RootElement.TryGetProperty("productFamilies", out var familiesValue) &&
+                familiesValue.ValueKind == JsonValueKind.Array)
+            {
+                var families = familiesValue.EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetString())
+                    .Where(item => !string.IsNullOrWhiteSpace(item))
+                    .Distinct(StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal)
+                    .ToArray();
+                var familyEvidenceIsConsistent = identified == 0 ? families.Length == 0 : families.Length > 0;
+                var boundedFamilies = families.Length == 0 ? "none" : string.Join(",", families);
+                if (familyEvidenceIsConsistent && boundedFamilies.Length <= 200)
+                {
+                    proposal.CompleteIdentification(attempted, identified, boundedFamilies, envelope.OccurredAt);
+                    return;
+                }
+            }
+            var message = outcome.RootElement.TryGetProperty("error", out var error) &&
+                error.ValueKind == JsonValueKind.String ? error.GetString() :
+                "Agent returned invalid MA Lighting identification evidence.";
+            proposal.FailIdentification(string.IsNullOrWhiteSpace(message) ?
+                "MA Lighting identification failed." : message[..Math.Min(500, message.Length)], envelope.OccurredAt);
+        }
+        catch (JsonException)
+        {
+            proposal.FailIdentification("Agent returned invalid MA Lighting identification evidence.", envelope.OccurredAt);
         }
     }
 

@@ -211,6 +211,42 @@ void main() {
     expect(captured.body, '{"maxHosts":32,"timeoutMilliseconds":500}');
   });
 
+  test('separately authorizes path-free grandMA3 identification', () async {
+    late http.Request captured;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(
+          '{"payload":{"commandId":"identify-command"}}',
+          202,
+        );
+      }),
+    );
+    const history = RecoveryHistory(
+      organizationId: 'org-id',
+      organizationName: 'ShowVault',
+      venueId: 'venue-id',
+      venueName: 'Main Stage',
+      agents: [],
+      candidates: [],
+      runs: [],
+    );
+
+    final commandId = await api.identifyMaLighting(
+      accessToken: 'access-token',
+      history: history,
+      proposalId: 'proposal-id',
+    );
+
+    expect(commandId, 'identify-command');
+    expect(captured.method, 'POST');
+    expect(
+      captured.url.path,
+      '/api/v1/organizations/org-id/venues/venue-id/subnet-proposals/proposal-id/identify-ma-lighting',
+    );
+    expect(captured.body, '{"timeoutMilliseconds":500}');
+  });
+
   test('queues path-free approved candidate validation', () async {
     late http.Request captured;
     final api = ShowVaultApi(

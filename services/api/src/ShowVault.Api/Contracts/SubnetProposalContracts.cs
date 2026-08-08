@@ -4,7 +4,10 @@ public sealed record SubnetProposalSummary(Guid Id, Guid AgentId, string AgentNa
     string Network, int PrefixLength, string InterfaceType, string Evidence,
     string Decision, DateTimeOffset DetectedAt, DateTimeOffset? DecidedAt,
     Guid? DiscoveryCommandId, string? DiscoveryStatus, int? AttemptedHostCount,
-    int? RespondingHostCount, string? DiscoveryMessage, DateTimeOffset? DiscoveredAt);
+    int? RespondingHostCount, string? DiscoveryMessage, DateTimeOffset? DiscoveredAt,
+    Guid? IdentificationCommandId, string? IdentificationStatus,
+    int? IdentificationAttemptedHostCount, int? IdentifiedHostCount,
+    string? IdentifiedProductFamilies, string? IdentificationMessage, DateTimeOffset? IdentifiedAt);
 
 public sealed record DecideSubnetProposalRequest(bool Approved);
 

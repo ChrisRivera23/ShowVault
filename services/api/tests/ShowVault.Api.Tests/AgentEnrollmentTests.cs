@@ -159,6 +159,29 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Contains(subnetCommand.CommandId.ToString(), identificationCommand.Payload,
             StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("192.168", identificationCommand.Payload, StringComparison.Ordinal);
+        var identificationOutcome = new AgentEventEnvelope(
+            identificationCommand.CommandId,
+            enrolledAgent.Payload.AgentId,
+            AgentEventType.JobCompleted,
+            AgentProtocol.Version,
+            DateTimeOffset.UtcNow,
+            identificationCommand.CorrelationId,
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                proposalId,
+                discoveryCommandId = subnetCommand.CommandId,
+                attemptedHostCount = 3,
+                identifiedHostCount = 1,
+                productFamilies = new[] { "grandMA3" }
+            }));
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", identificationOutcome)).StatusCode);
+        proposals = await ownerClient.GetFromJsonAsync<ApiResponse<IReadOnlyList<SubnetProposalSummary>>>(proposalPath);
+        var identifiedProposal = Assert.Single(proposals!.Payload);
+        Assert.Equal("completed", identifiedProposal.IdentificationStatus);
+        Assert.Equal(3, identifiedProposal.IdentificationAttemptedHostCount);
+        Assert.Equal(1, identifiedProposal.IdentifiedHostCount);
+        Assert.Equal("grandMA3", identifiedProposal.IdentifiedProductFamilies);
         var candidatePath =
             $"/api/v1/organizations/{organizationId}/venues/{venueId}/recovery-candidates";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.GetAsync(candidatePath)).StatusCode);

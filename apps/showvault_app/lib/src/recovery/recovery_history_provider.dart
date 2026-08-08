@@ -20,6 +20,11 @@ final recoveryHistoryProvider = FutureProvider<RecoveryHistory>((ref) async {
       ) ||
       history.candidates.any(
         (candidate) => candidate.validationStatus == 'pending',
+      ) ||
+      history.subnetProposals.any(
+        (proposal) =>
+            proposal.discoveryStatus == 'pending' ||
+            proposal.identificationStatus == 'pending',
       )) {
     final timer = Timer(const Duration(seconds: 3), ref.invalidateSelf);
     ref.onDispose(timer.cancel);
