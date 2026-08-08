@@ -40,7 +40,7 @@ Manufacturer names do not imply automatic support for every product the company 
 - JBL Professional — Venue Synthesis `.vysn` project discovery implemented with LAC `.lac3`, ArrayLink `.al`, venue, EASE, report, and other exact-root companions preserved
 - Martin Audio — Vu-Net `.vun` project discovery implemented with revisions, snapshots, presets, zone/device documentation, and other exact-root companions preserved
 - Funktion-One — deferred pending an official or fixture-verified NST Audio D-Net project format; Funktion-One officially links D-Net for F-Series DSP control, but no dependable local project extension or signature is published
-- Adamson
+- Adamson — deferred pending an official or fixture-verified complete Blueprint AV/ArrayIntelligence project format; the documented `.rm` artifact contains room geometry only and is not a complete system-design recovery anchor
 - Outline
 - DAS Audio
 - KV2 Audio
