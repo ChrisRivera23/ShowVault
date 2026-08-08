@@ -27,9 +27,11 @@ Subnet derivation considers only active physical Ethernet and Wi-Fi interfaces w
 
 Protocol 1.6 adds a second manager action for one approved proposal. The Agent resolves its CIDR locally and performs reachability-only ICMP checks against at most 32 usable addresses, with 100-500 ms per-host timeouts and concurrency capped at eight. Responding addresses are retained only in Agent SQLite and keyed by the exact authorization command and proposal. Durable path-free results and control-plane events contain only attempted and responding counts; they contain no host addresses, ports, banners, or product claims, and discovery performs no synchronization. Rejecting the proposal removes its locally retained host sets.
 
+Protocol 1.7 adds a separate manager action for grandMA3 identification after a completed bounded discovery with at least one responder. The command references the opaque proposal and exact discovery command only. The Agent reads that local responder set, checks the officially documented grandMA3 Web Remote HTTP service on port 8080 with 100-500 ms timeouts, and requires a `grandMA3` response signature. Addresses and matches remain in Agent SQLite. The path-free completion contains only attempted and identified counts plus the `grandMA3` product family. The probe does not authenticate, enumerate a session, synchronize state, retain response content, or claim grandMA2 support.
+
 ## Next slices
 
-1. Add separately authorized protocol-aware MA Lighting identification using only one exact locally retained responding-host authorization, without representing ICMP or an open port as product support.
+1. Persist bounded path-free grandMA3 identification state/evidence in the tenant control plane and expose it for operator review.
 2. Extend the same primary-evidence model to Yamaha and L-Acoustics.
-3. Publish only bounded path-free product evidence for operator review.
+3. Define a documented primary-evidence network signature before adding grandMA2 identification.
 4. Expand standard-location providers for supported workstation applications and export workflows.
