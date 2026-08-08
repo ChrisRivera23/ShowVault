@@ -41,7 +41,7 @@ Manufacturer names do not imply automatic support for every product the company 
 - Martin Audio — Vu-Net `.vun` project discovery implemented with revisions, snapshots, presets, zone/device documentation, and other exact-root companions preserved
 - Funktion-One — deferred pending an official or fixture-verified NST Audio D-Net project format; Funktion-One officially links D-Net for F-Series DSP control, but no dependable local project extension or signature is published
 - Adamson — deferred pending an official or fixture-verified complete Blueprint AV/ArrayIntelligence project format; the documented `.rm` artifact contains room geometry only and is not a complete system-design recovery anchor
-- Outline
+- Outline — deferred pending an official or fixture-verified complete Outline Dashboard or OpenArray project format; the Newton manual documents saved Dashboard projects and a hazardous supervised device-application workflow, but publishes no dependable project extension, signature, or storage boundary, and current OpenArray material likewise does not define a complete portable recovery anchor
 - DAS Audio
 - KV2 Audio
 
