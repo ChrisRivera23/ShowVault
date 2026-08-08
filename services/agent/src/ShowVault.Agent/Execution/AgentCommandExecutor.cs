@@ -74,6 +74,9 @@ public sealed class AgentCommandExecutor(
                 case AgentCommandType.DiscoverNetworkDevices:
                     await ExecuteNetworkDiscoveryAsync(identity, command, cancellationToken);
                     break;
+                case AgentCommandType.ApplyRecoveryCandidateDecision:
+                    await ExecuteRecoveryCandidateDecisionAsync(identity, command, cancellationToken);
+                    break;
                 case AgentCommandType.CreateBackup:
                     await ExecuteCreateBackupAsync(identity, command, cancellationToken);
                     break;
@@ -140,6 +143,44 @@ public sealed class AgentCommandExecutor(
             cancellationToken);
     }
 
+    private async Task ExecuteRecoveryCandidateDecisionAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Deserialize<ApplyRecoveryCandidateDecisionPayload>(
+            command.Payload,
+            JsonOptions)
+            ?? throw new InvalidOperationException("Recovery candidate decision payload is required.");
+        if (payload.CandidateId == Guid.Empty)
+        {
+            throw new InvalidOperationException("Recovery candidate ID must not be empty.");
+        }
+
+        var applied = await queueStore.ApplyRecoveryCandidateDecisionAsync(
+            payload.CandidateId,
+            payload.Approved,
+            command.IssuedAt,
+            cancellationToken);
+        if (!applied)
+        {
+            throw new InvalidOperationException(
+                "The recovery candidate is not present in this Agent's local inventory.");
+        }
+
+        await RecordOutcomeAsync(
+            identity,
+            command,
+            AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Completed,
+            JsonSerializer.Serialize(new
+            {
+                payload.CandidateId,
+                payload.Approved
+            }, JsonOptions),
+            cancellationToken);
+    }
+
     private async Task ExecuteSystemInventoryAsync(
         StoredAgentIdentity identity,
         AgentCommandEnvelope command,
@@ -149,6 +190,10 @@ public sealed class AgentCommandExecutor(
         await queueStore.StoreDiscoveryResultAsync(
             command.CommandId,
             JsonSerializer.Serialize(result, JsonOptions),
+            result.CollectedAt,
+            cancellationToken);
+        await queueStore.StoreRecoveryCandidatesAsync(
+            result.RecoveryCandidates,
             result.CollectedAt,
             cancellationToken);
         await RecordOutcomeAsync(

@@ -1,8 +1,10 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
+using ShowVault.AgentContracts;
 using ShowVault.Platform.Agents;
 
 namespace ShowVault.Api.Endpoints;
@@ -68,6 +70,7 @@ public static class RecoveryCandidateEndpoints
         Guid candidateId,
         DecideRecoveryCandidateRequest request,
         ClaimsPrincipal user,
+        HttpContext context,
         PlatformDbContext database,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
@@ -91,6 +94,16 @@ public static class RecoveryCandidateEndpoints
             request.Approved ? RecoveryCandidateDecision.Approved : RecoveryCandidateDecision.Rejected,
             subject!,
             timeProvider.GetUtcNow());
+        var command = AgentCommandEnvelope.Create(
+            candidate.AgentId,
+            AgentCommandType.ApplyRecoveryCandidateDecision,
+            context.TraceIdentifier,
+            JsonSerializer.Serialize(new ApplyRecoveryCandidateDecisionPayload(
+                candidate.Id,
+                request.Approved)),
+            timeProvider.GetUtcNow(),
+            TimeSpan.FromHours(1));
+        database.IssuedAgentCommands.Add(IssuedAgentCommand.FromEnvelope(command));
         await database.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
+using ShowVault.Agent.Plugins;
 using ShowVault.AgentContracts;
 
 namespace ShowVault.Agent.Queue;
@@ -74,6 +75,25 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
                 target_path TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE
+            );
+            CREATE TABLE IF NOT EXISTS recovery_candidates (
+                candidate_id TEXT PRIMARY KEY,
+                plugin_id TEXT NOT NULL,
+                product_name TEXT NOT NULL,
+                candidate_type TEXT NOT NULL,
+                local_path TEXT NOT NULL,
+                evidence TEXT NOT NULL,
+                detected_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS approved_recovery_scopes (
+                candidate_id TEXT PRIMARY KEY,
+                plugin_id TEXT NOT NULL,
+                product_name TEXT NOT NULL,
+                candidate_type TEXT NOT NULL,
+                local_path TEXT NOT NULL,
+                approved_at TEXT NOT NULL,
+                FOREIGN KEY(candidate_id) REFERENCES recovery_candidates(candidate_id)
+                    ON DELETE CASCADE
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -264,6 +284,111 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
             """;
         command.Parameters.AddWithValue("$commandId", commandId.ToString());
         return await command.ExecuteScalarAsync(cancellationToken) as string;
+    }
+
+    public async Task StoreRecoveryCandidatesAsync(
+        IReadOnlyList<LocalRecoveryCandidate> candidates,
+        DateTimeOffset detectedAt,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(
+            cancellationToken);
+        foreach (var candidate in candidates)
+        {
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT OR IGNORE INTO recovery_candidates
+                    (candidate_id, plugin_id, product_name, candidate_type, local_path, evidence, detected_at)
+                VALUES ($candidateId, $pluginId, $productName, $candidateType, $localPath, $evidence, $detectedAt);
+                """;
+            command.Parameters.AddWithValue("$candidateId", candidate.CandidateId.ToString());
+            command.Parameters.AddWithValue("$pluginId", candidate.PluginId);
+            command.Parameters.AddWithValue("$productName", candidate.ProductName);
+            command.Parameters.AddWithValue("$candidateType", candidate.CandidateType);
+            command.Parameters.AddWithValue("$localPath", candidate.Path);
+            command.Parameters.AddWithValue("$evidence", candidate.Evidence);
+            command.Parameters.AddWithValue("$detectedAt", Format(detectedAt));
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    public async Task<bool> ApplyRecoveryCandidateDecisionAsync(
+        Guid candidateId,
+        bool approved,
+        DateTimeOffset decidedAt,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        if (approved)
+        {
+            command.CommandText = """
+                INSERT INTO approved_recovery_scopes
+                    (candidate_id, plugin_id, product_name, candidate_type, local_path, approved_at)
+                SELECT candidate_id, plugin_id, product_name, candidate_type, local_path, $decidedAt
+                FROM recovery_candidates WHERE candidate_id = $candidateId
+                ON CONFLICT(candidate_id) DO UPDATE SET approved_at = excluded.approved_at;
+                """;
+            command.Parameters.AddWithValue("$decidedAt", Format(decidedAt));
+        }
+        else
+        {
+            command.CommandText = """
+                DELETE FROM approved_recovery_scopes WHERE candidate_id = $candidateId;
+                """;
+        }
+
+        command.Parameters.AddWithValue("$candidateId", candidateId.ToString());
+        var affected = await command.ExecuteNonQueryAsync(cancellationToken);
+        if (!approved)
+        {
+            return await RecoveryCandidateExistsAsync(connection, candidateId, cancellationToken);
+        }
+
+        return affected == 1;
+    }
+
+    public async Task<IReadOnlyList<ApprovedRecoveryScope>> GetApprovedRecoveryScopesAsync(
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT candidate_id, plugin_id, product_name, candidate_type, local_path, approved_at
+            FROM approved_recovery_scopes ORDER BY approved_at, candidate_id;
+            """;
+        var scopes = new List<ApprovedRecoveryScope>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            scopes.Add(new ApprovedRecoveryScope(
+                Guid.Parse(reader.GetString(0)),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                reader.GetString(4),
+                DateTimeOffset.Parse(reader.GetString(5), CultureInfo.InvariantCulture)));
+        }
+
+        return scopes;
+    }
+
+    private static async Task<bool> RecoveryCandidateExistsAsync(
+        SqliteConnection connection,
+        Guid candidateId,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT EXISTS(SELECT 1 FROM recovery_candidates WHERE candidate_id = $candidateId);";
+        command.Parameters.AddWithValue("$candidateId", candidateId.ToString());
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) == 1;
     }
 
     public async Task StoreRecoveryPackageAsync(
@@ -517,6 +642,14 @@ public sealed record StoredRecoveryRestoration(
     string EvidenceSha256);
 
 public sealed record StoredRecoveryRestoreIntent(string PackageId, string TargetPath);
+
+public sealed record ApprovedRecoveryScope(
+    Guid CandidateId,
+    string PluginId,
+    string ProductName,
+    string CandidateType,
+    string LocalPath,
+    DateTimeOffset ApprovedAt);
 
 public enum LocalAgentCommandStatus
 {

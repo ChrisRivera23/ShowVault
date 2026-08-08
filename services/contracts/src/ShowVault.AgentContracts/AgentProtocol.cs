@@ -2,7 +2,7 @@ namespace ShowVault.AgentContracts;
 
 public static class AgentProtocol
 {
-    public const string Version = "1.2";
+    public const string Version = "1.3";
 }
 
 public enum AgentCommandType
@@ -10,6 +10,7 @@ public enum AgentCommandType
     StartDiscovery,
     CollectSystemInventory,
     DiscoverNetworkDevices,
+    ApplyRecoveryCandidateDecision,
     CreateBackup,
     VerifyBackup,
     GenerateRecoveryPlan,

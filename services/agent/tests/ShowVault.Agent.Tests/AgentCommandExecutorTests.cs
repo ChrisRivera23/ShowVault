@@ -112,6 +112,87 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Candidate_decision_resolves_only_local_candidate_and_persists_exact_scope()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var candidateId = Guid.NewGuid();
+        var localPath = Path.Combine(_testRoot, "Resolume Arena");
+        Directory.CreateDirectory(localPath);
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.StoreRecoveryCandidatesAsync(
+        [
+            new LocalRecoveryCandidate(
+                candidateId,
+                ResolumeDiscoveryPlugin.PluginId,
+                "Resolume Arena",
+                "UserDataRoot",
+                localPath,
+                "Standard Resolume user-data location",
+                true)
+        ], now, CancellationToken.None);
+        var approve = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.ApplyRecoveryCandidateDecision,
+            "approve-candidate",
+            JsonSerializer.Serialize(new ApplyRecoveryCandidateDecisionPayload(candidateId, true)),
+            now,
+            TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(approve, now, CancellationToken.None);
+        var executor = CreateExecutor(store, now);
+        var identity = new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential");
+
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+
+        var approved = Assert.Single(await store.GetApprovedRecoveryScopesAsync(
+            CancellationToken.None));
+        Assert.Equal(candidateId, approved.CandidateId);
+        Assert.Equal(localPath, approved.LocalPath);
+        var outcome = Assert.Single(await store.GetPendingEventsAsync(
+            now.AddMinutes(1), 10, CancellationToken.None)).Envelope;
+        Assert.DoesNotContain(localPath, outcome.Payload, StringComparison.Ordinal);
+
+        var reject = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.ApplyRecoveryCandidateDecision,
+            "reject-candidate",
+            JsonSerializer.Serialize(new ApplyRecoveryCandidateDecisionPayload(candidateId, false)),
+            now.AddSeconds(1),
+            TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(reject, now.AddSeconds(1), CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+
+        Assert.Empty(await store.GetApprovedRecoveryScopesAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Candidate_approval_fails_when_id_is_not_in_local_inventory()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var command = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.ApplyRecoveryCandidateDecision,
+            "unknown-candidate",
+            JsonSerializer.Serialize(new ApplyRecoveryCandidateDecisionPayload(Guid.NewGuid(), true)),
+            now,
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, now, CancellationToken.None);
+
+        await CreateExecutor(store, now).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+
+        Assert.Empty(await store.GetApprovedRecoveryScopesAsync(CancellationToken.None));
+        Assert.Single(await store.GetCommandsAsync(
+            LocalAgentCommandStatus.Failed,
+            CancellationToken.None));
+    }
+
+    [Fact]
     public async Task DiscoverNetworkDevices_persists_allowlisted_probe_results()
     {
         var now = DateTimeOffset.UtcNow;

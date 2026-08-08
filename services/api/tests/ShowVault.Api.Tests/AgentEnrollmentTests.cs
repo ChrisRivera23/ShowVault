@@ -116,6 +116,18 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         var approvedCandidates = await ownerClient.GetFromJsonAsync<
             ApiResponse<IReadOnlyList<RecoveryCandidateSummary>>>(candidatePath);
         Assert.Equal("approved", Assert.Single(approvedCandidates!.Payload).Decision);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            var decisionCommand = await database.IssuedAgentCommands.SingleAsync(command =>
+                command.AgentId == enrolledAgent.Payload.AgentId &&
+                command.Type == AgentCommandType.ApplyRecoveryCandidateDecision);
+            var decisionPayload = System.Text.Json.JsonSerializer.Deserialize<
+                ApplyRecoveryCandidateDecisionPayload>(decisionCommand.Payload);
+            Assert.Equal(candidateId, decisionPayload!.CandidateId);
+            Assert.True(decisionPayload.Approved);
+            Assert.DoesNotContain("path", decisionCommand.Payload, StringComparison.OrdinalIgnoreCase);
+        }
 
         var mismatchedEvent = agentEvent with
         {
