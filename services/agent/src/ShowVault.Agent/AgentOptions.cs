@@ -120,4 +120,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> JblVenueSynthesisProjectRoots { get; init; } = [];
 
     public IReadOnlyList<string> MartinAudioVuNetProjectRoots { get; init; } = [];
+
+    public IReadOnlyList<string> DasAudioAlmaDataRoots { get; init; } = [];
 }
