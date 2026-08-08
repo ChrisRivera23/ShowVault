@@ -130,6 +130,7 @@ public sealed class AgentCommandExecutor(
             JsonSerializer.Serialize(
                 new
                 {
+                    commandId = command.CommandId,
                     result.PluginId,
                     result.RootPath,
                     fileCount = result.Files.Count,
@@ -163,7 +164,15 @@ public sealed class AgentCommandExecutor(
                     result.OsArchitecture,
                     result.LogicalProcessorCount,
                     volumeCount = result.Volumes.Count,
-                    recoveryCandidateCount = result.RecoveryCandidates.Count
+                    recoveryCandidateCount = result.RecoveryCandidates.Count,
+                    recoveryCandidates = result.RecoveryCandidates.Select(candidate => new
+                    {
+                        candidate.CandidateId,
+                        candidate.PluginId,
+                        candidate.ProductName,
+                        candidate.CandidateType,
+                        candidate.Evidence
+                    })
                 },
                 JsonOptions),
             cancellationToken);

@@ -75,6 +75,48 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
                 received => received.EventId == agentEvent.EventId));
         }
 
+        var candidateId = Guid.NewGuid();
+        var candidateEvent = AgentEventEnvelope.Create(
+            enrolledAgent.Payload.AgentId,
+            AgentEventType.JobCompleted,
+            "inventory-correlation",
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                recoveryCandidates = new[]
+                {
+                    new
+                    {
+                        candidateId,
+                        pluginId = "showvault.resolume",
+                        productName = "Resolume Arena",
+                        candidateType = "UserDataRoot",
+                        evidence = "Standard Resolume user-data location"
+                    }
+                }
+            }),
+            DateTimeOffset.UtcNow);
+        Assert.Equal(
+            HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", candidateEvent)).StatusCode);
+        var candidatePath =
+            $"/api/v1/organizations/{organizationId}/venues/{venueId}/recovery-candidates";
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.GetAsync(candidatePath)).StatusCode);
+        var candidates = await ownerClient.GetFromJsonAsync<
+            ApiResponse<IReadOnlyList<RecoveryCandidateSummary>>>(candidatePath);
+        Assert.NotNull(candidates);
+        var candidate = Assert.Single(candidates.Payload);
+        Assert.Equal(candidateId, candidate.Id);
+        Assert.Equal("pending", candidate.Decision);
+        Assert.DoesNotContain("/", candidate.Evidence, StringComparison.Ordinal);
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (await ownerClient.PutAsJsonAsync(
+                $"{candidatePath}/{candidateId}/decision",
+                new DecideRecoveryCandidateRequest(true))).StatusCode);
+        var approvedCandidates = await ownerClient.GetFromJsonAsync<
+            ApiResponse<IReadOnlyList<RecoveryCandidateSummary>>>(candidatePath);
+        Assert.Equal("approved", Assert.Single(approvedCandidates!.Payload).Decision);
+
         var mismatchedEvent = agentEvent with
         {
             EventId = Guid.NewGuid(),

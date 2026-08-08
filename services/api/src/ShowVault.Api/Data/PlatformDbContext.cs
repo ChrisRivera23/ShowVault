@@ -15,6 +15,7 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
     public DbSet<VenueAgent> VenueAgents => Set<VenueAgent>();
     public DbSet<ReceivedAgentEvent> ReceivedAgentEvents => Set<ReceivedAgentEvent>();
     public DbSet<IssuedAgentCommand> IssuedAgentCommands => Set<IssuedAgentCommand>();
+    public DbSet<RecoveryCandidate> RecoveryCandidates => Set<RecoveryCandidate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -129,6 +130,23 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.HasOne<VenueAgent>()
                 .WithMany()
                 .HasForeignKey(command => command.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RecoveryCandidate>(entity =>
+        {
+            entity.ToTable("recovery_candidates");
+            entity.HasKey(candidate => candidate.Id);
+            entity.Property(candidate => candidate.PluginId).HasMaxLength(200).IsRequired();
+            entity.Property(candidate => candidate.ProductName).HasMaxLength(200).IsRequired();
+            entity.Property(candidate => candidate.CandidateType).HasMaxLength(80).IsRequired();
+            entity.Property(candidate => candidate.Evidence).HasMaxLength(500).IsRequired();
+            entity.Property(candidate => candidate.Decision).HasConversion<string>().HasMaxLength(32);
+            entity.Property(candidate => candidate.DecidedBySubject).HasMaxLength(255);
+            entity.HasIndex(candidate => new { candidate.AgentId, candidate.DetectedAt });
+            entity.HasOne<VenueAgent>()
+                .WithMany()
+                .HasForeignKey(candidate => candidate.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

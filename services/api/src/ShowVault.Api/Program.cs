@@ -101,6 +101,7 @@ app.MapAgentEnrollmentEndpoints();
 app.MapAgentCommunicationEndpoints();
 app.MapRecoveryHistoryEndpoints();
 app.MapRecoveryWorkflowEndpoints();
+app.MapRecoveryCandidateEndpoints();
 
 app.Run();
 

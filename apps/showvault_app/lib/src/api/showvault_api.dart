@@ -11,6 +11,7 @@ class RecoveryHistory {
     required this.venueId,
     required this.venueName,
     required this.agents,
+    required this.candidates,
     required this.runs,
   });
 
@@ -19,7 +20,36 @@ class RecoveryHistory {
   final String venueId;
   final String venueName;
   final List<VenueAgent> agents;
+  final List<RecoveryCandidate> candidates;
   final List<RecoveryRun> runs;
+}
+
+class RecoveryCandidate {
+  const RecoveryCandidate({
+    required this.id,
+    required this.agentName,
+    required this.productName,
+    required this.candidateType,
+    required this.evidence,
+    required this.decision,
+  });
+
+  factory RecoveryCandidate.fromJson(Map<String, Object?> json) =>
+      RecoveryCandidate(
+        id: json['id']! as String,
+        agentName: json['agentName']! as String,
+        productName: json['productName']! as String,
+        candidateType: json['candidateType']! as String,
+        evidence: json['evidence']! as String,
+        decision: json['decision']! as String,
+      );
+
+  final String id;
+  final String agentName;
+  final String productName;
+  final String candidateType;
+  final String evidence;
+  final String decision;
 }
 
 class VenueAgent {
@@ -46,6 +76,7 @@ class ShowVaultApi {
         venueId: '',
         venueName: 'No venue',
         agents: [],
+        candidates: [],
         runs: [],
       );
     }
@@ -63,6 +94,7 @@ class ShowVaultApi {
         venueId: '',
         venueName: 'No venue',
         agents: const [],
+        candidates: const [],
         runs: const [],
       );
     }
@@ -77,14 +109,43 @@ class ShowVaultApi {
       '/api/v1/organizations/$organizationId/venues/$venueId/recovery-runs',
       accessToken,
     );
+    final candidates = await _getList(
+      '/api/v1/organizations/$organizationId/venues/$venueId/recovery-candidates',
+      accessToken,
+    );
     return RecoveryHistory(
       organizationId: organizationId,
       organizationName: organization['name']! as String,
       venueId: venueId,
       venueName: venue['name']! as String,
       agents: agents.map(VenueAgent.fromJson).toList(growable: false),
+      candidates: candidates
+          .map(RecoveryCandidate.fromJson)
+          .toList(growable: false),
       runs: runs.map(RecoveryRun.fromJson).toList(growable: false),
     );
+  }
+
+  Future<void> decideRecoveryCandidate({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String candidateId,
+    required bool approved,
+  }) async {
+    final response = await _client.put(
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
+        '/venues/${history.venueId}/recovery-candidates/$candidateId/decision',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'approved': approved}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
   }
 
   Future<String> startDiscovery({

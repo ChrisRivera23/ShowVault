@@ -68,6 +68,7 @@ public static class AgentCommunicationEndpoints
         database.ReceivedAgentEvents.Add(ReceivedAgentEvent.FromEnvelope(
             envelope,
             timeProvider.GetUtcNow()));
+        AddRecoveryCandidates(database, envelope);
         try
         {
             await database.SaveChangesAsync(cancellationToken);
@@ -84,6 +85,73 @@ public static class AgentCommunicationEndpoints
         }
 
         return Results.Accepted();
+    }
+
+    private static void AddRecoveryCandidates(
+        PlatformDbContext database,
+        AgentEventEnvelope envelope)
+    {
+        if (envelope.Type != AgentEventType.JobCompleted)
+        {
+            return;
+        }
+
+        JsonDocument payload;
+        try
+        {
+            payload = JsonDocument.Parse(envelope.Payload);
+        }
+        catch (JsonException)
+        {
+            return;
+        }
+
+        using (payload)
+        {
+            if (!payload.RootElement.TryGetProperty("recoveryCandidates", out var candidates) ||
+                candidates.ValueKind != JsonValueKind.Array)
+            {
+                return;
+            }
+
+            foreach (var item in candidates.EnumerateArray().Take(128))
+            {
+                if (!item.TryGetProperty("candidateId", out var idElement) ||
+                    !idElement.TryGetGuid(out var candidateId) || candidateId == Guid.Empty)
+                {
+                    continue;
+                }
+
+                var pluginId = ReadBoundedString(item, "pluginId", 200);
+                var productName = ReadBoundedString(item, "productName", 200);
+                var candidateType = ReadBoundedString(item, "candidateType", 80);
+                var evidence = ReadBoundedString(item, "evidence", 500);
+                if (pluginId is null || productName is null || candidateType is null || evidence is null)
+                {
+                    continue;
+                }
+
+                database.RecoveryCandidates.Add(RecoveryCandidate.Detected(
+                    candidateId,
+                    envelope.AgentId,
+                    pluginId,
+                    productName,
+                    candidateType,
+                    evidence,
+                    envelope.OccurredAt));
+            }
+        }
+    }
+
+    private static string? ReadBoundedString(JsonElement item, string name, int maximumLength)
+    {
+        if (!item.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        var text = value.GetString();
+        return string.IsNullOrWhiteSpace(text) || text.Length > maximumLength ? null : text;
     }
 
     private static async Task<IResult> IssueCommandAsync(

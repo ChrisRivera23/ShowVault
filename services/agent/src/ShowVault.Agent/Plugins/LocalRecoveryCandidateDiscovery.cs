@@ -7,6 +7,7 @@ public sealed record StandardLocationCandidate(
     string Evidence);
 
 public sealed record LocalRecoveryCandidate(
+    Guid CandidateId,
     string PluginId,
     string ProductName,
     string CandidateType,
@@ -140,6 +141,7 @@ public sealed class LocalRecoveryCandidateDiscovery(IHostStandardLocationProvide
                 }
 
                 results.Add(new LocalRecoveryCandidate(
+                    Guid.NewGuid(),
                     ResolumeDiscoveryPlugin.PluginId,
                     candidate.ProductName,
                     candidate.CandidateType,

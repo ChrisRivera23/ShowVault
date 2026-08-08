@@ -118,6 +118,8 @@ class _LiveDashboard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 24),
+            _CandidateOnboarding(history: history),
+            const SizedBox(height: 24),
             _RecoveryControls(history: history),
             const SizedBox(height: 24),
             if (history.runs.isEmpty)
@@ -139,6 +141,90 @@ class _LiveDashboard extends ConsumerWidget {
                 label: const Text('Sign out'),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CandidateOnboarding extends ConsumerWidget {
+  const _CandidateOnboarding({required this.history});
+  final RecoveryHistory history;
+
+  Future<void> _decide(
+    BuildContext context,
+    WidgetRef ref,
+    RecoveryCandidate candidate,
+    bool approved,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .decideRecoveryCandidate(
+            accessToken: session.accessToken,
+            history: history,
+            candidateId: candidate.id,
+            approved: approved,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Candidate decision failed: $error')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pending = history.candidates
+        .where((candidate) => candidate.decision == 'pending')
+        .toList(growable: false);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Detected systems',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Review systems found in standard local locations. Filesystem paths stay on the Venue Agent.',
+            ),
+            const SizedBox(height: 16),
+            if (pending.isEmpty)
+              const Text('No systems are waiting for review.')
+            else
+              for (final candidate in pending)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.devices_other_outlined),
+                  title: Text(candidate.productName),
+                  subtitle: Text(
+                    '${candidate.candidateType} • ${candidate.agentName}\n${candidate.evidence}',
+                  ),
+                  isThreeLine: true,
+                  trailing: Wrap(
+                    spacing: 8,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () =>
+                            _decide(context, ref, candidate, false),
+                        child: const Text('Reject'),
+                      ),
+                      FilledButton(
+                        onPressed: () => _decide(context, ref, candidate, true),
+                        child: const Text('Approve'),
+                      ),
+                    ],
+                  ),
+                ),
           ],
         ),
       ),

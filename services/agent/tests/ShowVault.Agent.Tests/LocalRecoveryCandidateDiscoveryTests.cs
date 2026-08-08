@@ -27,11 +27,13 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             candidates,
             candidate =>
             {
+                Assert.NotEqual(Guid.Empty, candidate.CandidateId);
                 Assert.Equal("InstalledApplication", candidate.CandidateType);
                 Assert.True(candidate.RequiresOperatorApproval);
             },
             candidate =>
             {
+                Assert.NotEqual(Guid.Empty, candidate.CandidateId);
                 Assert.Equal("UserDataRoot", candidate.CandidateType);
                 Assert.Equal(ResolumeDiscoveryPlugin.PluginId, candidate.PluginId);
                 Assert.True(candidate.RequiresOperatorApproval);

@@ -17,6 +17,8 @@ void main() {
             '[{"id":"venue-id","organizationId":"org-id","name":"Main Stage","timeZoneId":"America/New_York"}]',
           '/api/v1/organizations/org-id/venues/venue-id/agents' =>
             '[{"id":"agent-id","name":"Control Agent","createdAt":"2026-08-07T02:00:00Z"}]',
+          '/api/v1/organizations/org-id/venues/venue-id/recovery-candidates' =>
+            '[{"id":"candidate-id","agentName":"Control Agent","productName":"Resolume Arena","candidateType":"UserDataRoot","evidence":"Standard Resolume user-data location","decision":"pending"}]',
           _ =>
             '[{"discoveryCommandId":"command-id","agentName":"Control Agent","startedAt":"2026-08-07T02:14:00Z","status":"completed","stages":[{"stage":"scan","status":"completed","occurredAt":"2026-08-07T02:15:00Z"},{"stage":"backup","status":"completed","occurredAt":null},{"stage":"verify","status":"completed","occurredAt":null},{"stage":"restore","status":"completed","occurredAt":null}]}]',
         };
@@ -30,11 +32,13 @@ void main() {
     expect(history.venueName, 'Main Stage');
     expect(history.agents.single.id, 'agent-id');
     expect(history.runs.single.agentName, 'Control Agent');
+    expect(history.candidates.single.productName, 'Resolume Arena');
     expect(requestedPaths, [
       '/api/v1/organizations',
       '/api/v1/organizations/org-id/venues',
       '/api/v1/organizations/org-id/venues/venue-id/agents',
       '/api/v1/organizations/org-id/venues/venue-id/recovery-runs',
+      '/api/v1/organizations/org-id/venues/venue-id/recovery-candidates',
     ]);
   });
 
@@ -55,6 +59,7 @@ void main() {
       venueId: 'venue-id',
       venueName: 'Main Stage',
       agents: [VenueAgent(id: 'agent-id', name: 'Control Agent')],
+      candidates: [],
       runs: [],
     );
 
@@ -99,5 +104,38 @@ void main() {
       ),
       isTrue,
     );
+  });
+
+  test('records a recovery candidate decision', () async {
+    late http.Request captured;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response('', 204);
+      }),
+    );
+    const history = RecoveryHistory(
+      organizationId: 'org-id',
+      organizationName: 'ShowVault',
+      venueId: 'venue-id',
+      venueName: 'Main Stage',
+      agents: [],
+      candidates: [],
+      runs: [],
+    );
+
+    await api.decideRecoveryCandidate(
+      accessToken: 'access-token',
+      history: history,
+      candidateId: 'candidate-id',
+      approved: true,
+    );
+
+    expect(captured.method, 'PUT');
+    expect(
+      captured.url.path,
+      '/api/v1/organizations/org-id/venues/venue-id/recovery-candidates/candidate-id/decision',
+    );
+    expect(captured.body, '{"approved":true}');
   });
 }

@@ -107,6 +107,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             CancellationToken.None)).Envelope;
         Assert.Equal(AgentEventType.JobCompleted, outcome.Type);
         Assert.Contains("volumeCount", outcome.Payload, StringComparison.Ordinal);
+        Assert.Contains("recoveryCandidates", outcome.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain("rootPath", outcome.Payload, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
