@@ -229,6 +229,11 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         var discoveryJson = await store.GetDiscoveryResultJsonAsync(discoveryCommand.CommandId, CancellationToken.None);
         Assert.Contains("\"attemptedHostCount\":4", discoveryJson, StringComparison.Ordinal);
         Assert.DoesNotContain("192.168.10.1", discoveryJson, StringComparison.Ordinal);
+        Assert.Equal(["192.168.10.1", "192.168.10.2", "192.168.10.3", "192.168.10.4"],
+            await store.GetReachableSubnetHostsAsync(discoveryCommand.CommandId, CancellationToken.None));
+        var discoveryOutcome = (await store.GetPendingEventsAsync(now.AddMinutes(1), 10,
+            CancellationToken.None)).Single(item => item.Envelope.EventId == discoveryCommand.CommandId).Envelope;
+        Assert.DoesNotContain("192.168.10.1", discoveryOutcome.Payload, StringComparison.Ordinal);
     }
 
     [Fact]

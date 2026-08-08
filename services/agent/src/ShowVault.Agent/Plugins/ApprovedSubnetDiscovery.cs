@@ -33,6 +33,7 @@ public sealed record ApprovedSubnetDiscoveryResult(
     Guid ProposalId,
     int AttemptedHostCount,
     int RespondingHostCount,
+    IReadOnlyList<IPAddress> RespondingAddresses,
     DateTimeOffset CompletedAt);
 
 public sealed class ApprovedSubnetDiscovery(
@@ -71,7 +72,11 @@ public sealed class ApprovedSubnetDiscovery(
                 concurrency.Release();
             }
         }));
-        return new(subnet.ProposalId, addresses.Length, results.Count(value => value), timeProvider.GetUtcNow());
+        var respondingAddresses = addresses
+            .Where((_, index) => results[index])
+            .ToArray();
+        return new(subnet.ProposalId, addresses.Length, respondingAddresses.Length,
+            respondingAddresses, timeProvider.GetUtcNow());
     }
 
     private static IEnumerable<IPAddress> EnumerateHosts(string network, int prefixLength)

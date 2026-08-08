@@ -18,6 +18,8 @@ public sealed class ApprovedSubnetDiscoveryTests
         Assert.Equal(4, result.AttemptedHostCount);
         Assert.Equal(4, result.RespondingHostCount);
         Assert.Equal(["192.168.10.1", "192.168.10.2", "192.168.10.3", "192.168.10.4"],
+            result.RespondingAddresses.Select(address => address.ToString()));
+        Assert.Equal(["192.168.10.1", "192.168.10.2", "192.168.10.3", "192.168.10.4"],
             probe.Addresses.Select(address => address.ToString()));
         Assert.All(probe.Timeouts, timeout => Assert.Equal(TimeSpan.FromMilliseconds(250), timeout));
     }

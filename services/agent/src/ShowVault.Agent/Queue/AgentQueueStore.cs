@@ -110,6 +110,17 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options) : IApprovedR
                 approved_at TEXT NOT NULL,
                 FOREIGN KEY(proposal_id) REFERENCES subnet_proposals(proposal_id) ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS subnet_reachable_hosts (
+                authorization_command_id TEXT NOT NULL,
+                proposal_id TEXT NOT NULL,
+                address TEXT NOT NULL,
+                discovered_at TEXT NOT NULL,
+                PRIMARY KEY (authorization_command_id, address),
+                FOREIGN KEY(authorization_command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE,
+                FOREIGN KEY(proposal_id) REFERENCES approved_subnets(proposal_id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS ix_subnet_reachable_hosts_proposal
+                ON subnet_reachable_hosts(proposal_id, authorization_command_id);
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -401,6 +412,52 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options) : IApprovedR
         return await reader.ReadAsync(cancellationToken)
             ? new ApprovedSubnet(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetInt32(2))
             : null;
+    }
+
+    public async Task StoreReachableSubnetHostsAsync(
+        Guid authorizationCommandId,
+        Guid proposalId,
+        IReadOnlyList<System.Net.IPAddress> addresses,
+        DateTimeOffset discoveredAt,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        foreach (var address in addresses)
+        {
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT OR IGNORE INTO subnet_reachable_hosts
+                    (authorization_command_id, proposal_id, address, discovered_at)
+                VALUES ($commandId, $proposalId, $address, $discoveredAt);
+                """;
+            command.Parameters.AddWithValue("$commandId", authorizationCommandId.ToString());
+            command.Parameters.AddWithValue("$proposalId", proposalId.ToString());
+            command.Parameters.AddWithValue("$address", address.ToString());
+            command.Parameters.AddWithValue("$discoveredAt", Format(discoveredAt));
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<string>> GetReachableSubnetHostsAsync(
+        Guid authorizationCommandId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT address FROM subnet_reachable_hosts
+            WHERE authorization_command_id = $commandId ORDER BY address;
+            """;
+        command.Parameters.AddWithValue("$commandId", authorizationCommandId.ToString());
+        var addresses = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken)) addresses.Add(reader.GetString(0));
+        return addresses;
     }
 
     public async Task<bool> ApplyRecoveryCandidateDecisionAsync(

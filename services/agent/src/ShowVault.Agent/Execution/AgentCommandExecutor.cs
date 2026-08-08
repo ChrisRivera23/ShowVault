@@ -356,10 +356,19 @@ public sealed class AgentCommandExecutor(
             ?? throw new InvalidOperationException("The subnet is not approved on this Agent.");
         var result = await approvedSubnetDiscovery.DiscoverAsync(
             subnet, payload.MaxHosts, payload.TimeoutMilliseconds, cancellationToken);
+        await queueStore.StoreReachableSubnetHostsAsync(command.CommandId, result.ProposalId,
+            result.RespondingAddresses, result.CompletedAt, cancellationToken);
+        var pathFreeResult = new
+        {
+            result.ProposalId,
+            result.AttemptedHostCount,
+            result.RespondingHostCount,
+            result.CompletedAt
+        };
         await queueStore.StoreDiscoveryResultAsync(command.CommandId,
-            JsonSerializer.Serialize(result, JsonOptions), result.CompletedAt, cancellationToken);
+            JsonSerializer.Serialize(pathFreeResult, JsonOptions), result.CompletedAt, cancellationToken);
         await RecordOutcomeAsync(identity, command, AgentEventType.JobCompleted,
-            LocalAgentCommandStatus.Completed, JsonSerializer.Serialize(result, JsonOptions), cancellationToken);
+            LocalAgentCommandStatus.Completed, JsonSerializer.Serialize(pathFreeResult, JsonOptions), cancellationToken);
     }
 
     private async Task ExecuteCreateBackupAsync(
