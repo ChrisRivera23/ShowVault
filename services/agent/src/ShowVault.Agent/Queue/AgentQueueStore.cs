@@ -133,6 +133,18 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options) : IApprovedR
                 FOREIGN KEY(discovery_command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE,
                 FOREIGN KEY(proposal_id) REFERENCES approved_subnets(proposal_id) ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS yamaha_dme_identifications (
+                identification_command_id TEXT NOT NULL,
+                discovery_command_id TEXT NOT NULL,
+                proposal_id TEXT NOT NULL,
+                address TEXT NOT NULL,
+                product_family TEXT NOT NULL,
+                identified_at TEXT NOT NULL,
+                PRIMARY KEY (identification_command_id, address),
+                FOREIGN KEY(identification_command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE,
+                FOREIGN KEY(discovery_command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE,
+                FOREIGN KEY(proposal_id) REFERENCES approved_subnets(proposal_id) ON DELETE CASCADE
+            );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -499,6 +511,32 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options) : IApprovedR
             await using var command = connection.CreateCommand();
             command.CommandText = """
                 INSERT OR IGNORE INTO ma_lighting_identifications
+                    (identification_command_id, discovery_command_id, proposal_id, address,
+                     product_family, identified_at)
+                VALUES ($identificationId, $discoveryId, $proposalId, $address, $family, $at);
+                """;
+            command.Parameters.AddWithValue("$identificationId", identificationCommandId.ToString());
+            command.Parameters.AddWithValue("$discoveryId", result.DiscoveryCommandId.ToString());
+            command.Parameters.AddWithValue("$proposalId", result.ProposalId.ToString());
+            command.Parameters.AddWithValue("$address", identification.Address.ToString());
+            command.Parameters.AddWithValue("$family", identification.ProductFamily);
+            command.Parameters.AddWithValue("$at", Format(result.CompletedAt));
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
+
+    public async Task StoreYamahaDmeIdentificationsAsync(
+        Guid identificationCommandId,
+        YamahaDmeIdentificationResult result,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        foreach (var identification in result.Identifications)
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT OR IGNORE INTO yamaha_dme_identifications
                     (identification_command_id, discovery_command_id, proposal_id, address,
                      product_family, identified_at)
                 VALUES ($identificationId, $discoveryId, $proposalId, $address, $family, $at);

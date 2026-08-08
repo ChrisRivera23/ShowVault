@@ -182,6 +182,18 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal(3, identifiedProposal.IdentificationAttemptedHostCount);
         Assert.Equal(1, identifiedProposal.IdentifiedHostCount);
         Assert.Equal("grandMA3", identifiedProposal.IdentifiedProductFamilies);
+        var yamahaPath = $"{proposalPath}/{proposalId}/identify-yamaha-dme";
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
+            yamahaPath, new IdentifyYamahaDmeRequest())).StatusCode);
+        var yamahaResponse = await ownerClient.PostAsJsonAsync(
+            yamahaPath, new IdentifyYamahaDmeRequest(500));
+        Assert.Equal(HttpStatusCode.Accepted, yamahaResponse.StatusCode);
+        var yamahaCommand = (await yamahaResponse.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>())!.Payload;
+        Assert.Equal(AgentCommandType.IdentifyYamahaDme, yamahaCommand.Type);
+        Assert.Contains(subnetCommand.CommandId.ToString(), yamahaCommand.Payload,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("192.168", yamahaCommand.Payload, StringComparison.Ordinal);
         var candidatePath =
             $"/api/v1/organizations/{organizationId}/venues/{venueId}/recovery-candidates";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.GetAsync(candidatePath)).StatusCode);

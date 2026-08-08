@@ -250,6 +250,17 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         var identificationOutcome = (await store.GetPendingEventsAsync(now.AddMinutes(1), 10,
             CancellationToken.None)).Single(item => item.Envelope.EventId == identifyCommand.CommandId).Envelope;
         Assert.DoesNotContain("192.168.10.1", identificationOutcome.Payload, StringComparison.Ordinal);
+
+        var yamahaCommand = AgentCommandEnvelope.Create(agentId, AgentCommandType.IdentifyYamahaDme,
+            "yamaha-identification", JsonSerializer.Serialize(new IdentifyYamahaDmePayload(
+                proposalId, discoveryCommand.CommandId, 250)), now.AddSeconds(3), TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(yamahaCommand, now.AddSeconds(3), CancellationToken.None);
+        await CreateExecutor(store, now.AddSeconds(3)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+        var yamahaJson = await store.GetDiscoveryResultJsonAsync(yamahaCommand.CommandId, CancellationToken.None);
+        Assert.Contains("\"identifiedHostCount\":4", yamahaJson, StringComparison.Ordinal);
+        Assert.Contains("Yamaha DME7", yamahaJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("192.168.10.1", yamahaJson, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -938,6 +949,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 timeProvider),
             new ApprovedSubnetDiscovery(new ReachableSubnetProbe(), timeProvider),
             new MaLightingNetworkIdentification(new GrandMa3Probe(), timeProvider),
+            new YamahaDmeNetworkIdentification(new YamahaDmeProbe(), timeProvider),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
@@ -970,6 +982,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             System.Net.IPAddress address,
             TimeSpan timeout,
             CancellationToken cancellationToken) => Task.FromResult<string?>("grandMA3");
+    }
+
+    private sealed class YamahaDmeProbe : IYamahaDmeProtocolProbe
+    {
+        public Task<string?> IdentifyAsync(
+            System.Net.IPAddress address,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) => Task.FromResult<string?>("Yamaha DME7");
     }
 
     private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions

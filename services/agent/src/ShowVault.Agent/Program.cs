@@ -270,6 +270,8 @@ builder.Services.AddSingleton<NetworkDeviceDiscoveryPlugin>();
 builder.Services.AddSingleton<ISubnetReachabilityProbe, IcmpSubnetReachabilityProbe>();
 builder.Services.AddSingleton<IMaLightingProtocolProbe, GrandMa3WebRemoteProbe>();
 builder.Services.AddSingleton<MaLightingNetworkIdentification>();
+builder.Services.AddSingleton<IYamahaDmeProtocolProbe, YamahaDmeRemoteControlProbe>();
+builder.Services.AddSingleton<YamahaDmeNetworkIdentification>();
 builder.Services.AddSingleton<ApprovedSubnetDiscovery>();
 builder.Services.AddSingleton<RecoveryPackageWriter>();
 builder.Services.AddSingleton<RecoveryPackageVerifier>();

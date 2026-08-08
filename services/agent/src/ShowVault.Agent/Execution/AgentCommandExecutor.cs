@@ -16,6 +16,7 @@ public sealed class AgentCommandExecutor(
     NetworkDeviceDiscoveryPlugin networkDeviceDiscoveryPlugin,
     ApprovedSubnetDiscovery approvedSubnetDiscovery,
     MaLightingNetworkIdentification maLightingIdentification,
+    YamahaDmeNetworkIdentification yamahaDmeIdentification,
     RecoveryPackageWriter packageWriter,
     RecoveryPackageVerifier packageVerifier,
     RecoveryPackageRestorer packageRestorer,
@@ -81,6 +82,9 @@ public sealed class AgentCommandExecutor(
                     break;
                 case AgentCommandType.IdentifyMaLighting:
                     await ExecuteMaLightingIdentificationAsync(identity, command, cancellationToken);
+                    break;
+                case AgentCommandType.IdentifyYamahaDme:
+                    await ExecuteYamahaDmeIdentificationAsync(identity, command, cancellationToken);
                     break;
                 case AgentCommandType.ApplyRecoveryCandidateDecision:
                     await ExecuteRecoveryCandidateDecisionAsync(identity, command, cancellationToken);
@@ -389,6 +393,35 @@ public sealed class AgentCommandExecutor(
         var result = await maLightingIdentification.IdentifyAsync(payload.ProposalId,
             payload.DiscoveryCommandId, hosts, payload.TimeoutMilliseconds, cancellationToken);
         await queueStore.StoreMaLightingIdentificationsAsync(command.CommandId, result, cancellationToken);
+        var pathFreeResult = new
+        {
+            result.ProposalId,
+            result.DiscoveryCommandId,
+            result.AttemptedHostCount,
+            identifiedHostCount = result.Identifications.Count,
+            productFamilies = result.Identifications.Select(item => item.ProductFamily).Distinct().Order().ToArray(),
+            result.CompletedAt
+        };
+        await queueStore.StoreDiscoveryResultAsync(command.CommandId,
+            JsonSerializer.Serialize(pathFreeResult, JsonOptions), result.CompletedAt, cancellationToken);
+        await RecordOutcomeAsync(identity, command, AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Completed, JsonSerializer.Serialize(pathFreeResult, JsonOptions), cancellationToken);
+    }
+
+    private async Task ExecuteYamahaDmeIdentificationAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Deserialize<IdentifyYamahaDmePayload>(command.Payload, JsonOptions)
+            ?? throw new InvalidOperationException("Yamaha DME identification payload is required.");
+        if (!await queueStore.IsReachableHostAuthorizationAsync(
+                payload.ProposalId, payload.DiscoveryCommandId, cancellationToken))
+            throw new InvalidOperationException("The responding-host authorization is not present on this Agent.");
+        var hosts = await queueStore.GetReachableSubnetHostsAsync(payload.DiscoveryCommandId, cancellationToken);
+        var result = await yamahaDmeIdentification.IdentifyAsync(payload.ProposalId,
+            payload.DiscoveryCommandId, hosts, payload.TimeoutMilliseconds, cancellationToken);
+        await queueStore.StoreYamahaDmeIdentificationsAsync(command.CommandId, result, cancellationToken);
         var pathFreeResult = new
         {
             result.ProposalId,
