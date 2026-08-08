@@ -193,6 +193,54 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Approved_candidate_validation_resolves_local_path_and_emits_path_free_result()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var candidateId = Guid.NewGuid();
+        var userData = Path.Combine(_testRoot, "Resolume Arena");
+        Directory.CreateDirectory(Path.Combine(userData, "Compositions"));
+        await File.WriteAllTextAsync(
+            Path.Combine(userData, "Compositions", "Venue.avc"),
+            "composition");
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.StoreRecoveryCandidatesAsync(
+        [
+            new LocalRecoveryCandidate(
+                candidateId,
+                ResolumeDiscoveryPlugin.PluginId,
+                "Resolume Arena",
+                "UserDataRoot",
+                userData,
+                "Standard Resolume user-data location",
+                true)
+        ], now, CancellationToken.None);
+        Assert.True(await store.ApplyRecoveryCandidateDecisionAsync(
+            candidateId, true, now, CancellationToken.None));
+        var command = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.ValidateRecoveryCandidate,
+            "validate-candidate",
+            JsonSerializer.Serialize(new ValidateRecoveryCandidatePayload(candidateId, 100)),
+            now,
+            TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(command, now, CancellationToken.None);
+
+        await CreateExecutor(store, now, configureResolumeRoots: false).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+
+        var result = await store.GetDiscoveryResultJsonAsync(command.CommandId, CancellationToken.None);
+        Assert.Contains("Venue.avc", result, StringComparison.Ordinal);
+        var outcome = Assert.Single(await store.GetPendingEventsAsync(
+            now.AddMinutes(1), 10, CancellationToken.None)).Envelope;
+        Assert.Equal(AgentEventType.JobCompleted, outcome.Type);
+        Assert.Contains(candidateId.ToString(), outcome.Payload, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(userData, outcome.Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task DiscoverNetworkDevices_persists_allowlisted_probe_results()
     {
         var now = DateTimeOffset.UtcNow;
@@ -435,7 +483,10 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    private AgentCommandExecutor CreateExecutor(AgentQueueStore store, DateTimeOffset now)
+    private AgentCommandExecutor CreateExecutor(
+        AgentQueueStore store,
+        DateTimeOffset now,
+        bool configureResolumeRoots = true)
     {
         var timeProvider = new FixedTimeProvider(now);
         var plugin = new FileSystemDiscoveryPlugin(
@@ -451,9 +502,10 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             {
                 ControlPlaneUri = new Uri("https://control.test"),
                 Name = "Test Agent",
-                ResolumeDiscoveryRoots = [_testRoot]
+                ResolumeDiscoveryRoots = configureResolumeRoots ? [_testRoot] : []
             }),
-            timeProvider);
+            timeProvider,
+            store);
         var grandMa2Plugin = new GrandMa2ShowDiscoveryPlugin(
             Options.Create(new AgentOptions
             {

@@ -21,7 +21,62 @@ public static class RecoveryCandidateEndpoints
                 "/api/v1/organizations/{organizationId:guid}/venues/{venueId:guid}/recovery-candidates/{candidateId:guid}/decision",
                 DecideAsync)
             .RequireAuthorization();
+        endpoints.MapPost(
+                "/api/v1/organizations/{organizationId:guid}/venues/{venueId:guid}/recovery-candidates/{candidateId:guid}/validate",
+                ValidateAsync)
+            .RequireAuthorization();
         return endpoints;
+    }
+
+    private static async Task<IResult> ValidateAsync(
+        Guid organizationId,
+        Guid venueId,
+        Guid candidateId,
+        ValidateRecoveryCandidateRequest request,
+        ClaimsPrincipal user,
+        HttpContext context,
+        PlatformDbContext database,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var subject = user.FindFirstValue("sub");
+        if (!await HasVenueAccessAsync(database, organizationId, venueId, subject, true, cancellationToken))
+        {
+            return Results.Forbid();
+        }
+
+        if (request.MaxFiles is < 1 or > 100_000)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(request.MaxFiles)] = ["File limit must be between 1 and 100000."]
+            });
+        }
+
+        var candidate = await database.RecoveryCandidates.SingleOrDefaultAsync(
+            item => item.Id == candidateId &&
+                item.Decision == RecoveryCandidateDecision.Approved &&
+                item.CandidateType == "UserDataRoot" &&
+                database.VenueAgents.Any(agent =>
+                    agent.Id == item.AgentId && agent.VenueId == venueId && agent.RevokedAt == null),
+            cancellationToken);
+        if (candidate is null)
+        {
+            return Results.BadRequest();
+        }
+
+        var command = AgentCommandEnvelope.Create(
+            candidate.AgentId,
+            AgentCommandType.ValidateRecoveryCandidate,
+            context.TraceIdentifier,
+            JsonSerializer.Serialize(new ValidateRecoveryCandidatePayload(candidate.Id, request.MaxFiles)),
+            timeProvider.GetUtcNow(),
+            TimeSpan.FromHours(1));
+        database.IssuedAgentCommands.Add(IssuedAgentCommand.FromEnvelope(command));
+        await database.SaveChangesAsync(cancellationToken);
+        return Results.Accepted(
+            $"/api/v1/agent-commands/{command.CommandId}",
+            ApiResponse<AgentCommandEnvelope>.Success(command, context.TraceIdentifier));
     }
 
     private static async Task<IResult> ListAsync(

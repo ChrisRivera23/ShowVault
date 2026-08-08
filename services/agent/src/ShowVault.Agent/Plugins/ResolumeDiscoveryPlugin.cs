@@ -5,7 +5,8 @@ namespace ShowVault.Agent.Plugins;
 
 public sealed class ResolumeDiscoveryPlugin(
     IOptions<AgentOptions> options,
-    TimeProvider timeProvider) : IDiscoveryPlugin
+    TimeProvider timeProvider,
+    IApprovedRecoveryScopeProvider? approvedScopes = null) : IDiscoveryPlugin
 {
     public const string PluginId = "showvault.resolume";
     private const int MaximumFileLimit = 100_000;
@@ -50,7 +51,12 @@ public sealed class ResolumeDiscoveryPlugin(
             allowedRoot => IsWithinRoot(rootPath, allowedRoot));
         var isUserDataRoot = options.Value.ResolumeUserDataRoots.Any(
             allowedRoot => IsSamePath(rootPath, allowedRoot));
-        if (!isPortableBundle && !isUserDataRoot)
+        var isDynamicallyApproved = approvedScopes is not null &&
+            await approvedScopes.IsApprovedExactScopeAsync(
+                PluginId,
+                rootPath,
+                cancellationToken);
+        if (!isPortableBundle && !isUserDataRoot && !isDynamicallyApproved)
         {
             throw new UnauthorizedAccessException(
                 $"Resolume recovery root is not allowed by the local Agent configuration: {rootPath}");
@@ -61,7 +67,7 @@ public sealed class ResolumeDiscoveryPlugin(
             throw new DirectoryNotFoundException($"Resolume recovery root does not exist: {rootPath}");
         }
 
-        if (isUserDataRoot && !HasResolumeUserDataDirectory(rootPath))
+        if ((isUserDataRoot || isDynamicallyApproved) && !HasResolumeUserDataDirectory(rootPath))
         {
             throw new InvalidOperationException(
                 "Resolume user-data root does not contain a recognized product directory.");

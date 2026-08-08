@@ -77,6 +77,9 @@ public sealed class AgentCommandExecutor(
                 case AgentCommandType.ApplyRecoveryCandidateDecision:
                     await ExecuteRecoveryCandidateDecisionAsync(identity, command, cancellationToken);
                     break;
+                case AgentCommandType.ValidateRecoveryCandidate:
+                    await ExecuteRecoveryCandidateValidationAsync(identity, command, cancellationToken);
+                    break;
                 case AgentCommandType.CreateBackup:
                     await ExecuteCreateBackupAsync(identity, command, cancellationToken);
                     break;
@@ -177,6 +180,55 @@ public sealed class AgentCommandExecutor(
             {
                 payload.CandidateId,
                 payload.Approved
+            }, JsonOptions),
+            cancellationToken);
+    }
+
+    private async Task ExecuteRecoveryCandidateValidationAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Deserialize<ValidateRecoveryCandidatePayload>(
+            command.Payload,
+            JsonOptions)
+            ?? throw new InvalidOperationException("Recovery candidate validation payload is required.");
+        if (payload.CandidateId == Guid.Empty || payload.MaxFiles is < 1 or > 100_000)
+        {
+            throw new InvalidOperationException("Recovery candidate validation payload is invalid.");
+        }
+
+        var scope = await queueStore.GetApprovedRecoveryScopeAsync(
+            payload.CandidateId,
+            cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "The recovery candidate does not have an approved local scope.");
+        if (!string.Equals(scope.CandidateType, "UserDataRoot", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "This recovery candidate type is not eligible for product validation.");
+        }
+
+        var plugin = pluginRegistry.GetRequired(scope.PluginId);
+        var result = await plugin.DiscoverAsync(
+            new DiscoveryRequest(scope.LocalPath, payload.MaxFiles),
+            cancellationToken);
+        await queueStore.StoreDiscoveryResultAsync(
+            command.CommandId,
+            JsonSerializer.Serialize(result, JsonOptions),
+            result.CompletedAt,
+            cancellationToken);
+        await RecordOutcomeAsync(
+            identity,
+            command,
+            AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Completed,
+            JsonSerializer.Serialize(new
+            {
+                payload.CandidateId,
+                result.PluginId,
+                fileCount = result.Files.Count,
+                result.Truncated
             }, JsonOptions),
             cancellationToken);
     }

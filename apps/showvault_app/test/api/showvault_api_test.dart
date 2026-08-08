@@ -138,4 +138,38 @@ void main() {
     );
     expect(captured.body, '{"approved":true}');
   });
+
+  test('queues path-free approved candidate validation', () async {
+    late http.Request captured;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response('{"payload":{"commandId":"validation-id"}}', 202);
+      }),
+    );
+    const history = RecoveryHistory(
+      organizationId: 'org-id',
+      organizationName: 'ShowVault',
+      venueId: 'venue-id',
+      venueName: 'Main Stage',
+      agents: [],
+      candidates: [],
+      runs: [],
+    );
+
+    final commandId = await api.validateRecoveryCandidate(
+      accessToken: 'access-token',
+      history: history,
+      candidateId: 'candidate-id',
+    );
+
+    expect(commandId, 'validation-id');
+    expect(captured.method, 'POST');
+    expect(
+      captured.url.path,
+      '/api/v1/organizations/org-id/venues/venue-id/recovery-candidates/candidate-id/validate',
+    );
+    expect(captured.body, '{"maxFiles":1000}');
+    expect(captured.body, isNot(contains('path')));
+  });
 }

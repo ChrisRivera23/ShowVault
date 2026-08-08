@@ -7,7 +7,7 @@ using ShowVault.AgentContracts;
 
 namespace ShowVault.Agent.Queue;
 
-public sealed class AgentQueueStore(IOptions<AgentOptions> options)
+public sealed class AgentQueueStore(IOptions<AgentOptions> options) : IApprovedRecoveryScopeProvider
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly string _connectionString = BuildConnectionString(options.Value.DataDirectory);
@@ -379,6 +379,59 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
 
         return scopes;
     }
+
+    public async Task<ApprovedRecoveryScope?> GetApprovedRecoveryScopeAsync(
+        Guid candidateId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT candidate_id, plugin_id, product_name, candidate_type, local_path, approved_at
+            FROM approved_recovery_scopes WHERE candidate_id = $candidateId;
+            """;
+        command.Parameters.AddWithValue("$candidateId", candidateId.ToString());
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken)
+            ? ReadApprovedRecoveryScope(reader)
+            : null;
+    }
+
+    public async Task<bool> IsApprovedExactScopeAsync(
+        string pluginId,
+        string localPath,
+        CancellationToken cancellationToken)
+    {
+        var normalizedPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(localPath));
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT local_path FROM approved_recovery_scopes WHERE plugin_id = $pluginId;
+            """;
+        command.Parameters.AddWithValue("$pluginId", pluginId);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (Path.GetRelativePath(
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(reader.GetString(0))),
+                normalizedPath) == ".")
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static ApprovedRecoveryScope ReadApprovedRecoveryScope(SqliteDataReader reader) => new(
+        Guid.Parse(reader.GetString(0)),
+        reader.GetString(1),
+        reader.GetString(2),
+        reader.GetString(3),
+        reader.GetString(4),
+        DateTimeOffset.Parse(reader.GetString(5), CultureInfo.InvariantCulture));
 
     private static async Task<bool> RecoveryCandidateExistsAsync(
         SqliteConnection connection,

@@ -178,10 +178,37 @@ class _CandidateOnboarding extends ConsumerWidget {
     }
   }
 
+  Future<void> _validate(
+    BuildContext context,
+    WidgetRef ref,
+    RecoveryCandidate candidate,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .validateRecoveryCandidate(
+            accessToken: session.accessToken,
+            history: history,
+            candidateId: candidate.id,
+          );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Product validation queued.')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Product validation failed: $error')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pending = history.candidates
-        .where((candidate) => candidate.decision == 'pending')
+    final visible = history.candidates
+        .where((candidate) => candidate.decision != 'rejected')
         .toList(growable: false);
     return Card(
       child: Padding(
@@ -198,10 +225,10 @@ class _CandidateOnboarding extends ConsumerWidget {
               'Review systems found in standard local locations. Filesystem paths stay on the Venue Agent.',
             ),
             const SizedBox(height: 16),
-            if (pending.isEmpty)
+            if (visible.isEmpty)
               const Text('No systems are waiting for review.')
             else
-              for (final candidate in pending)
+              for (final candidate in visible)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.devices_other_outlined),
@@ -210,20 +237,30 @@ class _CandidateOnboarding extends ConsumerWidget {
                     '${candidate.candidateType} • ${candidate.agentName}\n${candidate.evidence}',
                   ),
                   isThreeLine: true,
-                  trailing: Wrap(
-                    spacing: 8,
-                    children: [
-                      OutlinedButton(
-                        onPressed: () =>
-                            _decide(context, ref, candidate, false),
-                        child: const Text('Reject'),
-                      ),
-                      FilledButton(
-                        onPressed: () => _decide(context, ref, candidate, true),
-                        child: const Text('Approve'),
-                      ),
-                    ],
-                  ),
+                  trailing: candidate.decision == 'approved'
+                      ? candidate.candidateType == 'UserDataRoot'
+                            ? FilledButton.icon(
+                                onPressed: () =>
+                                    _validate(context, ref, candidate),
+                                icon: const Icon(Icons.fact_check_outlined),
+                                label: const Text('Validate'),
+                              )
+                            : const Chip(label: Text('Approved'))
+                      : Wrap(
+                          spacing: 8,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () =>
+                                  _decide(context, ref, candidate, false),
+                              child: const Text('Reject'),
+                            ),
+                            FilledButton(
+                              onPressed: () =>
+                                  _decide(context, ref, candidate, true),
+                              child: const Text('Approve'),
+                            ),
+                          ],
+                        ),
                 ),
           ],
         ),

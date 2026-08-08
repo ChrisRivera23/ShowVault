@@ -148,6 +148,30 @@ class ShowVaultApi {
     }
   }
 
+  Future<String> validateRecoveryCandidate({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String candidateId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
+        '/venues/${history.venueId}/recovery-candidates/$candidateId/validate',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'maxFiles': 1000}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    final command = body['payload']! as Map<String, Object?>;
+    return command['commandId']! as String;
+  }
+
   Future<String> startDiscovery({
     required String accessToken,
     required RecoveryHistory history,

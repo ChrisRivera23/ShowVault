@@ -13,3 +13,5 @@ public sealed record RecoveryCandidateSummary(
     DateTimeOffset? DecidedAt);
 
 public sealed record DecideRecoveryCandidateRequest(bool Approved);
+
+public sealed record ValidateRecoveryCandidateRequest(int MaxFiles = 1_000);

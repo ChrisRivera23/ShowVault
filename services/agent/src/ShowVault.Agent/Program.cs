@@ -206,6 +206,8 @@ builder.Services.AddHttpClient<AgentCommandClient>((services, client) =>
 });
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<AgentQueueStore>();
+builder.Services.AddSingleton<IApprovedRecoveryScopeProvider>(services =>
+    services.GetRequiredService<AgentQueueStore>());
 builder.Services.AddSingleton<AgentEventDispatcher>();
 builder.Services.AddSingleton<AgentCommandPoller>();
 builder.Services.AddSingleton<IDiscoveryPlugin, FileSystemDiscoveryPlugin>();

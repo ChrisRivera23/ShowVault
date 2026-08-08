@@ -116,6 +116,10 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         var approvedCandidates = await ownerClient.GetFromJsonAsync<
             ApiResponse<IReadOnlyList<RecoveryCandidateSummary>>>(candidatePath);
         Assert.Equal("approved", Assert.Single(approvedCandidates!.Payload).Decision);
+        var validationResponse = await ownerClient.PostAsJsonAsync(
+            $"{candidatePath}/{candidateId}/validate",
+            new ValidateRecoveryCandidateRequest(500));
+        Assert.Equal(HttpStatusCode.Accepted, validationResponse.StatusCode);
         using (var scope = factory.Services.CreateScope())
         {
             var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
@@ -127,6 +131,14 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
             Assert.Equal(candidateId, decisionPayload!.CandidateId);
             Assert.True(decisionPayload.Approved);
             Assert.DoesNotContain("path", decisionCommand.Payload, StringComparison.OrdinalIgnoreCase);
+            var validationCommand = await database.IssuedAgentCommands.SingleAsync(command =>
+                command.AgentId == enrolledAgent.Payload.AgentId &&
+                command.Type == AgentCommandType.ValidateRecoveryCandidate);
+            var validationPayload = System.Text.Json.JsonSerializer.Deserialize<
+                ValidateRecoveryCandidatePayload>(validationCommand.Payload);
+            Assert.Equal(candidateId, validationPayload!.CandidateId);
+            Assert.Equal(500, validationPayload.MaxFiles);
+            Assert.DoesNotContain("path", validationCommand.Payload, StringComparison.OrdinalIgnoreCase);
         }
 
         var mismatchedEvent = agentEvent with
