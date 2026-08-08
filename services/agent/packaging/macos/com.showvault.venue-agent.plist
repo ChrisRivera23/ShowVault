@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.showvault.venue-agent</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Library/Application Support/ShowVault/Agent/ShowVault.Agent</string>
+    <string>--contentRoot</string>
+    <string>/Library/Application Support/ShowVault/Configuration</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Library/Application Support/ShowVault/State</string>
+    <key>Agent__DataDirectory</key>
+    <string>/Library/Application Support/ShowVault/State</string>
+    <key>Agent__PackageDirectory</key>
+    <string>/Library/Application Support/ShowVault/Packages</string>
+    <key>Agent__MacOsKeychainPath</key>
+    <string>/Library/Application Support/ShowVault/Secrets/venue-agent.keychain-db</string>
+    <key>Agent__MacOsKeychainPasswordFile</key>
+    <string>/Library/Application Support/ShowVault/Secrets/keychain-password</string>
+  </dict>
+  <key>UserName</key>
+  <string>_showvault</string>
+  <key>GroupName</key>
+  <string>_showvault</string>
+  <key>WorkingDirectory</key>
+  <string>/Library/Application Support/ShowVault/Agent</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>/Library/Logs/ShowVault/venue-agent.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Library/Logs/ShowVault/venue-agent.error.log</string>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+</dict>
+</plist>

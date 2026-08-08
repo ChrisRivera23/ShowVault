@@ -179,6 +179,14 @@ builder.Services
         options => string.IsNullOrWhiteSpace(options.PackageDirectory) ||
             Path.IsPathFullyQualified(options.PackageDirectory),
         "The package directory must be an absolute path when configured.")
+    .Validate(
+        options => (string.IsNullOrWhiteSpace(options.MacOsKeychainPath) &&
+                    string.IsNullOrWhiteSpace(options.MacOsKeychainPasswordFile)) ||
+                   (!string.IsNullOrWhiteSpace(options.MacOsKeychainPath) &&
+                    Path.IsPathFullyQualified(options.MacOsKeychainPath) &&
+                    !string.IsNullOrWhiteSpace(options.MacOsKeychainPasswordFile) &&
+                    Path.IsPathFullyQualified(options.MacOsKeychainPasswordFile)),
+        "The macOS dedicated keychain path and password file must both be absolute paths when configured.")
     .ValidateOnStart();
 
 builder.Services.AddHttpClient<AgentEnrollmentClient>((services, client) =>

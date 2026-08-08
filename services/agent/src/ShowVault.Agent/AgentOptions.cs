@@ -15,9 +15,15 @@ public sealed class AgentOptions
 
     public string? EnrollmentCode { get; init; }
 
+    public bool EnrollOnly { get; init; }
+
     public string? DataDirectory { get; init; }
 
     public string? PackageDirectory { get; init; }
+
+    public string? MacOsKeychainPath { get; init; }
+
+    public string? MacOsKeychainPasswordFile { get; init; }
 
     public IReadOnlyList<string> DiscoveryRoots { get; init; } = [];
 

@@ -27,9 +27,11 @@ Credential rotation requires the current Agent credential, returns the replaceme
 - Enrollment ID, venue, SHA-256 digest, creator subject, creation time, expiry, consumption time, and revocation time.
 - Agent ID, venue, display name, credential digest, creation time, and revocation time.
 
-## Deployment caveat
+## macOS LaunchDaemon deployment
 
-The macOS implementation uses the process account's default keychain. LaunchDaemon installation must validate that the selected service account has an available keychain while logged out; otherwise the installer must provision a dedicated service keychain and access policy. The Agent fails closed when Keychain Services rejects access.
+Interactive development runs may use the process account's default Keychain. Production-style LaunchDaemon installation provisions a dedicated `_showvault` service account and Keychain so credential access does not depend on an operator login session. The dedicated Keychain path and its root/service-account-protected password file are supplied through `Agent:MacOsKeychainPath` and `Agent:MacOsKeychainPasswordFile`. Both must be absolute and configured together. The Agent opens and unlocks that Keychain for each credential operation and fails closed when Keychain Services rejects access.
+
+The installer performs enrollment in a one-shot `Agent:EnrollOnly` process, ensuring the short-lived code is neither persisted in configuration nor placed in the LaunchDaemon plist. See [`MACOS_AGENT_INSTALL.md`](MACOS_AGENT_INSTALL.md).
 
 ## Next implementation slice
 

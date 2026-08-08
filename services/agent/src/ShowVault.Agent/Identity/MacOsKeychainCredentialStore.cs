@@ -1,11 +1,12 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
+using Microsoft.Extensions.Options;
 
 namespace ShowVault.Agent.Identity;
 
 [SupportedOSPlatform("macos")]
-public sealed partial class MacOsKeychainCredentialStore : IAgentCredentialStore
+public sealed partial class MacOsKeychainCredentialStore(IOptions<AgentOptions> options) : IAgentCredentialStore
 {
     private const int Success = 0;
     private const int ItemNotFound = -25300;
@@ -15,125 +16,172 @@ public sealed partial class MacOsKeychainCredentialStore : IAgentCredentialStore
     public ValueTask<StoredAgentIdentity?> LoadAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var status = SecKeychainFindGenericPassword(
-            IntPtr.Zero,
-            (uint)Service.Length,
-            Service,
-            (uint)Account.Length,
-            Account,
-            out var passwordLength,
-            out var passwordData,
-            out var item);
-        if (status == ItemNotFound)
-        {
-            return ValueTask.FromResult<StoredAgentIdentity?>(null);
-        }
-
-        ThrowIfFailed(status, "read");
+        var keychain = OpenConfiguredKeychain();
         try
         {
-            var bytes = new byte[passwordLength];
-            Marshal.Copy(passwordData, bytes, 0, bytes.Length);
-            return ValueTask.FromResult<StoredAgentIdentity?>(
-                AgentCredentialSerialization.Deserialize(Encoding.UTF8.GetString(bytes)));
+            var status = Find(keychain, out var passwordLength, out var passwordData, out var item);
+            if (status == ItemNotFound)
+            {
+                return ValueTask.FromResult<StoredAgentIdentity?>(null);
+            }
+
+            ThrowIfFailed(status, "read");
+            try
+            {
+                var bytes = new byte[passwordLength];
+                Marshal.Copy(passwordData, bytes, 0, bytes.Length);
+                return ValueTask.FromResult<StoredAgentIdentity?>(
+                    AgentCredentialSerialization.Deserialize(Encoding.UTF8.GetString(bytes)));
+            }
+            finally
+            {
+                FreeItem(passwordData, item);
+            }
         }
         finally
         {
-            _ = SecKeychainItemFreeContent(IntPtr.Zero, passwordData);
-            if (item != IntPtr.Zero)
-            {
-                CFRelease(item);
-            }
+            ReleaseConfiguredKeychain(keychain);
         }
     }
 
-    public ValueTask SaveAsync(
-        StoredAgentIdentity identity,
-        CancellationToken cancellationToken)
+    public ValueTask SaveAsync(StoredAgentIdentity identity, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var secret = Encoding.UTF8.GetBytes(AgentCredentialSerialization.Serialize(identity));
-        var findStatus = SecKeychainFindGenericPassword(
-            IntPtr.Zero,
-            (uint)Service.Length,
-            Service,
-            (uint)Account.Length,
-            Account,
-            out _,
-            out var existingData,
-            out var existingItem);
-
-        if (findStatus == ItemNotFound)
-        {
-            var addStatus = SecKeychainAddGenericPassword(
-                IntPtr.Zero,
-                (uint)Service.Length,
-                Service,
-                (uint)Account.Length,
-                Account,
-                (uint)secret.Length,
-                secret,
-                out var addedItem);
-            if (addedItem != IntPtr.Zero)
-            {
-                CFRelease(addedItem);
-            }
-
-            ThrowIfFailed(addStatus, "write");
-            return ValueTask.CompletedTask;
-        }
-
-        ThrowIfFailed(findStatus, "find");
+        var keychain = OpenConfiguredKeychain();
         try
         {
-            var updateStatus = SecKeychainItemModifyAttributesAndData(
-                existingItem,
-                IntPtr.Zero,
-                (uint)secret.Length,
-                secret);
-            ThrowIfFailed(updateStatus, "update");
-            return ValueTask.CompletedTask;
+            var findStatus = Find(keychain, out _, out var existingData, out var existingItem);
+            if (findStatus == ItemNotFound)
+            {
+                var addStatus = SecKeychainAddGenericPassword(
+                    keychain,
+                    (uint)Service.Length,
+                    Service,
+                    (uint)Account.Length,
+                    Account,
+                    (uint)secret.Length,
+                    secret,
+                    out var addedItem);
+                if (addedItem != IntPtr.Zero)
+                {
+                    CFRelease(addedItem);
+                }
+
+                ThrowIfFailed(addStatus, "write");
+                return ValueTask.CompletedTask;
+            }
+
+            ThrowIfFailed(findStatus, "find");
+            try
+            {
+                ThrowIfFailed(
+                    SecKeychainItemModifyAttributesAndData(
+                        existingItem,
+                        IntPtr.Zero,
+                        (uint)secret.Length,
+                        secret),
+                    "update");
+                return ValueTask.CompletedTask;
+            }
+            finally
+            {
+                FreeItem(existingData, existingItem);
+            }
         }
         finally
         {
-            _ = SecKeychainItemFreeContent(IntPtr.Zero, existingData);
-            if (existingItem != IntPtr.Zero)
-            {
-                CFRelease(existingItem);
-            }
+            ReleaseConfiguredKeychain(keychain);
         }
     }
 
     public ValueTask DeleteAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var status = SecKeychainFindGenericPassword(
-            IntPtr.Zero,
+        var keychain = OpenConfiguredKeychain();
+        try
+        {
+            var status = Find(keychain, out _, out var existingData, out var item);
+            if (status == ItemNotFound)
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            ThrowIfFailed(status, "find");
+            try
+            {
+                ThrowIfFailed(SecKeychainItemDelete(item), "delete");
+                return ValueTask.CompletedTask;
+            }
+            finally
+            {
+                FreeItem(existingData, item);
+            }
+        }
+        finally
+        {
+            ReleaseConfiguredKeychain(keychain);
+        }
+    }
+
+    private static int Find(
+        IntPtr keychain,
+        out uint passwordLength,
+        out IntPtr passwordData,
+        out IntPtr item) => SecKeychainFindGenericPassword(
+            keychain,
             (uint)Service.Length,
             Service,
             (uint)Account.Length,
             Account,
-            out _,
-            out var existingData,
-            out var item);
-        if (status == ItemNotFound)
+            out passwordLength,
+            out passwordData,
+            out item);
+
+    private IntPtr OpenConfiguredKeychain()
+    {
+        if (string.IsNullOrWhiteSpace(options.Value.MacOsKeychainPath))
         {
-            return ValueTask.CompletedTask;
+            return IntPtr.Zero;
         }
 
-        ThrowIfFailed(status, "find");
+        ThrowIfFailed(
+            SecKeychainOpen(options.Value.MacOsKeychainPath, out var keychain),
+            "open dedicated keychain");
         try
         {
-            ThrowIfFailed(SecKeychainItemDelete(item), "delete");
-            return ValueTask.CompletedTask;
+            var password = File.ReadAllText(options.Value.MacOsKeychainPasswordFile!).TrimEnd('\r', '\n');
+            var passwordBytes = Encoding.UTF8.GetBytes(password);
+            ThrowIfFailed(
+                SecKeychainUnlock(keychain, (uint)passwordBytes.Length, passwordBytes, true),
+                "unlock dedicated keychain");
+            return keychain;
         }
-        finally
+        catch
         {
-            _ = SecKeychainItemFreeContent(IntPtr.Zero, existingData);
-            if (item != IntPtr.Zero)
-            {
-                CFRelease(item);
-            }
+            CFRelease(keychain);
+            throw;
+        }
+    }
+
+    private static void ReleaseConfiguredKeychain(IntPtr keychain)
+    {
+        if (keychain != IntPtr.Zero)
+        {
+            CFRelease(keychain);
+        }
+    }
+
+    private static void FreeItem(IntPtr data, IntPtr item)
+    {
+        if (data != IntPtr.Zero)
+        {
+            _ = SecKeychainItemFreeContent(IntPtr.Zero, data);
+        }
+
+        if (item != IntPtr.Zero)
+        {
+            CFRelease(item);
         }
     }
 
@@ -180,6 +228,18 @@ public sealed partial class MacOsKeychainCredentialStore : IAgentCredentialStore
 
     [LibraryImport("/System/Library/Frameworks/Security.framework/Security")]
     private static partial int SecKeychainItemDelete(IntPtr itemRef);
+
+    [LibraryImport(
+        "/System/Library/Frameworks/Security.framework/Security",
+        StringMarshalling = StringMarshalling.Utf8)]
+    private static partial int SecKeychainOpen(string pathName, out IntPtr keychain);
+
+    [LibraryImport("/System/Library/Frameworks/Security.framework/Security")]
+    private static partial int SecKeychainUnlock(
+        IntPtr keychain,
+        uint passwordLength,
+        byte[] password,
+        [MarshalAs(UnmanagedType.Bool)] bool usePassword);
 
     [LibraryImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
     private static partial void CFRelease(IntPtr value);

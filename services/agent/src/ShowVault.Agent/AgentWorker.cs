@@ -15,11 +15,19 @@ public sealed class AgentWorker(
     AgentEventDispatcher eventDispatcher,
     AgentCommandPoller commandPoller,
     AgentCommandExecutor commandExecutor,
-    TimeProvider timeProvider) : BackgroundService
+    TimeProvider timeProvider,
+    IHostApplicationLifetime applicationLifetime) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var identity = await identityBootstrapper.GetOrEnrollAsync(stoppingToken);
+        if (options.Value.EnrollOnly)
+        {
+            logger.LogInformation("ShowVault Agent enrollment completed for {AgentId}", identity.AgentId);
+            applicationLifetime.StopApplication();
+            return;
+        }
+
         await queueStore.InitializeAsync(stoppingToken);
         await queueStore.EnqueueEventAsync(
             AgentEventEnvelope.Create(
