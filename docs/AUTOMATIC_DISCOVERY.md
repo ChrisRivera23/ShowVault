@@ -21,12 +21,11 @@ Network discovery must derive candidate interfaces and subnets locally, exclude 
 
 ## Current slice
 
-System inventory now includes bounded local recovery candidates. The first provider checks standard macOS and Windows Resolume Arena/Avenue application and user-data locations across local user profiles. Missing and inaccessible locations are ignored. Detected paths remain only in the Agent's local discovery result. The Agent publishes opaque IDs plus bounded product/type/evidence metadata; the control plane persists tenant-scoped decisions, and the native dashboard supports manager approve/reject review without receiving paths. Approval does not yet authorize local file access.
+System inventory now includes bounded local recovery candidates. The first provider checks standard macOS and Windows Resolume Arena/Avenue application and user-data locations across local user profiles. Missing and inaccessible locations are ignored. Detected paths remain only in Agent SQLite. The Agent publishes opaque IDs plus bounded product/type/evidence metadata; the control plane persists tenant-scoped decisions, and the native dashboard supports manager approve/reject review without receiving paths. Protocol 1.3 delivers path-free decisions to the originating Agent, which resolves only locally known IDs and idempotently adds or removes durable exact scopes. Unknown IDs fail without granting access.
 
 ## Next slices
 
-1. Deliver approved opaque candidate IDs to the originating Agent and convert them into durable exact local allowlists.
-2. Start product validation from approved candidates without manual path entry.
-3. Detect network interfaces and propose bounded venue subnets for approval.
-4. Add protocol-aware MA Lighting, Yamaha, and L-Acoustics discovery without representing an open TCP port as product support.
-5. Expand standard-location providers for supported workstation applications and export workflows.
+1. Start product-specific validation from approved candidate IDs without manual path entry and return only path-free findings.
+2. Detect network interfaces and propose bounded venue subnets for approval.
+3. Add protocol-aware MA Lighting, Yamaha, and L-Acoustics discovery without representing an open TCP port as product support.
+4. Expand standard-location providers for supported workstation applications and export workflows.
