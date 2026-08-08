@@ -29,9 +29,11 @@ Protocol 1.6 adds a second manager action for one approved proposal. The Agent r
 
 Protocol 1.7 adds a separate manager action for grandMA3 identification after a completed bounded discovery with at least one responder. The command references the opaque proposal and exact discovery command only. The Agent reads that local responder set, checks the officially documented grandMA3 Web Remote HTTP service on port 8080 with 100-500 ms timeouts, and requires a `grandMA3` response signature. Addresses and matches remain in Agent SQLite. The path-free completion contains only attempted and identified counts plus the `grandMA3` product family. The probe does not authenticate, enumerate a session, synchronize state, retain response content, or claim grandMA2 support.
 
+The control plane correlates identification outcomes to the exact Agent, proposal, discovery authorization, and pending identification command. It persists bounded path-free pending/completed/failed state, attempted and matched counts, product-family evidence, failure details, and completion time. Native onboarding polls pending work and displays the result for operator review without receiving host addresses. A new proposal decision or bounded discovery clears stale identification evidence.
+
 ## Next slices
 
-1. Persist bounded path-free grandMA3 identification state/evidence in the tenant control plane and expose it for operator review.
-2. Extend the same primary-evidence model to Yamaha and L-Acoustics.
+1. Extend the same separately authorized primary-evidence model to Yamaha.
+2. Extend it to L-Acoustics after Yamaha is proven.
 3. Define a documented primary-evidence network signature before adding grandMA2 identification.
 4. Expand standard-location providers for supported workstation applications and export workflows.
