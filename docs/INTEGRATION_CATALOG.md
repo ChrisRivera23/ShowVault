@@ -10,7 +10,7 @@ Manufacturer names do not imply support for every product the company has shippe
 
 - Yamaha
 - Allen & Heath — protocol 1.19 separately identifies exact official Qu MIDI-over-TCP `BoxID` replies for Qu-16, Qu-24, Qu-32, Qu-Pac, and Qu-SB against responders retained by one completed authorized discovery; response bytes and addresses remain Agent-local, and SQ/SQ+, CQ, AHM, Avantis, dLive, generic MIDI/TCP behavior, configuration, control, validation, backup, verification, and restore remain unsupported by this network slice
-- DiGiCo
+- DiGiCo — automatic network identification is deferred: official SD/Quantum and S-Series documentation exposes explicitly enabled, operator-addressed remote-control/OSC paths with configurable ports and model-specific or user-defined command sets, while 4REA4 discovery is embedded in configuration and firmware-update software; no official fixed, read-only request with an exact literal model response was found, so generic TCP/OSC/MIDI, Dante, Optocore, controller discovery, broadcast, and port reachability are not identity evidence, and the existing exact-root SD/Quantum `.ses` recovery remains separate
 - Avid
 - SSL (Solid State Logic)
 - Behringer
