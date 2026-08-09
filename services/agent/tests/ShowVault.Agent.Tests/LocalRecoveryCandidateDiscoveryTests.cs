@@ -54,7 +54,7 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
     [Theory]
     [InlineData(LocalApplicationPlatform.MacOs)]
     [InlineData(LocalApplicationPlatform.Windows)]
-    public void Catalog_registry_finds_fixture_backed_resolume_serato_and_rekordbox_candidates(
+    public void Catalog_registry_finds_fixture_backed_dj_application_candidates(
         LocalApplicationPlatform platform)
     {
         var applicationRoot = Path.Combine(_root, platform.ToString(), "Applications");
@@ -71,6 +71,14 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         else
             Directory.CreateDirectory(expectedRekordboxApplication);
         Directory.CreateDirectory(expectedRekordboxData);
+        var expectedTraktorApplication = Path.Combine(
+            applicationRoot, "Native Instruments", "Traktor Pro 3");
+        var expectedTraktorDatabase = Path.Combine(
+            userHome, "Documents", "Native Instruments", "Traktor 3.11.1");
+        var expectedTraktorContent = Path.Combine(userHome, "Music", "Traktor");
+        Directory.CreateDirectory(expectedTraktorApplication);
+        Directory.CreateDirectory(expectedTraktorDatabase);
+        Directory.CreateDirectory(expectedTraktorContent);
 
         var registry = new LocalApplicationDetectionRegistry();
         var standardLocations = registry.GetCandidates(platform, [applicationRoot], [userHome]);
@@ -94,9 +102,22 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             location.PluginId == LocalApplicationDetectionRegistry.RekordboxPluginId &&
             location.CandidateType == "UserDataRoot" &&
             location.Path == expectedRekordboxData);
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == LocalApplicationDetectionRegistry.TraktorProPluginId &&
+            location.CandidateType == "InstalledApplication" &&
+            location.Path == expectedTraktorApplication);
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == LocalApplicationDetectionRegistry.TraktorProPluginId &&
+            location.CandidateType == "UserDataRoot" &&
+            location.Path == expectedTraktorDatabase);
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == LocalApplicationDetectionRegistry.TraktorProPluginId &&
+            location.CandidateType == "UserDataRoot" &&
+            location.Path == expectedTraktorContent);
 
         foreach (var location in standardLocations.Where(location =>
-                     location.PluginId != LocalApplicationDetectionRegistry.RekordboxPluginId))
+                     location.PluginId != LocalApplicationDetectionRegistry.RekordboxPluginId &&
+                     location.PluginId != LocalApplicationDetectionRegistry.TraktorProPluginId))
         {
             if (location.CandidateType == "InstalledApplication" && Path.HasExtension(location.Path))
             {
@@ -112,7 +133,7 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         var candidates = new LocalRecoveryCandidateDiscovery(
             new FixedLocationProvider(standardLocations)).Discover();
 
-        Assert.Equal(8, candidates.Count);
+        Assert.Equal(11, candidates.Count);
         Assert.Equal(2, candidates.Count(candidate =>
             candidate.PluginId == ResolumeDiscoveryPlugin.PluginId &&
             candidate.CandidateType == "InstalledApplication"));
@@ -134,6 +155,13 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             candidate.PluginId == LocalApplicationDetectionRegistry.RekordboxPluginId &&
             candidate.CandidateType == "UserDataRoot" &&
             candidate.Path == expectedRekordboxData);
+        Assert.Single(candidates, candidate =>
+            candidate.PluginId == LocalApplicationDetectionRegistry.TraktorProPluginId &&
+            candidate.CandidateType == "InstalledApplication" &&
+            candidate.Path == expectedTraktorApplication);
+        Assert.Equal(2, candidates.Count(candidate =>
+            candidate.PluginId == LocalApplicationDetectionRegistry.TraktorProPluginId &&
+            candidate.CandidateType == "UserDataRoot"));
         Assert.All(candidates, candidate => Assert.True(candidate.RequiresOperatorApproval));
     }
 

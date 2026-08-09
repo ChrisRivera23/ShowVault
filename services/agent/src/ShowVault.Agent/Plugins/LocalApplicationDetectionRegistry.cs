@@ -28,12 +28,15 @@ public sealed record LocalApplicationCatalogEntry(
 {
     public IReadOnlyList<LocalApplicationVersionDirectory> MacOsVersionDirectories { get; init; } = [];
     public IReadOnlyList<LocalApplicationVersionDirectory> WindowsVersionDirectories { get; init; } = [];
+    public IReadOnlyList<LocalApplicationVersionDirectory> MacOsUserVersionDirectories { get; init; } = [];
+    public IReadOnlyList<LocalApplicationVersionDirectory> WindowsUserVersionDirectories { get; init; } = [];
 }
 
 public sealed class LocalApplicationDetectionRegistry
 {
     public const string SeratoDjProPluginId = "showvault.serato-dj-pro";
     public const string RekordboxPluginId = "showvault.rekordbox";
+    public const string TraktorProPluginId = "showvault.traktor-pro";
     private const int MaximumVersionDirectoryCount = 32;
 
     public IReadOnlyList<LocalApplicationCatalogEntry> Entries { get; } =
@@ -88,6 +91,33 @@ public sealed class LocalApplicationDetectionRegistry
                     "rekordbox.exe",
                     "Catalog documented versioned rekordbox 5 Windows application location")
             ]
+        },
+        new(
+            TraktorProPluginId,
+            "Traktor Pro",
+            [
+                new("InstalledApplication", Path.Combine("Native Instruments", "Traktor Pro 2"),
+                    "Catalog standard Traktor Pro 2 macOS application folder"),
+                new("InstalledApplication", Path.Combine("Native Instruments", "Traktor Pro 3"),
+                    "Catalog standard Traktor Pro 3 macOS application folder")
+            ],
+            [
+                new("InstalledApplication", Path.Combine("Native Instruments", "Traktor Pro 2"),
+                    "Catalog standard Traktor Pro 2 Windows application folder"),
+                new("InstalledApplication", Path.Combine("Native Instruments", "Traktor Pro 3"),
+                    "Catalog standard Traktor Pro 3 Windows application folder")
+            ],
+            [new("UserDataRoot", Path.Combine("Music", "Traktor"),
+                "Catalog standard Traktor generated-content location")],
+            [new("UserDataRoot", Path.Combine("Music", "Traktor"),
+                "Catalog standard Traktor generated-content location")])
+        {
+            MacOsUserVersionDirectories =
+            [new("UserDataRoot", Path.Combine("Documents", "Native Instruments"), "Traktor ", "",
+                "Catalog standard versioned Traktor root database location")],
+            WindowsUserVersionDirectories =
+            [new("UserDataRoot", Path.Combine("Documents", "Native Instruments"), "Traktor ", "",
+                "Catalog standard versioned Traktor root database location")]
         }
     ];
 
@@ -117,6 +147,10 @@ public sealed class LocalApplicationDetectionRegistry
                     ? entry.MacOsUserLocations
                     : entry.WindowsUserLocations;
                 AddCandidates(candidates, entry, [userHome], locations);
+                var versionDirectories = platform == LocalApplicationPlatform.MacOs
+                    ? entry.MacOsUserVersionDirectories
+                    : entry.WindowsUserVersionDirectories;
+                AddVersionDirectoryCandidates(candidates, entry, [userHome], versionDirectories);
             }
         }
 
