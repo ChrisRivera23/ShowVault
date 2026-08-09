@@ -55,7 +55,7 @@ Completed:
 - The Flutter client uses Auth0 Universal Login, securely restores mobile/macOS sessions, and requests the ShowVault API audience.
 - Authenticated Flutter loading discovers the operator's first accessible organization and venue and renders only live tenant-scoped recovery history; preview data has been removed.
 - Read-only system inventory and exact allowlisted TCP endpoint discovery run through the durable Agent command boundary.
-- The authoritative Version 1 catalog spans professional audio, audio networking/DSP, lighting platforms/protocols, video/media servers, DJ platforms, and projection; Resolume, Yamaha, and grandMA2/grandMA3 are highest priority.
+- The Product Owner-approved first prototype testing catalog spans audio manufacturers, audio networking/DSP, lighting and protocols, video/media servers, projection, broadcast, streaming/production, DJ platforms, show control/playback, and PTZ/cameras. Implemented products outside that matrix remain capabilities but are not prototype testing commitments.
 - Q-SYS Designer offline recovery requires an editable `.qsys` design within an exact locally approved root and preserves colocated plugins, user-library components, scripts, media, notes, and other recovery companions.
 - ETC Eos recovery accepts native `.esf3d`, `.esf2`, and legacy `.esf` show files within an exact locally approved archive root and preserves timestamped revisions, settings backups, exports, and other colocated recovery companions.
 - Dante Controller recovery requires a saved XML network preset within an exact locally approved root and preserves colocated event and clock logs, diagrams, inventories, and restore notes as evidence and companions.
@@ -121,7 +121,7 @@ Completed:
 
 Current development branch:
 
-- `codex/denon-engine-os-drive-detection` — catalog-driven Engine OS removable-drive detection with cross-platform fixtures.
+- `codex/prototype-testing-catalog` — authoritative first prototype testing scope documentation.
 
 The Auth0 Native application and live local macOS login/API proof are complete. A reproducible local prototype runbook is available in `docs/PROTOTYPE_RUNBOOK.md`. No pilot venue is selected; onboarding and discovery must work at an unknown venue without requiring operators to pre-enter computer specifications, application paths, device addresses, or vendor inventory. Membership administration, user-requested command cancellation, digital signatures, NAS/cloud storage, and persistent control-plane package records have not been implemented yet.
 
@@ -438,7 +438,7 @@ This section is maintained so a new Codex task can resume without relying on the
 - Next recommended implementation step: research official disguise Designer primary sources, then add catalog-driven Windows installed-application and project-root detection only for documented stable standard locations with synthetic fixtures; if primary sources do not establish a dependable path, record a deferral rather than guessing or inspecting a real workstation.
 - Auth0 Native application `ShowVault Flutter` is registered and its callback/logout URLs and public Client ID are configured. The development API now permits user-delegated access from tenant applications; Auth0 saved and reload-verified the `All apps allowed` policy after the dashboard Admin session was refreshed. Machine-to-machine access remains restricted to per-application authorization.
 - Local prototype prerequisites are installed: Docker Desktop 4.85.0, PostgreSQL 18 in Compose, Xcode 26.6, and CocoaPods 1.17.0. The PostgreSQL schema is migrated, the local API is healthy on loopback HTTP, and the macOS Flutter client builds, authenticates, loads live tenant data, and has completed a controlled recovery workflow through a Keychain-backed native Agent.
-- The Product Owner supplied the authoritative Version 1 venue-technology scope in `docs/INTEGRATION_CATALOG.md`, including rekordbox, Serato DJ Pro, Traktor Pro, VirtualDJ, Engine DJ, djay Pro, Mixxx, and Denon Engine OS as mandatory launch targets. Resolume, Yamaha, and grandMA2/grandMA3 are highest priority. Coverage is tracked per tested product/model, platform version, or protocol capability; empty catalog plugins and generic reachability do not qualify.
+- The Product Owner replaced the prototype test matrix with the authoritative scope in `docs/INTEGRATION_CATALOG.md`. Its DJ commitment is rekordbox, Serato DJ Pro, Traktor Pro, and VirtualDJ; previously implemented Engine DJ, djay Pro, Mixxx, and Engine OS detection remains valid but is outside first prototype testing. The matrix also adds explicit broadcast, streaming/production, show-control/playback, and PTZ/camera categories. Coverage is tracked per tested product/model, platform version, or protocol capability; empty catalog plugins and generic reachability do not qualify.
 - Auth0 is configured for human identity. Agent authentication intentionally remains a separate credential scheme.
 - Exact Codex context-window percentages are not exposed to the assistant; repository state and this handoff are authoritative instead of chat history.
 
@@ -525,7 +525,7 @@ Open and read /Users/infamous/Documents/ChatGPT/showvault/CHAT_CONTINUATION_READ
 Expected starting state:
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/denon-engine-os-drive-detection`
+- Branch: `codex/prototype-testing-catalog`
 - Clean worktree after the feature and documentation handoff commits, except the pre-existing untracked `NEXT_CONVERSATION.md`
 - Latest feature commit: `d44c3ce feat: detect Engine OS drive libraries`
 - Verified baseline: 2 contract tests, 21 platform tests, 297 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing; EF Core reports no pending model changes
@@ -535,4 +535,4 @@ Expected starting state:
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-The repository is authoritative. The standing goal is zero-entry discovery of supported venue technology on older macOS/Windows systems and direct Ethernet while preserving Agent-local evidence and explicit authorization. The catalog registry now covers Resolume Arena/Avenue, Serato DJ Pro, rekordbox, Traktor Pro, VirtualDJ, Engine DJ Desktop, Algoriddim djay Pro, Mixxx, and Denon Engine OS removable media. Engine OS checks only for the documented root-level `Engine Library` directory across bounded mounted roots and remains detection-only; database contents, tracks, hardware identity, validation, and protection are not credited. Real hardware, removable media, and installed-application testing is deferred. The verified baseline is 2 contract tests, 21 platform tests, 297 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing, with no pending EF Core model changes. Next is official disguise Designer research followed by documented-path-only Windows application/project detection, or an evidence-backed deferral if stable locations are not published.
+The repository is authoritative. The standing goal is zero-entry discovery of supported venue technology on older macOS/Windows systems and direct Ethernet while preserving Agent-local evidence and explicit authorization. `docs/INTEGRATION_CATALOG.md` is now the authoritative first prototype testing matrix. Previously implemented integrations outside it remain capabilities but are not prototype test commitments; specifically, Engine DJ, djay Pro, Mixxx, and Engine OS are outside the prototype DJ matrix while rekordbox, Serato DJ Pro, Traktor Pro, and VirtualDJ remain in scope. Real hardware, removable media, and installed-application testing is deferred. The verified baseline is 2 contract tests, 21 platform tests, 297 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing, with no pending EF Core model changes. Next is official disguise Designer research followed by documented-path-only Windows application/project detection, or an evidence-backed deferral if stable locations are not published.

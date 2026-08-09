@@ -26,7 +26,7 @@ The primary discovery goal is to start ShowVault at an unknown nightclub, concer
 Expected starting state
 
 - Repository: /Users/infamous/Documents/ChatGPT/showvault
-- Branch: codex/denon-engine-os-drive-detection
+- Branch: codex/prototype-testing-catalog
 - Latest feature commit: d44c3ce feat: detect Engine OS drive libraries
 - Latest handoff: the HEAD documentation commit containing this file
 - Worktree clean except the pre-existing untracked NEXT_CONVERSATION.md
@@ -46,6 +46,7 @@ Required boundaries
 - Keep resolved paths Agent-local and publish only opaque candidate IDs with bounded product/type/evidence metadata.
 - Keep installed software, recoverable data, operator approval, validation, protection, verification, and restore state distinct.
 - Do not guess undocumented paths or claim disguise validation, backup, verification, restore, hardware identification, or media support in this detection-only slice.
+- Treat `docs/INTEGRATION_CATALOG.md` as the authoritative first prototype testing matrix; implemented products omitted from it remain outside the prototype testing commitment.
 
 Required workflow for every task
 

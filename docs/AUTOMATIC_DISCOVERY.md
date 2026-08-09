@@ -4,6 +4,8 @@ ShowVault must be installable at an unknown venue without requiring the operator
 
 The primary outcome is to start ShowVault and find supported venue equipment and software represented in the integration catalog, including systems used in nightclubs, concert halls, houses of worship, and comparable production spaces.
 
+`docs/INTEGRATION_CATALOG.md` is the authoritative first prototype testing matrix. Implemented integrations omitted from that matrix remain product capabilities but do not become prototype testing commitments.
+
 ## Intended workflow
 
 1. Install the native client and Venue Agent.

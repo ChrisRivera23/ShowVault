@@ -1,51 +1,32 @@
-# Version 1 integration catalog
+# First prototype testing integration catalog
 
-This is the Product Owner-approved venue technology scope for ShowVault Version 1. Resolume, Yamaha, and MA Lighting grandMA2/grandMA3 are the highest priorities. Every entry below is a launch-scope integration target, but support is credited only when a documented product/model or protocol workflow has tested discovery, protection or configuration capture where technically available, verification, compatibility rules, and recovery guidance.
+This is the Product Owner-approved technology matrix for ShowVault's first prototype testing phase. Prototype readiness and test planning must use this list from now on.
 
-Manufacturer names do not imply automatic support for every product the company has ever shipped. Each implementation record must name its tested models, software/firmware versions, exported artifacts, permissions, and restore limitations. Open protocols are capabilities shared by plugins rather than fake vendor products.
+Previously implemented integrations that are not listed here remain valid product capabilities, but they are outside the first prototype test commitment. Their existence must not broaden the prototype matrix or imply that they are tested, validated, protected, verified, or recoverable in the prototype.
+
+Manufacturer names do not imply support for every product the company has shipped. Coverage is credited only for named products, models, software or firmware versions, exported artifacts, or protocol capabilities with documented evidence and representative tests. Open protocols remain capabilities rather than vendor products.
 
 ## Audio manufacturers
 
-- Yamaha — highest priority
+- Yamaha
 - Allen & Heath
 - DiGiCo
 - Avid
 - SSL (Solid State Logic)
-- Lawo
-- Calrec
-- Studer
-- Midas
 - Behringer
 - Soundcraft
 - Tascam
-- Roland Pro A/V
-- PreSonus
-- QSC
-- Biamp
-- Symetrix
-- Bose Professional
-- Peavey
-- Ashly
 - Crest Audio
-- Powersoft
 - Crown
-- Lab Gruppen
 - Dynacord
-- Electro-Voice — IRIS-Net project discovery implemented; QuickSmart Mobile and PREVIEW remain uncredited pending verified portable export artifacts
-- d&b audiotechnik — shared R1/ArrayCalc `.dbpr` project discovery implemented with legacy and commissioning companions preserved
-- L-Acoustics — Soundvision `.xmlp` project discovery implemented with venue and LA Network Manager recovery companions preserved; automatic network identification deferred because public primary material documents discovery/control tools but no safe read-only wire signature, while the Electronics HTTP API contract requires separate registration and terms acceptance
-- Meyer Sound — MAPP 3D `.mapp` project discovery implemented with `MAPP Backup` autosaves, imported venue drawings, exports, and other exact-root companions preserved
-- NEXO — NS-1 `.nexo`/`.nexo3` project discovery implemented with revisions, imported venue material, exports, and other exact-root companions preserved
-- RCF — deferred pending an official or fixture-verified local RDNet/RDShape project format; current official material documents cloud project/measurement recall and a native RDShape export but not a dependable local extension or signature
-- JBL Professional — Venue Synthesis `.vysn` project discovery implemented with LAC `.lac3`, ArrayLink `.al`, venue, EASE, report, and other exact-root companions preserved
-- Martin Audio — Vu-Net `.vun` project discovery implemented with revisions, snapshots, presets, zone/device documentation, and other exact-root companions preserved
-- Funktion-One — deferred pending an official or fixture-verified NST Audio D-Net project format; Funktion-One officially links D-Net for F-Series DSP control, but no dependable local project extension or signature is published
-- Adamson — deferred pending an official or fixture-verified complete Blueprint AV/ArrayIntelligence project format; the documented `.rm` artifact contains room geometry only and is not a complete system-design recovery anchor
-- Outline — deferred pending an official or fixture-verified complete Outline Dashboard or OpenArray project format; the Newton manual documents saved Dashboard projects and a hazardous supervised device-application workflow, but publishes no dependable project extension, signature, or storage boundary, and current OpenArray material likewise does not define a complete portable recovery anchor
-- DAS Audio — ALMA `.prj` project discovery implemented at the exact `Documents/Alma`-style data-root boundary, with JSON project identity validation and colocated configuration, backups, health reports, snapshots, DASaim data, and other recovery companions preserved
-- KV2 Audio — deferred pending an official or fixture-verified Control & Diagnostics preset/show-file format; KV2 documents save/recall and supported D-series amplifiers but publishes no dependable extension, signature, schema, or storage boundary, while recall can change live amplifier settings
+- d&b audiotechnik
+- L-Acoustics
+- Meyer Sound
+- JBL Professional
+- Martin Audio
+- Funktion-One
 
-## Audio networking, control, and DSP
+## Audio networking and DSP
 
 - Dante
 - Dante Domain Manager
@@ -62,11 +43,10 @@ Manufacturer names do not imply automatic support for every product the company 
 - MIDI
 - RTP-MIDI
 
-## Lighting manufacturers and platforms
+## Lighting
 
 - ETC
-- MA Lighting grandMA2 — highest priority
-- MA Lighting grandMA3 — highest priority
+- MA Lighting
 - ChamSys
 - High End Systems
 - Strand
@@ -87,8 +67,8 @@ Manufacturer names do not imply automatic support for every product the company 
 
 ## Video and media servers
 
-- Resolume Arena — highest priority
-- Resolume Avenue — highest priority
+- Resolume Arena
+- Resolume Avenue
 - disguise
 - WATCHOUT
 - Green Hippo Hippotizer
@@ -102,17 +82,6 @@ Manufacturer names do not imply automatic support for every product the company 
 - Isadora
 - Ventana
 
-## DJ platforms
-
-- rekordbox
-- Serato DJ Pro
-- Traktor Pro
-- VirtualDJ
-- Engine DJ
-- djay Pro
-- Mixxx
-- Denon Engine OS
-
 ## Projection
 
 - Christie
@@ -123,19 +92,43 @@ Manufacturer names do not imply automatic support for every product the company 
 - NEC
 - Sony
 
-## Previously approved cross-domain families
+## Broadcast
 
-- Crestron
-- Shure
 - Blackmagic Design
+- Sony
+- NewTek
+- AJA Video Systems
 
-## Delivery waves
+## Streaming and production
 
-1. Priority recovery workflows: Resolume Arena/Avenue, grandMA2, grandMA3, and Yamaha.
-2. Representative platform foundations: Q-SYS, ETC Eos, Dante/Dante Controller, Allen & Heath, Crestron, Shure, and Blackmagic Design.
-3. Remaining audio manufacturers and audio-networking/DSP targets.
-4. Remaining lighting platforms and protocol capabilities.
-5. DJ platforms, beginning with their documented library/export and device-media workflows.
-6. Remaining video/media-server and projection targets.
+- OBS Studio
 
-Work remains vertical and evidence-based inside each wave. Parallel catalog placeholders, untested compatibility badges, and generic network reachability presented as product support are prohibited.
+## DJ platforms
+
+- rekordbox
+- Serato DJ Pro
+- Traktor Pro
+- VirtualDJ
+
+## Show control and playback
+
+- QLab
+- SCS (Show Cue System)
+- PlaybackPro
+- Mitti
+- ProPresenter
+- PVP
+- Pandora's Box Manager
+- CuePilot
+- TinkerList
+
+## PTZ and cameras
+
+- PTZOptics
+- BirdDog
+- Panasonic
+- Sony
+
+## Delivery rule
+
+Work remains vertical and evidence-based. Catalog placeholders, generic reachability presented as product support, and untested compatibility badges do not count. The Product Owner must explicitly approve additions to this first prototype testing matrix.
