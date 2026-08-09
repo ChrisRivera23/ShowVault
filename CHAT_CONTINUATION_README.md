@@ -15,12 +15,12 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/tascam-network-identification-research`
+- Branch: `codex/crest-audio-network-identification-research`
 - Latest completed feature: `890e9ac feat: identify Behringer WING consoles`
-- Latest research decision: `d5aed27 docs: defer unsafe Tascam identification`
+- Latest research decision: `fe264ac docs: defer unsafe Crest Audio identification`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
-- Verified baseline: the Tascam decision is documentation-only and `git diff --check` passes; all four official PDF links resolve with HTTP 200, and relevant Sonicview Control, TASCAM IO CONTROL, DA-6400/DA-6400dp TELNET, and SS-CDR250N/SS-R250N TELNET pages were rendered and visually inspected
+- Verified baseline: the Crest Audio decision is documentation-only and `git diff --check` passes; the four cited official Peavey Commercial Audio pages/PDFs resolve with HTTP 200, and relevant PCX device-list/control plus Ci/NexSys module, editable IP/amplifier-ID, gain, and monitoring pages were rendered and visually inspected
 - The complete baseline also has 2 contract tests, 28 platform tests, 7 API tests, Flutter analysis, and 22 Flutter tests passing; repository-wide touched-project formatting and the API Release build pass with 0 warnings and 0 errors, and EF Core reports no pending model changes
 - Blackmagic's official protocol PDF resolves with HTTP 206, was rendered, and its complete zero-byte initial status example was inspected
 - `git diff --check` passes; migration `20260809101018_AddBlackmagicVideohubIdentificationResults` exactly matches the current model
@@ -129,18 +129,19 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Protocol 1.20 identifies only the standard Behringer WING console from the exact official five-byte UDP `WING?` request on port 2222 and exact `ngc-full` reply field. The privacy-bearing IP/name/serial/firmware fields and raw datagram remain Agent-local. WING COMPACT/RACK, `wing-bk`, X32/X AIR/FLOW, altered fields, generic OSC/UDP/AES50/Dante behavior, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported by this network slice. Existing exact-root WING `.show` folder recovery remains separate.
 - Soundcraft automatic network identification is deferred. Official ViSi Remote material documents automatic HiQnet discovery but not its wire exchange or exact literal online model replies, and selecting a result opens live mixer control. Generic HARMAN HiQnet discovery uses UDP broadcast, omits Soundcraft-specific device details, and exposes configurable fields; the Ui24R web server is the full control application with credential-protected configuration, not a bounded identity endpoint. No scanner, contract, persistence, API, UI, migration, tests, credentials, access-control changes, broadcast listener, real-hardware contact, or network support credit were added. Existing exact-root Vi showfolder recovery remains separate.
 - Tascam automatic network identification is deferred. Official Sonicview Control and TASCAM IO CONTROL use UPnP multicasting for discovery, show editable names, and proceed into administrator login plus live control/configuration without publishing exact discovery replies. The fixed read-only TELNET `INFORMATION REQUEST` is shared by the DA-6400/DA-6400dp and SS-CDR250N/SS-R250N families and returns only four software-version digits, not a manufacturer or model literal. No scanner, contract, persistence, API, UI, migration, tests, TELNET session, credentials, blank/default-password reliance, multicast listener, real-hardware contact, or network support credit were added. Existing exact-root Model-series `MTR` song recovery remains separate.
+- Crest Audio automatic network identification is deferred. Official PCX material shows a refresh-driven IP device list inside software that uploads/downloads presets and controls device settings and live DSP, but publishes no discovery exchange or exact literal model reply. Official Ci/NexSys material exposes operator-editable IP addresses and amplifier IDs with full amplifier control/monitoring, again without a fixed read-only product-identity response. No scanner, contract, persistence, API, UI, migration, tests, credentials, control session, broadcast listener, real-hardware contact, or network support credit were added. Existing exact-root Peavey MediaMatrix NWare `.npa` recovery and Crest's separate local-configuration deferral remain unchanged.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official primary sources for a bounded, read-only, exact product-identity contract for the Crest Audio row under `Audio manufacturers`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral. Keep network identity separate from recovery capabilities.
+Research official primary sources for a bounded, read-only, exact product-identity contract for the Crown row under `Audio manufacturers`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral. Keep network identity separate from recovery capabilities.
 
 Required boundaries:
 
-- Start from the Crest Audio row under `Audio manufacturers` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
-- Require official primary sources from Crest Audio/Peavey for a bounded, read-only request and exact literal product identity; distinguish network identity from reachability, protocol compatibility, configuration, control, validation, backup, verification, and restore states.
+- Start from the Crown row under `Audio manufacturers` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
+- Require official primary sources from Crown/HARMAN for a bounded, read-only request and exact literal product identity; distinguish network identity from reachability, protocol compatibility, configuration, control, validation, backup, verification, and restore states.
 - Keep addresses and raw responses Agent-local. Publish only bounded counts and exact product/type/evidence metadata through the existing path-free contract.
-- Do not infer Crest Audio identity from generic TCP/UDP, SNMP, OSC, MIDI, Dante, CobraNet, broadcast, discovery, or port reachability, and do not add broadcast/multicast discovery, credentials, authentication weakening, configuration, or control.
+- Do not infer Crown identity from generic TCP/UDP, SNMP, HiQnet, Dante, CobraNet, broadcast, discovery, or port reachability, and do not add broadcast/multicast discovery, credentials, authentication weakening, configuration, or control. Keep the existing exact-root Crown Audio Architect venue recovery separate.
 - Use synthetic protocol fixtures for any implementation. Do not contact the Product Owner's equipment or network without explicit authorization.
 - Do not claim successful configuration, control, backup, validation, verification, or restore from an identification-only slice.
 
