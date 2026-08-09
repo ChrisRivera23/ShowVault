@@ -80,7 +80,7 @@ Manufacturer names do not imply support for every product the company has shippe
 - HeavyM — automatic local detection deferred pending an official stable macOS/Windows application path or project root; current HeavyM guidance tells operators to follow the `.dmg`/`.exe` installer without publishing an installed location, and Save As requires the operator to select where each `.hm` project folder is created. The documented `Documents/HeavyM/Project Backups` location is a safety copy, not the authoritative project root
 - MadMapper 6 — catalog detection checks bounded versioned macOS `/Applications/MadMapper 6.x.app/Contents/MacOS/MadMapper` and native Windows `C:\Program Files\MadMapper 6.x\MadMapper.exe` locations, plus exact `.madproject` workspace directories beneath each user's documented default `Documents/MadMapper` root; legacy `.mad` files, custom project locations, unversioned/custom applications, and 32-bit Windows installs remain unsupported
 - Isadora 4 — catalog detection checks the documented usual `/Applications/Isadora 4/Isadora.app` and native Windows `C:\Program Files\Isadora 4` locations; renamed/custom applications, 32-bit installs, and operator-selected `.izz` project roots remain unsupported
-- Ventana
+- Ventana — automatic local detection deferred because the catalog label does not resolve to a unique professional playback product; official sources identify distinct Ventuz real-time graphics, VNTANA cloud 3D content management, and Ventana Systems Vensim simulation products, so no application identity, standard path, or project root can be attributed safely
 
 ## Projection
 
