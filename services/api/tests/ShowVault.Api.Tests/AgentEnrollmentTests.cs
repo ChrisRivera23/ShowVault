@@ -402,6 +402,42 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal("Panasonic AW-UE100,Panasonic AW-UE150A",
             panasonicProposal.PanasonicCameraIdentifiedProductFamilies);
         Assert.Equal("BirdDog P200 (A4/A5)", panasonicProposal.BirdDogIdentifiedProductFamilies);
+        var sonyPath = $"{proposalPath}/{proposalId}/identify-sony-camera";
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
+            sonyPath, new IdentifySonyCameraRequest())).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await ownerClient.PostAsJsonAsync(
+            sonyPath, new IdentifySonyCameraRequest(99))).StatusCode);
+        var sonyResponse = await ownerClient.PostAsJsonAsync(
+            sonyPath, new IdentifySonyCameraRequest(500));
+        Assert.Equal(HttpStatusCode.Accepted, sonyResponse.StatusCode);
+        var sonyCommand = (await sonyResponse.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>())!.Payload;
+        Assert.Equal(AgentCommandType.IdentifySonyCamera, sonyCommand.Type);
+        Assert.Contains(subnetCommand.CommandId.ToString(), sonyCommand.Payload,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("192.168", sonyCommand.Payload, StringComparison.Ordinal);
+        var sonyOutcome = new AgentEventEnvelope(
+            sonyCommand.CommandId, enrolledAgent.Payload.AgentId,
+            AgentEventType.JobCompleted, AgentProtocol.Version, DateTimeOffset.UtcNow,
+            sonyCommand.CorrelationId,
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                proposalId,
+                discoveryCommandId = subnetCommand.CommandId,
+                attemptedHostCount = 3,
+                identifiedHostCount = 2,
+                productFamilies = new[] { "Sony BRC-X400", "Sony SRG-A40" }
+            }));
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", sonyOutcome)).StatusCode);
+        proposals = await ownerClient.GetFromJsonAsync<ApiResponse<IReadOnlyList<SubnetProposalSummary>>>(proposalPath);
+        var sonyProposal = Assert.Single(proposals!.Payload);
+        Assert.Equal("completed", sonyProposal.SonyCameraIdentificationStatus);
+        Assert.Equal(3, sonyProposal.SonyCameraIdentificationAttemptedHostCount);
+        Assert.Equal(2, sonyProposal.SonyCameraIdentifiedHostCount);
+        Assert.Equal("Sony BRC-X400,Sony SRG-A40", sonyProposal.SonyCameraIdentifiedProductFamilies);
+        Assert.Equal("Panasonic AW-UE100,Panasonic AW-UE150A",
+            sonyProposal.PanasonicCameraIdentifiedProductFamilies);
         var projectorPath = $"{proposalPath}/{proposalId}/identify-projectors";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
             projectorPath, new IdentifyProjectorsRequest())).StatusCode);

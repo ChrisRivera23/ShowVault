@@ -344,6 +344,21 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Contains("\"identifiedHostCount\":4", panasonicJson, StringComparison.Ordinal);
         Assert.Contains("Panasonic AW-UE100", panasonicJson, StringComparison.Ordinal);
         Assert.DoesNotContain("192.168.10.1", panasonicJson, StringComparison.Ordinal);
+
+        var sonyCommand = AgentCommandEnvelope.Create(
+            agentId, AgentCommandType.IdentifySonyCamera,
+            "sony-camera-identification",
+            JsonSerializer.Serialize(new IdentifySonyCameraPayload(
+                proposalId, discoveryCommand.CommandId, 250)),
+            now.AddSeconds(10), TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(sonyCommand, now.AddSeconds(10), CancellationToken.None);
+        await CreateExecutor(store, now.AddSeconds(10)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+        var sonyJson = await store.GetDiscoveryResultJsonAsync(
+            sonyCommand.CommandId, CancellationToken.None);
+        Assert.Contains("\"identifiedHostCount\":4", sonyJson, StringComparison.Ordinal);
+        Assert.Contains("Sony SRG-A40", sonyJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("192.168.10.1", sonyJson, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -1148,6 +1163,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             new NewTekTriCasterNetworkIdentification(new NewTekTriCasterProbe(), timeProvider),
             new BirdDogNetworkIdentification(new BirdDogProbe(), timeProvider),
             new PanasonicCameraNetworkIdentification(new PanasonicCameraProbe(), timeProvider),
+            new SonyCameraNetworkIdentification(new SonyCameraProbe(), timeProvider),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
@@ -1266,6 +1282,13 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         public Task<string?> IdentifyAsync(
             System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult<string?>("Panasonic AW-UE100");
+    }
+
+    private sealed class SonyCameraProbe : ISonyCameraProtocolProbe
+    {
+        public Task<string?> IdentifyAsync(
+            System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("Sony SRG-A40");
     }
 
     private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions

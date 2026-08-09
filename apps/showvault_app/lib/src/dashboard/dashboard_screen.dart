@@ -387,6 +387,31 @@ class _SubnetOnboarding extends ConsumerWidget {
     }
   }
 
+  Future<void> _identifySonyCamera(
+    BuildContext context,
+    WidgetRef ref,
+    SubnetProposal proposal,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .identifySonyCamera(
+            accessToken: session.accessToken,
+            history: history,
+            proposalId: proposal.id,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sony camera identification failed: $error')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = history.subnetProposals.where(
@@ -423,7 +448,8 @@ class _SubnetOnboarding extends ConsumerWidget {
                     '${_blackmagicVideohubIdentificationDetail(proposal)}'
                     '${_newTekTriCasterIdentificationDetail(proposal)}'
                     '${_birdDogIdentificationDetail(proposal)}'
-                    '${_panasonicCameraIdentificationDetail(proposal)}',
+                    '${_panasonicCameraIdentificationDetail(proposal)}'
+                    '${_sonyCameraIdentificationDetail(proposal)}',
                   ),
                   isThreeLine: true,
                   trailing: proposal.decision == 'approved'
@@ -549,6 +575,25 @@ class _SubnetOnboarding extends ConsumerWidget {
                                             ),
                                         child: const Text(
                                           'Identify Panasonic camera',
+                                        ),
+                                      ),
+                                  if (proposal.discoveryStatus == 'completed' &&
+                                      (proposal.respondingHostCount ?? 0) > 0)
+                                    if (proposal
+                                            .sonyCameraIdentificationStatus ==
+                                        'pending')
+                                      const Chip(
+                                        label: Text('Identifying Sony camera'),
+                                      )
+                                    else
+                                      FilledButton(
+                                        onPressed: () => _identifySonyCamera(
+                                          context,
+                                          ref,
+                                          proposal,
+                                        ),
+                                        child: const Text(
+                                          'Identify Sony camera',
                                         ),
                                       ),
                                   if (proposal.discoveryStatus == 'completed' &&
@@ -700,6 +745,20 @@ class _SubnetOnboarding extends ConsumerWidget {
     'failed' =>
       '\nPanasonic camera identification failed • '
           '${proposal.panasonicCameraIdentificationMessage ?? 'Unknown error'}',
+    _ => '',
+  };
+
+  String _sonyCameraIdentificationDetail(
+    SubnetProposal proposal,
+  ) => switch (proposal.sonyCameraIdentificationStatus) {
+    'completed' =>
+      '\nSony camera review • '
+          '${proposal.sonyCameraIdentifiedHostCount ?? 0} of '
+          '${proposal.sonyCameraIdentificationAttemptedHostCount ?? 0} identified • '
+          '${proposal.sonyCameraIdentifiedProductFamilies ?? 'none'} • addresses and raw system responses remain local',
+    'failed' =>
+      '\nSony camera identification failed • '
+          '${proposal.sonyCameraIdentificationMessage ?? 'Unknown error'}',
     _ => '',
   };
 }

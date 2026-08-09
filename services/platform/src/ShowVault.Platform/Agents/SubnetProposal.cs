@@ -84,6 +84,13 @@ public sealed class SubnetProposal
     public string? PanasonicCameraIdentifiedProductFamilies { get; private set; }
     public string? PanasonicCameraIdentificationMessage { get; private set; }
     public DateTimeOffset? PanasonicCameraIdentifiedAt { get; private set; }
+    public Guid? SonyCameraIdentificationCommandId { get; private set; }
+    public ProductIdentificationStatus? SonyCameraIdentificationStatus { get; private set; }
+    public int? SonyCameraIdentificationAttemptedHostCount { get; private set; }
+    public int? SonyCameraIdentifiedHostCount { get; private set; }
+    public string? SonyCameraIdentifiedProductFamilies { get; private set; }
+    public string? SonyCameraIdentificationMessage { get; private set; }
+    public DateTimeOffset? SonyCameraIdentifiedAt { get; private set; }
 
     public static SubnetProposal Detected(Guid id, Guid agentId, string network, int prefixLength,
         string interfaceType, string evidence, DateTimeOffset detectedAt)
@@ -124,6 +131,7 @@ public sealed class SubnetProposal
         ClearNewTekTriCasterIdentification();
         ClearBirdDogIdentification();
         ClearPanasonicCameraIdentification();
+        ClearSonyCameraIdentification();
     }
 
     public void StartDiscovery(Guid commandId)
@@ -140,6 +148,7 @@ public sealed class SubnetProposal
         ClearNewTekTriCasterIdentification();
         ClearBirdDogIdentification();
         ClearPanasonicCameraIdentification();
+        ClearSonyCameraIdentification();
     }
 
     public void CompleteDiscovery(
@@ -472,5 +481,51 @@ public sealed class SubnetProposal
         PanasonicCameraIdentifiedProductFamilies = null;
         PanasonicCameraIdentificationMessage = null;
         PanasonicCameraIdentifiedAt = null;
+    }
+
+    public void StartSonyCameraIdentification(Guid commandId)
+    {
+        if (DiscoveryStatus != SubnetDiscoveryStatus.Completed || RespondingHostCount is null or <= 0 ||
+            commandId == Guid.Empty)
+            throw new InvalidOperationException(
+                "Sony camera identification requires completed discovery with responders.");
+        ClearSonyCameraIdentification();
+        SonyCameraIdentificationCommandId = commandId;
+        SonyCameraIdentificationStatus = ProductIdentificationStatus.Pending;
+    }
+
+    public void CompleteSonyCameraIdentification(
+        int attempted, int identified, string productFamilies, DateTimeOffset at)
+    {
+        if (SonyCameraIdentificationStatus != ProductIdentificationStatus.Pending ||
+            attempted is < 1 or > 32 || identified < 0 || identified > attempted ||
+            string.IsNullOrWhiteSpace(productFamilies))
+            throw new InvalidOperationException("Sony camera identification result is invalid.");
+        SonyCameraIdentificationStatus = ProductIdentificationStatus.Completed;
+        SonyCameraIdentificationAttemptedHostCount = attempted;
+        SonyCameraIdentifiedHostCount = identified;
+        SonyCameraIdentifiedProductFamilies = productFamilies;
+        SonyCameraIdentifiedAt = at;
+    }
+
+    public void FailSonyCameraIdentification(string message, DateTimeOffset at)
+    {
+        if (SonyCameraIdentificationStatus != ProductIdentificationStatus.Pending)
+            throw new InvalidOperationException("Sony camera identification is not pending.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        SonyCameraIdentificationStatus = ProductIdentificationStatus.Failed;
+        SonyCameraIdentificationMessage = message;
+        SonyCameraIdentifiedAt = at;
+    }
+
+    private void ClearSonyCameraIdentification()
+    {
+        SonyCameraIdentificationCommandId = null;
+        SonyCameraIdentificationStatus = null;
+        SonyCameraIdentificationAttemptedHostCount = null;
+        SonyCameraIdentifiedHostCount = null;
+        SonyCameraIdentifiedProductFamilies = null;
+        SonyCameraIdentificationMessage = null;
+        SonyCameraIdentifiedAt = null;
     }
 }

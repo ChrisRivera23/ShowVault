@@ -44,7 +44,14 @@ public sealed record SubnetProposalSummary(Guid Id, Guid AgentId, string AgentNa
     int? PanasonicCameraIdentifiedHostCount,
     string? PanasonicCameraIdentifiedProductFamilies,
     string? PanasonicCameraIdentificationMessage,
-    DateTimeOffset? PanasonicCameraIdentifiedAt);
+    DateTimeOffset? PanasonicCameraIdentifiedAt,
+    Guid? SonyCameraIdentificationCommandId,
+    string? SonyCameraIdentificationStatus,
+    int? SonyCameraIdentificationAttemptedHostCount,
+    int? SonyCameraIdentifiedHostCount,
+    string? SonyCameraIdentifiedProductFamilies,
+    string? SonyCameraIdentificationMessage,
+    DateTimeOffset? SonyCameraIdentifiedAt);
 
 public sealed record DecideSubnetProposalRequest(bool Approved);
 
@@ -58,3 +65,4 @@ public sealed record IdentifyBlackmagicVideohubRequest(int TimeoutMilliseconds =
 public sealed record IdentifyNewTekTriCasterRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyBirdDogRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyPanasonicCameraRequest(int TimeoutMilliseconds = 500);
+public sealed record IdentifySonyCameraRequest(int TimeoutMilliseconds = 500);

@@ -188,6 +188,10 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
                 .HasConversion<string>().HasMaxLength(32);
             entity.Property(proposal => proposal.PanasonicCameraIdentifiedProductFamilies).HasMaxLength(200);
             entity.Property(proposal => proposal.PanasonicCameraIdentificationMessage).HasMaxLength(500);
+            entity.Property(proposal => proposal.SonyCameraIdentificationStatus)
+                .HasConversion<string>().HasMaxLength(32);
+            entity.Property(proposal => proposal.SonyCameraIdentifiedProductFamilies).HasMaxLength(200);
+            entity.Property(proposal => proposal.SonyCameraIdentificationMessage).HasMaxLength(500);
             entity.Property(proposal => proposal.DecidedBySubject).HasMaxLength(255);
             entity.HasIndex(proposal => new { proposal.AgentId, proposal.DetectedAt });
             entity.HasIndex(proposal => proposal.DiscoveryCommandId).IsUnique();
@@ -198,6 +202,7 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.HasIndex(proposal => proposal.NewTekTriCasterIdentificationCommandId).IsUnique();
             entity.HasIndex(proposal => proposal.BirdDogIdentificationCommandId).IsUnique();
             entity.HasIndex(proposal => proposal.PanasonicCameraIdentificationCommandId).IsUnique();
+            entity.HasIndex(proposal => proposal.SonyCameraIdentificationCommandId).IsUnique();
             entity.HasOne<VenueAgent>().WithMany().HasForeignKey(proposal => proposal.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

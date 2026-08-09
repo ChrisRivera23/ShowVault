@@ -29,7 +29,34 @@ public static class SubnetProposalEndpoints
             IdentifyBirdDogAsync).RequireAuthorization();
         endpoints.MapPost(path + "/{proposalId:guid}/identify-panasonic-camera",
             IdentifyPanasonicCameraAsync).RequireAuthorization();
+        endpoints.MapPost(path + "/{proposalId:guid}/identify-sony-camera",
+            IdentifySonyCameraAsync).RequireAuthorization();
         return endpoints;
+    }
+
+    private static async Task<IResult> IdentifySonyCameraAsync(
+        Guid organizationId, Guid venueId, Guid proposalId,
+        IdentifySonyCameraRequest request, ClaimsPrincipal user, HttpContext context,
+        PlatformDbContext db, TimeProvider time, CancellationToken ct)
+    {
+        var subject = user.FindFirstValue("sub");
+        if (!await HasAccess(db, organizationId, venueId, subject, true, ct)) return Results.Forbid();
+        if (request.TimeoutMilliseconds is < 100 or > 500) return Results.BadRequest();
+        var proposal = await db.SubnetProposals.SingleOrDefaultAsync(p => p.Id == proposalId &&
+            p.Decision == SubnetProposalDecision.Approved &&
+            p.DiscoveryStatus == SubnetDiscoveryStatus.Completed && p.RespondingHostCount > 0 &&
+            db.VenueAgents.Any(a => a.Id == p.AgentId && a.VenueId == venueId && a.RevokedAt == null), ct);
+        if (proposal?.DiscoveryCommandId is not Guid discoveryCommandId) return Results.BadRequest();
+        var command = AgentCommandEnvelope.Create(
+            proposal.AgentId, AgentCommandType.IdentifySonyCamera,
+            context.TraceIdentifier, JsonSerializer.Serialize(new IdentifySonyCameraPayload(
+                proposal.Id, discoveryCommandId, request.TimeoutMilliseconds)),
+            time.GetUtcNow(), TimeSpan.FromMinutes(10));
+        db.IssuedAgentCommands.Add(IssuedAgentCommand.FromEnvelope(command));
+        proposal.StartSonyCameraIdentification(command.CommandId);
+        await db.SaveChangesAsync(ct);
+        return Results.Accepted($"/api/v1/agent-commands/{command.CommandId}",
+            ApiResponse<AgentCommandEnvelope>.Success(command, context.TraceIdentifier));
     }
 
     private static async Task<IResult> IdentifyPanasonicCameraAsync(
@@ -280,7 +307,14 @@ public static class SubnetProposalEndpoints
                 x.p.PanasonicCameraIdentifiedHostCount,
                 x.p.PanasonicCameraIdentifiedProductFamilies,
                 x.p.PanasonicCameraIdentificationMessage,
-                x.p.PanasonicCameraIdentifiedAt)).ToArray(), context.TraceIdentifier));
+                x.p.PanasonicCameraIdentifiedAt,
+                x.p.SonyCameraIdentificationCommandId,
+                x.p.SonyCameraIdentificationStatus?.ToString().ToLowerInvariant(),
+                x.p.SonyCameraIdentificationAttemptedHostCount,
+                x.p.SonyCameraIdentifiedHostCount,
+                x.p.SonyCameraIdentifiedProductFamilies,
+                x.p.SonyCameraIdentificationMessage,
+                x.p.SonyCameraIdentifiedAt)).ToArray(), context.TraceIdentifier));
     }
 
     private static async Task<IResult> DiscoverAsync(Guid organizationId, Guid venueId, Guid proposalId,

@@ -51,6 +51,11 @@ public sealed record IdentifyPanasonicCameraPayload(
     Guid DiscoveryCommandId,
     int TimeoutMilliseconds = 500);
 
+public sealed record IdentifySonyCameraPayload(
+    Guid ProposalId,
+    Guid DiscoveryCommandId,
+    int TimeoutMilliseconds = 500);
+
 public sealed record AgentCommandEnvelope(
     Guid CommandId,
     Guid AgentId,

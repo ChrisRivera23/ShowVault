@@ -82,6 +82,7 @@ public static class AgentCommunicationEndpoints
         await UpdateNewTekTriCasterIdentificationAsync(database, envelope, cancellationToken);
         await UpdateBirdDogIdentificationAsync(database, envelope, cancellationToken);
         await UpdatePanasonicCameraIdentificationAsync(database, envelope, cancellationToken);
+        await UpdateSonyCameraIdentificationAsync(database, envelope, cancellationToken);
         try
         {
             await database.SaveChangesAsync(cancellationToken);
@@ -581,6 +582,74 @@ public static class AgentCommunicationEndpoints
         {
             proposal.FailPanasonicCameraIdentification(
                 "Agent returned invalid Panasonic camera identification evidence.", envelope.OccurredAt);
+        }
+    }
+
+    private static async Task UpdateSonyCameraIdentificationAsync(
+        PlatformDbContext database,
+        AgentEventEnvelope envelope,
+        CancellationToken cancellationToken)
+    {
+        var command = await database.IssuedAgentCommands.SingleOrDefaultAsync(item =>
+            item.CommandId == envelope.EventId && item.AgentId == envelope.AgentId &&
+            item.Type == AgentCommandType.IdentifySonyCamera, cancellationToken);
+        if (command is null) return;
+        IdentifySonyCameraPayload? request;
+        try { request = JsonSerializer.Deserialize<IdentifySonyCameraPayload>(command.Payload); }
+        catch (JsonException) { return; }
+        if (request is null) return;
+        var proposal = await database.SubnetProposals.SingleOrDefaultAsync(item =>
+            item.Id == request.ProposalId && item.AgentId == envelope.AgentId &&
+            item.DiscoveryCommandId == request.DiscoveryCommandId &&
+            item.SonyCameraIdentificationCommandId == envelope.EventId &&
+            item.SonyCameraIdentificationStatus == ProductIdentificationStatus.Pending,
+            cancellationToken);
+        if (proposal is null) return;
+        try
+        {
+            using var outcome = JsonDocument.Parse(envelope.Payload);
+            if (envelope.Type == AgentEventType.JobCompleted &&
+                outcome.RootElement.TryGetProperty("attemptedHostCount", out var attemptedValue) &&
+                attemptedValue.TryGetInt32(out var attempted) &&
+                outcome.RootElement.TryGetProperty("identifiedHostCount", out var identifiedValue) &&
+                identifiedValue.TryGetInt32(out var identified) &&
+                outcome.RootElement.TryGetProperty("productFamilies", out var familiesValue) &&
+                familiesValue.ValueKind == JsonValueKind.Array)
+            {
+                var families = familiesValue.EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetString())
+                    .Where(item => !string.IsNullOrWhiteSpace(item))
+                    .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+                var allowed = new[]
+                {
+                    "Sony BRC-X400", "Sony BRC-X401", "Sony SRG-201M2", "Sony SRG-A12",
+                    "Sony SRG-A40", "Sony SRG-HD1M2", "Sony SRG-X120", "Sony SRG-X400",
+                    "Sony SRG-X402"
+                };
+                var consistent = identified == 0 ? families.Length == 0 :
+                    families.Length >= 1 && families.Length <= Math.Min(identified, allowed.Length) &&
+                    families.All(item => allowed.Contains(item));
+                var evidence = families.Length == 0 ? "none" : string.Join(",", families);
+                if (attempted is >= 1 and <= 32 && identified >= 0 && identified <= attempted &&
+                    consistent && evidence.Length <= 200)
+                {
+                    proposal.CompleteSonyCameraIdentification(
+                        attempted, identified, evidence, envelope.OccurredAt);
+                    return;
+                }
+            }
+            var message = outcome.RootElement.TryGetProperty("error", out var error) &&
+                error.ValueKind == JsonValueKind.String ? error.GetString() :
+                "Agent returned invalid Sony camera identification evidence.";
+            proposal.FailSonyCameraIdentification(string.IsNullOrWhiteSpace(message) ?
+                "Sony camera identification failed." :
+                message[..Math.Min(500, message.Length)], envelope.OccurredAt);
+        }
+        catch (JsonException)
+        {
+            proposal.FailSonyCameraIdentification(
+                "Agent returned invalid Sony camera identification evidence.", envelope.OccurredAt);
         }
     }
 
