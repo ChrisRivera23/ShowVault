@@ -26,8 +26,8 @@ The primary discovery goal is to start ShowVault at an unknown nightclub, concer
 Expected starting state
 
 - Repository: /Users/infamous/Documents/ChatGPT/showvault
-- Branch: codex/djay-pro-catalog-detection
-- Latest feature commit: bebda8f feat: detect catalog djay Pro locations
+- Branch: codex/mixxx-catalog-detection
+- Latest feature commit: d247080 feat: detect catalog Mixxx locations
 - Latest handoff: the HEAD documentation commit containing this file
 - Worktree clean except the pre-existing untracked NEXT_CONVERSATION.md
 - Verified baseline: 2 contract tests, 21 platform tests, 296 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
@@ -35,17 +35,17 @@ Expected starting state
 
 Next bounded objective
 
-Research official Mixxx primary sources, then add catalog-driven Mixxx detection for documented standard macOS and Windows application and per-user recovery-data locations, with cross-platform automated fixtures.
+Research official Denon Engine OS primary sources, then define and implement the smallest catalog-driven, Agent-local detection boundary for documented removable-drive recovery data, with synthetic macOS- and Windows-shaped mount fixtures.
 
 Required boundaries
 
-- Research official Mixxx primary sources before defining any standard location.
-- Extend the existing local-application catalog registry; do not add another product-specific host scanner.
-- Use automated macOS- and Windows-shaped filesystem fixtures only; do not inspect the Product Owner's installed applications or personal library.
+- Research official Denon Engine OS primary sources before defining any recovery-data boundary.
+- Extend the reusable catalog/provider architecture; do not add another product-specific host scanner.
+- Use automated macOS- and Windows-shaped mount fixtures only; do not inspect the Product Owner's removable media or personal library.
 - Check only declared standard paths and candidate existence; do not read candidate file contents.
 - Keep resolved paths Agent-local and publish only opaque candidate IDs with bounded product/type/evidence metadata.
 - Keep installed software, recoverable data, operator approval, validation, protection, verification, and restore state distinct.
-- Do not claim Mixxx validation, backup, verification, restore, cloud-library access, or media-library support in this detection-only slice.
+- Keep Engine OS distinct from Engine DJ Desktop and do not claim validation, backup, verification, restore, hardware identification, or media-library support in this detection-only slice.
 
 Required workflow for every task
 
