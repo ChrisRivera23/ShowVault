@@ -15,9 +15,9 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/allen-heath-qu-identification`
+- Branch: `codex/digico-network-identification-research`
 - Latest completed feature: `e71944d feat: identify Allen & Heath Qu mixers`
-- Latest research decision: `74bcf17 docs: defer unsafe PTZOptics identification`
+- Latest research decision: `971bcd9 docs: defer unsafe DiGiCo identification`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Verified baseline: all 14 focused Allen & Heath Qu protocol fixtures and all 412 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
@@ -73,6 +73,8 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Allen & Heath Qu state has independent tenant-scoped pending/completed/failed persistence, exact Agent/proposal/discovery/identification correlation, migration `20260809220458_AddAllenHeathQuIdentificationResults`, an owner-authorized API endpoint, and a native dashboard action. Addresses and raw bytes remain Agent-local; only bounded counts and exact allowlisted product names reach the control plane
 - Allen & Heath verification: 14 focused protocol fixtures, 412 Agent tests, 7 API tests, 27 platform tests, 2 contract tests, and 21 Flutter tests pass; Flutter analysis and repository-wide touched-project formatting pass; Agent and API Release builds pass with 0 warnings and 0 errors; EF Core reports no pending model changes; `git diff --check` passes; and the official protocol PDF returned HTTP 200
 - The Get System State request can cause a Qu mixer to begin transmitting current parameter state. ShowVault closes immediately after the identity reply, caps the total read at 64 bytes, discards all raw response data, and never sends configuration/control messages. One initial parallel test run hit the known shared contracts-DLL lock; serial suites passed. A test assertion was also corrected for System.Text.Json's normal ampersand escaping before the full Agent suite passed
+- DiGiCo research inspected the official current SD/Quantum reference, S-Series guide, legacy iPad technical note, and 4REA4 controller guide. SD/Quantum and S-Series remote-control interfaces must be explicitly enabled and use operator-configured addresses, send/receive ports, and console-specific or user-defined command sets; 4REA4 discovery belongs to software that can alter live configuration and update firmware. None publishes a fixed, bounded read-only request with an exact literal model response
+- All three cited current DiGiCo PDF URLs returned HTTP 200 as `application/pdf`; the relevant SD/Quantum and legacy iPad-note pages were rendered and visually inspected, while the S-Series and 4REA4 guides were checked through their complete searchable primary-source text. `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, persistence, API, UI, migration, scanner, credential, broadcast/multicast, real-device, raw-response, or network-path change. Runtime tests were not rerun because only documentation changed
 - Digital Projection was a documentation-only research decision: `git diff --check` passed and both official source links resolved; runtime tests were not rerun because no implementation, test, contract, migration, or build input changed
 
 ## Current discovery position
@@ -111,18 +113,19 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Protocol 1.17 identifies only Panasonic AW-UE150A and AW-UE100 from the exact official AW-over-IP `QID` responses. Panasonic projector PJLink evidence remains separate. UE160, UE80/UE50/UE40, and every other model are safe false negatives because their current model examples are inconsistent or no exact literal was allowlisted. Generic AW/HTTP/VISCA/ONVIF/NDI behavior, camera titles, versions, credentials, authentication weakening, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported.
 - Protocol 1.18 identifies only Sony BRC-X400/X401, SRG-X400/X402/201M2/X120/HD1M2, and SRG-A40/A12 from exact official CGI `ModelName` values. The grouped system response is capped and discarded after parsing; addresses and matches persist only in Agent-local SQLite. Credentials are never sent and 401 responses are safe false negatives. Other models, duplicate/conflicting fields, generic CGI/VISCA/ONVIF/NDI/HTTP behavior, projector/broadcast evidence, camera names, serials, versions, authentication weakening, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported.
 - Protocol 1.19 identifies only Allen & Heath Qu-16, Qu-24, Qu-32, Qu-Pac, and Qu-SB from the exact official MIDI-over-TCP Get System State reply and allowlisted `BoxID`. SQ/SQ+, CQ, AHM, Avantis, dLive, iLive, GLD, generic MIDI/TCP behavior, device-discovery broadcasts, Dante/AES67/mDNS evidence, configuration, control, validation, backup, verification, and restore remain unsupported by this network slice. The existing exact-root SQ show recovery capability remains separate and is not network identity evidence.
+- DiGiCo automatic network identification is deferred because the official control paths are operator-enabled/configured and no fixed, read-only exact model exchange is published. Generic TCP/OSC/MIDI, Dante, Optocore, controller discovery, broadcasts, default addresses, ports, and reachability are not identity evidence. Existing exact-root SD/Quantum `.ses` recovery remains separate; no DiGiCo network support is credited.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official primary sources for a bounded, read-only, exact product-identity contract for the DiGiCo row under `Audio manufacturers`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral. Keep network identity separate from the existing exact-root SD/Quantum session recovery capability.
+Research official primary sources for a bounded, read-only, exact product-identity contract for the Avid row under `Audio manufacturers`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral. Keep network identity separate from the existing Avid VENUE recovery deferral.
 
 Required boundaries:
 
-- Start from the DiGiCo row under `Audio manufacturers` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
-- Require official primary sources from DiGiCo for a bounded, read-only request and exact literal product identity; distinguish network identity from the existing SD/Quantum session-file recovery capability, reachability, protocol compatibility, configuration, control, validation, backup, verification, and restore states.
+- Start from the Avid row under `Audio manufacturers` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
+- Require official primary sources from Avid for a bounded, read-only request and exact literal product identity; distinguish network identity from the existing VENUE recovery deferral, reachability, protocol compatibility, configuration, control, validation, backup, verification, and restore states.
 - Keep addresses and raw responses Agent-local. Publish only bounded counts and exact product/type/evidence metadata through the existing path-free contract.
-- Do not infer DiGiCo identity from generic TCP, OSC, MIDI, Dante, Optocore, broadcast, discovery, or port reachability, and do not add broadcast/multicast discovery, credentials, authentication weakening, configuration, or control.
+- Do not infer Avid identity from generic EUCON, VENUE Link, AVB, Dante, OSC, TCP/UDP, broadcast, discovery, or port reachability, and do not add broadcast/multicast discovery, credentials, authentication weakening, configuration, or control.
 - Use synthetic protocol fixtures for any implementation. Do not contact the Product Owner's equipment or network without explicit authorization.
 - Do not claim successful configuration, control, backup, validation, verification, or restore from an identification-only slice.
 
