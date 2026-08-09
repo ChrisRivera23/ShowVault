@@ -15,13 +15,13 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/sony-camera-identification`
-- Latest completed feature: `635efe9 feat: identify Sony PTZ cameras`
+- Branch: `codex/allen-heath-qu-identification`
+- Latest completed feature: `e71944d feat: identify Allen & Heath Qu mixers`
 - Latest research decision: `74bcf17 docs: defer unsafe PTZOptics identification`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
-- Verified baseline: all 21 focused Sony protocol fixtures and all 398 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
-- The complete baseline also has 2 contract tests, 26 platform tests, 7 API tests, Flutter analysis, and 20 Flutter tests passing; repository-wide Agent and API formatting and the API Release build pass with 0 warnings and 0 errors, and EF Core reports no pending model changes
+- Verified baseline: all 14 focused Allen & Heath Qu protocol fixtures and all 412 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
+- The complete baseline also has 2 contract tests, 27 platform tests, 7 API tests, Flutter analysis, and 21 Flutter tests passing; repository-wide touched-project formatting and the API Release build pass with 0 warnings and 0 errors, and EF Core reports no pending model changes
 - Blackmagic's official protocol PDF resolves with HTTP 206, was rendered, and its complete zero-byte initial status example was inspected
 - `git diff --check` passes; migration `20260809101018_AddBlackmagicVideohubIdentificationResults` exactly matches the current model
 - One full parallel Agent run had a transient failure in the duplicate-field TCP fixture; the isolated fixture passed immediately, the full 336-test Agent suite passed on rerun, and the complete 7-fixture Blackmagic class passed again after the final validation change
@@ -69,6 +69,10 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Sony camera state has independent tenant-scoped pending/completed/failed persistence, exact command/discovery/Agent correlation, migration `20260809213408_AddSonyCameraIdentificationResults`, an owner-authorized API endpoint, and a native dashboard action. Addresses and raw responses remain Agent-local; only bounded counts and exact allowlisted product names reach the control plane
 - Sony verification: 21 focused protocol fixtures, 398 Agent tests, 7 API tests, 26 platform tests, 2 contract tests, and 20 Flutter tests pass; Flutter analysis and repository-wide Agent/API formatting pass; Agent and API Release builds pass with 0 warnings and 0 errors; EF Core reports no pending model changes; and `git diff --check` passes
 - Both official Sony CGI manual URLs returned HTTP 403 to command-line HEAD requests while remaining readable through Sony's indexed web documents. The implementation uses only the exact read-only system inquiry and published literals; it never sends credentials or retries a 401, and synthetic HTTP fixtures only were used
+- Protocol 1.19 adds separately authorized Allen & Heath Qu-16, Qu-24, Qu-32, Qu-Pac, and Qu-SB identification against at most 32 responders retained by one exact completed discovery. The Agent sends one official read-only MIDI-over-TCP Get System State SysEx request on TCP 51325 with the Qu-Pad flag unset, uses a 100-500 ms timeout, reads at most 64 bytes, tolerates Active Sensing, and requires the complete vendor/product/version-shaped reply plus an exact allowlisted `BoxID`
+- Allen & Heath Qu state has independent tenant-scoped pending/completed/failed persistence, exact Agent/proposal/discovery/identification correlation, migration `20260809220458_AddAllenHeathQuIdentificationResults`, an owner-authorized API endpoint, and a native dashboard action. Addresses and raw bytes remain Agent-local; only bounded counts and exact allowlisted product names reach the control plane
+- Allen & Heath verification: 14 focused protocol fixtures, 412 Agent tests, 7 API tests, 27 platform tests, 2 contract tests, and 21 Flutter tests pass; Flutter analysis and repository-wide touched-project formatting pass; Agent and API Release builds pass with 0 warnings and 0 errors; EF Core reports no pending model changes; `git diff --check` passes; and the official protocol PDF returned HTTP 200
+- The Get System State request can cause a Qu mixer to begin transmitting current parameter state. ShowVault closes immediately after the identity reply, caps the total read at 64 bytes, discards all raw response data, and never sends configuration/control messages. One initial parallel test run hit the known shared contracts-DLL lock; serial suites passed. A test assertion was also corrected for System.Text.Json's normal ampersand escaping before the full Agent suite passed
 - Digital Projection was a documentation-only research decision: `git diff --check` passed and both official source links resolved; runtime tests were not rerun because no implementation, test, contract, migration, or build input changed
 
 ## Current discovery position
@@ -106,18 +110,19 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Protocol 1.16 identifies only BirdDog P200 A4/A5 from the exact official REST hardware identifier. Other BirdDog models/revisions, generic NDI/VISCA/ONVIF/HTTP behavior, hostname/serial/firmware collection, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported.
 - Protocol 1.17 identifies only Panasonic AW-UE150A and AW-UE100 from the exact official AW-over-IP `QID` responses. Panasonic projector PJLink evidence remains separate. UE160, UE80/UE50/UE40, and every other model are safe false negatives because their current model examples are inconsistent or no exact literal was allowlisted. Generic AW/HTTP/VISCA/ONVIF/NDI behavior, camera titles, versions, credentials, authentication weakening, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported.
 - Protocol 1.18 identifies only Sony BRC-X400/X401, SRG-X400/X402/201M2/X120/HD1M2, and SRG-A40/A12 from exact official CGI `ModelName` values. The grouped system response is capped and discarded after parsing; addresses and matches persist only in Agent-local SQLite. Credentials are never sent and 401 responses are safe false negatives. Other models, duplicate/conflicting fields, generic CGI/VISCA/ONVIF/NDI/HTTP behavior, projector/broadcast evidence, camera names, serials, versions, authentication weakening, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported.
+- Protocol 1.19 identifies only Allen & Heath Qu-16, Qu-24, Qu-32, Qu-Pac, and Qu-SB from the exact official MIDI-over-TCP Get System State reply and allowlisted `BoxID`. SQ/SQ+, CQ, AHM, Avantis, dLive, iLive, GLD, generic MIDI/TCP behavior, device-discovery broadcasts, Dante/AES67/mDNS evidence, configuration, control, validation, backup, verification, and restore remain unsupported by this network slice. The existing exact-root SQ show recovery capability remains separate and is not network identity evidence.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official primary sources for a bounded, read-only, exact product-identity contract for the Allen & Heath row under `Audio manufacturers`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral.
+Research official primary sources for a bounded, read-only, exact product-identity contract for the DiGiCo row under `Audio manufacturers`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral. Keep network identity separate from the existing exact-root SD/Quantum session recovery capability.
 
 Required boundaries:
 
-- Start from the Allen & Heath row under `Audio manufacturers` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
-- Require official primary sources from Allen & Heath for a bounded, read-only request and exact literal product identity; distinguish identity from reachability, protocol compatibility, configuration, control, validation, backup, verification, and restore states.
+- Start from the DiGiCo row under `Audio manufacturers` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
+- Require official primary sources from DiGiCo for a bounded, read-only request and exact literal product identity; distinguish network identity from the existing SD/Quantum session-file recovery capability, reachability, protocol compatibility, configuration, control, validation, backup, verification, and restore states.
 - Keep addresses and raw responses Agent-local. Publish only bounded counts and exact product/type/evidence metadata through the existing path-free contract.
-- Do not infer Allen & Heath identity from generic TCP, MIDI, OSC, Dante, AES67, mDNS, broadcast, or port reachability, and do not add broadcast/multicast discovery, credentials, authentication weakening, configuration, or control.
+- Do not infer DiGiCo identity from generic TCP, OSC, MIDI, Dante, Optocore, broadcast, discovery, or port reachability, and do not add broadcast/multicast discovery, credentials, authentication weakening, configuration, or control.
 - Use synthetic protocol fixtures for any implementation. Do not contact the Product Owner's equipment or network without explicit authorization.
 - Do not claim successful configuration, control, backup, validation, verification, or restore from an identification-only slice.
 
