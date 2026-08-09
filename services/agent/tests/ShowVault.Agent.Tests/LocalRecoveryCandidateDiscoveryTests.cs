@@ -136,6 +136,22 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             [userHome],
             [mountedVolumeRoot],
             windowsProgramFilesRoots: [applicationRoot]);
+        var expectedResolumeArenaApplication = platform == LocalApplicationPlatform.MacOs
+            ? Path.Combine(applicationRoot, "Resolume Arena", "Arena.app")
+            : Path.Combine(applicationRoot, "Resolume Arena");
+        var expectedResolumeAvenueApplication = platform == LocalApplicationPlatform.MacOs
+            ? Path.Combine(applicationRoot, "Resolume Avenue", "Avenue.app")
+            : Path.Combine(applicationRoot, "Resolume Avenue");
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == ResolumeDiscoveryPlugin.PluginId &&
+            location.ProductName == "Resolume Arena" &&
+            location.CandidateType == "InstalledApplication" &&
+            location.Path == expectedResolumeArenaApplication);
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == ResolumeDiscoveryPlugin.PluginId &&
+            location.ProductName == "Resolume Avenue" &&
+            location.CandidateType == "InstalledApplication" &&
+            location.Path == expectedResolumeAvenueApplication);
         var expectedSeratoApplication = platform == LocalApplicationPlatform.MacOs
             ? Path.Combine(applicationRoot, "Serato DJ Pro.app")
             : Path.Combine(applicationRoot, "Serato", "Serato DJ Pro", "Serato DJ Pro.exe");

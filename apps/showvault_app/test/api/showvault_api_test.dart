@@ -149,6 +149,43 @@ void main() {
     );
   });
 
+  test('queues a catalog-only computer scan for one Agent', () async {
+    late http.Request captured;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(
+          '{"payload":{"commandId":"inventory-command"}}',
+          202,
+        );
+      }),
+    );
+    const history = RecoveryHistory(
+      organizationId: 'org-id',
+      organizationName: 'ShowVault',
+      venueId: 'venue-id',
+      venueName: 'Personal Test',
+      agents: [VenueAgent(id: 'agent-id', name: 'Personal Mac')],
+      candidates: [],
+      runs: [],
+    );
+
+    final commandId = await api.scanComputer(
+      accessToken: 'access-token',
+      history: history,
+      agentId: 'agent-id',
+    );
+
+    expect(commandId, 'inventory-command');
+    expect(captured.method, 'POST');
+    expect(
+      captured.url.path,
+      '/api/v1/organizations/org-id/venues/venue-id/agents/agent-id/inventory',
+    );
+    expect(captured.headers['Authorization'], 'Bearer access-token');
+    expect(captured.body, isEmpty);
+  });
+
   test('records a recovery candidate decision', () async {
     late http.Request captured;
     final api = ShowVaultApi(

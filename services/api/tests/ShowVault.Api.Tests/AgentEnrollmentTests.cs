@@ -682,6 +682,19 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.NotNull(agents);
         Assert.Equal(enrolledAgent.Payload.AgentId, Assert.Single(agents.Payload).Id);
 
+        var inventoryPath = $"/api/v1/organizations/{organizationId}/venues/{venueId}" +
+            $"/agents/{enrolledAgent.Payload.AgentId}/inventory";
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await outsiderClient.PostAsync(inventoryPath, null)).StatusCode);
+        var inventoryResponse = await ownerClient.PostAsync(inventoryPath, null);
+        Assert.Equal(HttpStatusCode.Accepted, inventoryResponse.StatusCode);
+        var inventoryCommand = await inventoryResponse.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>();
+        Assert.NotNull(inventoryCommand);
+        Assert.Equal(AgentCommandType.CollectCatalogApplications, inventoryCommand.Payload.Type);
+        Assert.Equal("{}", inventoryCommand.Payload.Payload);
+
         var workflowBase = $"/api/v1/organizations/{organizationId}/venues/{venueId}" +
             $"/agents/{enrolledAgent.Payload.AgentId}/recovery";
         var discoveryCommand = await PostWorkflowCommandAsync(

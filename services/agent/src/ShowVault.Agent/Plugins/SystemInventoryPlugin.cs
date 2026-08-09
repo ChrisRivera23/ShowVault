@@ -21,6 +21,12 @@ public sealed record SystemInventoryResult(
     IReadOnlyList<LocalRecoveryCandidate> RecoveryCandidates,
     IReadOnlyList<LocalSubnetProposal> SubnetProposals);
 
+public sealed record CatalogApplicationInventoryResult(
+    string PluginId,
+    string PluginVersion,
+    DateTimeOffset CollectedAt,
+    IReadOnlyList<LocalRecoveryCandidate> RecoveryCandidates);
+
 public sealed class SystemInventoryPlugin(
     TimeProvider timeProvider,
     LocalRecoveryCandidateDiscovery candidateDiscovery,
@@ -60,6 +66,17 @@ public sealed class SystemInventoryPlugin(
             volumes,
             candidateDiscovery.Discover(),
             subnetProposalDiscovery.Discover()));
+    }
+
+    public Task<CatalogApplicationInventoryResult> CollectCatalogApplicationsAsync(
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new CatalogApplicationInventoryResult(
+            Manifest.Id,
+            Manifest.Version,
+            timeProvider.GetUtcNow(),
+            candidateDiscovery.Discover()));
     }
 
     private static SystemVolume ReadVolume(DriveInfo drive)

@@ -5,7 +5,7 @@
 - Pause sequential integration-catalog expansion while installability and recovery proof are hardened.
 - Make the prototype installable without repository access or a developer toolchain.
 - Validate Install → Enroll → Scan → Backup → Verify → Restore → Prove on personal or otherwise controlled equipment.
-- Keep all packaging, defaults, fixtures, and acceptance gates venue-neutral; Live Nightclub is the intended first deployment, not a pilot or design assumption.
+- Keep all packaging, defaults, fixtures, and acceptance gates venue-neutral; LIV nightclub is the intended first deployment, not a pilot or design assumption.
 - Use [`PROTOTYPE_READINESS.md`](PROTOTYPE_READINESS.md) as the readiness gate and implementation order.
 
 ## Next

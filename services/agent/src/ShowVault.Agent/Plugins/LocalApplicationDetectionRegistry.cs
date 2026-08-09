@@ -65,14 +65,16 @@ public sealed class LocalApplicationDetectionRegistry
         new(
             ResolumeDiscoveryPlugin.PluginId,
             "Resolume Arena",
-            [new("InstalledApplication", "Resolume Arena.app", "Catalog standard macOS application location")],
+            [new("InstalledApplication", Path.Combine("Resolume Arena", "Arena.app"),
+                "Catalog standard macOS application location")],
             [new("InstalledApplication", "Resolume Arena", "Catalog standard Windows application location")],
             [new("UserDataRoot", Path.Combine("Documents", "Resolume Arena"), "Catalog standard Resolume user-data location")],
             [new("UserDataRoot", Path.Combine("Documents", "Resolume Arena"), "Catalog standard Resolume user-data location")]),
         new(
             ResolumeDiscoveryPlugin.PluginId,
             "Resolume Avenue",
-            [new("InstalledApplication", "Resolume Avenue.app", "Catalog standard macOS application location")],
+            [new("InstalledApplication", Path.Combine("Resolume Avenue", "Avenue.app"),
+                "Catalog standard macOS application location")],
             [new("InstalledApplication", "Resolume Avenue", "Catalog standard Windows application location")],
             [new("UserDataRoot", Path.Combine("Documents", "Resolume Avenue"), "Catalog standard Resolume user-data location")],
             [new("UserDataRoot", Path.Combine("Documents", "Resolume Avenue"), "Catalog standard Resolume user-data location")]),

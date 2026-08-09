@@ -1,6 +1,6 @@
 # Prototype readiness
 
-ShowVault's prototype must be installable and testable without tailoring it to a specific venue. Live Nightclub is the intended first venue deployment, but it is not the design target, test environment, or source of hidden assumptions. Until the gates below pass on personal or otherwise controlled equipment, no venue deployment is part of the prototype-readiness workflow.
+ShowVault's prototype must be installable and testable without tailoring it to a specific venue. LIV nightclub is the intended first venue deployment, but it is not the design target, test environment, or source of hidden assumptions. Until the gates below pass on personal or otherwise controlled equipment, no venue deployment is part of the prototype-readiness workflow.
 
 The acceptance path remains:
 
@@ -11,7 +11,10 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 ## Non-negotiable boundaries
 
 - Venue identity, network ranges, product addresses, paths, models, and vendors are runtime inputs or discovered facts, never build-time assumptions.
-- Live Nightclub-specific names, credentials, addresses, paths, topology, and equipment do not belong in application defaults, fixtures, packages, or acceptance criteria.
+- LIV nightclub-specific names, credentials, addresses, paths, topology, and equipment do not belong in application defaults, fixtures, packages, or acceptance criteria.
+- The beta runs on the Product Owner's current Mac. A computer scan checks only bounded locations declared by the approved integration catalog and must not enumerate or report unrelated applications.
+- Installed catalog applications such as Resolume or Serato must appear as detected systems when their documented standard locations exist. Detection alone remains distinct from recoverable data, approval, validation, protection, backup, verification, and restore.
+- The final product targets both macOS and Windows. Platform readiness is claimed separately and only after equivalent installation and scan/recovery gates pass on that operating system.
 - Personal and controlled equipment is the only authorized validation environment until every required readiness gate passes.
 - Synthetic protocol fixtures remain the authority for exact parser and safety boundaries. Personal hardware validation confirms interoperability; it does not loosen those boundaries.
 - The first restore for every workflow targets an absent or empty controlled location. Loading state into live production equipment remains a separate supervised operation.
@@ -73,7 +76,7 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 - Every preceding gate has recorded evidence from personal or controlled equipment.
 - Remaining limitations are visible in the product and release notes.
 - The exact release artifacts installed at the first venue are the artifacts that passed readiness testing.
-- Live Nightclub contributes no special configuration beyond normal runtime venue onboarding.
+- LIV nightclub contributes no special configuration beyond normal runtime venue onboarding.
 
 ## Prioritized implementation sequence
 

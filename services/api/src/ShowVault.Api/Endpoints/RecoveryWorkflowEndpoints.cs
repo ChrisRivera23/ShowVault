@@ -20,12 +20,27 @@ public static class RecoveryWorkflowEndpoints
                 "/api/v1/organizations/{organizationId:guid}/venues/{venueId:guid}/agents")
             .RequireAuthorization();
         agents.MapGet("/", ListAgentsAsync);
+        agents.MapPost("/{agentId:guid}/inventory", CollectCatalogApplicationsAsync);
         agents.MapPost("/{agentId:guid}/recovery/discover", StartDiscoveryAsync);
         agents.MapPost("/{agentId:guid}/recovery/backup", CreateBackupAsync);
         agents.MapPost("/{agentId:guid}/recovery/verify", VerifyBackupAsync);
         agents.MapPost("/{agentId:guid}/recovery/restore", StartRestoreAsync);
         return endpoints;
     }
+
+    private static Task<IResult> CollectCatalogApplicationsAsync(
+        Guid organizationId,
+        Guid venueId,
+        Guid agentId,
+        ClaimsPrincipal user,
+        HttpContext context,
+        PlatformDbContext database,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken) =>
+        IssueAsync(
+            organizationId, venueId, agentId, AgentCommandType.CollectCatalogApplications,
+            new Dictionary<string, object>(), null,
+            user, context, database, timeProvider, cancellationToken);
 
     private static async Task<IResult> ListAgentsAsync(
         Guid organizationId,

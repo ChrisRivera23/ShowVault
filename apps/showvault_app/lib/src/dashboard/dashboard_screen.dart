@@ -893,6 +893,35 @@ class _CandidateOnboarding extends ConsumerWidget {
   const _CandidateOnboarding({required this.history});
   final RecoveryHistory history;
 
+  Future<void> _scanComputer(
+    BuildContext context,
+    WidgetRef ref,
+    VenueAgent agent,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .scanComputer(
+            accessToken: session.accessToken,
+            history: history,
+            agentId: agent.id,
+          );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Computer scan queued for ${agent.name}.')),
+      );
+      await Future<void>.delayed(const Duration(seconds: 6));
+      if (context.mounted) ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Computer scan failed: $error')));
+    }
+  }
+
   Future<void> _decide(
     BuildContext context,
     WidgetRef ref,
@@ -985,13 +1014,31 @@ class _CandidateOnboarding extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Detected systems',
-              style: Theme.of(context).textTheme.titleLarge,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 16,
+              runSpacing: 12,
+              children: [
+                Text(
+                  'Detected systems',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                for (final agent in history.agents)
+                  FilledButton.icon(
+                    onPressed: () => _scanComputer(context, ref, agent),
+                    icon: const Icon(Icons.computer_rounded),
+                    label: Text(
+                      history.agents.length == 1
+                          ? 'Scan this computer'
+                          : 'Scan ${agent.name}',
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 6),
             const Text(
-              'Review systems found in standard local locations. Filesystem paths stay on the Venue Agent.',
+              'Scan only catalog-defined standard locations, then review recognized systems. Unrelated applications are not inventoried, and filesystem paths stay on the Venue Agent.',
             ),
             const SizedBox(height: 16),
             if (visible.isEmpty)

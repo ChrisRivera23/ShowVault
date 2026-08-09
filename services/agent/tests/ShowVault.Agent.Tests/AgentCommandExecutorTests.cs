@@ -113,6 +113,53 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CollectCatalogApplications_publishes_only_catalog_candidate_metadata()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var candidatePath = Path.Combine(_testRoot, "Serato DJ Pro.app");
+        Directory.CreateDirectory(candidatePath);
+        var command = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CollectCatalogApplications,
+            "catalog-inventory-correlation",
+            "{}",
+            now,
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, now, CancellationToken.None);
+        var locationProvider = new FixedStandardLocationProvider(
+            new StandardLocationCandidate(
+                LocalApplicationDetectionRegistry.SeratoDjProPluginId,
+                "Serato DJ Pro",
+                "InstalledApplication",
+                candidatePath,
+                "Catalog standard macOS application location"));
+
+        await CreateExecutor(store, now, standardLocationProvider: locationProvider)
+            .ExecutePendingOnceAsync(
+                new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+                CancellationToken.None);
+
+        var outcome = Assert.Single(await store.GetPendingEventsAsync(
+            now.AddMinutes(1),
+            10,
+            CancellationToken.None)).Envelope;
+        Assert.Equal(AgentEventType.JobCompleted, outcome.Type);
+        Assert.Contains("Serato DJ Pro", outcome.Payload, StringComparison.Ordinal);
+        Assert.Contains("InstalledApplication", outcome.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain(candidatePath, outcome.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain("machineName", outcome.Payload, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("volume", outcome.Payload, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("subnet", outcome.Payload, StringComparison.OrdinalIgnoreCase);
+        var localResult = await store.GetDiscoveryResultJsonAsync(
+            command.CommandId,
+            CancellationToken.None);
+        Assert.Contains(candidatePath, localResult, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Candidate_decision_resolves_only_local_candidate_and_persists_exact_scope()
     {
         var now = DateTimeOffset.UtcNow;
@@ -790,7 +837,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         AgentQueueStore store,
         DateTimeOffset now,
         bool configureResolumeRoots = true,
-        ApprovedSubnetDiscovery? approvedSubnetDiscovery = null)
+        ApprovedSubnetDiscovery? approvedSubnetDiscovery = null,
+        IHostStandardLocationProvider? standardLocationProvider = null)
     {
         var timeProvider = new FixedTimeProvider(now);
         var plugin = new FileSystemDiscoveryPlugin(
@@ -1173,7 +1221,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 ]),
             new SystemInventoryPlugin(
                 timeProvider,
-                new LocalRecoveryCandidateDiscovery(new EmptyStandardLocationProvider()),
+                new LocalRecoveryCandidateDiscovery(
+                    standardLocationProvider ?? new EmptyStandardLocationProvider()),
                 new LocalSubnetProposalDiscovery(new EmptyInterfaceProvider())),
             new NetworkDeviceDiscoveryPlugin(
                 Options.Create(new AgentOptions
@@ -1207,6 +1256,12 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     private sealed class EmptyStandardLocationProvider : IHostStandardLocationProvider
     {
         public IReadOnlyList<StandardLocationCandidate> GetCandidates() => [];
+    }
+
+    private sealed class FixedStandardLocationProvider(params StandardLocationCandidate[] candidates)
+        : IHostStandardLocationProvider
+    {
+        public IReadOnlyList<StandardLocationCandidate> GetCandidates() => candidates;
     }
 
     private sealed class EmptyInterfaceProvider : ILocalInterfaceProvider

@@ -2,7 +2,7 @@
 
 This runbook reproduces the authenticated Scan → Backup → Verify → Restore proof on a macOS development host. It uses a controlled local filesystem fixture and does not establish installable-prototype readiness. The venue-neutral release gates and personal-equipment validation sequence are maintained in [`PROTOTYPE_READINESS.md`](PROTOTYPE_READINESS.md).
 
-Live Nightclub is the intended first venue deployment, but it is not a pilot or test environment. Do not use venue equipment, credentials, addresses, paths, topology, or data while executing this development runbook.
+LIV nightclub is the intended first venue deployment, but it is not a pilot or test environment. Do not use venue equipment, credentials, addresses, paths, topology, or data while executing this development runbook.
 
 ## Prerequisites
 

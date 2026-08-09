@@ -6,7 +6,7 @@ ShowVault is an operating system for production infrastructure. Backup is one ap
 
 Its primary discovery promise is that an operator can start ShowVault at an unknown venue and scan for supported equipment and software represented in the integration catalog without first knowing its address, path, model, or vendor. This includes nightclubs, concert halls, houses of worship, touring systems, and similar production environments.
 
-Prototype readiness is venue-neutral. Live Nightclub is the intended first venue deployment, but it must not shape application defaults, fixtures, packaging, or acceptance criteria. Installation and recovery validation occur on personal or otherwise controlled equipment until the gates in [`PROTOTYPE_READINESS.md`](PROTOTYPE_READINESS.md) pass; no venue is treated as a pilot environment during that work.
+Prototype readiness is venue-neutral. LIV nightclub is the intended first venue deployment, but it must not shape application defaults, fixtures, packaging, or acceptance criteria. Installation and recovery validation occur on personal or otherwise controlled equipment until the gates in [`PROTOTYPE_READINESS.md`](PROTOTYPE_READINESS.md) pass; no venue is treated as a pilot environment during that work.
 
 ## Users and markets
 

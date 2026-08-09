@@ -2,7 +2,7 @@ namespace ShowVault.AgentContracts;
 
 public static class AgentProtocol
 {
-    public const string Version = "1.20";
+    public const string Version = "1.21";
 }
 
 public enum AgentCommandType
@@ -29,7 +29,8 @@ public enum AgentCommandType
     VerifyBackup,
     GenerateRecoveryPlan,
     StartRestore,
-    CancelJob
+    CancelJob,
+    CollectCatalogApplications
 }
 
 public enum AgentEventType

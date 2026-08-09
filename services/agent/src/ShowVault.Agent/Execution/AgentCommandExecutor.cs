@@ -83,6 +83,9 @@ public sealed class AgentCommandExecutor(
                 case AgentCommandType.CollectSystemInventory:
                     await ExecuteSystemInventoryAsync(identity, command, cancellationToken);
                     break;
+                case AgentCommandType.CollectCatalogApplications:
+                    await ExecuteCatalogApplicationInventoryAsync(identity, command, cancellationToken);
+                    break;
                 case AgentCommandType.DiscoverNetworkDevices:
                     await ExecuteNetworkDiscoveryAsync(identity, command, cancellationToken);
                     break;
@@ -341,6 +344,44 @@ public sealed class AgentCommandExecutor(
                     recoveryCandidateCount = result.RecoveryCandidates.Count,
                     subnetProposalCount = result.SubnetProposals.Count,
                     subnetProposals = result.SubnetProposals,
+                    recoveryCandidates = result.RecoveryCandidates.Select(candidate => new
+                    {
+                        candidate.CandidateId,
+                        candidate.PluginId,
+                        candidate.ProductName,
+                        candidate.CandidateType,
+                        candidate.Evidence
+                    })
+                },
+                JsonOptions),
+            cancellationToken);
+    }
+
+    private async Task ExecuteCatalogApplicationInventoryAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var result = await systemInventoryPlugin.CollectCatalogApplicationsAsync(cancellationToken);
+        await queueStore.StoreDiscoveryResultAsync(
+            command.CommandId,
+            JsonSerializer.Serialize(result, JsonOptions),
+            result.CollectedAt,
+            cancellationToken);
+        await queueStore.StoreRecoveryCandidatesAsync(
+            result.RecoveryCandidates,
+            result.CollectedAt,
+            cancellationToken);
+        await RecordOutcomeAsync(
+            identity,
+            command,
+            AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Completed,
+            JsonSerializer.Serialize(
+                new
+                {
+                    result.PluginId,
+                    recoveryCandidateCount = result.RecoveryCandidates.Count,
                     recoveryCandidates = result.RecoveryCandidates.Select(candidate => new
                     {
                         candidate.CandidateId,
