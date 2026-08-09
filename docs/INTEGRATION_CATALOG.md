@@ -120,7 +120,7 @@ Manufacturer names do not imply support for every product the company has shippe
 - PVP — automatic local detection deferred because Renewed Vision documents placing the macOS application in Applications but publishes no dependable bounded Show or media root; each Show is operator-saved, excludes its media, and references media at arbitrary absolute paths unless the operator creates and relocates a relative-path folder
 - Pandora's Box Manager — current V8 installation is already covered by `showvault.christie-pandoras-box`; Christie replaced the former separate Manager and other edition licenses with one V8 software license containing the full feature suite. Candidate existence does not establish activation, enabled Manager capability, legacy standalone Manager licensing, project data, validation, backup, verification, or restore support
 - CuePilot — automatic local detection deferred because official guidance publishes a macOS Applications workflow but no dependable Windows installed path or bounded recovery root; collaborative projects are cloud-synchronized, the local SOLO project's path is unpublished, exports are operator-located, and media is either selected from arbitrary local paths or uploaded to CuePilot's cloud
-- TinkerList
+- TinkerList — automatic local detection deferred because the current product is Cuez by TinkerList, whose rundown and project workflow is cloud-based; official Automator guidance publishes no stable installed executable or bundle path, and downloaded media is stored in an operator-defined location that may be on the Automator computer, another production computer, or separate storage
 
 ## PTZ and cameras
 
