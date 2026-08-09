@@ -15,8 +15,12 @@ public sealed class PjLinkNetworkIdentificationTests
     [InlineData("Panasonic", "VW431DEA", "Panasonic PT-VW431DEA")]
     [InlineData("Panasonic", "RZ470", "Panasonic PT-RZ470")]
     [InlineData("Panasonic", "RW430", "Panasonic PT-RW430")]
+    [InlineData("EPSON", "EPSON QB1000B", "Epson QB1000B")]
+    [InlineData("EPSON", "EPSON QB1000W", "Epson QB1000W")]
     [InlineData("CHRISTIE", "Other", null)]
     [InlineData("Panasonic", "Other", null)]
+    [InlineData("EPSON", "Other", null)]
+    [InlineData("Epson", "EPSON QB1000B", null)]
     [InlineData("PANASONIC", "DZ770", null)]
     [InlineData("OTHER", "LX41", null)]
     public async Task MatchesOnlyDocumentedManufacturerAndModelPairs(
@@ -28,7 +32,7 @@ public sealed class PjLinkNetworkIdentificationTests
             IPAddress.Loopback, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(expected, result);
-        var expectedQueries = manufacturer is "CHRISTIE" or "Panasonic"
+        var expectedQueries = manufacturer is "CHRISTIE" or "Panasonic" or "EPSON"
             ? new[] { "%1INF1 ?", "%1INF2 ?" }
             : ["%1INF1 ?"];
         Assert.Equal(expectedQueries, await fixture.QueriesReceivedAsync);
@@ -98,7 +102,7 @@ public sealed class PjLinkNetworkIdentificationTests
 
             queries.Add(await ReadQueryAsync(stream));
             await stream.WriteAsync(Encoding.ASCII.GetBytes($"%1INF1={manufacturer}\r"));
-            if (manufacturer is not ("CHRISTIE" or "Panasonic")) return queries;
+            if (manufacturer is not ("CHRISTIE" or "Panasonic" or "EPSON")) return queries;
 
             queries.Add(await ReadQueryAsync(stream));
             await stream.WriteAsync(Encoding.ASCII.GetBytes($"%1INF2={model}\r"));

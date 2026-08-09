@@ -29,7 +29,7 @@ public sealed class PjLinkProjectorProbe : IPjLinkProtocolProbe
 
             await stream.WriteAsync(Encoding.ASCII.GetBytes("%1INF1 ?\r"), timeoutSource.Token);
             var manufacturer = await ReadLineAsync(stream, timeoutSource.Token);
-            if (manufacturer is not "%1INF1=CHRISTIE" and not "%1INF1=Panasonic")
+            if (manufacturer is not "%1INF1=CHRISTIE" and not "%1INF1=Panasonic" and not "%1INF1=EPSON")
                 return null;
 
             await stream.WriteAsync(Encoding.ASCII.GetBytes("%1INF2 ?\r"), timeoutSource.Token);
@@ -41,6 +41,8 @@ public sealed class PjLinkProjectorProbe : IPjLinkProtocolProbe
                 ("%1INF1=Panasonic", "%1INF2=VW431DEA") => "Panasonic PT-VW431DEA",
                 ("%1INF1=Panasonic", "%1INF2=RZ470") => "Panasonic PT-RZ470",
                 ("%1INF1=Panasonic", "%1INF2=RW430") => "Panasonic PT-RW430",
+                ("%1INF1=EPSON", "%1INF2=EPSON QB1000B") => "Epson QB1000B",
+                ("%1INF1=EPSON", "%1INF2=EPSON QB1000W") => "Epson QB1000W",
                 _ => null
             };
         }
