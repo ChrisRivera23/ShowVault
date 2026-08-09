@@ -91,6 +91,14 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
                         prefixLength = 24,
                         interfaceType = "Ethernet",
                         evidence = "Active Ethernet interface; no hosts were contacted"
+                    },
+                    new
+                    {
+                        proposalId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                        network = "10.0.0.0",
+                        prefixLength = 16,
+                        interfaceType = "Ethernet",
+                        evidence = "Invalid overbroad private proposal"
                     }
                 },
                 recoveryCandidates = new[]

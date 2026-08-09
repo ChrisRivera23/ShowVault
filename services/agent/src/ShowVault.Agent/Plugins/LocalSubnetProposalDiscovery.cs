@@ -73,6 +73,7 @@ public sealed class LocalSubnetProposalDiscovery(ILocalInterfaceProvider interfa
     public const int MaximumProposalCount = 8;
     public const int MinimumPrefixLength = 24;
     public const int MaximumPrefixLength = 30;
+    public const int LinkLocalPrefixLength = 16;
 
     private static readonly string[] ExcludedInterfaceMarkers =
     [
@@ -131,27 +132,36 @@ public sealed class LocalSubnetProposalDiscovery(ILocalInterfaceProvider interfa
         HashSet<string> seenNetworks)
     {
         if (proposals.Count == MaximumProposalCount) return;
-        var interfaces = addresses
-            .Where(item => IsEligibleInterface(item) &&
-                item.InterfaceType != NetworkInterfaceType.Wireless80211 &&
-                IsLinkLocalUnicast(item.Address) &&
-                TryGetPrefixLength(item.SubnetMask, out var prefix) && prefix <= MinimumPrefixLength &&
-                IsUsableHostAddress(item.Address, MinimumPrefixLength))
-            .GroupBy(item => $"{item.InterfaceName}\0{item.InterfaceDescription}", StringComparer.Ordinal)
-            .ToArray();
-        if (interfaces.Length != 1) return;
+        if (!TryGetSingleLinkLocalInterface(addresses, out var item)) return;
 
-        var item = interfaces[0].OrderBy(candidate => candidate.Address.ToString(), StringComparer.Ordinal).First();
-        var network = ApplyPrefix(item.Address, MinimumPrefixLength);
-        var cidr = $"{network}/{MinimumPrefixLength}";
+        var network = ApplyPrefix(item.Address, LinkLocalPrefixLength);
+        var cidr = $"{network}/{LinkLocalPrefixLength}";
         if (!seenNetworks.Add(cidr)) return;
         proposals.Add(new LocalSubnetProposal(
             Guid.NewGuid(),
             network.ToString(),
-            MinimumPrefixLength,
+            LinkLocalPrefixLength,
             item.InterfaceType.ToString(),
-            "One active physical Ethernet interface has an IPv4 link-local address; bounded to /24 for direct-link review; no hosts were contacted",
+            "One active physical Ethernet interface has an IPv4 link-local address; /16 scope requires approval and later discovery remains capped at 32 passive-prioritized targets; no hosts were contacted",
             true));
+    }
+
+    internal static bool TryGetSingleLinkLocalInterface(
+        IReadOnlyList<LocalInterfaceAddress> addresses,
+        out LocalInterfaceAddress item)
+    {
+        var interfaces = addresses
+            .Where(item => IsEligibleInterface(item) &&
+                item.InterfaceType != NetworkInterfaceType.Wireless80211 &&
+                IsLinkLocalUnicast(item.Address) &&
+                TryGetPrefixLength(item.SubnetMask, out var prefix) && prefix == LinkLocalPrefixLength &&
+                IsUsableHostAddress(item.Address, LinkLocalPrefixLength))
+            .GroupBy(item => $"{item.InterfaceName}\0{item.InterfaceDescription}", StringComparer.Ordinal)
+            .ToArray();
+        item = interfaces.Length == 1
+            ? interfaces[0].OrderBy(candidate => candidate.Address.ToString(), StringComparer.Ordinal).First()
+            : default!;
+        return interfaces.Length == 1;
     }
 
     private static bool IsEligibleInterface(LocalInterfaceAddress item)

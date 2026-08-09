@@ -2,7 +2,7 @@ namespace ShowVault.AgentContracts;
 
 public static class AgentProtocol
 {
-    public const string Version = "1.10";
+    public const string Version = "1.11";
 }
 
 public enum AgentCommandType

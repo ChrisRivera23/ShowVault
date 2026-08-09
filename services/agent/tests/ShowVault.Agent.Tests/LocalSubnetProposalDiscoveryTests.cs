@@ -69,11 +69,11 @@ public sealed class LocalSubnetProposalDiscoveryTests
 
         var proposal = Assert.Single(discovery.Discover());
 
-        Assert.Equal("169.254.73.0", proposal.Network);
-        Assert.Equal(24, proposal.PrefixLength);
+        Assert.Equal("169.254.0.0", proposal.Network);
+        Assert.Equal(16, proposal.PrefixLength);
         Assert.True(proposal.RequiresOperatorApproval);
         Assert.Contains("One active physical Ethernet", proposal.Evidence, StringComparison.Ordinal);
-        Assert.Contains("direct-link review", proposal.Evidence, StringComparison.Ordinal);
+        Assert.Contains("passive-prioritized targets", proposal.Evidence, StringComparison.Ordinal);
         Assert.DoesNotContain("169.254.73.42", proposal.Evidence, StringComparison.Ordinal);
     }
 

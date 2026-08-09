@@ -28,6 +28,8 @@ Protocol 1.9 adds `IdentifyGrandMa2`. It is valid only for the responder set ret
 
 Protocol 1.10 permits one bounded IPv4 link-local subnet proposal only when exactly one active physical Ethernet interface qualifies. It changes no authorization shape: proposal creation remains socket-free, manager approval grants scope only, and discovery still requires a separate command capped at 32 hosts with 100-500 ms timeouts. Wi-Fi, virtual/routed interfaces, and ambiguous multiple-Ethernet cases remain excluded.
 
+Protocol 1.11 changes no envelope shape. For an approved `169.254.0.0/16` direct link, the Agent reads its bounded OS ARP table and prioritizes complete entries from the exact qualifying interface before filling the same maximum 32-target ICMP set. Neighbor addresses remain local and are not emitted unless reduced to the existing path-free attempted/responding counts.
+
 ## Next implementation slice
 
 - Define the minimal plugin manifest and file-oriented discovery contract.

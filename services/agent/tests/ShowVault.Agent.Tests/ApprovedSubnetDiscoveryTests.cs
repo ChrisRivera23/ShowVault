@@ -40,11 +40,26 @@ public sealed class ApprovedSubnetDiscoveryTests
     public async Task Link_local_discovery_preserves_the_same_host_and_timeout_bounds()
     {
         var probe = new RecordingProbe();
-        var result = await new ApprovedSubnetDiscovery(probe, TimeProvider.System).DiscoverAsync(
-            new ApprovedSubnet(Guid.NewGuid(), "169.254.73.0", 24), 4, 250, CancellationToken.None);
+        var result = await new ApprovedSubnetDiscovery(
+            probe, TimeProvider.System, new FixedNeighborProvider([])).DiscoverAsync(
+            new ApprovedSubnet(Guid.NewGuid(), "169.254.0.0", 16), 4, 250, CancellationToken.None);
 
         Assert.Equal(4, result.AttemptedHostCount);
-        Assert.Equal(["169.254.73.1", "169.254.73.2", "169.254.73.3", "169.254.73.4"],
+        Assert.Equal(["169.254.0.1", "169.254.0.2", "169.254.0.3", "169.254.0.4"],
+            probe.Addresses.Select(address => address.ToString()));
+    }
+
+    [Fact]
+    public async Task Prioritizes_passive_link_local_neighbors_without_exceeding_the_cap()
+    {
+        var probe = new RecordingProbe();
+        var neighbors = new FixedNeighborProvider(
+            [IPAddress.Parse("10.0.0.9"), IPAddress.Parse("169.254.220.9")]);
+        var result = await new ApprovedSubnetDiscovery(probe, TimeProvider.System, neighbors).DiscoverAsync(
+            new ApprovedSubnet(Guid.NewGuid(), "169.254.0.0", 16), 4, 250, CancellationToken.None);
+
+        Assert.Equal(4, result.AttemptedHostCount);
+        Assert.Equal(["169.254.220.9", "169.254.0.1", "169.254.0.2", "169.254.0.3"],
             probe.Addresses.Select(address => address.ToString()));
     }
 
@@ -57,5 +72,12 @@ public sealed class ApprovedSubnetDiscoveryTests
             lock (Addresses) { Addresses.Add(address); Timeouts.Add(timeout); }
             return Task.FromResult(true);
         }
+    }
+
+    private sealed class FixedNeighborProvider(IReadOnlyList<IPAddress> addresses)
+        : ILinkLocalNeighborProvider
+    {
+        public Task<IReadOnlyList<IPAddress>> GetCandidatesAsync(
+            ApprovedSubnet subnet, CancellationToken cancellationToken) => Task.FromResult(addresses);
     }
 }

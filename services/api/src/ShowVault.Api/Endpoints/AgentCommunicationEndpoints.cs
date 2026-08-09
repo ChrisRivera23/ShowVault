@@ -466,13 +466,17 @@ public static class AgentCommunicationEndpoints
             {
                 if (!item.TryGetProperty("proposalId", out var idValue) || !idValue.TryGetGuid(out var id) ||
                     id == Guid.Empty || !item.TryGetProperty("prefixLength", out var prefixValue) ||
-                    !prefixValue.TryGetInt32(out var prefix) || prefix is < 24 or > 30) continue;
+                    !prefixValue.TryGetInt32(out var prefix) || prefix is < 16 or > 30) continue;
                 var network = ReadBoundedString(item, "network", 15);
                 var type = ReadBoundedString(item, "interfaceType", 40);
                 var evidence = ReadBoundedString(item, "evidence", 500);
                 if (network is null || type is null || evidence is null) continue;
-                database.SubnetProposals.Add(SubnetProposal.Detected(
-                    id, envelope.AgentId, network, prefix, type, evidence, envelope.OccurredAt));
+                try
+                {
+                    database.SubnetProposals.Add(SubnetProposal.Detected(
+                        id, envelope.AgentId, network, prefix, type, evidence, envelope.OccurredAt));
+                }
+                catch (ArgumentException) { }
             }
         }
         catch (JsonException) { }

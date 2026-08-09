@@ -38,7 +38,8 @@ public sealed record ApprovedSubnetDiscoveryResult(
 
 public sealed class ApprovedSubnetDiscovery(
     ISubnetReachabilityProbe probe,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    ILinkLocalNeighborProvider? linkLocalNeighborProvider = null)
 {
     public const int MaximumHostCount = 32;
     public const int MaximumConcurrency = 8;
@@ -57,7 +58,15 @@ public sealed class ApprovedSubnetDiscovery(
             throw new ArgumentOutOfRangeException(nameof(maxHosts), "Subnet discovery bounds are invalid.");
         }
 
-        var addresses = EnumerateHosts(subnet.Network, subnet.PrefixLength).Take(maxHosts).ToArray();
+        var passiveCandidates = linkLocalNeighborProvider is not null && IsLinkLocal(subnet.Network)
+            ? await linkLocalNeighborProvider.GetCandidatesAsync(subnet, cancellationToken)
+            : [];
+        var addresses = passiveCandidates
+            .Where(address => IsUsableInSubnet(address, subnet.Network, subnet.PrefixLength))
+            .Concat(EnumerateHosts(subnet.Network, subnet.PrefixLength))
+            .Distinct()
+            .Take(maxHosts)
+            .ToArray();
         using var concurrency = new SemaphoreSlim(MaximumConcurrency);
         var timeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
         var results = await Task.WhenAll(addresses.Select(async address =>
@@ -92,6 +101,25 @@ public sealed class ApprovedSubnetDiscovery(
             ]);
         }
     }
+
+    private static bool IsLinkLocal(string network) =>
+        IPAddress.Parse(network).GetAddressBytes() is [169, 254, _, _];
+
+    private static bool IsUsableInSubnet(IPAddress address, string network, int prefixLength)
+    {
+        var addressBytes = address.GetAddressBytes();
+        var networkBytes = IPAddress.Parse(network).GetAddressBytes();
+        if (addressBytes.Length != 4 || networkBytes.Length != 4) return false;
+        var addressValue = ReadUInt32(addressBytes);
+        var networkValue = ReadUInt32(networkBytes);
+        var hostMask = uint.MaxValue >> prefixLength;
+        var hostValue = addressValue & hostMask;
+        return (addressValue & ~hostMask) == networkValue &&
+            hostValue != 0 && hostValue != hostMask;
+    }
+
+    private static uint ReadUInt32(byte[] bytes) =>
+        ((uint)bytes[0] << 24) | ((uint)bytes[1] << 16) | ((uint)bytes[2] << 8) | bytes[3];
 }
 
 public sealed record ApprovedSubnet(Guid ProposalId, string Network, int PrefixLength);

@@ -268,6 +268,8 @@ builder.Services.AddSingleton<SystemInventoryPlugin>();
 builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConnector>();
 builder.Services.AddSingleton<NetworkDeviceDiscoveryPlugin>();
 builder.Services.AddSingleton<ISubnetReachabilityProbe, IcmpSubnetReachabilityProbe>();
+builder.Services.AddSingleton<IArpTableReader, SystemArpTableReader>();
+builder.Services.AddSingleton<ILinkLocalNeighborProvider, ArpLinkLocalNeighborProvider>();
 builder.Services.AddSingleton<IMaLightingProtocolProbe, GrandMa3WebRemoteProbe>();
 builder.Services.AddSingleton<MaLightingNetworkIdentification>();
 builder.Services.AddSingleton<IYamahaDmeProtocolProbe, YamahaDmeRemoteControlProbe>();
