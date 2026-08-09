@@ -74,7 +74,7 @@ Manufacturer names do not imply support for every product the company has shippe
 - Green Hippo Hippotizer
 - PIXERA
 - Millumin — automatic local detection deferred pending an official stable macOS application-bundle path or project root; current Millumin guidance documents downloading/running the app, portable `.millumin` project files, and collected-project folders chosen by the operator, but does not publish a dependable standard location for either the application or projects
-- Ventuz
+- Ventuz — automatic local detection deferred pending an official stable Windows installation path or project root; current Ventuz guidance makes both the installer location and each `.vzp` project-folder location operator-selectable, so no dependable standard location is published
 - Christie Pandoras Box
 - TouchDesigner
 - HeavyM
