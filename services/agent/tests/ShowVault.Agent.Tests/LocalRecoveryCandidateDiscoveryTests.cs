@@ -97,6 +97,17 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(expectedEngineDjApplication)!);
         File.WriteAllText(expectedEngineDjApplication, "fixture");
         Directory.CreateDirectory(expectedEngineDjLibrary);
+        var expectedDjayApplication = platform == LocalApplicationPlatform.MacOs
+            ? Path.Combine(applicationRoot, "djay.app")
+            : Path.Combine(userHome, "AppData", "Local", "Packages", "59BEBC1A.djay_e3tqh12mt5rj6");
+        var expectedDjayData = Path.Combine(userHome, "Music", "djay");
+        var expectedDjayAnalysis = platform == LocalApplicationPlatform.MacOs
+            ? Path.Combine(userHome, "Library", "Group Containers", "VJXTL73S8G.com.algoriddim.userdata",
+                "Library", "Application Support", "Algoriddim")
+            : Path.Combine(expectedDjayApplication, "LocalCache", "Local", "Algoriddim", "djay");
+        Directory.CreateDirectory(expectedDjayApplication);
+        Directory.CreateDirectory(expectedDjayData);
+        Directory.CreateDirectory(expectedDjayAnalysis);
 
         var registry = new LocalApplicationDetectionRegistry();
         var standardLocations = registry.GetCandidates(platform, [applicationRoot], [userHome]);
@@ -152,12 +163,25 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             location.PluginId == LocalApplicationDetectionRegistry.EngineDjPluginId &&
             location.CandidateType == "UserDataRoot" &&
             location.Path == expectedEngineDjLibrary);
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == LocalApplicationDetectionRegistry.DjayProPluginId &&
+            location.CandidateType == "InstalledApplication" &&
+            location.Path == expectedDjayApplication);
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == LocalApplicationDetectionRegistry.DjayProPluginId &&
+            location.CandidateType == "UserDataRoot" &&
+            location.Path == expectedDjayData);
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == LocalApplicationDetectionRegistry.DjayProPluginId &&
+            location.CandidateType == "UserDataRoot" &&
+            location.Path == expectedDjayAnalysis);
 
         foreach (var location in standardLocations.Where(location =>
                      location.PluginId != LocalApplicationDetectionRegistry.RekordboxPluginId &&
                      location.PluginId != LocalApplicationDetectionRegistry.TraktorProPluginId &&
                      location.PluginId != LocalApplicationDetectionRegistry.VirtualDjPluginId &&
-                     location.PluginId != LocalApplicationDetectionRegistry.EngineDjPluginId))
+                     location.PluginId != LocalApplicationDetectionRegistry.EngineDjPluginId &&
+                     location.PluginId != LocalApplicationDetectionRegistry.DjayProPluginId))
         {
             if (location.CandidateType == "InstalledApplication" && Path.HasExtension(location.Path))
             {
@@ -173,7 +197,7 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         var candidates = new LocalRecoveryCandidateDiscovery(
             new FixedLocationProvider(standardLocations)).Discover();
 
-        Assert.Equal(16, candidates.Count);
+        Assert.Equal(19, candidates.Count);
         Assert.Equal(2, candidates.Count(candidate =>
             candidate.PluginId == ResolumeDiscoveryPlugin.PluginId &&
             candidate.CandidateType == "InstalledApplication"));
@@ -217,6 +241,13 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             candidate.PluginId == LocalApplicationDetectionRegistry.EngineDjPluginId &&
             candidate.CandidateType == "UserDataRoot" &&
             candidate.Path == expectedEngineDjLibrary);
+        Assert.Single(candidates, candidate =>
+            candidate.PluginId == LocalApplicationDetectionRegistry.DjayProPluginId &&
+            candidate.CandidateType == "InstalledApplication" &&
+            candidate.Path == expectedDjayApplication);
+        Assert.Equal(2, candidates.Count(candidate =>
+            candidate.PluginId == LocalApplicationDetectionRegistry.DjayProPluginId &&
+            candidate.CandidateType == "UserDataRoot"));
         Assert.All(candidates, candidate => Assert.True(candidate.RequiresOperatorApproval));
     }
 

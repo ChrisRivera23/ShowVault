@@ -39,6 +39,7 @@ public sealed class LocalApplicationDetectionRegistry
     public const string TraktorProPluginId = "showvault.traktor-pro";
     public const string VirtualDjPluginId = "showvault.virtualdj";
     public const string EngineDjPluginId = "showvault.engine-dj";
+    public const string DjayProPluginId = "showvault.djay-pro";
     private const int MaximumVersionDirectoryCount = 32;
 
     public IReadOnlyList<LocalApplicationCatalogEntry> Entries { get; } =
@@ -150,7 +151,30 @@ public sealed class LocalApplicationDetectionRegistry
             [new("UserDataRoot", Path.Combine("Music", "Engine Library"),
                 "Catalog standard Engine DJ library location")],
             [new("UserDataRoot", Path.Combine("Music", "Engine Library"),
-                "Catalog standard Engine DJ library location")])
+                "Catalog standard Engine DJ library location")]),
+        new(
+            DjayProPluginId,
+            "Algoriddim djay Pro",
+            [new("InstalledApplication", "djay.app",
+                "Catalog current macOS application location")],
+            [],
+            [
+                new("UserDataRoot", Path.Combine("Music", "djay"),
+                    "Catalog current djay app-data location"),
+                new("UserDataRoot", Path.Combine("Library", "Group Containers",
+                        "VJXTL73S8G.com.algoriddim.userdata", "Library", "Application Support", "Algoriddim"),
+                    "Catalog current djay track-analysis location")
+            ],
+            [
+                new("InstalledApplication", Path.Combine("AppData", "Local", "Packages",
+                        "59BEBC1A.djay_e3tqh12mt5rj6"),
+                    "Catalog current Windows application-package location"),
+                new("UserDataRoot", Path.Combine("Music", "djay"),
+                    "Catalog current djay app-data location"),
+                new("UserDataRoot", Path.Combine("AppData", "Local", "Packages",
+                        "59BEBC1A.djay_e3tqh12mt5rj6", "LocalCache", "Local", "Algoriddim", "djay"),
+                    "Catalog current djay analysis and settings location")
+            ])
     ];
 
     public IReadOnlyList<StandardLocationCandidate> GetCandidates(
