@@ -15,9 +15,9 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/propresenter-local-identification`
+- Branch: `codex/pvp-local-identification`
 - Latest completed feature: `b341808 feat: identify standard ProPresenter data`
-- Latest research decision: `462010c docs: defer unsafe Mitti discovery`
+- Latest research decision: `ad574bd docs: defer unsafe PVP discovery`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Verified baseline: all 19 focused local-recovery candidate tests and all 348 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
@@ -47,6 +47,8 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Both official Imimot source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, filesystem-discovery, file-content, media-inspection, or network-path change. Runtime tests were not rerun because only documentation changed
 - ProPresenter uses `showvault.propresenter` and checks only `/Applications/ProPresenter.app`, the native Windows Program Files `Renewed Vision/ProPresenter` directory, and each user's default `Documents/ProPresenter` recovery-data root. Paths and contents remain Agent-local; custom support/workspace locations, cloud-backed redirections, external media, validation, backup, verification, and restore remain unsupported
 - ProPresenter verification: 19 focused local-recovery candidate tests and all 348 Agent tests pass; Agent Release build and touched-file formatting pass with 0 warnings and 0 errors; `git diff --check` passes. The current official download archive and four support pages returned HTTP 200. Renewed Vision's official guide PDF returned HTTP 521 to command-line access while its indexed primary-source contents remained readable; the current official download archive independently confirmed the `ProPresenter.app` bundle identity
+- PVP research found that Renewed Vision directs the macOS application to Applications but publishes no dependable bounded Show or media root. Shows are operator-saved files that exclude media; absolute media paths are operator-selected, and relative media requires an operator-created, operator-located folder
+- All four official Renewed Vision PVP source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, filesystem-discovery, file-content, media-inspection, or network-path change. Runtime tests were not rerun because only documentation changed
 - Digital Projection was a documentation-only research decision: `git diff --check` passed and both official source links resolved; runtime tests were not rerun because no implementation, test, contract, migration, or build input changed
 - Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged assertions in `AgentCommandExecutorTests.cs` at lines 997, 1003, 1009, and 1015
 
@@ -77,18 +79,19 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - PlaybackPro automatic local detection is deferred. DT Videolabs publishes a general Applications-folder instruction but no exact supported bundle identity or bounded show/playlist/media root. No bundle/file-extension guess, home scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
 - Mitti automatic local detection is deferred. Imimot identifies the bundle but publishes neither a dependable standard installation location nor a bounded project/media root. No Applications-path inference, `.mitti2` search, home/media scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
 - ProPresenter uses `showvault.propresenter`. Catalog detection checks only the official standard macOS Applications bundle, native Windows Renewed Vision Program Files directory, and each user's default `Documents/ProPresenter` recovery-data root. Candidate contents, registration data, preferences, logs, cloud/custom paths, and external media are not read; validation, protection, backup, verification, and restore remain unsupported.
+- PVP automatic local detection is deferred. Renewed Vision documents the Applications folder but no exact fixed bundle path or bounded Show/media root. No bundle or Show-file-extension guess, home/media scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official Renewed Vision primary sources for dependable automatic local application and recoverable-project/media roots for the PVP row under `Show control and playback`. Add the smallest safe catalog-driven local identification slice only if official sources establish stable supported application paths and bounded recovery data; otherwise record an evidence-backed deferral.
+Reconcile the Pandora's Box Manager row under `Show control and playback` with the existing Christie Pandoras Box catalog-driven identification. Use official Christie primary sources to determine whether the row is already covered or requires a distinct bounded slice, and do not infer coverage from product-name similarity alone.
 
 Required boundaries:
 
-- Start from the PVP row under `Show control and playback` in `docs/INTEGRATION_CATALOG.md` and inspect the existing catalog-driven local-candidate architecture before proposing changes.
-- Require official Renewed Vision sources for stable supported macOS application and recoverable-project/media locations; distinguish installation, candidate existence, recoverable data, validation, backup, verification, and restore states.
+- Start from the Pandora's Box Manager row under `Show control and playback` in `docs/INTEGRATION_CATALOG.md`, the existing Christie Pandoras Box registry entry, and its cited official Christie sources before proposing changes.
+- Require official Christie sources to establish whether Pandora's Box Manager is the same covered product identity and whether the existing versioned Program Files application candidate is sufficient; distinguish name reconciliation, installation, candidate existence, recoverable data, validation, backup, verification, and restore states.
 - Keep resolved paths and file contents Agent-local. Publish only opaque candidate IDs and bounded product/type/evidence metadata through the existing path-free contract.
-- Do not infer PVP installation or recoverable projects/media from process names, generic files, user-entered paths, or undocumented platform conventions, and do not recursively scan unbounded home or filesystem roots.
+- Do not infer product equivalence, installation, or recoverable projects/media from similar names, process names, generic files, user-entered paths, or undocumented platform conventions, and do not recursively scan unbounded home or filesystem roots.
 - Use synthetic temporary filesystem fixtures for any implementation. Do not inspect the Product Owner's installed applications, projects, media, preferences, or workstation without explicit authorization.
 - Do not claim successful backup, validation, verification, or restore from an identification-only or candidate-enumeration slice.
 
