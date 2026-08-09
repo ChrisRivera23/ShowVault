@@ -15,13 +15,13 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/barco-projector-research`
-- Latest completed research: `09b28df docs: defer undocumented Barco PJLink signatures`
+- Branch: `codex/panasonic-pjlink-identification`
+- Latest completed feature: `19b2a82 feat: identify documented Panasonic projectors via PJLink`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
-- Verified baseline: 2 contract tests, 21 platform tests, 311 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
+- Verified baseline: 2 contract tests, 21 platform tests, 317 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
 - Agent Release build passes and EF Core reports no pending model changes
-- Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged assertions in `AgentCommandExecutorTests.cs`, now at lines 997, 1003, 1009, and 1015 after this slice added an earlier test
+- Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged assertions in `AgentCommandExecutorTests.cs` at lines 997, 1003, 1009, and 1015
 
 ## Current discovery position
 
@@ -31,20 +31,20 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Existing local catalog coverage includes Resolume, supported DJ applications, disguise Designer, WATCHOUT, Hippotizer, PIXERA, Christie Pandoras Box, TouchDesigner, MadMapper 6, Isadora 4, and bounded Engine OS removable roots.
 - HeavyM, Millumin, and Ventuz automatic detection are deferred because official primary sources do not publish dependable standard application/project roots. Ventana is separately deferred because the catalog label does not resolve to a unique professional playback product.
 - Real venue hardware, installed applications, projects, and removable media remain uninspected unless the Product Owner explicitly authorizes testing.
-- Protocol 1.13 adds a manager-authorized generic projector endpoint and bounded PJLink probe. It currently identifies only exact official Christie LX41/LW41 signatures; addresses and raw responses remain Agent-local. Projector-specific completion persistence and a dashboard action remain unimplemented.
+- Protocol 1.13 adds a manager-authorized generic projector endpoint and bounded PJLink probe. It identifies exact official Christie LX41/LW41 and Panasonic PT-DZ770/PT-VW431DEA/PT-RZ470/PT-RW430 signatures; addresses and raw responses remain Agent-local. Projector-specific completion persistence and a dashboard action remain unimplemented.
 - Barco PJLink identification is deferred because official documentation does not publish literal manufacturer/model response strings and advises against disabling authentication; generic PJLink support is not treated as Barco identity.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official Panasonic projector primary sources for exact PJLink `INF1`/`INF2` responses or another documented read-only model identity contract. Extend the reusable bounded projector allowlist only for documented signatures with synthetic fixtures. If primary sources do not establish a safe identity boundary, record an evidence-backed deferral.
+Research official Epson projector primary sources for exact PJLink `INF1`/`INF2` responses or another documented read-only model identity contract. Extend the reusable bounded projector allowlist only for documented signatures with synthetic fixtures. If primary sources do not establish a safe identity boundary, record an evidence-backed deferral.
 
 Required boundaries:
 
-- Extend the reusable PJLink/network-identification architecture; do not add a separate unbounded Panasonic scanner.
+- Extend the reusable PJLink/network-identification architecture; do not add a separate unbounded Epson scanner.
 - Require a documented read-only request and exact manufacturer/model response signature; generic reachability, PJLink support, HTTP titles, open ports, mDNS, or SNMP strings alone are insufficient.
 - Keep addresses, interface details, and raw responses Agent-local; publish only the existing bounded path-free identification metadata.
-- Use synthetic protocol fixtures. Do not contact real Panasonic hardware without explicit Product Owner authorization or claim configuration, backup, verification, or restore support in this identification-only slice.
+- Use synthetic protocol fixtures. Do not contact real Epson hardware without explicit Product Owner authorization or claim configuration, backup, verification, or restore support in this identification-only slice.
 
 ## Required workflow
 
