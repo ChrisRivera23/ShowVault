@@ -125,7 +125,7 @@ Manufacturer names do not imply support for every product the company has shippe
 ## PTZ and cameras
 
 - PTZOptics — automatic network identification deferred because the official VISCA inquiry tables expose camera state/settings but no manufacturer or model identity; the digest-authenticated HTTP device-info query covers both Move 4K and Link 4K while publishing only one example with an operator-editable device name, privacy-bearing serial/firmware fields, and undocumented internal type/model codes, so no stable exact product signature is established
-- BirdDog
+- BirdDog — protocol 1.16 separately identifies only the exact official `BirdDog P200A4_A5` REST `/version` response as `BirdDog P200 (A4/A5)` against responders retained by one completed authorized discovery; other BirdDog models/hardware revisions, generic REST/NDI/VISCA/ONVIF behavior, configuration, control, validation, backup, verification, and restore remain unsupported
 - Panasonic
 - Sony
 

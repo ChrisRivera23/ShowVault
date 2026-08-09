@@ -30,7 +30,14 @@ public sealed record SubnetProposalSummary(Guid Id, Guid AgentId, string AgentNa
     int? NewTekTriCasterIdentifiedHostCount,
     string? NewTekTriCasterIdentifiedProductFamilies,
     string? NewTekTriCasterIdentificationMessage,
-    DateTimeOffset? NewTekTriCasterIdentifiedAt);
+    DateTimeOffset? NewTekTriCasterIdentifiedAt,
+    Guid? BirdDogIdentificationCommandId,
+    string? BirdDogIdentificationStatus,
+    int? BirdDogIdentificationAttemptedHostCount,
+    int? BirdDogIdentifiedHostCount,
+    string? BirdDogIdentifiedProductFamilies,
+    string? BirdDogIdentificationMessage,
+    DateTimeOffset? BirdDogIdentifiedAt);
 
 public sealed record DecideSubnetProposalRequest(bool Approved);
 
@@ -42,3 +49,4 @@ public sealed record IdentifyGrandMa2Request(int TimeoutMilliseconds = 500);
 public sealed record IdentifyProjectorsRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyBlackmagicVideohubRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyNewTekTriCasterRequest(int TimeoutMilliseconds = 500);
+public sealed record IdentifyBirdDogRequest(int TimeoutMilliseconds = 500);

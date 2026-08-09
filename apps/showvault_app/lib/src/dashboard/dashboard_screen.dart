@@ -335,6 +335,31 @@ class _SubnetOnboarding extends ConsumerWidget {
     }
   }
 
+  Future<void> _identifyBirdDog(
+    BuildContext context,
+    WidgetRef ref,
+    SubnetProposal proposal,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .identifyBirdDog(
+            accessToken: session.accessToken,
+            history: history,
+            proposalId: proposal.id,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('BirdDog identification failed: $error')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = history.subnetProposals.where(
@@ -369,7 +394,8 @@ class _SubnetOnboarding extends ConsumerWidget {
                     '${_identificationDetail(proposal)}${_grandMa2IdentificationDetail(proposal)}'
                     '${_yamahaIdentificationDetail(proposal)}'
                     '${_blackmagicVideohubIdentificationDetail(proposal)}'
-                    '${_newTekTriCasterIdentificationDetail(proposal)}',
+                    '${_newTekTriCasterIdentificationDetail(proposal)}'
+                    '${_birdDogIdentificationDetail(proposal)}',
                   ),
                   isThreeLine: true,
                   trailing: proposal.decision == 'approved'
@@ -458,6 +484,22 @@ class _SubnetOnboarding extends ConsumerWidget {
                                         child: const Text(
                                           'Identify NewTek TriCaster',
                                         ),
+                                      ),
+                                  if (proposal.discoveryStatus == 'completed' &&
+                                      (proposal.respondingHostCount ?? 0) > 0)
+                                    if (proposal.birdDogIdentificationStatus ==
+                                        'pending')
+                                      const Chip(
+                                        label: Text('Identifying BirdDog'),
+                                      )
+                                    else
+                                      FilledButton(
+                                        onPressed: () => _identifyBirdDog(
+                                          context,
+                                          ref,
+                                          proposal,
+                                        ),
+                                        child: const Text('Identify BirdDog'),
                                       ),
                                   if (proposal.discoveryStatus == 'completed' &&
                                       (proposal.respondingHostCount ?? 0) > 0)
@@ -580,6 +622,20 @@ class _SubnetOnboarding extends ConsumerWidget {
     'failed' =>
       '\nNewTek TriCaster identification failed • '
           '${proposal.newTekTriCasterIdentificationMessage ?? 'Unknown error'}',
+    _ => '',
+  };
+
+  String _birdDogIdentificationDetail(
+    SubnetProposal proposal,
+  ) => switch (proposal.birdDogIdentificationStatus) {
+    'completed' =>
+      '\nBirdDog review • '
+          '${proposal.birdDogIdentifiedHostCount ?? 0} of '
+          '${proposal.birdDogIdentificationAttemptedHostCount ?? 0} identified • '
+          '${proposal.birdDogIdentifiedProductFamilies ?? 'none'} • addresses and raw responses remain local',
+    'failed' =>
+      '\nBirdDog identification failed • '
+          '${proposal.birdDogIdentificationMessage ?? 'Unknown error'}',
     _ => '',
   };
 }

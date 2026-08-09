@@ -180,6 +180,10 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
                 .HasConversion<string>().HasMaxLength(32);
             entity.Property(proposal => proposal.NewTekTriCasterIdentifiedProductFamilies).HasMaxLength(200);
             entity.Property(proposal => proposal.NewTekTriCasterIdentificationMessage).HasMaxLength(500);
+            entity.Property(proposal => proposal.BirdDogIdentificationStatus)
+                .HasConversion<string>().HasMaxLength(32);
+            entity.Property(proposal => proposal.BirdDogIdentifiedProductFamilies).HasMaxLength(200);
+            entity.Property(proposal => proposal.BirdDogIdentificationMessage).HasMaxLength(500);
             entity.Property(proposal => proposal.DecidedBySubject).HasMaxLength(255);
             entity.HasIndex(proposal => new { proposal.AgentId, proposal.DetectedAt });
             entity.HasIndex(proposal => proposal.DiscoveryCommandId).IsUnique();
@@ -188,6 +192,7 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.HasIndex(proposal => proposal.GrandMa2IdentificationCommandId).IsUnique();
             entity.HasIndex(proposal => proposal.BlackmagicVideohubIdentificationCommandId).IsUnique();
             entity.HasIndex(proposal => proposal.NewTekTriCasterIdentificationCommandId).IsUnique();
+            entity.HasIndex(proposal => proposal.BirdDogIdentificationCommandId).IsUnique();
             entity.HasOne<VenueAgent>().WithMany().HasForeignKey(proposal => proposal.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

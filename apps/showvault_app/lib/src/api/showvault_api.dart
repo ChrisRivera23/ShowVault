@@ -66,6 +66,11 @@ class SubnetProposal {
     this.newTekTriCasterIdentifiedHostCount,
     this.newTekTriCasterIdentifiedProductFamilies,
     this.newTekTriCasterIdentificationMessage,
+    this.birdDogIdentificationStatus,
+    this.birdDogIdentificationAttemptedHostCount,
+    this.birdDogIdentifiedHostCount,
+    this.birdDogIdentifiedProductFamilies,
+    this.birdDogIdentificationMessage,
   });
   factory SubnetProposal.fromJson(Map<String, Object?> json) => SubnetProposal(
     id: json['id']! as String,
@@ -123,6 +128,14 @@ class SubnetProposal {
         json['newTekTriCasterIdentifiedProductFamilies'] as String?,
     newTekTriCasterIdentificationMessage:
         json['newTekTriCasterIdentificationMessage'] as String?,
+    birdDogIdentificationStatus: json['birdDogIdentificationStatus'] as String?,
+    birdDogIdentificationAttemptedHostCount:
+        json['birdDogIdentificationAttemptedHostCount'] as int?,
+    birdDogIdentifiedHostCount: json['birdDogIdentifiedHostCount'] as int?,
+    birdDogIdentifiedProductFamilies:
+        json['birdDogIdentifiedProductFamilies'] as String?,
+    birdDogIdentificationMessage:
+        json['birdDogIdentificationMessage'] as String?,
   );
   final String id, agentName, network, interfaceType, evidence, decision;
   final int prefixLength;
@@ -157,6 +170,11 @@ class SubnetProposal {
   final int? newTekTriCasterIdentifiedHostCount;
   final String? newTekTriCasterIdentifiedProductFamilies;
   final String? newTekTriCasterIdentificationMessage;
+  final String? birdDogIdentificationStatus;
+  final int? birdDogIdentificationAttemptedHostCount;
+  final int? birdDogIdentifiedHostCount;
+  final String? birdDogIdentifiedProductFamilies;
+  final String? birdDogIdentificationMessage;
 
   bool get shouldSuggestDiscoveryRetry =>
       discoveryStatus == 'completed' &&
@@ -433,6 +451,29 @@ class ShowVaultApi {
       Uri.parse(
         '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
         '/venues/${history.venueId}/subnet-proposals/$proposalId/identify-newtek-tricaster',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'timeoutMilliseconds': 500}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    return (body['payload']! as Map<String, Object?>)['commandId']! as String;
+  }
+
+  Future<String> identifyBirdDog({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String proposalId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
+        '/venues/${history.venueId}/subnet-proposals/$proposalId/identify-birddog',
       ),
       headers: {
         'Authorization': 'Bearer $accessToken',

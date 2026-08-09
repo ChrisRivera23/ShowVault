@@ -70,6 +70,13 @@ public sealed class SubnetProposal
     public string? NewTekTriCasterIdentifiedProductFamilies { get; private set; }
     public string? NewTekTriCasterIdentificationMessage { get; private set; }
     public DateTimeOffset? NewTekTriCasterIdentifiedAt { get; private set; }
+    public Guid? BirdDogIdentificationCommandId { get; private set; }
+    public ProductIdentificationStatus? BirdDogIdentificationStatus { get; private set; }
+    public int? BirdDogIdentificationAttemptedHostCount { get; private set; }
+    public int? BirdDogIdentifiedHostCount { get; private set; }
+    public string? BirdDogIdentifiedProductFamilies { get; private set; }
+    public string? BirdDogIdentificationMessage { get; private set; }
+    public DateTimeOffset? BirdDogIdentifiedAt { get; private set; }
 
     public static SubnetProposal Detected(Guid id, Guid agentId, string network, int prefixLength,
         string interfaceType, string evidence, DateTimeOffset detectedAt)
@@ -108,6 +115,7 @@ public sealed class SubnetProposal
         ClearGrandMa2Identification();
         ClearBlackmagicVideohubIdentification();
         ClearNewTekTriCasterIdentification();
+        ClearBirdDogIdentification();
     }
 
     public void StartDiscovery(Guid commandId)
@@ -122,6 +130,7 @@ public sealed class SubnetProposal
         ClearGrandMa2Identification();
         ClearBlackmagicVideohubIdentification();
         ClearNewTekTriCasterIdentification();
+        ClearBirdDogIdentification();
     }
 
     public void CompleteDiscovery(
@@ -362,5 +371,51 @@ public sealed class SubnetProposal
         NewTekTriCasterIdentifiedProductFamilies = null;
         NewTekTriCasterIdentificationMessage = null;
         NewTekTriCasterIdentifiedAt = null;
+    }
+
+    public void StartBirdDogIdentification(Guid commandId)
+    {
+        if (DiscoveryStatus != SubnetDiscoveryStatus.Completed || RespondingHostCount is null or <= 0 ||
+            commandId == Guid.Empty)
+            throw new InvalidOperationException(
+                "BirdDog identification requires completed discovery with responders.");
+        ClearBirdDogIdentification();
+        BirdDogIdentificationCommandId = commandId;
+        BirdDogIdentificationStatus = ProductIdentificationStatus.Pending;
+    }
+
+    public void CompleteBirdDogIdentification(
+        int attempted, int identified, string productFamilies, DateTimeOffset at)
+    {
+        if (BirdDogIdentificationStatus != ProductIdentificationStatus.Pending ||
+            attempted is < 1 or > 32 || identified < 0 || identified > attempted ||
+            string.IsNullOrWhiteSpace(productFamilies))
+            throw new InvalidOperationException("BirdDog identification result is invalid.");
+        BirdDogIdentificationStatus = ProductIdentificationStatus.Completed;
+        BirdDogIdentificationAttemptedHostCount = attempted;
+        BirdDogIdentifiedHostCount = identified;
+        BirdDogIdentifiedProductFamilies = productFamilies;
+        BirdDogIdentifiedAt = at;
+    }
+
+    public void FailBirdDogIdentification(string message, DateTimeOffset at)
+    {
+        if (BirdDogIdentificationStatus != ProductIdentificationStatus.Pending)
+            throw new InvalidOperationException("BirdDog identification is not pending.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        BirdDogIdentificationStatus = ProductIdentificationStatus.Failed;
+        BirdDogIdentificationMessage = message;
+        BirdDogIdentifiedAt = at;
+    }
+
+    private void ClearBirdDogIdentification()
+    {
+        BirdDogIdentificationCommandId = null;
+        BirdDogIdentificationStatus = null;
+        BirdDogIdentificationAttemptedHostCount = null;
+        BirdDogIdentifiedHostCount = null;
+        BirdDogIdentifiedProductFamilies = null;
+        BirdDogIdentificationMessage = null;
+        BirdDogIdentifiedAt = null;
     }
 }

@@ -282,6 +282,8 @@ builder.Services.AddSingleton<IBlackmagicVideohubProtocolProbe, BlackmagicVideoh
 builder.Services.AddSingleton<BlackmagicVideohubNetworkIdentification>();
 builder.Services.AddSingleton<INewTekTriCasterProtocolProbe, NewTekTriCasterProtocolProbe>();
 builder.Services.AddSingleton<NewTekTriCasterNetworkIdentification>();
+builder.Services.AddSingleton<IBirdDogProtocolProbe, BirdDogProtocolProbe>();
+builder.Services.AddSingleton<BirdDogNetworkIdentification>();
 builder.Services.AddSingleton<PjLinkProjectorProbe>();
 builder.Services.AddSingleton<NecProjectorProbe>();
 builder.Services.AddSingleton<IProjectorProtocolProbe>(services => new ProjectorProtocolProbe(

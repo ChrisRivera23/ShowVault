@@ -331,6 +331,41 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal("NewTek TriCaster TC1", newTekProposal.NewTekTriCasterIdentifiedProductFamilies);
         Assert.Equal("Blackmagic Smart Videohub 16x16",
             newTekProposal.BlackmagicVideohubIdentifiedProductFamilies);
+        var birdDogPath = $"{proposalPath}/{proposalId}/identify-birddog";
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
+            birdDogPath, new IdentifyBirdDogRequest())).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await ownerClient.PostAsJsonAsync(
+            birdDogPath, new IdentifyBirdDogRequest(99))).StatusCode);
+        var birdDogResponse = await ownerClient.PostAsJsonAsync(
+            birdDogPath, new IdentifyBirdDogRequest(500));
+        Assert.Equal(HttpStatusCode.Accepted, birdDogResponse.StatusCode);
+        var birdDogCommand = (await birdDogResponse.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>())!.Payload;
+        Assert.Equal(AgentCommandType.IdentifyBirdDog, birdDogCommand.Type);
+        Assert.Contains(subnetCommand.CommandId.ToString(), birdDogCommand.Payload,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("192.168", birdDogCommand.Payload, StringComparison.Ordinal);
+        var birdDogOutcome = new AgentEventEnvelope(
+            birdDogCommand.CommandId, enrolledAgent.Payload.AgentId,
+            AgentEventType.JobCompleted, AgentProtocol.Version, DateTimeOffset.UtcNow,
+            birdDogCommand.CorrelationId,
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                proposalId,
+                discoveryCommandId = subnetCommand.CommandId,
+                attemptedHostCount = 3,
+                identifiedHostCount = 1,
+                productFamilies = new[] { "BirdDog P200 (A4/A5)" }
+            }));
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", birdDogOutcome)).StatusCode);
+        proposals = await ownerClient.GetFromJsonAsync<ApiResponse<IReadOnlyList<SubnetProposalSummary>>>(proposalPath);
+        var birdDogProposal = Assert.Single(proposals!.Payload);
+        Assert.Equal("completed", birdDogProposal.BirdDogIdentificationStatus);
+        Assert.Equal(3, birdDogProposal.BirdDogIdentificationAttemptedHostCount);
+        Assert.Equal(1, birdDogProposal.BirdDogIdentifiedHostCount);
+        Assert.Equal("BirdDog P200 (A4/A5)", birdDogProposal.BirdDogIdentifiedProductFamilies);
+        Assert.Equal("NewTek TriCaster TC1", birdDogProposal.NewTekTriCasterIdentifiedProductFamilies);
         var projectorPath = $"{proposalPath}/{proposalId}/identify-projectors";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
             projectorPath, new IdentifyProjectorsRequest())).StatusCode);

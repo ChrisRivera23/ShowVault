@@ -314,6 +314,21 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Contains("\"identifiedHostCount\":4", newTekJson, StringComparison.Ordinal);
         Assert.Contains("NewTek TriCaster TC1", newTekJson, StringComparison.Ordinal);
         Assert.DoesNotContain("192.168.10.1", newTekJson, StringComparison.Ordinal);
+
+        var birdDogCommand = AgentCommandEnvelope.Create(
+            agentId, AgentCommandType.IdentifyBirdDog,
+            "birddog-identification",
+            JsonSerializer.Serialize(new IdentifyBirdDogPayload(
+                proposalId, discoveryCommand.CommandId, 250)),
+            now.AddSeconds(8), TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(birdDogCommand, now.AddSeconds(8), CancellationToken.None);
+        await CreateExecutor(store, now.AddSeconds(8)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+        var birdDogJson = await store.GetDiscoveryResultJsonAsync(
+            birdDogCommand.CommandId, CancellationToken.None);
+        Assert.Contains("\"identifiedHostCount\":4", birdDogJson, StringComparison.Ordinal);
+        Assert.Contains("BirdDog P200 (A4/A5)", birdDogJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("192.168.10.1", birdDogJson, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -1024,25 +1039,29 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         var powersoftArmoniaPlusPlugin = new PowersoftArmoniaPlusDiscoveryPlugin(
             Options.Create(new AgentOptions
             {
-                ControlPlaneUri = new Uri("https://control.test"), Name = "Test Agent",
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
                 PowersoftArmoniaPlusProjectRoots = [Path.Combine(_testRoot, "powersoft-armoniaplus")]
             }), timeProvider);
         var crownAudioArchitectPlugin = new CrownAudioArchitectDiscoveryPlugin(
             Options.Create(new AgentOptions
             {
-                ControlPlaneUri = new Uri("https://control.test"), Name = "Test Agent",
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
                 CrownAudioArchitectVenueRoots = [Path.Combine(_testRoot, "crown-audio-architect")]
             }), timeProvider);
         var labGruppenLakePlugin = new LabGruppenLakeDiscoveryPlugin(
             Options.Create(new AgentOptions
             {
-                ControlPlaneUri = new Uri("https://control.test"), Name = "Test Agent",
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
                 LabGruppenLakeSystemRoots = [Path.Combine(_testRoot, "lab-gruppen-lake")]
             }), timeProvider);
         var dynacordSonicuePlugin = new DynacordSonicueDiscoveryPlugin(
             Options.Create(new AgentOptions
             {
-                ControlPlaneUri = new Uri("https://control.test"), Name = "Test Agent",
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
                 DynacordSonicueProjectRoots = [Path.Combine(_testRoot, "dynacord-sonicue")]
             }), timeProvider);
         var verifier = new RecoveryPackageVerifier();
@@ -1112,6 +1131,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             new PjLinkNetworkIdentification(new PjLinkProbe(), timeProvider),
             new BlackmagicVideohubNetworkIdentification(new BlackmagicVideohubProbe(), timeProvider),
             new NewTekTriCasterNetworkIdentification(new NewTekTriCasterProbe(), timeProvider),
+            new BirdDogNetworkIdentification(new BirdDogProbe(), timeProvider),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
@@ -1216,6 +1236,13 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         public Task<string?> IdentifyAsync(
             System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult<string?>("NewTek TriCaster TC1");
+    }
+
+    private sealed class BirdDogProbe : IBirdDogProtocolProbe
+    {
+        public Task<string?> IdentifyAsync(
+            System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("BirdDog P200 (A4/A5)");
     }
 
     private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions

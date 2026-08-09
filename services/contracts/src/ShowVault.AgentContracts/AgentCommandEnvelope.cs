@@ -41,6 +41,11 @@ public sealed record IdentifyNewTekTriCasterPayload(
     Guid DiscoveryCommandId,
     int TimeoutMilliseconds = 500);
 
+public sealed record IdentifyBirdDogPayload(
+    Guid ProposalId,
+    Guid DiscoveryCommandId,
+    int TimeoutMilliseconds = 500);
+
 public sealed record AgentCommandEnvelope(
     Guid CommandId,
     Guid AgentId,

@@ -2,7 +2,7 @@ namespace ShowVault.AgentContracts;
 
 public static class AgentProtocol
 {
-    public const string Version = "1.15";
+    public const string Version = "1.16";
 }
 
 public enum AgentCommandType
@@ -19,6 +19,7 @@ public enum AgentCommandType
     IdentifyProjectors,
     IdentifyBlackmagicVideohub,
     IdentifyNewTekTriCaster,
+    IdentifyBirdDog,
     ValidateRecoveryCandidate,
     CreateBackup,
     VerifyBackup,
