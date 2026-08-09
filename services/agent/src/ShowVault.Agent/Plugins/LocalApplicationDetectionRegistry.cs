@@ -54,6 +54,7 @@ public sealed class LocalApplicationDetectionRegistry
     public const string ChristiePandorasBoxPluginId = "showvault.christie-pandoras-box";
     public const string TouchDesignerPluginId = "showvault.touchdesigner";
     public const string MadMapperPluginId = "showvault.madmapper";
+    public const string IsadoraPluginId = "showvault.isadora";
     private const int MaximumVersionDirectoryCount = 32;
     private const int MaximumMountedVolumeCount = 64;
 
@@ -164,6 +165,19 @@ public sealed class LocalApplicationDetectionRegistry
             WindowsUserVersionDirectories =
             [new("ProjectRoot", Path.Combine("Documents", "MadMapper"), "", "",
                 "Catalog documented default MadMapper 6 project-workspace location", ".madproject")]
+        },
+        new(
+            IsadoraPluginId,
+            "TroikaTronix Isadora 4",
+            [new("InstalledApplication", Path.Combine("Isadora 4", "Isadora.app"),
+                "Catalog documented usual Isadora 4 macOS application location")],
+            [],
+            [],
+            [])
+        {
+            WindowsProgramFilesLocations =
+            [new("InstalledApplication", "Isadora 4",
+                "Catalog documented usual Isadora 4 Windows installation location")]
         },
         new(
             SeratoDjProPluginId,

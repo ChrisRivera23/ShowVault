@@ -244,7 +244,7 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         var candidates = new LocalRecoveryCandidateDiscovery(
             new FixedLocationProvider(standardLocations)).Discover();
 
-        Assert.Equal(platform == LocalApplicationPlatform.MacOs ? 24 : 23, candidates.Count);
+        Assert.Equal(platform == LocalApplicationPlatform.MacOs ? 25 : 24, candidates.Count);
         Assert.Equal(2, candidates.Count(candidate =>
             candidate.PluginId == ResolumeDiscoveryPlugin.PluginId &&
             candidate.CandidateType == "InstalledApplication"));
@@ -727,6 +727,65 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         Assert.All(candidates, candidate =>
         {
             Assert.Equal(LocalApplicationDetectionRegistry.MadMapperPluginId, candidate.PluginId);
+            Assert.True(candidate.RequiresOperatorApproval);
+        });
+    }
+
+    [Fact]
+    public void Catalog_registry_finds_only_documented_isadora_4_applications()
+    {
+        var macApplicationsRoot = Path.Combine(_root, "macOS", "Applications");
+        var macApplication = Path.Combine(macApplicationsRoot, "Isadora 4", "Isadora.app");
+        var renamedMacApplication = Path.Combine(macApplicationsRoot, "Isadora 4.1", "Isadora.app");
+        var programFilesRoot = Path.Combine(_root, "Windows", "ProgramFiles");
+        var windowsApplication = Path.Combine(programFilesRoot, "Isadora 4");
+        var programFilesX86Root = Path.Combine(_root, "Windows", "ProgramFilesX86");
+        var x86Application = Path.Combine(programFilesX86Root, "Isadora 4");
+        var userHome = Path.Combine(_root, "Users", "operator");
+        var customProject = Path.Combine(userHome, "Desktop", "Venue Show.izz");
+        Directory.CreateDirectory(macApplication);
+        Directory.CreateDirectory(renamedMacApplication);
+        Directory.CreateDirectory(windowsApplication);
+        Directory.CreateDirectory(x86Application);
+        Directory.CreateDirectory(Path.GetDirectoryName(customProject)!);
+        File.WriteAllText(customProject, "synthetic project fixture");
+        var registry = new LocalApplicationDetectionRegistry();
+
+        var macOsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.MacOs,
+                [macApplicationsRoot],
+                [userHome])
+            .Where(location => location.PluginId == LocalApplicationDetectionRegistry.IsadoraPluginId)
+            .ToArray();
+        var windowsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.Windows,
+                [programFilesX86Root],
+                [userHome],
+                windowsProgramFilesRoots: [programFilesRoot])
+            .Where(location => location.PluginId == LocalApplicationDetectionRegistry.IsadoraPluginId)
+            .ToArray();
+
+        var macLocation = Assert.Single(macOsLocations);
+        Assert.Equal(macApplication, macLocation.Path);
+        Assert.Equal("InstalledApplication", macLocation.CandidateType);
+        Assert.Equal("TroikaTronix Isadora 4", macLocation.ProductName);
+        var windowsLocation = Assert.Single(windowsLocations);
+        Assert.Equal(windowsApplication, windowsLocation.Path);
+        Assert.Equal("InstalledApplication", windowsLocation.CandidateType);
+        Assert.Equal("TroikaTronix Isadora 4", windowsLocation.ProductName);
+        Assert.DoesNotContain(macOsLocations, location => location.Path == renamedMacApplication);
+        Assert.DoesNotContain(windowsLocations, location => location.Path == x86Application);
+        Assert.DoesNotContain(macOsLocations.Concat(windowsLocations), location =>
+            location.Path == customProject || location.CandidateType == "ProjectRoot");
+        Assert.All(macOsLocations.Concat(windowsLocations), location =>
+            Assert.StartsWith("Catalog documented usual", location.Evidence, StringComparison.Ordinal));
+
+        var candidates = new LocalRecoveryCandidateDiscovery(
+            new FixedLocationProvider(macOsLocations.Concat(windowsLocations).ToArray())).Discover();
+        Assert.Equal(2, candidates.Count);
+        Assert.All(candidates, candidate =>
+        {
+            Assert.Equal(LocalApplicationDetectionRegistry.IsadoraPluginId, candidate.PluginId);
             Assert.True(candidate.RequiresOperatorApproval);
         });
     }
