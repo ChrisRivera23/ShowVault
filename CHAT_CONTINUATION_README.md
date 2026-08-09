@@ -15,13 +15,13 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/panasonic-camera-identification`
-- Latest completed feature: `27919a5 feat: identify Panasonic PTZ cameras`
+- Branch: `codex/sony-camera-identification`
+- Latest completed feature: `635efe9 feat: identify Sony PTZ cameras`
 - Latest research decision: `74bcf17 docs: defer unsafe PTZOptics identification`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
-- Verified baseline: all 16 focused Panasonic protocol fixtures and all 377 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
-- The complete baseline also has 2 contract tests, 25 platform tests, 7 API tests, Flutter analysis, and 19 Flutter tests passing; API Release build passes with 0 warnings and 0 errors, and EF Core reports no pending model changes
+- Verified baseline: all 21 focused Sony protocol fixtures and all 398 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
+- The complete baseline also has 2 contract tests, 26 platform tests, 7 API tests, Flutter analysis, and 20 Flutter tests passing; repository-wide Agent and API formatting and the API Release build pass with 0 warnings and 0 errors, and EF Core reports no pending model changes
 - Blackmagic's official protocol PDF resolves with HTTP 206, was rendered, and its complete zero-byte initial status example was inspected
 - `git diff --check` passes; migration `20260809101018_AddBlackmagicVideohubIdentificationResults` exactly matches the current model
 - One full parallel Agent run had a transient failure in the duplicate-field TCP fixture; the isolated fixture passed immediately, the full 336-test Agent suite passed on rerun, and the complete 7-fixture Blackmagic class passed again after the final validation change
@@ -65,6 +65,10 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Panasonic verification: 16 focused protocol fixtures, 377 Agent tests, 7 API tests, 25 platform tests, 2 contract tests, and 19 Flutter tests pass; Flutter analysis and repository-wide Agent formatting pass; Agent and API Release builds pass with 0 warnings and 0 errors; EF Core reports no pending model changes; `git diff --check` passes; and all three cited official Panasonic URLs returned HTTP 200
 - The first Panasonic fixture run exposed an encoded `%3F` in the request target; URI construction was corrected to send the exact documented query, after which all focused and full suites passed
 - One parallel API Release build encountered a transient shared contracts-DLL file lock while the Agent Release build was using the same output; the API Release build passed immediately when rerun serially with 0 warnings and 0 errors
+- Protocol 1.18 adds separately authorized Sony BRC-X400/X401, SRG-X400/X402/201M2/X120/HD1M2, and SRG-A40/A12 identification against at most 32 responders retained by one exact completed discovery. The Agent sends only Sony's official read-only `GET /command/inquiry.cgi?inq=system` on TCP 80 with the documented same-host `Referer`, uses a 100-500 ms timeout, caps headers and the privacy-bearing grouped response at 16,384 bytes, disables proxies and redirects, and accepts exactly one case-sensitive allowlisted `ModelName`
+- Sony camera state has independent tenant-scoped pending/completed/failed persistence, exact command/discovery/Agent correlation, migration `20260809213408_AddSonyCameraIdentificationResults`, an owner-authorized API endpoint, and a native dashboard action. Addresses and raw responses remain Agent-local; only bounded counts and exact allowlisted product names reach the control plane
+- Sony verification: 21 focused protocol fixtures, 398 Agent tests, 7 API tests, 26 platform tests, 2 contract tests, and 20 Flutter tests pass; Flutter analysis and repository-wide Agent/API formatting pass; Agent and API Release builds pass with 0 warnings and 0 errors; EF Core reports no pending model changes; and `git diff --check` passes
+- Both official Sony CGI manual URLs returned HTTP 403 to command-line HEAD requests while remaining readable through Sony's indexed web documents. The implementation uses only the exact read-only system inquiry and published literals; it never sends credentials or retries a 401, and synthetic HTTP fixtures only were used
 - Digital Projection was a documentation-only research decision: `git diff --check` passed and both official source links resolved; runtime tests were not rerun because no implementation, test, contract, migration, or build input changed
 
 ## Current discovery position
@@ -101,19 +105,20 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - PTZOptics automatic network identification is deferred. Official VISCA inquiries expose state but no identity, and the authenticated HTTP device-info example does not establish a stable exact model mapping. No credentials, authentication weakening, editable-name/internal-code inference, generic-protocol inference, mDNS/Fleet Manager discovery, privacy-bearing collection, scanner, real-camera contact, or support credit was added.
 - Protocol 1.16 identifies only BirdDog P200 A4/A5 from the exact official REST hardware identifier. Other BirdDog models/revisions, generic NDI/VISCA/ONVIF/HTTP behavior, hostname/serial/firmware collection, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported.
 - Protocol 1.17 identifies only Panasonic AW-UE150A and AW-UE100 from the exact official AW-over-IP `QID` responses. Panasonic projector PJLink evidence remains separate. UE160, UE80/UE50/UE40, and every other model are safe false negatives because their current model examples are inconsistent or no exact literal was allowlisted. Generic AW/HTTP/VISCA/ONVIF/NDI behavior, camera titles, versions, credentials, authentication weakening, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported.
+- Protocol 1.18 identifies only Sony BRC-X400/X401, SRG-X400/X402/201M2/X120/HD1M2, and SRG-A40/A12 from exact official CGI `ModelName` values. The grouped system response is capped and discarded after parsing; addresses and matches persist only in Agent-local SQLite. Credentials are never sent and 401 responses are safe false negatives. Other models, duplicate/conflicting fields, generic CGI/VISCA/ONVIF/NDI/HTTP behavior, projector/broadcast evidence, camera names, serials, versions, authentication weakening, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official primary sources for a bounded, read-only, exact product-identity contract for the Sony row under `PTZ and cameras`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral. Keep PTZ-camera evidence separate from existing Sony projector and broadcast-device research.
+Research official primary sources for a bounded, read-only, exact product-identity contract for the Allen & Heath row under `Audio manufacturers`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral.
 
 Required boundaries:
 
-- Start from the Sony row under `PTZ and cameras` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
-- Require official primary sources from Sony for a bounded, read-only request and exact literal PTZ-camera product identity; distinguish camera identity from existing projector/broadcast-device evidence, reachability, configuration, control, validation, backup, verification, and restore states.
+- Start from the Allen & Heath row under `Audio manufacturers` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
+- Require official primary sources from Allen & Heath for a bounded, read-only request and exact literal product identity; distinguish identity from reachability, protocol compatibility, configuration, control, validation, backup, verification, and restore states.
 - Keep addresses and raw responses Agent-local. Publish only bounded counts and exact product/type/evidence metadata through the existing path-free contract.
-- Do not infer Sony PTZ-camera identity from projector/broadcast-device research or generic VISCA, CGI, ONVIF, NDI, HTTP, mDNS, SSDP, or port reachability, and do not add broadcast/multicast discovery or weaken authentication.
-- Use synthetic protocol fixtures for any implementation. Do not contact the Product Owner's cameras or network without explicit authorization.
+- Do not infer Allen & Heath identity from generic TCP, MIDI, OSC, Dante, AES67, mDNS, broadcast, or port reachability, and do not add broadcast/multicast discovery, credentials, authentication weakening, configuration, or control.
+- Use synthetic protocol fixtures for any implementation. Do not contact the Product Owner's equipment or network without explicit authorization.
 - Do not claim successful configuration, control, backup, validation, verification, or restore from an identification-only slice.
 
 ## Required workflow
