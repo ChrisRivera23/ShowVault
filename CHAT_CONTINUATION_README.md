@@ -15,8 +15,8 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/isadora-catalog-detection`
-- Latest completed feature: `9a676c0 feat: detect documented Isadora 4 applications`
+- Branch: `codex/ventana-catalog-research`
+- Latest completed research: `66cafc3 docs: defer ambiguous Ventana catalog entry`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Verified baseline: 2 contract tests, 21 platform tests, 305 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
@@ -29,20 +29,20 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Resolved paths remain Agent-local. The control plane receives opaque candidate IDs and bounded product/type/evidence metadata.
 - Installed, recoverable-data, approved, validated, protected, verified, and restored states remain distinct.
 - Existing local catalog coverage includes Resolume, supported DJ applications, disguise Designer, WATCHOUT, Hippotizer, PIXERA, Christie Pandoras Box, TouchDesigner, MadMapper 6, Isadora 4, and bounded Engine OS removable roots.
-- HeavyM, Millumin, and Ventuz automatic detection are deferred because official primary sources do not publish dependable standard application/project roots.
+- HeavyM, Millumin, and Ventuz automatic detection are deferred because official primary sources do not publish dependable standard application/project roots. Ventana is separately deferred because the catalog label does not resolve to a unique professional playback product.
 - Real venue hardware, installed applications, projects, and removable media remain uninspected unless the Product Owner explicitly authorizes testing.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official Ventana primary sources. Add catalog-driven installed-application and project-root detection only if those sources document dependable stable standard locations. Use synthetic platform-shaped fixtures. If dependable paths are not documented, record an evidence-backed deferral instead of guessing.
+Research official Christie projector primary sources for a read-only, model-specific network identity contract. Add bounded fixture-backed identification only if the protocol and response signature are documented. If primary sources do not establish a safe identity boundary, record an evidence-backed deferral instead of probing real hardware or guessing from generic behavior.
 
 Required boundaries:
 
-- Extend the reusable catalog/provider architecture; do not add a product-specific host scanner.
-- Check only declared standard paths and candidate existence; do not read candidate contents.
-- Keep paths Agent-local and publish only opaque, bounded metadata.
-- Do not claim Ventana validation, backup, verification, restore, hardware identification, or media support in this detection-only slice.
+- Extend the existing bounded network-identification architecture; do not couple Christie projector identity to the Pandoras Box application plugin.
+- Require a documented read-only request and model-specific response signature; generic reachability, HTTP titles, open ports, mDNS, SNMP, or manufacturer strings alone are insufficient.
+- Keep addresses, interface details, and raw responses Agent-local; publish only the existing bounded path-free identification metadata.
+- Use synthetic protocol fixtures. Do not contact real Christie hardware without explicit Product Owner authorization or claim configuration, backup, verification, or restore support in this identification-only slice.
 
 ## Required workflow
 
