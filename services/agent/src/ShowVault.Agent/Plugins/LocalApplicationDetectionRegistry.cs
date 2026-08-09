@@ -16,7 +16,8 @@ public sealed record LocalApplicationVersionDirectory(
     string ParentRelativePath,
     string DirectoryNamePrefix,
     string ChildRelativePath,
-    string Evidence);
+    string Evidence,
+    string DirectoryNameSuffix = "");
 
 public sealed record LocalApplicationCatalogEntry(
     string PluginId,
@@ -52,6 +53,7 @@ public sealed class LocalApplicationDetectionRegistry
     public const string PixeraPluginId = "showvault.pixera";
     public const string ChristiePandorasBoxPluginId = "showvault.christie-pandoras-box";
     public const string TouchDesignerPluginId = "showvault.touchdesigner";
+    public const string MadMapperPluginId = "showvault.madmapper";
     private const int MaximumVersionDirectoryCount = 32;
     private const int MaximumMountedVolumeCount = 64;
 
@@ -140,6 +142,28 @@ public sealed class LocalApplicationDetectionRegistry
             [new("InstalledApplication", "Derivative", "TouchDesigner.",
                 Path.Combine("bin", "TouchDesigner.exe"),
                 "Catalog documented versioned TouchDesigner Windows installation location")]
+        },
+        new(
+            MadMapperPluginId,
+            "MadMapper 6",
+            [],
+            [],
+            [],
+            [])
+        {
+            MacOsVersionDirectories =
+            [new("InstalledApplication", "", "MadMapper 6.",
+                Path.Combine("Contents", "MacOS", "MadMapper"),
+                "Catalog documented versioned MadMapper 6 macOS application location", ".app")],
+            WindowsProgramFilesVersionDirectories =
+            [new("InstalledApplication", "", "MadMapper 6.", "MadMapper.exe",
+                "Catalog documented versioned MadMapper 6 Windows installation location")],
+            MacOsUserVersionDirectories =
+            [new("ProjectRoot", Path.Combine("Documents", "MadMapper"), "", "",
+                "Catalog documented default MadMapper 6 project-workspace location", ".madproject")],
+            WindowsUserVersionDirectories =
+            [new("ProjectRoot", Path.Combine("Documents", "MadMapper"), "", "",
+                "Catalog documented default MadMapper 6 project-workspace location", ".madproject")]
         },
         new(
             SeratoDjProPluginId,
@@ -379,8 +403,14 @@ public sealed class LocalApplicationDetectionRegistry
                 {
                     var parent = Path.Combine(root, location.ParentRelativePath);
                     var versionDirectories = Directory.EnumerateDirectories(parent)
-                        .Where(path => Path.GetFileName(path).StartsWith(
-                            location.DirectoryNamePrefix, StringComparison.OrdinalIgnoreCase))
+                        .Where(path =>
+                        {
+                            var directoryName = Path.GetFileName(path);
+                            return directoryName.StartsWith(
+                                       location.DirectoryNamePrefix, StringComparison.OrdinalIgnoreCase) &&
+                                   directoryName.EndsWith(
+                                       location.DirectoryNameSuffix, StringComparison.OrdinalIgnoreCase);
+                        })
                         .Order(StringComparer.OrdinalIgnoreCase)
                         .Take(MaximumVersionDirectoryCount)
                         .ToArray();

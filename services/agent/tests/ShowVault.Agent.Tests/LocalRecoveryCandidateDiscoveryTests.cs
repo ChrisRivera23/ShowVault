@@ -641,6 +641,97 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
     }
 
     [Fact]
+    public void Catalog_registry_finds_only_documented_madmapper_6_applications_and_workspaces()
+    {
+        var macApplicationsRoot = Path.Combine(_root, "macOS", "Applications");
+        var macExecutable = Path.Combine(
+            macApplicationsRoot, "MadMapper 6.1.0.app", "Contents", "MacOS", "MadMapper");
+        var unversionedMacExecutable = Path.Combine(
+            macApplicationsRoot, "MadMapper.app", "Contents", "MacOS", "MadMapper");
+        var programFilesRoot = Path.Combine(_root, "Windows", "ProgramFiles");
+        var windowsExecutable = Path.Combine(
+            programFilesRoot, "MadMapper 6.1.0", "MadMapper.exe");
+        var programFilesX86Root = Path.Combine(_root, "Windows", "ProgramFilesX86");
+        var x86Executable = Path.Combine(
+            programFilesX86Root, "MadMapper 6.1.0", "MadMapper.exe");
+        var userHome = Path.Combine(_root, "Users", "operator");
+        var projectRoot = Path.Combine(
+            userHome, "Documents", "MadMapper", "Venue Show.madproject");
+        var legacyProjectFile = Path.Combine(
+            userHome, "Documents", "MadMapper", "Legacy Show.mad");
+        var customProjectRoot = Path.Combine(
+            userHome, "Desktop", "Custom Show.madproject");
+        Directory.CreateDirectory(Path.GetDirectoryName(macExecutable)!);
+        File.WriteAllText(macExecutable, "synthetic executable fixture");
+        Directory.CreateDirectory(Path.GetDirectoryName(unversionedMacExecutable)!);
+        File.WriteAllText(unversionedMacExecutable, "synthetic executable fixture");
+        Directory.CreateDirectory(Path.GetDirectoryName(windowsExecutable)!);
+        File.WriteAllText(windowsExecutable, "synthetic executable fixture");
+        Directory.CreateDirectory(Path.GetDirectoryName(x86Executable)!);
+        File.WriteAllText(x86Executable, "synthetic executable fixture");
+        Directory.CreateDirectory(projectRoot);
+        File.WriteAllText(legacyProjectFile, "synthetic legacy project fixture");
+        Directory.CreateDirectory(customProjectRoot);
+        var registry = new LocalApplicationDetectionRegistry();
+
+        var macOsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.MacOs,
+                [macApplicationsRoot],
+                [userHome])
+            .Where(location => location.PluginId == LocalApplicationDetectionRegistry.MadMapperPluginId)
+            .ToArray();
+        var windowsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.Windows,
+                [programFilesX86Root],
+                [userHome],
+                windowsProgramFilesRoots: [programFilesRoot])
+            .Where(location => location.PluginId == LocalApplicationDetectionRegistry.MadMapperPluginId)
+            .ToArray();
+
+        Assert.Collection(
+            macOsLocations.OrderBy(location => location.CandidateType),
+            location =>
+            {
+                Assert.Equal("InstalledApplication", location.CandidateType);
+                Assert.Equal(macExecutable, location.Path);
+                Assert.Equal("MadMapper 6", location.ProductName);
+            },
+            location =>
+            {
+                Assert.Equal("ProjectRoot", location.CandidateType);
+                Assert.Equal(projectRoot, location.Path);
+            });
+        Assert.Collection(
+            windowsLocations.OrderBy(location => location.CandidateType),
+            location =>
+            {
+                Assert.Equal("InstalledApplication", location.CandidateType);
+                Assert.Equal(windowsExecutable, location.Path);
+                Assert.Equal("MadMapper 6", location.ProductName);
+            },
+            location =>
+            {
+                Assert.Equal("ProjectRoot", location.CandidateType);
+                Assert.Equal(projectRoot, location.Path);
+            });
+        Assert.DoesNotContain(macOsLocations, location => location.Path == unversionedMacExecutable);
+        Assert.DoesNotContain(windowsLocations, location => location.Path == x86Executable);
+        Assert.DoesNotContain(macOsLocations.Concat(windowsLocations), location =>
+            location.Path == legacyProjectFile || location.Path == customProjectRoot);
+        Assert.All(macOsLocations.Concat(windowsLocations), location =>
+            Assert.StartsWith("Catalog documented", location.Evidence, StringComparison.Ordinal));
+
+        var candidates = new LocalRecoveryCandidateDiscovery(
+            new FixedLocationProvider(macOsLocations.Concat(windowsLocations).ToArray())).Discover();
+        Assert.Equal(4, candidates.Count);
+        Assert.All(candidates, candidate =>
+        {
+            Assert.Equal(LocalApplicationDetectionRegistry.MadMapperPluginId, candidate.PluginId);
+            Assert.True(candidate.RequiresOperatorApproval);
+        });
+    }
+
+    [Fact]
     public void Missing_locations_do_not_consume_the_discovered_candidate_limit()
     {
         var existing = Path.Combine(_root, "existing", "_Serato_");
