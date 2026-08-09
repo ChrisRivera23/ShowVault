@@ -43,6 +43,7 @@ public sealed class LocalApplicationDetectionRegistry
     public const string EngineOsPluginId = "showvault.engine-os";
     public const string DjayProPluginId = "showvault.djay-pro";
     public const string MixxxPluginId = "showvault.mixxx";
+    public const string DisguiseDesignerPluginId = "showvault.disguise-designer";
     private const int MaximumVersionDirectoryCount = 32;
     private const int MaximumMountedVolumeCount = 64;
 
@@ -62,6 +63,14 @@ public sealed class LocalApplicationDetectionRegistry
             [new("InstalledApplication", "Resolume Avenue", "Catalog standard Windows application location")],
             [new("UserDataRoot", Path.Combine("Documents", "Resolume Avenue"), "Catalog standard Resolume user-data location")],
             [new("UserDataRoot", Path.Combine("Documents", "Resolume Avenue"), "Catalog standard Resolume user-data location")]),
+        new(
+            DisguiseDesignerPluginId,
+            "disguise Designer",
+            [],
+            [],
+            [],
+            [new("UserDataRoot", Path.Combine("Documents", "d3 Projects"),
+                "Catalog documented default disguise Designer project-root location")]),
         new(
             SeratoDjProPluginId,
             "Serato DJ Pro",

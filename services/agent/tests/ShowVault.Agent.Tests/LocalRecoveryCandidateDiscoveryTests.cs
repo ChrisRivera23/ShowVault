@@ -226,7 +226,8 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
                      location.PluginId != LocalApplicationDetectionRegistry.EngineDjPluginId &&
                      location.PluginId != LocalApplicationDetectionRegistry.EngineOsPluginId &&
                      location.PluginId != LocalApplicationDetectionRegistry.DjayProPluginId &&
-                     location.PluginId != LocalApplicationDetectionRegistry.MixxxPluginId))
+                     location.PluginId != LocalApplicationDetectionRegistry.MixxxPluginId &&
+                     location.PluginId != LocalApplicationDetectionRegistry.DisguiseDesignerPluginId))
         {
             if (location.CandidateType == "InstalledApplication" && Path.HasExtension(location.Path))
             {
@@ -305,6 +306,48 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             candidate.PluginId == LocalApplicationDetectionRegistry.MixxxPluginId &&
             candidate.CandidateType == "UserDataRoot"));
         Assert.All(candidates, candidate => Assert.True(candidate.RequiresOperatorApproval));
+    }
+
+    [Fact]
+    public void Catalog_registry_finds_only_documented_default_disguise_designer_project_root()
+    {
+        var applicationRoot = Path.Combine(_root, "Windows", "Applications");
+        var userHome = Path.Combine(_root, "Windows", "Users", "operator");
+        var projectRoot = Path.Combine(userHome, "Documents", "d3 Projects");
+        Directory.CreateDirectory(projectRoot);
+        var registry = new LocalApplicationDetectionRegistry();
+
+        var windowsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.Windows,
+                [applicationRoot],
+                [userHome])
+            .Where(location =>
+                location.PluginId == LocalApplicationDetectionRegistry.DisguiseDesignerPluginId)
+            .ToArray();
+        var macOsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.MacOs,
+                [applicationRoot],
+                [userHome])
+            .Where(location =>
+                location.PluginId == LocalApplicationDetectionRegistry.DisguiseDesignerPluginId)
+            .ToArray();
+
+        var location = Assert.Single(windowsLocations);
+        Assert.Equal("disguise Designer", location.ProductName);
+        Assert.Equal("UserDataRoot", location.CandidateType);
+        Assert.Equal(projectRoot, location.Path);
+        Assert.Equal(
+            "Catalog documented default disguise Designer project-root location",
+            location.Evidence);
+        Assert.Empty(macOsLocations);
+        Assert.DoesNotContain(windowsLocations, candidate =>
+            candidate.CandidateType == "InstalledApplication");
+
+        var candidate = Assert.Single(new LocalRecoveryCandidateDiscovery(
+            new FixedLocationProvider(windowsLocations)).Discover());
+        Assert.Equal(LocalApplicationDetectionRegistry.DisguiseDesignerPluginId, candidate.PluginId);
+        Assert.Equal(projectRoot, candidate.Path);
+        Assert.True(candidate.RequiresOperatorApproval);
     }
 
     [Fact]
