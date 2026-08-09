@@ -33,9 +33,11 @@ The control plane correlates identification outcomes to the exact Agent, proposa
 
 Protocol 1.8 adds a separate manager-authorized Yamaha DME7 check using only the responders retained by one exact bounded discovery. The Agent uses Yamaha's documented TCP port 49280 and sends only the documented LF-terminated `devinfo productname` and `devinfo manufacturer` read queries. A match requires exact `DME7` and `Yamaha Corporation` responses. Addresses, matches, and bounded response handling remain Agent-local; path-free completion contains attempted/matched counts and `Yamaha DME7`. An open port, partial response, another Yamaha model, or generic reachability is not product evidence.
 
+Yamaha results use independent tenant-scoped pending/completed/failed state and exact Agent/proposal/discovery/identification correlation. Native onboarding offers a separate Yamaha action, polls pending work, and displays bounded path-free counts and family evidence without overwriting grandMA3 results. A new subnet decision or reachability discovery clears both product results because their responder authorization is stale.
+
 ## Next slices
 
-1. Persist bounded path-free Yamaha DME7 identification state/evidence without overwriting grandMA3 results and expose a separate native review action.
-2. Extend the model to L-Acoustics after Yamaha review is proven.
+1. Research official L-Acoustics protocol evidence and implement a separately authorized bounded identification only if a safe read-only primary signature is documented.
+2. Persist and review L-Acoustics evidence independently if that identification slice is defensible.
 3. Define a documented primary-evidence network signature before adding grandMA2 identification.
 4. Expand standard-location providers for supported workstation applications and export workflows.
