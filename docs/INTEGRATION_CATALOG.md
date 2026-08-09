@@ -88,7 +88,7 @@ Manufacturer names do not imply support for every product the company has shippe
 - Barco — automatic PJLink identification deferred because official G60 and Pulse documentation confirms PJLink support and the identity-query commands but does not publish literal `INF1` manufacturer or `INF2` model response values; authentication bypass is not assumed and generic PJLink support does not establish Barco identity
 - Panasonic — protocol 1.13 provides separately authorized, bounded PJLink identification for exact official `Panasonic` manufacturer responses paired with `DZ770`, `VW431DEA`, `RZ470`, or `RW430` model responses; authentication-enabled devices, other Panasonic models, configuration/control, and generic PJLink reachability remain unsupported
 - Epson — protocol 1.13 provides separately authorized, bounded PJLink identification for exact official `EPSON` manufacturer responses paired with `EPSON QB1000B` or `EPSON QB1000W` model responses; authentication-enabled devices, other Epson models, configuration/control, and generic PJLink reachability remain unsupported
-- Digital Projection
+- Digital Projection — automatic network identification deferred because the official E-Vision 8000i/10000i control workbook specifies only an unconstrained `<string>` response for its read-only `model.name ?` query; its UDP discovery example broadcasts privacy-bearing network/device fields and names an unrelated `HIGHLite 660`, so no target-bounded exact model signature is established
 - NEC
 - Sony
 
