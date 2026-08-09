@@ -26,8 +26,8 @@ The primary discovery goal is to start ShowVault at an unknown nightclub, concer
 Expected starting state
 
 - Repository: /Users/infamous/Documents/ChatGPT/showvault
-- Branch: codex/touchdesigner-catalog-detection
-- Latest feature commit: 8550389 feat: detect standard TouchDesigner installations
+- Branch: codex/heavym-catalog-research
+- Latest research-decision commit: 0c6d43d docs: defer HeavyM pending documented standard paths
 - Latest handoff: the HEAD documentation commit containing this file
 - Worktree clean except the pre-existing untracked NEXT_CONVERSATION.md
 - Verified baseline: 2 contract tests, 21 platform tests, 303 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
@@ -36,17 +36,17 @@ Expected starting state
 
 Next bounded objective
 
-Research official HeavyM primary sources, then add catalog-driven installed-application and project-root detection only for documented stable standard locations, with synthetic fixtures. If primary sources do not establish dependable paths, record an evidence-backed deferral instead of guessing.
+Research official MadMapper primary sources, then add catalog-driven installed-application and project-root detection only for documented stable standard locations, with synthetic fixtures. If primary sources do not establish dependable paths, record an evidence-backed deferral instead of guessing.
 
 Required boundaries
 
-- Research official HeavyM primary sources before defining any application or project location.
+- Research official MadMapper primary sources before defining any application or project location.
 - Extend the reusable catalog/provider architecture; do not add another product-specific host scanner.
 - Use automated platform-shaped filesystem fixtures only; do not inspect the Product Owner's installed applications or projects.
 - Check only declared standard paths and candidate existence; do not read candidate file contents.
 - Keep resolved paths Agent-local and publish only opaque candidate IDs with bounded product/type/evidence metadata.
 - Keep installed software, recoverable data, operator approval, validation, protection, verification, and restore state distinct.
-- Do not guess undocumented paths or claim HeavyM validation, backup, verification, restore, hardware identification, or media support in this detection-only slice.
+- Do not guess undocumented paths or claim MadMapper validation, backup, verification, restore, hardware identification, or media support in this detection-only slice.
 - Treat `docs/INTEGRATION_CATALOG.md` as the authoritative first prototype testing matrix; implemented products omitted from it remain outside the prototype testing commitment.
 
 Required workflow for every task
