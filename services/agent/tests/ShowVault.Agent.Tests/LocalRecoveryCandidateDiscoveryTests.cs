@@ -244,7 +244,7 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         var candidates = new LocalRecoveryCandidateDiscovery(
             new FixedLocationProvider(standardLocations)).Discover();
 
-        Assert.Equal(23, candidates.Count);
+        Assert.Equal(platform == LocalApplicationPlatform.MacOs ? 24 : 23, candidates.Count);
         Assert.Equal(2, candidates.Count(candidate =>
             candidate.PluginId == ResolumeDiscoveryPlugin.PluginId &&
             candidate.CandidateType == "InstalledApplication"));
@@ -576,6 +576,68 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         Assert.Equal(LocalApplicationDetectionRegistry.ChristiePandorasBoxPluginId, candidate.PluginId);
         Assert.Equal(executablePath, candidate.Path);
         Assert.True(candidate.RequiresOperatorApproval);
+    }
+
+    [Fact]
+    public void Catalog_registry_finds_only_documented_touchdesigner_installations()
+    {
+        var macApplicationsRoot = Path.Combine(_root, "macOS", "Applications");
+        var macApplication = Path.Combine(macApplicationsRoot, "TouchDesigner.app");
+        var renamedMacApplication = Path.Combine(macApplicationsRoot, "TouchDesigner Experimental.app");
+        var programFilesRoot = Path.Combine(_root, "Windows", "ProgramFiles");
+        var programFilesX86Root = Path.Combine(_root, "Windows", "ProgramFilesX86");
+        var windowsExecutable = Path.Combine(
+            programFilesRoot, "Derivative", "TouchDesigner.2023.12370", "bin", "TouchDesigner.exe");
+        var x86Executable = Path.Combine(
+            programFilesX86Root, "Derivative", "TouchDesigner.2023.12370", "bin", "TouchDesigner.exe");
+        var userHome = Path.Combine(_root, "Windows", "Users", "operator");
+        var guessedProjectRoot = Path.Combine(userHome, "Desktop", "TouchDesigner Projects");
+        Directory.CreateDirectory(macApplication);
+        Directory.CreateDirectory(renamedMacApplication);
+        Directory.CreateDirectory(Path.GetDirectoryName(windowsExecutable)!);
+        File.WriteAllText(windowsExecutable, "synthetic executable fixture");
+        Directory.CreateDirectory(Path.GetDirectoryName(x86Executable)!);
+        File.WriteAllText(x86Executable, "synthetic executable fixture");
+        Directory.CreateDirectory(guessedProjectRoot);
+        File.WriteAllText(Path.Combine(guessedProjectRoot, "show.toe"), "synthetic project fixture");
+        var registry = new LocalApplicationDetectionRegistry();
+
+        var macOsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.MacOs,
+                [macApplicationsRoot],
+                [userHome])
+            .Where(location => location.PluginId == LocalApplicationDetectionRegistry.TouchDesignerPluginId)
+            .ToArray();
+        var windowsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.Windows,
+                [programFilesX86Root],
+                [userHome],
+                windowsProgramFilesRoots: [programFilesRoot])
+            .Where(location => location.PluginId == LocalApplicationDetectionRegistry.TouchDesignerPluginId)
+            .ToArray();
+
+        var macLocation = Assert.Single(macOsLocations);
+        Assert.Equal(macApplication, macLocation.Path);
+        Assert.Equal("InstalledApplication", macLocation.CandidateType);
+        Assert.Equal("Derivative TouchDesigner", macLocation.ProductName);
+        var windowsLocation = Assert.Single(windowsLocations);
+        Assert.Equal(windowsExecutable, windowsLocation.Path);
+        Assert.Equal("InstalledApplication", windowsLocation.CandidateType);
+        Assert.Equal("Derivative TouchDesigner", windowsLocation.ProductName);
+        Assert.DoesNotContain(macOsLocations, candidate => candidate.Path == renamedMacApplication);
+        Assert.DoesNotContain(windowsLocations, candidate =>
+            candidate.Path == x86Executable || candidate.Path.StartsWith(guessedProjectRoot, StringComparison.Ordinal));
+        Assert.All(macOsLocations.Concat(windowsLocations), location =>
+            Assert.Equal("InstalledApplication", location.CandidateType));
+
+        var candidates = new LocalRecoveryCandidateDiscovery(
+            new FixedLocationProvider(macOsLocations.Concat(windowsLocations).ToArray())).Discover();
+        Assert.Equal(2, candidates.Count);
+        Assert.All(candidates, candidate =>
+        {
+            Assert.Equal(LocalApplicationDetectionRegistry.TouchDesignerPluginId, candidate.PluginId);
+            Assert.True(candidate.RequiresOperatorApproval);
+        });
     }
 
     [Fact]
