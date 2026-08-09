@@ -4,6 +4,8 @@
 
 ShowVault is an operating system for production infrastructure. Backup is one application inside a broader production-resilience platform. Its job is to let a production professional know—not merely hope—that an environment can be recovered.
 
+Its primary discovery promise is that an operator can start ShowVault at an unknown venue and scan for supported equipment and software represented in the integration catalog without first knowing its address, path, model, or vendor. This includes nightclubs, concert halls, houses of worship, touring systems, and similar production environments.
+
 ## Users and markets
 
 Primary users are AV technicians, technical directors, production managers, and production departments serving entertainment venues, nightclubs, touring productions, broadcast, universities, and houses of worship. Long-term markets include hospitality, theme parks, cruise ships, esports, enterprise, and government.
@@ -18,6 +20,8 @@ Primary users are AV technicians, technical directors, production managers, and 
 - Plugins use contracts and never write directly to the database.
 - Recovery never bypasses platform security.
 - Simple by default; advanced controls appear when needed.
+- Compatibility is designed and tested for older venue Macs and Windows PCs, not only current developer hardware. Every release must publish an honest minimum-OS matrix and avoid claiming support without testing.
+- Direct laptop-to-device Ethernet is a supported discovery scenario for equipment that is not connected to a venue network, subject to the same explicit authorization and product-signature requirements as any other active scan.
 
 ## Core workflow
 

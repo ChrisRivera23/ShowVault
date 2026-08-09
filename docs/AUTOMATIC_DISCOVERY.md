@@ -2,6 +2,8 @@
 
 ShowVault must be installable at an unknown venue without requiring the operator to pre-enter application paths, computer specifications, device addresses, or vendor inventory.
 
+The primary outcome is to start ShowVault and find supported venue equipment and software represented in the integration catalog, including systems used in nightclubs, concert halls, houses of worship, and comparable production spaces.
+
 ## Intended workflow
 
 1. Install the native client and Venue Agent.
@@ -12,6 +14,12 @@ ShowVault must be installable at an unknown venue without requiring the operator
 6. The operator reviews findings and chooses what to protect.
 
 Manual path and endpoint entry remains an advanced fallback, not the primary onboarding experience.
+
+## Compatibility and direct-connection requirements
+
+Discovery must work on a documented, tested range of older macOS and Windows venue computers rather than assuming current hardware or operating systems. The client, Agent, installer, local database, credential storage, and plugin runtime must each have explicit minimum versions. Unsupported systems must receive a clear explanation and practical fallback; release packaging must not silently raise minimum versions.
+
+A laptop connected directly to one device by Cat5/Cat6 is a required test topology for non-networked equipment such as a grandMA2 console or Yamaha DM7. Directly connected private IPv4 interfaces should follow the existing proposal, approval, bounded reachability, and separately authorized product-identification flow. IPv4 link-local/self-assigned connections are not supported by the current slice because it excludes `169.254.0.0/16`; a future design must distinguish one physical direct link from routed or virtual interfaces, apply strict host and timeout limits, and require explicit approval before contacting it. Direct connection never permits configuration, synchronization, or generic-banner identification.
 
 ## Security boundary
 
