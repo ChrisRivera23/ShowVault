@@ -15,8 +15,8 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/blackmagic-broadcast-identification`
-- Latest completed feature: `6c3999a feat: identify Blackmagic Smart Videohub`
+- Branch: `codex/sony-broadcast-identification`
+- Latest completed research decision: `5ebca61 docs: defer unsafe Sony broadcast discovery`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Verified baseline: 7 focused Blackmagic Videohub protocol fixtures and all 336 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
@@ -24,9 +24,11 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Blackmagic's official protocol PDF resolves with HTTP 206, was rendered, and its complete zero-byte initial status example was inspected
 - `git diff --check` passes; migration `20260809101018_AddBlackmagicVideohubIdentificationResults` exactly matches the current model
 - One full parallel Agent run had a transient failure in the duplicate-field TCP fixture; the isolated fixture passed immediately, the full 336-test Agent suite passed on rerun, and the complete 7-fixture Blackmagic class passed again after the final validation change
-- Sony's official protocol manual was rendered and its relevant PJLink and SDAP pages were inspected; `git diff --check` passes, and no implementation, test, contract, API, migration, or control-plane schema changed
-- Sony's CDN returned HTTP 403 to a command-line range request even though the official PDF remained readable through the indexed web document; source validation used the rendered primary-source pages rather than treating the CDN response as missing evidence
-- Runtime tests were not rerun for the Sony decision because only documentation changed
+- Sony projector research rendered the official common protocol manual and inspected its relevant PJLink and SDAP pages; `git diff --check` passed, and no implementation, test, contract, API, migration, or control-plane schema changed
+- During Sony projector research, Sony's CDN returned HTTP 403 to a command-line range request even though the official PDF remained readable through the indexed web document; source validation used the rendered primary-source pages rather than treating the CDN response as missing evidence
+- Runtime tests were not rerun for the Sony projector decision because only documentation changed
+- Sony broadcast-device research inspected the official LMD-1951MD SDCP/SDAP protocol and XVS-9000 product material. The published bounded TCP protocol has no exact model-identity exchange, while the identity-bearing alternative is a privacy-bearing periodic UDP broadcast; XVS material documents NMOS and optional SNMP capability without an exact bounded product-identity contract
+- `git diff --check` passes for the Sony broadcast decision. Both official Sony URLs returned HTTP 403 to command-line requests while remaining readable through Sony's indexed web documents; no runtime tests were rerun because only documentation changed
 - Digital Projection was a documentation-only research decision: `git diff --check` passed and both official source links resolved; runtime tests were not rerun because no implementation, test, contract, migration, or build input changed
 - Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged assertions in `AgentCommandExecutorTests.cs` at lines 997, 1003, 1009, and 1015
 
@@ -47,19 +49,20 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Protocol 1.14 adds separately authorized Blackmagic Smart Videohub 16x16 identification against the responders retained by one exact completed discovery. The Agent connects to TCP 9990, sends zero bytes, reads at most 4,096 bytes with a 100-500 ms per-host timeout, and requires the official version 2.3 preamble plus exact model and 16x16 capacity fields. At most 32 hosts are attempted. Addresses remain Agent-local; only counts and `Blackmagic Smart Videohub 16x16` reach the control plane.
 - Blackmagic Videohub state has independent tenant-scoped pending/completed/failed persistence, exact command/discovery correlation, an owner-authorized API endpoint, and a native dashboard action. Other Videohub models, HyperDeck, ATEM hardware, generic port reachability, control, configuration, backup, verification, and restore remain unsupported.
 - The pre-existing `showvault.blackmagic-atem` plugin still validates only ATEM XML state beneath operator-configured local roots and is not network identity evidence.
+- Sony broadcast-device automatic identification is deferred. The official LMD-1951MD SDCP transport exposes target-bounded monitor status/control but no exact model query and literal response; SDAP broadcasts product name with serial, location, community, power, and network fields. Official XVS-9000 material identifies NMOS and optional SNMP support without publishing an exact bounded identity exchange. Projector and PTZ/camera evidence is not reused, and no generic-protocol inference, broadcast listener, scanner, implementation, real-hardware contact, or support credit was added.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official Sony primary sources for an exact, read-only network identity contract for the broadcast-device catalog. Extend an existing manager-authorized bounded responder architecture only if a documented signature fits its authorization and privacy boundary. If primary sources do not establish a safe identity contract, record an evidence-backed deferral.
+Research official NewTek primary sources for an exact, read-only network identity contract for the broadcast-device catalog. Extend an existing manager-authorized bounded responder architecture only if a documented signature fits its authorization and privacy boundary. If primary sources do not establish a safe identity contract, record an evidence-backed deferral.
 
 Required boundaries:
 
-- Start from the Sony row under `Broadcast` in `docs/INTEGRATION_CATALOG.md`; Sony's deferred projector identity and any PTZ/camera catalog entry are separate scopes and do not establish broadcast-device identity.
-- Reuse an existing manager-authorized bounded responder set only when its prior authorization covers the documented protocol; do not add an unbounded Sony scanner.
+- Start from the NewTek row under `Broadcast` in `docs/INTEGRATION_CATALOG.md`; NDI protocol participation alone does not establish an exact NewTek product identity.
+- Reuse an existing manager-authorized bounded responder set only when its prior authorization covers the documented protocol; do not add an unbounded NewTek or NDI scanner.
 - Require a documented read-only request and exact response signature; generic reachability, HTTP titles, open ports, mDNS, multicast/broadcast advertisements, or mutable control endpoints alone are insufficient.
 - Keep addresses, interface details, and raw responses Agent-local; publish only the existing bounded path-free identification metadata.
-- Use synthetic protocol fixtures for any implementation. Do not contact real Sony broadcast hardware without explicit Product Owner authorization or claim configuration, backup, verification, or restore support in this identification-only slice.
+- Use synthetic protocol fixtures for any implementation. Do not contact real NewTek broadcast hardware without explicit Product Owner authorization or claim configuration, backup, verification, or restore support in this identification-only slice.
 
 ## Required workflow
 
