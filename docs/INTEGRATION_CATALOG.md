@@ -85,7 +85,7 @@ Manufacturer names do not imply support for every product the company has shippe
 ## Projection
 
 - Christie — protocol 1.13 provides separately authorized, bounded PJLink identification for exact official `CHRISTIE` manufacturer responses paired with `LX41` or `LW41` model responses; authentication-enabled devices, other Christie models, configuration/control, and generic PJLink reachability remain unsupported
-- Barco
+- Barco — automatic PJLink identification deferred because official G60 and Pulse documentation confirms PJLink support and the identity-query commands but does not publish literal `INF1` manufacturer or `INF2` model response values; authentication bypass is not assumed and generic PJLink support does not establish Barco identity
 - Panasonic
 - Epson
 - Digital Projection
