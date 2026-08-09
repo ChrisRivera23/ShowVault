@@ -26,27 +26,27 @@ The primary discovery goal is to start ShowVault at an unknown nightclub, concer
 Expected starting state
 
 - Repository: /Users/infamous/Documents/ChatGPT/showvault
-- Branch: codex/ventuz-catalog-research
-- Latest research-decision commit: 22d2b15 docs: defer Ventuz pending documented standard paths
+- Branch: codex/christie-pandoras-box-detection
+- Latest feature commit: f464aa6 feat: detect default Pandoras Box installations
 - Latest handoff: the HEAD documentation commit containing this file
 - Worktree clean except the pre-existing untracked NEXT_CONVERSATION.md
-- Verified baseline: 2 contract tests, 21 platform tests, 301 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
+- Verified baseline: 2 contract tests, 21 platform tests, 302 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
 - Changed-file Agent formatting passes; repository-wide Agent formatting reports four pre-existing whitespace findings in unchanged AgentCommandExecutorTests.cs
 - EF Core reports no pending model changes
 
 Next bounded objective
 
-Research official Christie Pandoras Box primary sources, then add catalog-driven installed-application and project-root detection only for documented stable standard locations, with synthetic fixtures. If primary sources do not establish dependable paths, record an evidence-backed deferral instead of guessing.
+Research official Derivative TouchDesigner primary sources, then add catalog-driven installed-application and project-root detection only for documented stable standard locations, with synthetic fixtures. If primary sources do not establish dependable paths, record an evidence-backed deferral instead of guessing.
 
 Required boundaries
 
-- Research official Christie Pandoras Box primary sources before defining any application or project location.
+- Research official Derivative TouchDesigner primary sources before defining any application or project location.
 - Extend the reusable catalog/provider architecture; do not add another product-specific host scanner.
 - Use automated platform-shaped filesystem fixtures only; do not inspect the Product Owner's installed applications or projects.
 - Check only declared standard paths and candidate existence; do not read candidate file contents.
 - Keep resolved paths Agent-local and publish only opaque candidate IDs with bounded product/type/evidence metadata.
 - Keep installed software, recoverable data, operator approval, validation, protection, verification, and restore state distinct.
-- Do not guess undocumented paths or claim Christie Pandoras Box validation, backup, verification, restore, hardware identification, or media support in this detection-only slice.
+- Do not guess undocumented paths or claim TouchDesigner validation, backup, verification, restore, hardware identification, or media support in this detection-only slice.
 - Treat `docs/INTEGRATION_CATALOG.md` as the authoritative first prototype testing matrix; implemented products omitted from it remain outside the prototype testing commitment.
 
 Required workflow for every task
