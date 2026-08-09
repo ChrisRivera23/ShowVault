@@ -90,7 +90,7 @@ Manufacturer names do not imply support for every product the company has shippe
 - Epson — protocol 1.13 provides separately authorized, bounded PJLink identification for exact official `EPSON` manufacturer responses paired with `EPSON QB1000B` or `EPSON QB1000W` model responses; authentication-enabled devices, other Epson models, configuration/control, and generic PJLink reachability remain unsupported
 - Digital Projection — automatic network identification deferred because the official E-Vision 8000i/10000i control workbook specifies only an unconstrained `<string>` response for its read-only `model.name ?` query; its UDP discovery example broadcasts privacy-bearing network/device fields and names an unrelated `HIGHLite 660`, so no target-bounded exact model signature is established
 - NEC — protocol 1.13 provides separately authorized, bounded identification using the official read-only Base Model Type request on TCP 7142 and exact checksummed signatures for NP-PH3501QL, NP-PH2601QL, NP-PX2000UL, or NP-PX2201UL; other NEC models, malformed responses, configuration/control, and generic PJLink or port reachability remain unsupported
-- Sony
+- Sony — automatic projector model identification deferred because the official common protocol manual publishes exact PJLink manufacturer response `SONY` but no literal `INF2` model value, enables authentication by default, and defines the alternative SDAP identity service as a privacy-bearing periodic broadcast; arbitrary model strings, authentication weakening, and broadcast collection remain unsupported
 
 ## Broadcast
 
