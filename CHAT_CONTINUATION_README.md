@@ -15,13 +15,13 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/birddog-identification`
-- Latest completed feature: `278d17d feat: identify BirdDog P200 cameras`
+- Branch: `codex/panasonic-camera-identification`
+- Latest completed feature: `27919a5 feat: identify Panasonic PTZ cameras`
 - Latest research decision: `74bcf17 docs: defer unsafe PTZOptics identification`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
-- Verified baseline: all 13 focused BirdDog protocol fixtures and all 361 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
-- The complete baseline also has 2 contract tests, 24 platform tests, 7 API tests, Flutter analysis, and 18 Flutter tests passing; API Release build passes with 0 warnings and 0 errors, and EF Core reports no pending model changes
+- Verified baseline: all 16 focused Panasonic protocol fixtures and all 377 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
+- The complete baseline also has 2 contract tests, 25 platform tests, 7 API tests, Flutter analysis, and 19 Flutter tests passing; API Release build passes with 0 warnings and 0 errors, and EF Core reports no pending model changes
 - Blackmagic's official protocol PDF resolves with HTTP 206, was rendered, and its complete zero-byte initial status example was inspected
 - `git diff --check` passes; migration `20260809101018_AddBlackmagicVideohubIdentificationResults` exactly matches the current model
 - One full parallel Agent run had a transient failure in the duplicate-field TCP fixture; the isolated fixture passed immediately, the full 336-test Agent suite passed on rerun, and the complete 7-fixture Blackmagic class passed again after the final validation change
@@ -60,9 +60,12 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Protocol 1.16 adds separately authorized BirdDog P200 A4/A5 identification against at most 32 responders retained by one completed discovery. The Agent sends only `GET /version` on TCP 8080 with a 100-500 ms timeout, caps the body at 64 bytes, and accepts only the exact official `BirdDog P200A4_A5` response with an optional terminal LF/CRLF
 - BirdDog results have independent tenant-scoped pending/completed/failed persistence, exact command/discovery correlation, migration `20260809211327_AddBirdDogIdentificationResults`, an owner-authorized API endpoint, and a native dashboard action. Addresses and raw bytes remain Agent-local; only counts and `BirdDog P200 (A4/A5)` reach the control plane
 - BirdDog verification: 361 Agent tests, 7 API tests, 24 platform tests, 2 contract tests, and 18 Flutter tests pass; Flutter analysis passes; Agent and API Release builds pass with 0 warnings and 0 errors; EF Core reports no pending model changes; `git diff --check` passes; and the official API URL returned HTTP 200
+- Protocol 1.17 adds separately authorized Panasonic AW-UE150A and AW-UE100 identification against at most 32 responders retained by one exact completed discovery. The Agent sends only Panasonic's official read-only `GET /cgi-bin/aw_cam?cmd=QID&res=1` on TCP 80, uses a 100-500 ms timeout, caps headers and the 64-byte body, disables proxies and redirects, and accepts only exact `OID:AW-UE150A` or `OID:AW-UE100` with an optional terminal LF/CRLF
+- Panasonic camera state has independent tenant-scoped pending/completed/failed persistence, exact command/discovery correlation, migration `20260809212601_AddPanasonicCameraIdentificationResults`, an owner-authorized API endpoint, and a native dashboard action. Addresses and raw bytes remain Agent-local; only counts and the exact allowlisted product names reach the control plane
+- Panasonic verification: 16 focused protocol fixtures, 377 Agent tests, 7 API tests, 25 platform tests, 2 contract tests, and 19 Flutter tests pass; Flutter analysis and repository-wide Agent formatting pass; Agent and API Release builds pass with 0 warnings and 0 errors; EF Core reports no pending model changes; `git diff --check` passes; and all three cited official Panasonic URLs returned HTTP 200
+- The first Panasonic fixture run exposed an encoded `%3F` in the request target; URI construction was corrected to send the exact documented query, after which all focused and full suites passed
 - One parallel API Release build encountered a transient shared contracts-DLL file lock while the Agent Release build was using the same output; the API Release build passed immediately when rerun serially with 0 warnings and 0 errors
 - Digital Projection was a documentation-only research decision: `git diff --check` passed and both official source links resolved; runtime tests were not rerun because no implementation, test, contract, migration, or build input changed
-- Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged assertions in `AgentCommandExecutorTests.cs` at lines 997, 1003, 1009, and 1015
 
 ## Current discovery position
 
@@ -97,18 +100,19 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - TinkerList automatic local detection is deferred. The current product is Cuez by TinkerList; official sources establish a cloud-based project workflow but no stable installed application path or bounded local media root. No executable/service/cache inference, account/cloud access, user-defined media-path scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
 - PTZOptics automatic network identification is deferred. Official VISCA inquiries expose state but no identity, and the authenticated HTTP device-info example does not establish a stable exact model mapping. No credentials, authentication weakening, editable-name/internal-code inference, generic-protocol inference, mDNS/Fleet Manager discovery, privacy-bearing collection, scanner, real-camera contact, or support credit was added.
 - Protocol 1.16 identifies only BirdDog P200 A4/A5 from the exact official REST hardware identifier. Other BirdDog models/revisions, generic NDI/VISCA/ONVIF/HTTP behavior, hostname/serial/firmware collection, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported.
+- Protocol 1.17 identifies only Panasonic AW-UE150A and AW-UE100 from the exact official AW-over-IP `QID` responses. Panasonic projector PJLink evidence remains separate. UE160, UE80/UE50/UE40, and every other model are safe false negatives because their current model examples are inconsistent or no exact literal was allowlisted. Generic AW/HTTP/VISCA/ONVIF/NDI behavior, camera titles, versions, credentials, authentication weakening, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official primary sources for a bounded, read-only, exact product-identity contract for the Panasonic row under `PTZ and cameras`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral. Keep PTZ-camera evidence separate from existing Panasonic projector signatures.
+Research official primary sources for a bounded, read-only, exact product-identity contract for the Sony row under `PTZ and cameras`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral. Keep PTZ-camera evidence separate from existing Sony projector and broadcast-device research.
 
 Required boundaries:
 
-- Start from the Panasonic row under `PTZ and cameras` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
-- Require official primary sources from Panasonic for a bounded, read-only request and exact literal PTZ-camera product identity; distinguish camera identity from existing projector evidence, reachability, configuration, control, validation, backup, verification, and restore states.
+- Start from the Sony row under `PTZ and cameras` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
+- Require official primary sources from Sony for a bounded, read-only request and exact literal PTZ-camera product identity; distinguish camera identity from existing projector/broadcast-device evidence, reachability, configuration, control, validation, backup, verification, and restore states.
 - Keep addresses and raw responses Agent-local. Publish only bounded counts and exact product/type/evidence metadata through the existing path-free contract.
-- Do not infer Panasonic PTZ-camera identity from projector signatures or generic AW, VISCA, ONVIF, NDI, HTTP, mDNS, SSDP, or port reachability, and do not add broadcast/multicast discovery or weaken authentication.
+- Do not infer Sony PTZ-camera identity from projector/broadcast-device research or generic VISCA, CGI, ONVIF, NDI, HTTP, mDNS, SSDP, or port reachability, and do not add broadcast/multicast discovery or weaken authentication.
 - Use synthetic protocol fixtures for any implementation. Do not contact the Product Owner's cameras or network without explicit authorization.
 - Do not claim successful configuration, control, backup, validation, verification, or restore from an identification-only slice.
 
