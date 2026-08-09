@@ -1165,7 +1165,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             Task.FromResult<string?>("grandMA2");
     }
 
-    private sealed class PjLinkProbe : IPjLinkProtocolProbe
+    private sealed class PjLinkProbe : IProjectorProtocolProbe
     {
         public Task<string?> IdentifyAsync(
             System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>

@@ -63,11 +63,38 @@ public sealed class PjLinkNetworkIdentificationTests
         Assert.Equal(2, result.AttemptedHostCount);
     }
 
-    private sealed class FixedProbe : IPjLinkProtocolProbe
+    [Fact]
+    public async Task CompositeProbeReturnsARecognizedFamilyFromTheBoundedProtocolSet()
+    {
+        var pjLink = new FixedFamilyProbe(null);
+        var nec = new FixedFamilyProbe("NEC NP-PH3501QL");
+        var probe = new ProjectorProtocolProbe([pjLink, nec]);
+
+        var result = await probe.IdentifyAsync(
+            IPAddress.Loopback, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal("NEC NP-PH3501QL", result);
+        Assert.True(pjLink.WasCalled);
+        Assert.True(nec.WasCalled);
+    }
+
+    private sealed class FixedProbe : IProjectorProtocolProbe
     {
         public Task<string?> IdentifyAsync(IPAddress address, TimeSpan timeout,
             CancellationToken cancellationToken) => Task.FromResult<string?>(
                 address.ToString().EndsWith(".2", StringComparison.Ordinal) ? "Christie LX41" : null);
+    }
+
+    private sealed class FixedFamilyProbe(string? family) : IProjectorProtocolProbe
+    {
+        public bool WasCalled { get; private set; }
+
+        public Task<string?> IdentifyAsync(IPAddress address, TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            WasCalled = true;
+            return Task.FromResult(family);
+        }
     }
 
     private sealed class PjLinkFixture : IAsyncDisposable

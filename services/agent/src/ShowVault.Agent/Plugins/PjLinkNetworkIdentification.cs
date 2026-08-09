@@ -4,12 +4,23 @@ using System.Text;
 
 namespace ShowVault.Agent.Plugins;
 
-public interface IPjLinkProtocolProbe
+public interface IProjectorProtocolProbe
 {
     Task<string?> IdentifyAsync(IPAddress address, TimeSpan timeout, CancellationToken cancellationToken);
 }
 
-public sealed class PjLinkProjectorProbe : IPjLinkProtocolProbe
+public sealed class ProjectorProtocolProbe(IReadOnlyList<IProjectorProtocolProbe> probes) : IProjectorProtocolProbe
+{
+    public async Task<string?> IdentifyAsync(
+        IPAddress address, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var results = await Task.WhenAll(probes.Select(
+            probe => probe.IdentifyAsync(address, timeout, cancellationToken)));
+        return results.FirstOrDefault(result => result is not null);
+    }
+}
+
+public sealed class PjLinkProjectorProbe : IProjectorProtocolProbe
 {
     private const int Port = 4_352;
     private const int MaximumLineBytes = 256;
@@ -69,7 +80,7 @@ public sealed record PjLinkIdentificationResult(
     Guid ProposalId, Guid DiscoveryCommandId, int AttemptedHostCount,
     IReadOnlyList<PjLinkIdentification> Identifications, DateTimeOffset CompletedAt);
 
-public sealed class PjLinkNetworkIdentification(IPjLinkProtocolProbe probe, TimeProvider timeProvider)
+public sealed class PjLinkNetworkIdentification(IProjectorProtocolProbe probe, TimeProvider timeProvider)
 {
     public async Task<PjLinkIdentificationResult> IdentifyAsync(
         Guid proposalId, Guid discoveryCommandId, IReadOnlyList<string> hosts,
