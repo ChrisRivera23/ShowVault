@@ -40,6 +40,7 @@ public sealed class LocalApplicationDetectionRegistry
     public const string VirtualDjPluginId = "showvault.virtualdj";
     public const string EngineDjPluginId = "showvault.engine-dj";
     public const string DjayProPluginId = "showvault.djay-pro";
+    public const string MixxxPluginId = "showvault.mixxx";
     private const int MaximumVersionDirectoryCount = 32;
 
     public IReadOnlyList<LocalApplicationCatalogEntry> Entries { get; } =
@@ -174,7 +175,23 @@ public sealed class LocalApplicationDetectionRegistry
                 new("UserDataRoot", Path.Combine("AppData", "Local", "Packages",
                         "59BEBC1A.djay_e3tqh12mt5rj6", "LocalCache", "Local", "Algoriddim", "djay"),
                     "Catalog current djay analysis and settings location")
-            ])
+            ]),
+        new(
+            MixxxPluginId,
+            "Mixxx",
+            [new("InstalledApplication", "Mixxx.app",
+                "Catalog standard macOS application location")],
+            [new("InstalledApplication", Path.Combine("Mixxx", "Mixxx.exe"),
+                "Catalog standard Windows application location")],
+            [
+                new("UserDataRoot", Path.Combine("Library", "Containers", "org.mixxx.mixxx", "Data",
+                        "Library", "Application Support", "Mixxx"),
+                    "Catalog Mixxx 2.3 and later macOS settings location"),
+                new("UserDataRoot", Path.Combine("Library", "Application Support", "Mixxx"),
+                    "Catalog Mixxx 2.2 and earlier macOS settings location")
+            ],
+            [new("UserDataRoot", Path.Combine("AppData", "Local", "Mixxx"),
+                "Catalog current Windows settings location")])
     ];
 
     public IReadOnlyList<StandardLocationCandidate> GetCandidates(
