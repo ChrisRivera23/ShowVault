@@ -15,9 +15,9 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/tinkerlist-local-identification`
+- Branch: `codex/ptzoptics-identification`
 - Latest completed feature: `b341808 feat: identify standard ProPresenter data`
-- Latest research decision: `261f7da docs: defer unsafe TinkerList discovery`
+- Latest research decision: `74bcf17 docs: defer unsafe PTZOptics identification`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Verified baseline: all 19 focused local-recovery candidate tests and all 348 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
@@ -55,6 +55,8 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - All four official CuePilot help URLs returned HTTP 403 to command-line requests while their indexed primary-source contents remained readable. `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, filesystem-discovery, file-content, account/cloud-access, media-inspection, or network-path change. Runtime tests were not rerun because only documentation changed
 - TinkerList research reconciled the catalog row to the current Cuez by TinkerList product. Its rundown/project workflow is cloud-based; official Automator guidance publishes Windows and macOS downloads but no stable installed executable or bundle path; and downloaded Episode media uses an operator-defined location that may be on another computer or separate storage and may be automatically deleted
 - All four official Cuez/TinkerList source URLs returned HTTP 200. `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, filesystem-discovery, file-content, process inspection, account/cloud-access, media-inspection, or network-path change. Runtime tests were not rerun because only documentation changed
+- PTZOptics research inspected the complete rendered three-page official VISCA command PDF and the current VISCA query reference; neither publishes a manufacturer or model inquiry. The digest-authenticated HTTP device-info endpoint covers Move 4K and Link 4K but publishes only one example containing an editable name, serial/firmware data, and undocumented internal type/model codes
+- All five official PTZOptics source URLs returned HTTP 200. `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, scanner, protocol-fixture, credential, authentication, broadcast/multicast, real-device, raw-response, or network-path change. Runtime tests were not rerun because only documentation changed
 - Digital Projection was a documentation-only research decision: `git diff --check` passed and both official source links resolved; runtime tests were not rerun because no implementation, test, contract, migration, or build input changed
 - Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged assertions in `AgentCommandExecutorTests.cs` at lines 997, 1003, 1009, and 1015
 
@@ -89,18 +91,19 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Pandora's Box Manager current V8 installation is already covered by `showvault.christie-pandoras-box`; no duplicate plugin or candidate was added. Activation, enabled capability, legacy Manager editions, project data, validation, protection, backup, verification, and restore remain unsupported.
 - CuePilot automatic local detection is deferred. Official guidance publishes no dependable Windows installed path or bounded local project/media root. No application/cache/path inference, cloud access, export scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
 - TinkerList automatic local detection is deferred. The current product is Cuez by TinkerList; official sources establish a cloud-based project workflow but no stable installed application path or bounded local media root. No executable/service/cache inference, account/cloud access, user-defined media-path scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
+- PTZOptics automatic network identification is deferred. Official VISCA inquiries expose state but no identity, and the authenticated HTTP device-info example does not establish a stable exact model mapping. No credentials, authentication weakening, editable-name/internal-code inference, generic-protocol inference, mDNS/Fleet Manager discovery, privacy-bearing collection, scanner, real-camera contact, or support credit was added.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official primary sources for a bounded, read-only, exact product-identity contract for the PTZOptics row under `PTZ and cameras`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral.
+Research official primary sources for a bounded, read-only, exact product-identity contract for the BirdDog row under `PTZ and cameras`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral.
 
 Required boundaries:
 
-- Start from the PTZOptics row under `PTZ and cameras` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
-- Require official primary sources from PTZOptics for a bounded, read-only request and exact literal product identity; distinguish product identity, reachability, configuration, control, validation, backup, verification, and restore states.
+- Start from the BirdDog row under `PTZ and cameras` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
+- Require official primary sources from BirdDog for a bounded, read-only request and exact literal product identity; distinguish product identity, reachability, configuration, control, validation, backup, verification, and restore states.
 - Keep addresses and raw responses Agent-local. Publish only bounded counts and exact product/type/evidence metadata through the existing path-free contract.
-- Do not infer PTZOptics identity from generic ONVIF, VISCA, NDI, HTTP, mDNS, SSDP, or port reachability, and do not add broadcast/multicast discovery or weaken authentication.
+- Do not infer BirdDog identity from generic NDI, VISCA, ONVIF, HTTP, mDNS, SSDP, or port reachability, and do not add broadcast/multicast discovery or weaken authentication.
 - Use synthetic protocol fixtures for any implementation. Do not contact the Product Owner's cameras or network without explicit authorization.
 - Do not claim successful configuration, control, backup, validation, verification, or restore from an identification-only slice.
 
