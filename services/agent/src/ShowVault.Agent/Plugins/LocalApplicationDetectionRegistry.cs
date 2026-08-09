@@ -50,6 +50,7 @@ public sealed class LocalApplicationDetectionRegistry
     public const string WatchoutPluginId = "showvault.watchout";
     public const string HippotizerPluginId = "showvault.hippotizer";
     public const string PixeraPluginId = "showvault.pixera";
+    public const string ChristiePandorasBoxPluginId = "showvault.christie-pandoras-box";
     private const int MaximumVersionDirectoryCount = 32;
     private const int MaximumMountedVolumeCount = 64;
 
@@ -112,6 +113,18 @@ public sealed class LocalApplicationDetectionRegistry
             WindowsProgramFilesVersionDirectories =
             [new("InstalledApplication", Path.Combine("AV Stumpfl", "Pixera"), "build_", "presence",
                 "Catalog documented versioned PIXERA Windows installation location")]
+        },
+        new(
+            ChristiePandorasBoxPluginId,
+            "Christie Pandoras Box",
+            [],
+            [],
+            [],
+            [])
+        {
+            WindowsProgramFilesVersionDirectories =
+            [new("InstalledApplication", "Christie", "Pandoras Box ", "PandorasBox.exe",
+                "Catalog documented versioned Pandoras Box Windows installation location")]
         },
         new(
             SeratoDjProPluginId,

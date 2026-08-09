@@ -512,6 +512,73 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
     }
 
     [Fact]
+    public void Catalog_registry_finds_only_documented_versioned_pandoras_box_installation()
+    {
+        var programFilesRoot = Path.Combine(_root, "Windows", "ProgramFiles");
+        var programFilesX86Root = Path.Combine(_root, "Windows", "ProgramFilesX86");
+        var userHome = Path.Combine(_root, "Windows", "Users", "operator");
+        var installationRoot = Path.Combine(
+            programFilesRoot, "Christie", "Pandoras Box 8.3.0");
+        var executablePath = Path.Combine(installationRoot, "PandorasBox.exe");
+        var undocumentedX86Root = Path.Combine(
+            programFilesX86Root, "Christie", "Pandoras Box 8.3.0");
+        var customInstallRoot = Path.Combine(_root, "Windows", "Custom", "Pandoras Box 8.3.0");
+        var guessedProjectRoot = Path.Combine(userHome, "Documents", "Pandoras Box Projects");
+        Directory.CreateDirectory(installationRoot);
+        File.WriteAllText(executablePath, "synthetic executable fixture");
+        Directory.CreateDirectory(undocumentedX86Root);
+        File.WriteAllText(
+            Path.Combine(undocumentedX86Root, "PandorasBox.exe"),
+            "synthetic executable fixture");
+        Directory.CreateDirectory(customInstallRoot);
+        File.WriteAllText(
+            Path.Combine(customInstallRoot, "PandorasBox.exe"),
+            "synthetic executable fixture");
+        Directory.CreateDirectory(guessedProjectRoot);
+        File.WriteAllText(
+            Path.Combine(guessedProjectRoot, "show.pbb"),
+            "synthetic project fixture");
+        var registry = new LocalApplicationDetectionRegistry();
+
+        var windowsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.Windows,
+                [programFilesX86Root, customInstallRoot],
+                [userHome],
+                windowsProgramFilesRoots: [programFilesRoot])
+            .Where(location =>
+                location.PluginId == LocalApplicationDetectionRegistry.ChristiePandorasBoxPluginId)
+            .ToArray();
+        var macOsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.MacOs,
+                [programFilesRoot],
+                [userHome])
+            .Where(location =>
+                location.PluginId == LocalApplicationDetectionRegistry.ChristiePandorasBoxPluginId)
+            .ToArray();
+
+        var location = Assert.Single(windowsLocations);
+        Assert.Equal("Christie Pandoras Box", location.ProductName);
+        Assert.Equal("InstalledApplication", location.CandidateType);
+        Assert.Equal(executablePath, location.Path);
+        Assert.Equal(
+            "Catalog documented versioned Pandoras Box Windows installation location",
+            location.Evidence);
+        Assert.Empty(macOsLocations);
+        Assert.DoesNotContain(windowsLocations, candidate =>
+            candidate.CandidateType == "UserDataRoot");
+        Assert.DoesNotContain(windowsLocations, candidate =>
+            candidate.Path.StartsWith(undocumentedX86Root, StringComparison.Ordinal) ||
+            candidate.Path.StartsWith(customInstallRoot, StringComparison.Ordinal) ||
+            candidate.Path.StartsWith(guessedProjectRoot, StringComparison.Ordinal));
+
+        var candidate = Assert.Single(new LocalRecoveryCandidateDiscovery(
+            new FixedLocationProvider(windowsLocations)).Discover());
+        Assert.Equal(LocalApplicationDetectionRegistry.ChristiePandorasBoxPluginId, candidate.PluginId);
+        Assert.Equal(executablePath, candidate.Path);
+        Assert.True(candidate.RequiresOperatorApproval);
+    }
+
+    [Fact]
     public void Missing_locations_do_not_consume_the_discovered_candidate_limit()
     {
         var existing = Path.Combine(_root, "existing", "_Serato_");
