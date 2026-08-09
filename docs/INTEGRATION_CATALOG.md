@@ -112,7 +112,7 @@ Manufacturer names do not imply support for every product the company has shippe
 
 ## Show control and playback
 
-- QLab
+- QLab — automatic local detection deferred because Figure 53 documents `/Applications/QLab.app` but requires the operator to choose where each workspace or project folder is saved; automatic workspace backups are stored beside that chosen workspace, so no dependable bounded recovery root is published
 - SCS (Show Cue System)
 - PlaybackPro
 - Mitti
