@@ -40,3 +40,23 @@ flutter build macos --debug
 ```
 
 A macOS build requires full Xcode, not only the Command Line Tools.
+
+## Build a macOS personal-test artifact
+
+The packaging script creates a release-mode `ShowVault.app`, a ZIP suitable for transfer to another personal Mac, and a SHA-256 checksum. The output directory must be an absolute path that does not already exist:
+
+```bash
+./packaging/macos/build-app.sh /tmp/showvault-macos-personal-test
+```
+
+The default artifact connects to `https://api.showvault.app`. A controlled local build may use an explicit loopback HTTP endpoint:
+
+```bash
+./packaging/macos/build-app.sh \
+  /tmp/showvault-macos-local-test \
+  http://127.0.0.1:5000
+```
+
+Every other non-HTTPS endpoint is rejected. The endpoint is build configuration, not a venue identity: organizations and venues still come from the authenticated control plane, and no venue name, address, equipment, path, credential, or other private data is packaged. Native Auth0 clients use the repository's public client ID with Authorization Code + PKCE; no client secret is accepted or embedded.
+
+These artifacts are intentionally for personal-equipment testing. They are not signed or notarized and must not be installed at a venue. Signing, notarization, upgrade semantics, and clean-machine validation remain required by [`../../docs/PROTOTYPE_READINESS.md`](../../docs/PROTOTYPE_READINESS.md).

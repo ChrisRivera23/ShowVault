@@ -77,7 +77,7 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 
 ## Prioritized implementation sequence
 
-1. Produce a reproducible macOS operator-application release artifact and a personal-equipment clean-install procedure that does not require Flutter.
+1. Produce a reproducible macOS operator-application release artifact and a personal-equipment clean-install procedure that does not require Flutter. A release packaging script now creates a venue-neutral personal-test app/ZIP and checksum; clean-machine execution remains to be recorded.
 2. Run the existing self-contained macOS Agent package through the same clean-machine procedure and close packaging/validation defects.
 3. Replace development-only control-plane startup assumptions with a versioned deployable prototype environment and migration procedure.
 4. Connect venue creation, enrollment, configuration, and preflight into one attended onboarding path.
@@ -87,4 +87,4 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 
 ## Immediate bounded task
 
-Build and verify a versioned, unsigned-for-personal-testing macOS release artifact for the Flutter operator application. The artifact must use runtime-provided control-plane configuration, contain no Live Nightclub data or secrets, and launch on a personal Mac without Flutter, the repository, or a development command. Signing and notarization remain mandatory before venue installation and must not be implied by the personal-test artifact.
+Build and verify the venue-neutral macOS personal-test artifact on the development Mac, then transfer that exact ZIP to a separate personal Mac and record launch, Auth0 callback, control-plane connectivity, and checksum evidence without installing Flutter or cloning the repository. Signing and notarization remain mandatory before venue installation and must not be implied by the personal-test artifact.
