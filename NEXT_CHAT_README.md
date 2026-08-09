@@ -26,8 +26,8 @@ The primary discovery goal is to start ShowVault at an unknown nightclub, concer
 Expected starting state
 
 - Repository: /Users/infamous/Documents/ChatGPT/showvault
-- Branch: codex/engine-dj-catalog-detection
-- Latest feature commit: 1f5609e feat: detect catalog Engine DJ locations
+- Branch: codex/djay-pro-catalog-detection
+- Latest feature commit: bebda8f feat: detect catalog djay Pro locations
 - Latest handoff: the HEAD documentation commit containing this file
 - Worktree clean except the pre-existing untracked NEXT_CONVERSATION.md
 - Verified baseline: 2 contract tests, 21 platform tests, 296 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
@@ -35,17 +35,17 @@ Expected starting state
 
 Next bounded objective
 
-Research official Algoriddim djay Pro primary sources, then add catalog-driven djay Pro detection for documented standard macOS and Windows application and per-user recovery-data locations, with cross-platform automated fixtures.
+Research official Mixxx primary sources, then add catalog-driven Mixxx detection for documented standard macOS and Windows application and per-user recovery-data locations, with cross-platform automated fixtures.
 
 Required boundaries
 
-- Research official Algoriddim djay Pro primary sources before defining any standard location.
+- Research official Mixxx primary sources before defining any standard location.
 - Extend the existing local-application catalog registry; do not add another product-specific host scanner.
 - Use automated macOS- and Windows-shaped filesystem fixtures only; do not inspect the Product Owner's installed applications or personal library.
 - Check only declared standard paths and candidate existence; do not read candidate file contents.
 - Keep resolved paths Agent-local and publish only opaque candidate IDs with bounded product/type/evidence metadata.
 - Keep installed software, recoverable data, operator approval, validation, protection, verification, and restore state distinct.
-- Do not claim djay Pro validation, backup, verification, restore, cloud-library access, or media-library support in this detection-only slice.
+- Do not claim Mixxx validation, backup, verification, restore, cloud-library access, or media-library support in this detection-only slice.
 
 Required workflow for every task
 
