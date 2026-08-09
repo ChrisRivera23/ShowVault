@@ -84,7 +84,7 @@ Manufacturer names do not imply support for every product the company has shippe
 
 ## Projection
 
-- Christie
+- Christie — protocol 1.13 provides separately authorized, bounded PJLink identification for exact official `CHRISTIE` manufacturer responses paired with `LX41` or `LW41` model responses; authentication-enabled devices, other Christie models, configuration/control, and generic PJLink reachability remain unsupported
 - Barco
 - Panasonic
 - Epson

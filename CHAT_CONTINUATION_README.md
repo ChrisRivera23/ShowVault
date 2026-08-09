@@ -15,13 +15,13 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/ventana-catalog-research`
-- Latest completed research: `66cafc3 docs: defer ambiguous Ventana catalog entry`
+- Branch: `codex/christie-pjlink-identification`
+- Latest completed feature: `705d8ee feat: identify documented Christie projectors via PJLink`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
-- Verified baseline: 2 contract tests, 21 platform tests, 305 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
+- Verified baseline: 2 contract tests, 21 platform tests, 311 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
 - Agent Release build passes and EF Core reports no pending model changes
-- Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged `AgentCommandExecutorTests.cs` at lines 985, 991, 997, and 1003
+- Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged assertions in `AgentCommandExecutorTests.cs`, now at lines 997, 1003, 1009, and 1015 after this slice added an earlier test
 
 ## Current discovery position
 
@@ -31,18 +31,19 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Existing local catalog coverage includes Resolume, supported DJ applications, disguise Designer, WATCHOUT, Hippotizer, PIXERA, Christie Pandoras Box, TouchDesigner, MadMapper 6, Isadora 4, and bounded Engine OS removable roots.
 - HeavyM, Millumin, and Ventuz automatic detection are deferred because official primary sources do not publish dependable standard application/project roots. Ventana is separately deferred because the catalog label does not resolve to a unique professional playback product.
 - Real venue hardware, installed applications, projects, and removable media remain uninspected unless the Product Owner explicitly authorizes testing.
+- Protocol 1.13 adds a manager-authorized generic projector endpoint and bounded PJLink probe. It currently identifies only exact official Christie LX41/LW41 signatures; addresses and raw responses remain Agent-local. Projector-specific completion persistence and a dashboard action remain unimplemented.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official Christie projector primary sources for a read-only, model-specific network identity contract. Add bounded fixture-backed identification only if the protocol and response signature are documented. If primary sources do not establish a safe identity boundary, record an evidence-backed deferral instead of probing real hardware or guessing from generic behavior.
+Research official Barco projector primary sources for exact PJLink `INF1`/`INF2` responses or another documented read-only model identity contract. Extend the reusable bounded projector allowlist only for documented signatures with synthetic fixtures. If primary sources do not establish a safe identity boundary, record an evidence-backed deferral.
 
 Required boundaries:
 
-- Extend the existing bounded network-identification architecture; do not couple Christie projector identity to the Pandoras Box application plugin.
-- Require a documented read-only request and model-specific response signature; generic reachability, HTTP titles, open ports, mDNS, SNMP, or manufacturer strings alone are insufficient.
+- Extend the reusable PJLink/network-identification architecture; do not add a separate unbounded Barco scanner.
+- Require a documented read-only request and exact manufacturer/model response signature; generic reachability, PJLink support, HTTP titles, open ports, mDNS, or SNMP strings alone are insufficient.
 - Keep addresses, interface details, and raw responses Agent-local; publish only the existing bounded path-free identification metadata.
-- Use synthetic protocol fixtures. Do not contact real Christie hardware without explicit Product Owner authorization or claim configuration, backup, verification, or restore support in this identification-only slice.
+- Use synthetic protocol fixtures. Do not contact real Barco hardware without explicit Product Owner authorization or claim configuration, backup, verification, or restore support in this identification-only slice.
 
 ## Required workflow
 
