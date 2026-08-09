@@ -28,14 +28,19 @@ public sealed class PjLinkProjectorProbe : IPjLinkProtocolProbe
                 return null;
 
             await stream.WriteAsync(Encoding.ASCII.GetBytes("%1INF1 ?\r"), timeoutSource.Token);
-            if (await ReadLineAsync(stream, timeoutSource.Token) != "%1INF1=CHRISTIE")
+            var manufacturer = await ReadLineAsync(stream, timeoutSource.Token);
+            if (manufacturer is not "%1INF1=CHRISTIE" and not "%1INF1=Panasonic")
                 return null;
 
             await stream.WriteAsync(Encoding.ASCII.GetBytes("%1INF2 ?\r"), timeoutSource.Token);
-            return await ReadLineAsync(stream, timeoutSource.Token) switch
+            return (manufacturer, await ReadLineAsync(stream, timeoutSource.Token)) switch
             {
-                "%1INF2=LX41" => "Christie LX41",
-                "%1INF2=LW41" => "Christie LW41",
+                ("%1INF1=CHRISTIE", "%1INF2=LX41") => "Christie LX41",
+                ("%1INF1=CHRISTIE", "%1INF2=LW41") => "Christie LW41",
+                ("%1INF1=Panasonic", "%1INF2=DZ770") => "Panasonic PT-DZ770",
+                ("%1INF1=Panasonic", "%1INF2=VW431DEA") => "Panasonic PT-VW431DEA",
+                ("%1INF1=Panasonic", "%1INF2=RZ470") => "Panasonic PT-RZ470",
+                ("%1INF1=Panasonic", "%1INF2=RW430") => "Panasonic PT-RW430",
                 _ => null
             };
         }

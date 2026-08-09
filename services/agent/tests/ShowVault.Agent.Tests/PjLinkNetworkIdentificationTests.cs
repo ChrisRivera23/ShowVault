@@ -11,9 +11,15 @@ public sealed class PjLinkNetworkIdentificationTests
     [Theory]
     [InlineData("CHRISTIE", "LX41", "Christie LX41")]
     [InlineData("CHRISTIE", "LW41", "Christie LW41")]
+    [InlineData("Panasonic", "DZ770", "Panasonic PT-DZ770")]
+    [InlineData("Panasonic", "VW431DEA", "Panasonic PT-VW431DEA")]
+    [InlineData("Panasonic", "RZ470", "Panasonic PT-RZ470")]
+    [InlineData("Panasonic", "RW430", "Panasonic PT-RW430")]
     [InlineData("CHRISTIE", "Other", null)]
+    [InlineData("Panasonic", "Other", null)]
+    [InlineData("PANASONIC", "DZ770", null)]
     [InlineData("OTHER", "LX41", null)]
-    public async Task MatchesOnlyDocumentedChristieManufacturerAndModels(
+    public async Task MatchesOnlyDocumentedManufacturerAndModelPairs(
         string manufacturer, string model, string? expected)
     {
         await using var fixture = PjLinkFixture.Start("PJLINK 0", manufacturer, model);
@@ -22,6 +28,10 @@ public sealed class PjLinkNetworkIdentificationTests
             IPAddress.Loopback, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(expected, result);
+        var expectedQueries = manufacturer is "CHRISTIE" or "Panasonic"
+            ? new[] { "%1INF1 ?", "%1INF2 ?" }
+            : ["%1INF1 ?"];
+        Assert.Equal(expectedQueries, await fixture.QueriesReceivedAsync);
     }
 
     [Fact]
@@ -88,7 +98,7 @@ public sealed class PjLinkNetworkIdentificationTests
 
             queries.Add(await ReadQueryAsync(stream));
             await stream.WriteAsync(Encoding.ASCII.GetBytes($"%1INF1={manufacturer}\r"));
-            if (manufacturer != "CHRISTIE") return queries;
+            if (manufacturer is not ("CHRISTIE" or "Panasonic")) return queries;
 
             queries.Add(await ReadQueryAsync(stream));
             await stream.WriteAsync(Encoding.ASCII.GetBytes($"%1INF2={model}\r"));
