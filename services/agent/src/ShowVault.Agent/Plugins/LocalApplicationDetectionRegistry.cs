@@ -38,6 +38,7 @@ public sealed class LocalApplicationDetectionRegistry
     public const string RekordboxPluginId = "showvault.rekordbox";
     public const string TraktorProPluginId = "showvault.traktor-pro";
     public const string VirtualDjPluginId = "showvault.virtualdj";
+    public const string EngineDjPluginId = "showvault.engine-dj";
     private const int MaximumVersionDirectoryCount = 32;
 
     public IReadOnlyList<LocalApplicationCatalogEntry> Entries { get; } =
@@ -138,7 +139,18 @@ public sealed class LocalApplicationDetectionRegistry
                     "Catalog current VirtualDJ home location"),
                 new("UserDataRoot", Path.Combine("Documents", "VirtualDJ"),
                     "Catalog legacy VirtualDJ home location")
-            ])
+            ]),
+        new(
+            EngineDjPluginId,
+            "Engine DJ Desktop",
+            [new("InstalledApplication", "Engine DJ.app",
+                "Catalog standard macOS application location")],
+            [new("InstalledApplication", Path.Combine("Engine DJ", "Engine DJ.exe"),
+                "Catalog standard Windows application location")],
+            [new("UserDataRoot", Path.Combine("Music", "Engine Library"),
+                "Catalog standard Engine DJ library location")],
+            [new("UserDataRoot", Path.Combine("Music", "Engine Library"),
+                "Catalog standard Engine DJ library location")])
     ];
 
     public IReadOnlyList<StandardLocationCandidate> GetCandidates(
