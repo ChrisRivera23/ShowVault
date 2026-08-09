@@ -15,8 +15,9 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/newtek-broadcast-identification`
+- Branch: `codex/aja-broadcast-identification`
 - Latest completed feature: `fe99fac feat: identify NewTek TriCaster TC1`
+- Latest research decision: `93614fc docs: defer unsafe AJA broadcast discovery`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Verified baseline: 8 focused NewTek TriCaster protocol fixtures and all 342 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
@@ -32,6 +33,8 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - NewTek's official 2026 Automation, Integration & Control PDF was downloaded, rendered, and visually inspected at the HTTP/password and `/version` response pages. It documents exact `TC1` and `TriCaster TC1` identity values and states that web password protection is enabled by default
 - Verified NewTek baseline: 8 focused protocol fixtures, 342 Agent tests, 7 API tests, 23 platform tests, 2 contract tests, 17 Flutter tests, and Flutter analysis pass; Agent and API Release builds pass with 0 warnings and 0 errors
 - `git diff --check` passes; EF Core reports no pending model changes, and migration `20260809102940_AddNewTekTriCasterIdentificationResults` exactly matches the current model
+- AJA broadcast-device research inspected AJA's official REST API repository and IPR-10G-HDMI discovery guidance. The target-bounded GET framework publishes no model-identity parameter with literal product values, while official discovery uses SSDP or mDNS and also references NMOS; generic framework behavior and multicast discovery do not establish exact identity
+- Both official AJA source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, schema, tenant-state, filesystem-discovery, or network-path change. Runtime tests were not rerun because only documentation changed
 - Digital Projection was a documentation-only research decision: `git diff --check` passed and both official source links resolved; runtime tests were not rerun because no implementation, test, contract, migration, or build input changed
 - Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged assertions in `AgentCommandExecutorTests.cs` at lines 997, 1003, 1009, and 1015
 
@@ -55,19 +58,21 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Sony broadcast-device automatic identification is deferred. The official LMD-1951MD SDCP transport exposes target-bounded monitor status/control but no exact model query and literal response; SDAP broadcasts product name with serial, location, community, power, and network fields. Official XVS-9000 material identifies NMOS and optional SNMP support without publishing an exact bounded identity exchange. Projector and PTZ/camera evidence is not reused, and no generic-protocol inference, broadcast listener, scanner, implementation, real-hardware contact, or support credit was added.
 - Protocol 1.15 adds separately authorized NewTek TriCaster TC1 identification against the at most 32 responders retained by one exact completed discovery. The Agent sends only `GET /version` on TCP 80, caps headers and the 16,384-byte XML body, disables proxies and redirects, prohibits DTD processing, and requires HTTP 200 with exactly one `TC1` model and `TriCaster TC1` name. Authentication challenges and other/malformed responses are safe false negatives; documented default credentials are never used and operators are not asked to weaken protection. Addresses and privacy-bearing product/session response fields remain Agent-local; only counts and `NewTek TriCaster TC1` reach the control plane.
 - NewTek TriCaster state has independent tenant-scoped pending/completed/failed persistence, exact command/discovery correlation, an owner-authorized API endpoint, and a native dashboard action. Other models, generic NDI/HTTP reachability, configuration, control, backup, verification, and restore remain unsupported.
+- AJA Video Systems automatic broadcast-device identification is deferred. The official generic REST API documents bounded read-only GET mechanics but says product parameters and descriptors vary and publishes no exact model-identity parameter/literal response for the covered products. Official AJA IP-converter discovery relies on SSDP or mDNS and also references NMOS; no multicast listener, generic-framework inference, credentials, scanner, implementation, real-device contact, or support credit was added.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official AJA Video Systems primary sources for an exact, read-only network identity contract for the broadcast-device catalog. Extend an existing manager-authorized bounded responder architecture only if a documented signature fits its authorization and privacy boundary. If primary sources do not establish a safe identity contract, record an evidence-backed deferral.
+Research official OBS Studio primary sources for dependable automatic local application and recoverable-data roots for the streaming-and-production catalog. Add the smallest safe catalog-driven local identification slice only if official sources establish stable platform paths and bounded recovery data; otherwise record an evidence-backed deferral.
 
 Required boundaries:
 
-- Start from the AJA Video Systems row under `Broadcast` in `docs/INTEGRATION_CATALOG.md`; generic web, SNMP, NDI, or media-protocol participation alone does not establish an exact AJA product identity.
-- Reuse an existing manager-authorized bounded responder set only when its prior authorization covers the documented protocol; do not add an unbounded AJA scanner.
-- Require a documented read-only request and exact response signature; generic reachability, HTTP titles, open ports, mDNS, multicast/broadcast advertisements, or mutable control endpoints alone are insufficient.
-- Keep addresses, interface details, and raw responses Agent-local; publish only the existing bounded path-free identification metadata.
-- Use synthetic protocol fixtures for any implementation. Do not contact real AJA broadcast hardware without explicit Product Owner authorization or claim configuration, backup, verification, or restore support in this identification-only slice.
+- Start from the OBS Studio row under `Streaming and production` in `docs/INTEGRATION_CATALOG.md` and inspect the existing catalog-driven local-candidate architecture before proposing changes.
+- Require official OBS Project sources for stable Windows and macOS application and recoverable-data locations; distinguish installation, candidate existence, recoverable data, validation, backup, verification, and restore states.
+- Keep resolved paths and file contents Agent-local. Publish only opaque candidate IDs and bounded product/type/evidence metadata through the existing path-free contract.
+- Do not infer OBS installation or recoverable projects from process names, generic files, user-entered paths, or undocumented platform conventions, and do not recursively scan unbounded home or filesystem roots.
+- Use synthetic temporary filesystem fixtures for any implementation. Do not inspect the Product Owner's installed applications, profile, scenes, recordings, or workstation without explicit authorization.
+- Do not claim successful backup, validation, verification, or restore from an identification-only or candidate-enumeration slice.
 
 ## Required workflow
 
