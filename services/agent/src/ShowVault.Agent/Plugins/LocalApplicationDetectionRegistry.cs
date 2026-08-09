@@ -56,6 +56,7 @@ public sealed class LocalApplicationDetectionRegistry
     public const string MadMapperPluginId = "showvault.madmapper";
     public const string IsadoraPluginId = "showvault.isadora";
     public const string ObsStudioPluginId = "showvault.obs-studio";
+    public const string ProPresenterPluginId = "showvault.propresenter";
     private const int MaximumVersionDirectoryCount = 32;
     private const int MaximumMountedVolumeCount = 64;
 
@@ -202,6 +203,21 @@ public sealed class LocalApplicationDetectionRegistry
             WindowsProgramFilesLocations =
             [new("InstalledApplication", Path.Combine("obs-studio", "bin", "64bit", "obs64.exe"),
                 "Catalog documented standard OBS Studio Windows application location")]
+        },
+        new(
+            ProPresenterPluginId,
+            "ProPresenter",
+            [new("InstalledApplication", "ProPresenter.app",
+                "Catalog documented standard ProPresenter macOS application location")],
+            [],
+            [new("UserDataRoot", Path.Combine("Documents", "ProPresenter"),
+                "Catalog documented default ProPresenter recovery-data location")],
+            [new("UserDataRoot", Path.Combine("Documents", "ProPresenter"),
+                "Catalog documented default ProPresenter recovery-data location")])
+        {
+            WindowsProgramFilesLocations =
+            [new("InstalledApplication", Path.Combine("Renewed Vision", "ProPresenter"),
+                "Catalog documented default ProPresenter Windows application location")]
         },
         new(
             SeratoDjProPluginId,

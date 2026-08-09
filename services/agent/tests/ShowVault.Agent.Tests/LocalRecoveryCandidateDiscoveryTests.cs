@@ -245,7 +245,7 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         var candidates = new LocalRecoveryCandidateDiscovery(
             new FixedLocationProvider(standardLocations)).Discover();
 
-        Assert.Equal(platform == LocalApplicationPlatform.MacOs ? 25 : 24, candidates.Count);
+        Assert.Equal(platform == LocalApplicationPlatform.MacOs ? 27 : 26, candidates.Count);
         Assert.Equal(2, candidates.Count(candidate =>
             candidate.PluginId == ResolumeDiscoveryPlugin.PluginId &&
             candidate.CandidateType == "InstalledApplication"));
@@ -857,6 +857,63 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         Assert.All(candidates, candidate =>
         {
             Assert.Equal(LocalApplicationDetectionRegistry.ObsStudioPluginId, candidate.PluginId);
+            Assert.True(candidate.RequiresOperatorApproval);
+        });
+    }
+
+    [Theory]
+    [InlineData(LocalApplicationPlatform.MacOs)]
+    [InlineData(LocalApplicationPlatform.Windows)]
+    public void Catalog_registry_finds_only_standard_propresenter_application_and_recovery_data(
+        LocalApplicationPlatform platform)
+    {
+        var applicationRoot = Path.Combine(_root, platform.ToString(), "Applications");
+        var userHome = Path.Combine(_root, platform.ToString(), "Users", "operator");
+        var expectedApplication = platform == LocalApplicationPlatform.MacOs
+            ? Path.Combine(applicationRoot, "ProPresenter.app")
+            : Path.Combine(applicationRoot, "Renewed Vision", "ProPresenter");
+        var expectedData = Path.Combine(userHome, "Documents", "ProPresenter");
+        var customApplication = Path.Combine(_root, "Custom", "ProPresenter.app");
+        var customData = Path.Combine(_root, "Custom", "ProPresenter Data");
+        Directory.CreateDirectory(expectedApplication);
+        Directory.CreateDirectory(expectedData);
+        Directory.CreateDirectory(customApplication);
+        Directory.CreateDirectory(customData);
+
+        var locations = new LocalApplicationDetectionRegistry().GetCandidates(
+                platform,
+                [applicationRoot],
+                [userHome],
+                windowsProgramFilesRoots: [applicationRoot])
+            .Where(location => location.PluginId == LocalApplicationDetectionRegistry.ProPresenterPluginId)
+            .ToArray();
+
+        Assert.Collection(
+            locations.OrderBy(location => location.CandidateType),
+            location =>
+            {
+                Assert.Equal("InstalledApplication", location.CandidateType);
+                Assert.Equal(expectedApplication, location.Path);
+            },
+            location =>
+            {
+                Assert.Equal("UserDataRoot", location.CandidateType);
+                Assert.Equal(expectedData, location.Path);
+            });
+        Assert.DoesNotContain(locations, location =>
+            location.Path == customApplication || location.Path == customData);
+        Assert.All(locations, location =>
+        {
+            Assert.Equal("ProPresenter", location.ProductName);
+            Assert.StartsWith("Catalog documented", location.Evidence, StringComparison.Ordinal);
+        });
+
+        var candidates = new LocalRecoveryCandidateDiscovery(
+            new FixedLocationProvider(locations)).Discover();
+        Assert.Equal(2, candidates.Count);
+        Assert.All(candidates, candidate =>
+        {
+            Assert.Equal(LocalApplicationDetectionRegistry.ProPresenterPluginId, candidate.PluginId);
             Assert.True(candidate.RequiresOperatorApproval);
         });
     }

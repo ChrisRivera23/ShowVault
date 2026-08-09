@@ -116,7 +116,7 @@ Manufacturer names do not imply support for every product the company has shippe
 - SCS (Show Cue System) — automatic local detection deferred because official SCS 11 guidance publishes `C:\Program Files\SCS 11\scs11.exe` but no dependable show root; cue files and optional portable production folders may be placed in operator-selected locations, while the broad Documents initial folder and per-user application-data device maps are not authoritative recovery roots
 - PlaybackPro — automatic local detection deferred because DT Videolabs directs users to place downloaded PlaybackPro-family applications in Applications but does not publish an exact stable bundle path for this unversioned catalog row or a dependable show/playlist root; playlists reference media at operator-selected locations, so neither application identity nor bounded recovery data can be inferred safely
 - Mitti — automatic local detection deferred because Imimot identifies the macOS bundle as `Mitti.app` but does not publish a dependable standard installation location; its portable Bundle Playlist workflow creates an operator-named directory at a user-selected location, and the saved project can continue referencing media at its original locations, so no bounded project/media recovery root can be inferred safely
-- ProPresenter
+- ProPresenter — catalog detection checks only the official standard macOS `/Applications/ProPresenter.app` bundle, default Windows `C:\Program Files\Renewed Vision\ProPresenter` directory, and each user's default `Documents/ProPresenter` recovery-data root; custom workspaces/support locations, externally referenced media, file contents, validation, backup, verification, and restore remain unsupported
 - PVP
 - Pandora's Box Manager
 - CuePilot
