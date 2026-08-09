@@ -19,7 +19,31 @@ public static class SubnetProposalEndpoints
         endpoints.MapPost(path + "/{proposalId:guid}/discover", DiscoverAsync).RequireAuthorization();
         endpoints.MapPost(path + "/{proposalId:guid}/identify-ma-lighting", IdentifyMaLightingAsync).RequireAuthorization();
         endpoints.MapPost(path + "/{proposalId:guid}/identify-yamaha-dme", IdentifyYamahaDmeAsync).RequireAuthorization();
+        endpoints.MapPost(path + "/{proposalId:guid}/identify-grandma2", IdentifyGrandMa2Async).RequireAuthorization();
         return endpoints;
+    }
+
+    private static async Task<IResult> IdentifyGrandMa2Async(Guid organizationId, Guid venueId, Guid proposalId,
+        IdentifyGrandMa2Request request, ClaimsPrincipal user, HttpContext context,
+        PlatformDbContext db, TimeProvider time, CancellationToken ct)
+    {
+        var subject = user.FindFirstValue("sub");
+        if (!await HasAccess(db, organizationId, venueId, subject, true, ct)) return Results.Forbid();
+        if (request.TimeoutMilliseconds is < 100 or > 500) return Results.BadRequest();
+        var proposal = await db.SubnetProposals.SingleOrDefaultAsync(p => p.Id == proposalId &&
+            p.Decision == SubnetProposalDecision.Approved &&
+            p.DiscoveryStatus == SubnetDiscoveryStatus.Completed && p.RespondingHostCount > 0 &&
+            db.VenueAgents.Any(a => a.Id == p.AgentId && a.VenueId == venueId && a.RevokedAt == null), ct);
+        if (proposal?.DiscoveryCommandId is not Guid discoveryCommandId) return Results.BadRequest();
+        var command = AgentCommandEnvelope.Create(proposal.AgentId, AgentCommandType.IdentifyGrandMa2,
+            context.TraceIdentifier, JsonSerializer.Serialize(new IdentifyGrandMa2Payload(
+                proposal.Id, discoveryCommandId, request.TimeoutMilliseconds)),
+            time.GetUtcNow(), TimeSpan.FromMinutes(10));
+        db.IssuedAgentCommands.Add(IssuedAgentCommand.FromEnvelope(command));
+        proposal.StartGrandMa2Identification(command.CommandId);
+        await db.SaveChangesAsync(ct);
+        return Results.Accepted($"/api/v1/agent-commands/{command.CommandId}",
+            ApiResponse<AgentCommandEnvelope>.Success(command, context.TraceIdentifier));
     }
 
     private static async Task<IResult> IdentifyYamahaDmeAsync(Guid organizationId, Guid venueId, Guid proposalId,
@@ -91,7 +115,12 @@ public static class SubnetProposalEndpoints
                 x.p.YamahaIdentificationStatus?.ToString().ToLowerInvariant(),
                 x.p.YamahaIdentificationAttemptedHostCount, x.p.YamahaIdentifiedHostCount,
                 x.p.YamahaIdentifiedProductFamilies, x.p.YamahaIdentificationMessage,
-                x.p.YamahaIdentifiedAt)).ToArray(), context.TraceIdentifier));
+                x.p.YamahaIdentifiedAt,
+                x.p.GrandMa2IdentificationCommandId,
+                x.p.GrandMa2IdentificationStatus?.ToString().ToLowerInvariant(),
+                x.p.GrandMa2IdentificationAttemptedHostCount, x.p.GrandMa2IdentifiedHostCount,
+                x.p.GrandMa2IdentifiedProductFamilies, x.p.GrandMa2IdentificationMessage,
+                x.p.GrandMa2IdentifiedAt)).ToArray(), context.TraceIdentifier));
     }
 
     private static async Task<IResult> DiscoverAsync(Guid organizationId, Guid venueId, Guid proposalId,

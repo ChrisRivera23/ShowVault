@@ -77,6 +77,7 @@ public static class AgentCommunicationEndpoints
         await UpdateSubnetDiscoveryAsync(database, envelope, cancellationToken);
         await UpdateMaLightingIdentificationAsync(database, envelope, cancellationToken);
         await UpdateYamahaDmeIdentificationAsync(database, envelope, cancellationToken);
+        await UpdateGrandMa2IdentificationAsync(database, envelope, cancellationToken);
         try
         {
             await database.SaveChangesAsync(cancellationToken);
@@ -266,6 +267,64 @@ public static class AgentCommunicationEndpoints
         catch (JsonException)
         {
             proposal.FailIdentification("Agent returned invalid MA Lighting identification evidence.", envelope.OccurredAt);
+        }
+    }
+
+    private static async Task UpdateGrandMa2IdentificationAsync(
+        PlatformDbContext database,
+        AgentEventEnvelope envelope,
+        CancellationToken cancellationToken)
+    {
+        var command = await database.IssuedAgentCommands.SingleOrDefaultAsync(item =>
+            item.CommandId == envelope.EventId && item.AgentId == envelope.AgentId &&
+            item.Type == AgentCommandType.IdentifyGrandMa2, cancellationToken);
+        if (command is null) return;
+        IdentifyGrandMa2Payload? request;
+        try { request = JsonSerializer.Deserialize<IdentifyGrandMa2Payload>(command.Payload); }
+        catch (JsonException) { return; }
+        if (request is null) return;
+        var proposal = await database.SubnetProposals.SingleOrDefaultAsync(item =>
+            item.Id == request.ProposalId && item.AgentId == envelope.AgentId &&
+            item.DiscoveryCommandId == request.DiscoveryCommandId &&
+            item.GrandMa2IdentificationCommandId == envelope.EventId &&
+            item.GrandMa2IdentificationStatus == ProductIdentificationStatus.Pending,
+            cancellationToken);
+        if (proposal is null) return;
+        try
+        {
+            using var outcome = JsonDocument.Parse(envelope.Payload);
+            if (envelope.Type == AgentEventType.JobCompleted &&
+                outcome.RootElement.TryGetProperty("attemptedHostCount", out var attemptedValue) &&
+                attemptedValue.TryGetInt32(out var attempted) &&
+                outcome.RootElement.TryGetProperty("identifiedHostCount", out var identifiedValue) &&
+                identifiedValue.TryGetInt32(out var identified) &&
+                outcome.RootElement.TryGetProperty("productFamilies", out var familiesValue) &&
+                familiesValue.ValueKind == JsonValueKind.Array)
+            {
+                var families = familiesValue.EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetString())
+                    .Where(item => !string.IsNullOrWhiteSpace(item))
+                    .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+                var consistent = identified == 0 ? families.Length == 0 :
+                    families.Length == 1 && families[0] == "grandMA2";
+                var evidence = families.Length == 0 ? "none" : string.Join(",", families);
+                if (consistent && evidence.Length <= 200)
+                {
+                    proposal.CompleteGrandMa2Identification(attempted, identified, evidence, envelope.OccurredAt);
+                    return;
+                }
+            }
+            var message = outcome.RootElement.TryGetProperty("error", out var error) &&
+                error.ValueKind == JsonValueKind.String ? error.GetString() :
+                "Agent returned invalid grandMA2 identification evidence.";
+            proposal.FailGrandMa2Identification(string.IsNullOrWhiteSpace(message) ?
+                "grandMA2 identification failed." : message[..Math.Min(500, message.Length)], envelope.OccurredAt);
+        }
+        catch (JsonException)
+        {
+            proposal.FailGrandMa2Identification(
+                "Agent returned invalid grandMA2 identification evidence.", envelope.OccurredAt);
         }
     }
 

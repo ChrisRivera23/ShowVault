@@ -11,7 +11,11 @@ public sealed record SubnetProposalSummary(Guid Id, Guid AgentId, string AgentNa
     Guid? YamahaIdentificationCommandId, string? YamahaIdentificationStatus,
     int? YamahaIdentificationAttemptedHostCount, int? YamahaIdentifiedHostCount,
     string? YamahaIdentifiedProductFamilies, string? YamahaIdentificationMessage,
-    DateTimeOffset? YamahaIdentifiedAt);
+    DateTimeOffset? YamahaIdentifiedAt,
+    Guid? GrandMa2IdentificationCommandId, string? GrandMa2IdentificationStatus,
+    int? GrandMa2IdentificationAttemptedHostCount, int? GrandMa2IdentifiedHostCount,
+    string? GrandMa2IdentifiedProductFamilies, string? GrandMa2IdentificationMessage,
+    DateTimeOffset? GrandMa2IdentifiedAt);
 
 public sealed record DecideSubnetProposalRequest(bool Approved);
 
@@ -19,3 +23,4 @@ public sealed record DiscoverSubnetRequest(int MaxHosts = 32, int TimeoutMillise
 
 public sealed record IdentifyMaLightingRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyYamahaDmeRequest(int TimeoutMilliseconds = 500);
+public sealed record IdentifyGrandMa2Request(int TimeoutMilliseconds = 500);

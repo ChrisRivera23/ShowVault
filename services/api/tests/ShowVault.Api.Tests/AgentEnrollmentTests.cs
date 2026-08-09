@@ -218,6 +218,35 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal(1, yamahaProposal.YamahaIdentifiedHostCount);
         Assert.Equal("Yamaha DME7", yamahaProposal.YamahaIdentifiedProductFamilies);
         Assert.Equal("grandMA3", yamahaProposal.IdentifiedProductFamilies);
+        var grandMa2Path = $"{proposalPath}/{proposalId}/identify-grandma2";
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
+            grandMa2Path, new IdentifyGrandMa2Request())).StatusCode);
+        var grandMa2Response = await ownerClient.PostAsJsonAsync(
+            grandMa2Path, new IdentifyGrandMa2Request(500));
+        Assert.Equal(HttpStatusCode.Accepted, grandMa2Response.StatusCode);
+        var grandMa2Command = (await grandMa2Response.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>())!.Payload;
+        Assert.Equal(AgentCommandType.IdentifyGrandMa2, grandMa2Command.Type);
+        var grandMa2Outcome = new AgentEventEnvelope(
+            grandMa2Command.CommandId, enrolledAgent.Payload.AgentId, AgentEventType.JobCompleted,
+            AgentProtocol.Version, DateTimeOffset.UtcNow, grandMa2Command.CorrelationId,
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                proposalId,
+                discoveryCommandId = subnetCommand.CommandId,
+                attemptedHostCount = 3,
+                identifiedHostCount = 1,
+                productFamilies = new[] { "grandMA2" }
+            }));
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", grandMa2Outcome)).StatusCode);
+        proposals = await ownerClient.GetFromJsonAsync<ApiResponse<IReadOnlyList<SubnetProposalSummary>>>(proposalPath);
+        var grandMa2Proposal = Assert.Single(proposals!.Payload);
+        Assert.Equal("completed", grandMa2Proposal.GrandMa2IdentificationStatus);
+        Assert.Equal(1, grandMa2Proposal.GrandMa2IdentifiedHostCount);
+        Assert.Equal("grandMA2", grandMa2Proposal.GrandMa2IdentifiedProductFamilies);
+        Assert.Equal("grandMA3", grandMa2Proposal.IdentifiedProductFamilies);
+        Assert.Equal("Yamaha DME7", grandMa2Proposal.YamahaIdentifiedProductFamilies);
         var candidatePath =
             $"/api/v1/organizations/{organizationId}/venues/{venueId}/recovery-candidates";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.GetAsync(candidatePath)).StatusCode);

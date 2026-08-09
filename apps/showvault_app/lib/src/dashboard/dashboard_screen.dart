@@ -256,6 +256,31 @@ class _SubnetOnboarding extends ConsumerWidget {
     }
   }
 
+  Future<void> _identifyGrandMa2(
+    BuildContext context,
+    WidgetRef ref,
+    SubnetProposal proposal,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .identifyGrandMa2(
+            accessToken: session.accessToken,
+            history: history,
+            proposalId: proposal.id,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('grandMA2 identification failed: $error')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = history.subnetProposals.where(
@@ -287,7 +312,8 @@ class _SubnetOnboarding extends ConsumerWidget {
                   subtitle: Text(
                     '${proposal.interfaceType} • ${proposal.agentName}\n'
                     '${proposal.evidence}${_discoveryDetail(proposal)}'
-                    '${_identificationDetail(proposal)}${_yamahaIdentificationDetail(proposal)}',
+                    '${_identificationDetail(proposal)}${_grandMa2IdentificationDetail(proposal)}'
+                    '${_yamahaIdentificationDetail(proposal)}',
                   ),
                   isThreeLine: true,
                   trailing: proposal.decision == 'approved'
@@ -320,6 +346,22 @@ class _SubnetOnboarding extends ConsumerWidget {
                                           proposal,
                                         ),
                                         child: const Text('Identify grandMA3'),
+                                      ),
+                                  if (proposal.discoveryStatus == 'completed' &&
+                                      (proposal.respondingHostCount ?? 0) > 0)
+                                    if (proposal.grandMa2IdentificationStatus ==
+                                        'pending')
+                                      const Chip(
+                                        label: Text('Identifying grandMA2'),
+                                      )
+                                    else
+                                      FilledButton(
+                                        onPressed: () => _identifyGrandMa2(
+                                          context,
+                                          ref,
+                                          proposal,
+                                        ),
+                                        child: const Text('Identify grandMA2'),
                                       ),
                                   if (proposal.discoveryStatus == 'completed' &&
                                       (proposal.respondingHostCount ?? 0) > 0)
@@ -397,6 +439,19 @@ class _SubnetOnboarding extends ConsumerWidget {
     'failed' =>
       '\nYamaha DME7 identification failed • '
           '${proposal.yamahaIdentificationMessage ?? 'Unknown error'}',
+    _ => '',
+  };
+
+  String _grandMa2IdentificationDetail(
+    SubnetProposal proposal,
+  ) => switch (proposal.grandMa2IdentificationStatus) {
+    'completed' =>
+      '\ngrandMA2 review • ${proposal.grandMa2IdentifiedHostCount ?? 0} of '
+          '${proposal.grandMa2IdentificationAttemptedHostCount ?? 0} identified • '
+          '${proposal.grandMa2IdentifiedProductFamilies ?? 'none'} • addresses remain local',
+    'failed' =>
+      '\ngrandMA2 identification failed • '
+          '${proposal.grandMa2IdentificationMessage ?? 'Unknown error'}',
     _ => '',
   };
 }

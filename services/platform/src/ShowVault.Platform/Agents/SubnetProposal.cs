@@ -47,6 +47,13 @@ public sealed class SubnetProposal
     public string? YamahaIdentifiedProductFamilies { get; private set; }
     public string? YamahaIdentificationMessage { get; private set; }
     public DateTimeOffset? YamahaIdentifiedAt { get; private set; }
+    public Guid? GrandMa2IdentificationCommandId { get; private set; }
+    public ProductIdentificationStatus? GrandMa2IdentificationStatus { get; private set; }
+    public int? GrandMa2IdentificationAttemptedHostCount { get; private set; }
+    public int? GrandMa2IdentifiedHostCount { get; private set; }
+    public string? GrandMa2IdentifiedProductFamilies { get; private set; }
+    public string? GrandMa2IdentificationMessage { get; private set; }
+    public DateTimeOffset? GrandMa2IdentifiedAt { get; private set; }
 
     public static SubnetProposal Detected(Guid id, Guid agentId, string network, int prefixLength,
         string interfaceType, string evidence, DateTimeOffset detectedAt)
@@ -76,6 +83,7 @@ public sealed class SubnetProposal
         RespondingHostCount = null; DiscoveryMessage = null; DiscoveredAt = null;
         ClearIdentification();
         ClearYamahaIdentification();
+        ClearGrandMa2Identification();
     }
 
     public void StartDiscovery(Guid commandId)
@@ -86,6 +94,7 @@ public sealed class SubnetProposal
         AttemptedHostCount = null; RespondingHostCount = null; DiscoveryMessage = null; DiscoveredAt = null;
         ClearIdentification();
         ClearYamahaIdentification();
+        ClearGrandMa2Identification();
     }
 
     public void CompleteDiscovery(int attempted, int responding, DateTimeOffset at)
@@ -187,5 +196,48 @@ public sealed class SubnetProposal
         YamahaIdentifiedProductFamilies = null;
         YamahaIdentificationMessage = null;
         YamahaIdentifiedAt = null;
+    }
+
+    public void StartGrandMa2Identification(Guid commandId)
+    {
+        if (DiscoveryStatus != SubnetDiscoveryStatus.Completed || RespondingHostCount is null or <= 0 ||
+            commandId == Guid.Empty)
+            throw new InvalidOperationException("grandMA2 identification requires completed discovery with responders.");
+        ClearGrandMa2Identification();
+        GrandMa2IdentificationCommandId = commandId;
+        GrandMa2IdentificationStatus = ProductIdentificationStatus.Pending;
+    }
+
+    public void CompleteGrandMa2Identification(int attempted, int identified, string productFamilies, DateTimeOffset at)
+    {
+        if (GrandMa2IdentificationStatus != ProductIdentificationStatus.Pending || attempted is < 1 or > 32 ||
+            identified < 0 || identified > attempted || string.IsNullOrWhiteSpace(productFamilies))
+            throw new InvalidOperationException("grandMA2 identification result is invalid.");
+        GrandMa2IdentificationStatus = ProductIdentificationStatus.Completed;
+        GrandMa2IdentificationAttemptedHostCount = attempted;
+        GrandMa2IdentifiedHostCount = identified;
+        GrandMa2IdentifiedProductFamilies = productFamilies;
+        GrandMa2IdentifiedAt = at;
+    }
+
+    public void FailGrandMa2Identification(string message, DateTimeOffset at)
+    {
+        if (GrandMa2IdentificationStatus != ProductIdentificationStatus.Pending)
+            throw new InvalidOperationException("grandMA2 identification is not pending.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        GrandMa2IdentificationStatus = ProductIdentificationStatus.Failed;
+        GrandMa2IdentificationMessage = message;
+        GrandMa2IdentifiedAt = at;
+    }
+
+    private void ClearGrandMa2Identification()
+    {
+        GrandMa2IdentificationCommandId = null;
+        GrandMa2IdentificationStatus = null;
+        GrandMa2IdentificationAttemptedHostCount = null;
+        GrandMa2IdentifiedHostCount = null;
+        GrandMa2IdentifiedProductFamilies = null;
+        GrandMa2IdentificationMessage = null;
+        GrandMa2IdentifiedAt = null;
     }
 }

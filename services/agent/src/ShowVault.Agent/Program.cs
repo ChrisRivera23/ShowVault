@@ -272,6 +272,8 @@ builder.Services.AddSingleton<IMaLightingProtocolProbe, GrandMa3WebRemoteProbe>(
 builder.Services.AddSingleton<MaLightingNetworkIdentification>();
 builder.Services.AddSingleton<IYamahaDmeProtocolProbe, YamahaDmeRemoteControlProbe>();
 builder.Services.AddSingleton<YamahaDmeNetworkIdentification>();
+builder.Services.AddSingleton<IGrandMa2ProtocolProbe, GrandMa2TelnetBannerProbe>();
+builder.Services.AddSingleton<GrandMa2NetworkIdentification>();
 builder.Services.AddSingleton<ApprovedSubnetDiscovery>();
 builder.Services.AddSingleton<RecoveryPackageWriter>();
 builder.Services.AddSingleton<RecoveryPackageVerifier>();

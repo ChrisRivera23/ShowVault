@@ -43,10 +43,14 @@ Protocol 1.8 adds a separate manager-authorized Yamaha DME7 check using only the
 
 Yamaha results use independent tenant-scoped pending/completed/failed state and exact Agent/proposal/discovery/identification correlation. Native onboarding offers a separate Yamaha action, polls pending work, and displays bounded path-free counts and family evidence without overwriting grandMA3 results. A new subnet decision or reachability discovery clears both product results because their responder authorization is stale.
 
+Protocol 1.9 adds independently authorized grandMA2 identification against the same exact Agent-local responder boundary. MA Lighting's official grandMA2 Telnet Remote documentation assigns TCP 30000 to the command line, requires login before commands, and shows the unauthenticated server greeting. The Agent connects, sends zero bytes, reads at most 4,096 banner bytes with a 100-500 ms timeout, and requires the documented guest/login-prompt combination before returning `grandMA2`. Telnet Remote must already be enabled, so a disabled service is a safe false negative. An open port, generic Telnet banner, partial greeting, grandMA3 behavior, or reachability is not evidence.
+
+grandMA2 results have independent exact command correlation and pending/completed/failed review state. Host addresses and response bytes remain Agent-local; the control plane receives only attempted/matched counts and bounded `grandMA2` evidence. A new decision or discovery clears grandMA2, grandMA3, and Yamaha results as stale.
+
 L-Acoustics network identification is deliberately deferred after official-evidence review. Public L-Acoustics material confirms that LA Network Manager and LA Device Scanner discover and identify units, but does not publish their wire contract or a demonstrably read-only query; the same tools also configure, synchronize, rename, or change network settings. The documented Electronics HTTP API could become a defensible product-specific boundary, but its contract is available only after identity submission and separate terms acceptance, and the public page does not establish a safe identity endpoint or response signature. ShowVault sends no L-Acoustics probe and does not treat an open port, generic HTTP, Milan/AVDECC or Dante metadata, or reachability as L-Acoustics evidence. Reconsider only with terms-authorized primary API documentation and a representative fixture, or a newly published read-only protocol contract.
 
 ## Next slices
 
-1. Research official primary evidence for a read-only grandMA2 network signature; defer rather than infer support from grandMA3 behavior, an open port, generic HTTP, or reachability.
-2. Implement separately authorized grandMA2 identification and independent review state only if that signature is defensible.
+1. Add safe IPv4 link-local direct-connection proposal support for one physical Cat5/Cat6 interface without enabling routed or virtual-network sweeps.
+2. Validate grandMA2 identification against representative console/onPC fixtures with Telnet Remote enabled and disabled.
 3. Expand standard-location providers for supported workstation applications and export workflows.

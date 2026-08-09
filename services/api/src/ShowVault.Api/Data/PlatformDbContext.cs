@@ -169,11 +169,15 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.Property(proposal => proposal.YamahaIdentificationStatus).HasConversion<string>().HasMaxLength(32);
             entity.Property(proposal => proposal.YamahaIdentifiedProductFamilies).HasMaxLength(200);
             entity.Property(proposal => proposal.YamahaIdentificationMessage).HasMaxLength(500);
+            entity.Property(proposal => proposal.GrandMa2IdentificationStatus).HasConversion<string>().HasMaxLength(32);
+            entity.Property(proposal => proposal.GrandMa2IdentifiedProductFamilies).HasMaxLength(200);
+            entity.Property(proposal => proposal.GrandMa2IdentificationMessage).HasMaxLength(500);
             entity.Property(proposal => proposal.DecidedBySubject).HasMaxLength(255);
             entity.HasIndex(proposal => new { proposal.AgentId, proposal.DetectedAt });
             entity.HasIndex(proposal => proposal.DiscoveryCommandId).IsUnique();
             entity.HasIndex(proposal => proposal.IdentificationCommandId).IsUnique();
             entity.HasIndex(proposal => proposal.YamahaIdentificationCommandId).IsUnique();
+            entity.HasIndex(proposal => proposal.GrandMa2IdentificationCommandId).IsUnique();
             entity.HasOne<VenueAgent>().WithMany().HasForeignKey(proposal => proposal.AgentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

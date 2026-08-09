@@ -20,6 +20,10 @@ References:
 - [grandMA2 Backup menu](https://help2.malighting.com/grandMA2/en/help/key_backup_menu.html)
 - [grandMA2 folders and exports](https://help2.malighting.com/grandMA2/en/help/key_network_ftp.html)
 
+## Network identification
+
+grandMA3 and grandMA2 use separate, independently authorized probes. The grandMA2 probe follows MA Lighting's official [Telnet Remote documentation](https://help2.malighting.com/grandMA2/en/help/key_remote_control_telnet.html): it connects to TCP 30000, sends zero bytes, reads at most 4,096 bytes, and requires the documented guest/login prompt. Telnet Remote must already be enabled. ShowVault never logs in, sends a command, retains the greeting centrally, or treats an open port as a match.
+
 ## Agent configuration
 
 Configure exact exported roots under `GrandMa2ExportRoots` and `GrandMa3ExportRoots`. Empty lists disable the corresponding integration. A `StartDiscovery` command chooses the matching plugin ID, exact root, and a file limit from 1–100,000.

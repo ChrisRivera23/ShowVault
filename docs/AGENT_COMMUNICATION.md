@@ -24,6 +24,8 @@ The SQLite database contains operational queue data only. Agent credentials rema
 
 This provides at-least-once delivery with local deduplication: a lost acknowledgement can cause another poll, but it cannot create a second local command.
 
+Protocol 1.9 adds `IdentifyGrandMa2`. It is valid only for the responder set retained by an exact approved-subnet discovery command. The Agent sends no application data, reads a bounded official TCP 30000 greeting, and reports only path-free counts plus the `grandMA2` family. Control-plane state is independently correlated to the Agent, proposal, discovery command, and identification command.
+
 ## Next implementation slice
 
 - Define the minimal plugin manifest and file-oriented discovery contract.

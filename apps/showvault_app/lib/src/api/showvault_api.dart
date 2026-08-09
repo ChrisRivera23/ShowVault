@@ -49,6 +49,11 @@ class SubnetProposal {
     this.yamahaIdentifiedHostCount,
     this.yamahaIdentifiedProductFamilies,
     this.yamahaIdentificationMessage,
+    this.grandMa2IdentificationStatus,
+    this.grandMa2IdentificationAttemptedHostCount,
+    this.grandMa2IdentifiedHostCount,
+    this.grandMa2IdentifiedProductFamilies,
+    this.grandMa2IdentificationMessage,
   });
   factory SubnetProposal.fromJson(Map<String, Object?> json) => SubnetProposal(
     id: json['id']! as String,
@@ -75,6 +80,15 @@ class SubnetProposal {
     yamahaIdentifiedProductFamilies:
         json['yamahaIdentifiedProductFamilies'] as String?,
     yamahaIdentificationMessage: json['yamahaIdentificationMessage'] as String?,
+    grandMa2IdentificationStatus:
+        json['grandMa2IdentificationStatus'] as String?,
+    grandMa2IdentificationAttemptedHostCount:
+        json['grandMa2IdentificationAttemptedHostCount'] as int?,
+    grandMa2IdentifiedHostCount: json['grandMa2IdentifiedHostCount'] as int?,
+    grandMa2IdentifiedProductFamilies:
+        json['grandMa2IdentifiedProductFamilies'] as String?,
+    grandMa2IdentificationMessage:
+        json['grandMa2IdentificationMessage'] as String?,
   );
   final String id, agentName, network, interfaceType, evidence, decision;
   final int prefixLength;
@@ -92,6 +106,11 @@ class SubnetProposal {
   final int? yamahaIdentifiedHostCount;
   final String? yamahaIdentifiedProductFamilies;
   final String? yamahaIdentificationMessage;
+  final String? grandMa2IdentificationStatus;
+  final int? grandMa2IdentificationAttemptedHostCount;
+  final int? grandMa2IdentifiedHostCount;
+  final String? grandMa2IdentifiedProductFamilies;
+  final String? grandMa2IdentificationMessage;
 }
 
 class RecoveryCandidate {
@@ -292,6 +311,29 @@ class ShowVaultApi {
       Uri.parse(
         '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
         '/venues/${history.venueId}/subnet-proposals/$proposalId/identify-yamaha-dme',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'timeoutMilliseconds': 500}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    return (body['payload']! as Map<String, Object?>)['commandId']! as String;
+  }
+
+  Future<String> identifyGrandMa2({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String proposalId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
+        '/venues/${history.venueId}/subnet-proposals/$proposalId/identify-grandma2',
       ),
       headers: {
         'Authorization': 'Bearer $accessToken',
