@@ -26,6 +26,8 @@ This provides at-least-once delivery with local deduplication: a lost acknowledg
 
 Protocol 1.9 adds `IdentifyGrandMa2`. It is valid only for the responder set retained by an exact approved-subnet discovery command. The Agent sends no application data, reads a bounded official TCP 30000 greeting, and reports only path-free counts plus the `grandMA2` family. Control-plane state is independently correlated to the Agent, proposal, discovery command, and identification command.
 
+Protocol 1.10 permits one bounded IPv4 link-local subnet proposal only when exactly one active physical Ethernet interface qualifies. It changes no authorization shape: proposal creation remains socket-free, manager approval grants scope only, and discovery still requires a separate command capped at 32 hosts with 100-500 ms timeouts. Wi-Fi, virtual/routed interfaces, and ambiguous multiple-Ethernet cases remain excluded.
+
 ## Next implementation slice
 
 - Define the minimal plugin manifest and file-oriented discovery contract.

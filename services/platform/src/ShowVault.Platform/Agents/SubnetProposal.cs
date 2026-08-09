@@ -64,10 +64,11 @@ public sealed class SubnetProposal
         var bytes = address.GetAddressBytes();
         var isPrivate = bytes[0] == 10 || (bytes[0] == 172 && bytes[1] is >= 16 and <= 31) ||
             (bytes[0] == 192 && bytes[1] == 168);
+        var isLinkLocal = bytes[0] == 169 && bytes[1] == 254;
         var hostMask = uint.MaxValue >> prefixLength;
         var value = ((uint)bytes[0] << 24) | ((uint)bytes[1] << 16) | ((uint)bytes[2] << 8) | bytes[3];
-        if (!isPrivate || (value & hostMask) != 0)
-            throw new ArgumentException("Subnet proposal must be an aligned private IPv4 network.");
+        if ((!isPrivate && !isLinkLocal) || (value & hostMask) != 0)
+            throw new ArgumentException("Subnet proposal must be an aligned private or IPv4 link-local network.");
         ArgumentException.ThrowIfNullOrWhiteSpace(network);
         ArgumentException.ThrowIfNullOrWhiteSpace(interfaceType);
         ArgumentException.ThrowIfNullOrWhiteSpace(evidence);

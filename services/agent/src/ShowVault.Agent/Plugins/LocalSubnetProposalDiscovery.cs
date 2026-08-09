@@ -84,8 +84,10 @@ public sealed class LocalSubnetProposalDiscovery(ILocalInterfaceProvider interfa
     {
         var proposals = new List<LocalSubnetProposal>();
         var seenNetworks = new HashSet<string>(StringComparer.Ordinal);
+        var addresses = interfaceProvider.GetAddresses();
+        AddSingleLinkLocalProposal(addresses, proposals, seenNetworks);
 
-        foreach (var item in interfaceProvider.GetAddresses())
+        foreach (var item in addresses)
         {
             if (proposals.Count == MaximumProposalCount)
             {
@@ -123,6 +125,35 @@ public sealed class LocalSubnetProposalDiscovery(ILocalInterfaceProvider interfa
         return proposals;
     }
 
+    private static void AddSingleLinkLocalProposal(
+        IReadOnlyList<LocalInterfaceAddress> addresses,
+        List<LocalSubnetProposal> proposals,
+        HashSet<string> seenNetworks)
+    {
+        if (proposals.Count == MaximumProposalCount) return;
+        var interfaces = addresses
+            .Where(item => IsEligibleInterface(item) &&
+                item.InterfaceType != NetworkInterfaceType.Wireless80211 &&
+                IsLinkLocalUnicast(item.Address) &&
+                TryGetPrefixLength(item.SubnetMask, out var prefix) && prefix <= MinimumPrefixLength &&
+                IsUsableHostAddress(item.Address, MinimumPrefixLength))
+            .GroupBy(item => $"{item.InterfaceName}\0{item.InterfaceDescription}", StringComparer.Ordinal)
+            .ToArray();
+        if (interfaces.Length != 1) return;
+
+        var item = interfaces[0].OrderBy(candidate => candidate.Address.ToString(), StringComparer.Ordinal).First();
+        var network = ApplyPrefix(item.Address, MinimumPrefixLength);
+        var cidr = $"{network}/{MinimumPrefixLength}";
+        if (!seenNetworks.Add(cidr)) return;
+        proposals.Add(new LocalSubnetProposal(
+            Guid.NewGuid(),
+            network.ToString(),
+            MinimumPrefixLength,
+            item.InterfaceType.ToString(),
+            "One active physical Ethernet interface has an IPv4 link-local address; bounded to /24 for direct-link review; no hosts were contacted",
+            true));
+    }
+
     private static bool IsEligibleInterface(LocalInterfaceAddress item)
     {
         if (item.OperationalStatus != OperationalStatus.Up ||
@@ -155,6 +186,12 @@ public sealed class LocalSubnetProposalDiscovery(ILocalInterfaceProvider interfa
             (bytes[0] == 10 ||
              (bytes[0] == 172 && bytes[1] is >= 16 and <= 31) ||
              (bytes[0] == 192 && bytes[1] == 168));
+    }
+
+    private static bool IsLinkLocalUnicast(IPAddress address)
+    {
+        var bytes = address.GetAddressBytes();
+        return bytes.Length == 4 && bytes[0] == 169 && bytes[1] == 254;
     }
 
     private static bool TryGetPrefixLength(IPAddress mask, out int prefixLength)

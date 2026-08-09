@@ -44,7 +44,7 @@ public sealed class LocalSubnetProposalDiscoveryTests
         [
             Address("down", NetworkInterfaceType.Ethernet, "192.168.1.2", "255.255.255.0", OperationalStatus.Down),
             Address("lo0", NetworkInterfaceType.Loopback, "127.0.0.1", "255.0.0.0"),
-            Address("en0", NetworkInterfaceType.Ethernet, "169.254.1.2", "255.255.0.0"),
+            Address("en0", NetworkInterfaceType.Wireless80211, "169.254.1.2", "255.255.0.0"),
             Address("en1", NetworkInterfaceType.Ethernet, "203.0.113.2", "255.255.255.0"),
             Address("utun4", NetworkInterfaceType.Tunnel, "10.1.1.2", "255.255.255.0"),
             Address("vpn adapter", NetworkInterfaceType.Ethernet, "10.2.2.2", "255.255.255.0"),
@@ -54,6 +54,36 @@ public sealed class LocalSubnetProposalDiscoveryTests
             Address("en3", NetworkInterfaceType.Ethernet, "192.168.3.2", "255.0.255.0"),
             Address("en4", NetworkInterfaceType.Ethernet, "192.168.4.0", "255.255.255.0"),
             Address("en5", NetworkInterfaceType.Ethernet, "192.168.5.255", "255.255.255.0")
+        ]));
+
+        Assert.Empty(discovery.Discover());
+    }
+
+    [Fact]
+    public void Proposes_one_bounded_link_local_network_for_one_physical_ethernet_interface()
+    {
+        var discovery = new LocalSubnetProposalDiscovery(new FixedInterfaceProvider(
+        [
+            Address("en7", NetworkInterfaceType.GigabitEthernet, "169.254.73.42", "255.255.0.0")
+        ]));
+
+        var proposal = Assert.Single(discovery.Discover());
+
+        Assert.Equal("169.254.73.0", proposal.Network);
+        Assert.Equal(24, proposal.PrefixLength);
+        Assert.True(proposal.RequiresOperatorApproval);
+        Assert.Contains("One active physical Ethernet", proposal.Evidence, StringComparison.Ordinal);
+        Assert.Contains("direct-link review", proposal.Evidence, StringComparison.Ordinal);
+        Assert.DoesNotContain("169.254.73.42", proposal.Evidence, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Rejects_ambiguous_multiple_link_local_ethernet_interfaces()
+    {
+        var discovery = new LocalSubnetProposalDiscovery(new FixedInterfaceProvider(
+        [
+            Address("en7", NetworkInterfaceType.Ethernet, "169.254.73.42", "255.255.0.0"),
+            Address("en8", NetworkInterfaceType.Ethernet, "169.254.90.8", "255.255.0.0")
         ]));
 
         Assert.Empty(discovery.Discover());

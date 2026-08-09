@@ -36,6 +36,18 @@ public sealed class ApprovedSubnetDiscoveryTests
             new ApprovedSubnet(Guid.NewGuid(), "10.0.0.0", 24), hosts, timeout, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task Link_local_discovery_preserves_the_same_host_and_timeout_bounds()
+    {
+        var probe = new RecordingProbe();
+        var result = await new ApprovedSubnetDiscovery(probe, TimeProvider.System).DiscoverAsync(
+            new ApprovedSubnet(Guid.NewGuid(), "169.254.73.0", 24), 4, 250, CancellationToken.None);
+
+        Assert.Equal(4, result.AttemptedHostCount);
+        Assert.Equal(["169.254.73.1", "169.254.73.2", "169.254.73.3", "169.254.73.4"],
+            probe.Addresses.Select(address => address.ToString()));
+    }
+
     private sealed class RecordingProbe : ISubnetReachabilityProbe
     {
         public List<IPAddress> Addresses { get; } = [];
