@@ -33,6 +33,8 @@ public sealed record ApprovedSubnetDiscoveryResult(
     Guid ProposalId,
     int AttemptedHostCount,
     int RespondingHostCount,
+    int PassiveCandidateCount,
+    int FallbackTargetCount,
     IReadOnlyList<IPAddress> RespondingAddresses,
     DateTimeOffset CompletedAt);
 
@@ -61,8 +63,12 @@ public sealed class ApprovedSubnetDiscovery(
         var passiveCandidates = linkLocalNeighborProvider is not null && IsLinkLocal(subnet.Network)
             ? await linkLocalNeighborProvider.GetCandidatesAsync(subnet, cancellationToken)
             : [];
-        var addresses = passiveCandidates
+        var selectedPassiveCandidates = passiveCandidates
             .Where(address => IsUsableInSubnet(address, subnet.Network, subnet.PrefixLength))
+            .Distinct()
+            .Take(maxHosts)
+            .ToArray();
+        var addresses = selectedPassiveCandidates
             .Concat(EnumerateHosts(subnet.Network, subnet.PrefixLength))
             .Distinct()
             .Take(maxHosts)
@@ -85,6 +91,7 @@ public sealed class ApprovedSubnetDiscovery(
             .Where((_, index) => results[index])
             .ToArray();
         return new(subnet.ProposalId, addresses.Length, respondingAddresses.Length,
+            selectedPassiveCandidates.Length, addresses.Length - selectedPassiveCandidates.Length,
             respondingAddresses, timeProvider.GetUtcNow());
     }
 

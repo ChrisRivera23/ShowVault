@@ -144,7 +144,9 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
             {
                 proposalId,
                 attemptedHostCount = 32,
-                respondingHostCount = 3
+                respondingHostCount = 3,
+                passiveCandidateCount = 0,
+                fallbackTargetCount = 32
             }));
         Assert.Equal(HttpStatusCode.Accepted,
             (await agentClient.PostAsJsonAsync("/api/v1/agent-events", subnetOutcome)).StatusCode);
@@ -153,6 +155,8 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal("completed", discoveredProposal.DiscoveryStatus);
         Assert.Equal(32, discoveredProposal.AttemptedHostCount);
         Assert.Equal(3, discoveredProposal.RespondingHostCount);
+        Assert.Equal(0, discoveredProposal.PassiveCandidateCount);
+        Assert.Equal(32, discoveredProposal.FallbackTargetCount);
         var identifyPath = $"{proposalPath}/{proposalId}/identify-ma-lighting";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
             identifyPath, new IdentifyMaLightingRequest())).StatusCode);

@@ -26,4 +26,32 @@ public sealed class SubnetProposalTests
             Guid.NewGuid(), Guid.NewGuid(), network, prefix,
             "Ethernet", "Invalid direct link", DateTimeOffset.UtcNow));
     }
+
+    [Fact]
+    public void Persists_consistent_path_free_discovery_target_diagnostics()
+    {
+        var proposal = SubnetProposal.Detected(
+            Guid.NewGuid(), Guid.NewGuid(), "169.254.0.0", 16,
+            "Ethernet", "Direct link", DateTimeOffset.UtcNow);
+        proposal.RecordDecision(SubnetProposalDecision.Approved, "owner", DateTimeOffset.UtcNow);
+        proposal.StartDiscovery(Guid.NewGuid());
+
+        proposal.CompleteDiscovery(4, 1, 1, 3, DateTimeOffset.UtcNow);
+
+        Assert.Equal(1, proposal.PassiveCandidateCount);
+        Assert.Equal(3, proposal.FallbackTargetCount);
+    }
+
+    [Fact]
+    public void Rejects_discovery_diagnostics_that_do_not_equal_attempted_targets()
+    {
+        var proposal = SubnetProposal.Detected(
+            Guid.NewGuid(), Guid.NewGuid(), "192.168.1.0", 24,
+            "Ethernet", "Private network", DateTimeOffset.UtcNow);
+        proposal.RecordDecision(SubnetProposalDecision.Approved, "owner", DateTimeOffset.UtcNow);
+        proposal.StartDiscovery(Guid.NewGuid());
+
+        Assert.Throws<InvalidOperationException>(() =>
+            proposal.CompleteDiscovery(4, 1, 1, 1, DateTimeOffset.UtcNow));
+    }
 }

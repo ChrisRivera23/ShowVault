@@ -410,7 +410,10 @@ class _SubnetOnboarding extends ConsumerWidget {
   ) => switch (proposal.discoveryStatus) {
     'completed' =>
       '\nDiscovery complete • ${proposal.respondingHostCount ?? 0} of '
-          '${proposal.attemptedHostCount ?? 0} hosts responded • reachability only',
+          '${proposal.attemptedHostCount ?? 0} hosts responded • '
+          '${proposal.passiveCandidateCount ?? 0} passive-cache targets + '
+          '${proposal.fallbackTargetCount ?? proposal.attemptedHostCount ?? 0} fallback targets • '
+          'reachability only',
     'failed' =>
       '\nDiscovery failed • ${proposal.discoveryMessage ?? 'Unknown error'}',
     _ => '',

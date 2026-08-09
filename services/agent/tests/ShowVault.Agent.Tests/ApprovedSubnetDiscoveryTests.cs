@@ -17,6 +17,8 @@ public sealed class ApprovedSubnetDiscoveryTests
 
         Assert.Equal(4, result.AttemptedHostCount);
         Assert.Equal(4, result.RespondingHostCount);
+        Assert.Equal(0, result.PassiveCandidateCount);
+        Assert.Equal(4, result.FallbackTargetCount);
         Assert.Equal(["192.168.10.1", "192.168.10.2", "192.168.10.3", "192.168.10.4"],
             result.RespondingAddresses.Select(address => address.ToString()));
         Assert.Equal(["192.168.10.1", "192.168.10.2", "192.168.10.3", "192.168.10.4"],
@@ -45,6 +47,8 @@ public sealed class ApprovedSubnetDiscoveryTests
             new ApprovedSubnet(Guid.NewGuid(), "169.254.0.0", 16), 4, 250, CancellationToken.None);
 
         Assert.Equal(4, result.AttemptedHostCount);
+        Assert.Equal(0, result.PassiveCandidateCount);
+        Assert.Equal(4, result.FallbackTargetCount);
         Assert.Equal(["169.254.0.1", "169.254.0.2", "169.254.0.3", "169.254.0.4"],
             probe.Addresses.Select(address => address.ToString()));
     }
@@ -59,6 +63,8 @@ public sealed class ApprovedSubnetDiscoveryTests
             new ApprovedSubnet(Guid.NewGuid(), "169.254.0.0", 16), 4, 250, CancellationToken.None);
 
         Assert.Equal(4, result.AttemptedHostCount);
+        Assert.Equal(1, result.PassiveCandidateCount);
+        Assert.Equal(3, result.FallbackTargetCount);
         Assert.Equal(["169.254.220.9", "169.254.0.1", "169.254.0.2", "169.254.0.3"],
             probe.Addresses.Select(address => address.ToString()));
     }

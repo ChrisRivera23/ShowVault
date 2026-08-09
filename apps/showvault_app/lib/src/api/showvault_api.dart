@@ -38,6 +38,8 @@ class SubnetProposal {
     this.discoveryStatus,
     this.attemptedHostCount,
     this.respondingHostCount,
+    this.passiveCandidateCount,
+    this.fallbackTargetCount,
     this.discoveryMessage,
     this.identificationStatus,
     this.identificationAttemptedHostCount,
@@ -66,6 +68,8 @@ class SubnetProposal {
     discoveryStatus: json['discoveryStatus'] as String?,
     attemptedHostCount: json['attemptedHostCount'] as int?,
     respondingHostCount: json['respondingHostCount'] as int?,
+    passiveCandidateCount: json['passiveCandidateCount'] as int?,
+    fallbackTargetCount: json['fallbackTargetCount'] as int?,
     discoveryMessage: json['discoveryMessage'] as String?,
     identificationStatus: json['identificationStatus'] as String?,
     identificationAttemptedHostCount:
@@ -95,6 +99,8 @@ class SubnetProposal {
   final String? discoveryStatus;
   final int? attemptedHostCount;
   final int? respondingHostCount;
+  final int? passiveCandidateCount;
+  final int? fallbackTargetCount;
   final String? discoveryMessage;
   final String? identificationStatus;
   final int? identificationAttemptedHostCount;

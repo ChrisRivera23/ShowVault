@@ -30,6 +30,8 @@ Protocol 1.10 permits one bounded IPv4 link-local subnet proposal only when exac
 
 Protocol 1.11 changes no envelope shape. For an approved `169.254.0.0/16` direct link, the Agent reads its bounded OS ARP table and prioritizes complete entries from the exact qualifying interface before filling the same maximum 32-target ICMP set. Neighbor addresses remain local and are not emitted unless reduced to the existing path-free attempted/responding counts.
 
+Protocol 1.12 adds `passiveCandidateCount` and `fallbackTargetCount` to the path-free approved-subnet completion. The control plane accepts them only when both are non-negative and their sum equals `attemptedHostCount`; it persists and displays the counts without receiving neighbor addresses, MAC addresses, cache output, or interface identity.
+
 ## Next implementation slice
 
 - Define the minimal plugin manifest and file-oriented discovery contract.

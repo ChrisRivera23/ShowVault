@@ -197,9 +197,15 @@ public static class AgentCommunicationEndpoints
                 outcome.RootElement.TryGetProperty("attemptedHostCount", out var attemptedValue) &&
                 attemptedValue.TryGetInt32(out var attempted) &&
                 outcome.RootElement.TryGetProperty("respondingHostCount", out var respondingValue) &&
-                respondingValue.TryGetInt32(out var responding))
+                respondingValue.TryGetInt32(out var responding) &&
+                outcome.RootElement.TryGetProperty("passiveCandidateCount", out var passiveValue) &&
+                passiveValue.TryGetInt32(out var passive) &&
+                outcome.RootElement.TryGetProperty("fallbackTargetCount", out var fallbackValue) &&
+                fallbackValue.TryGetInt32(out var fallback) &&
+                attempted is >= 0 and <= 32 && responding >= 0 && responding <= attempted &&
+                passive >= 0 && fallback >= 0 && passive + fallback == attempted)
             {
-                proposal.CompleteDiscovery(attempted, responding, envelope.OccurredAt);
+                proposal.CompleteDiscovery(attempted, responding, passive, fallback, envelope.OccurredAt);
                 return;
             }
             var message = outcome.RootElement.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.String

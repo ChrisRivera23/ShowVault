@@ -31,6 +31,8 @@ public sealed class SubnetProposal
     public SubnetDiscoveryStatus? DiscoveryStatus { get; private set; }
     public int? AttemptedHostCount { get; private set; }
     public int? RespondingHostCount { get; private set; }
+    public int? PassiveCandidateCount { get; private set; }
+    public int? FallbackTargetCount { get; private set; }
     public string? DiscoveryMessage { get; private set; }
     public DateTimeOffset? DiscoveredAt { get; private set; }
     public Guid? IdentificationCommandId { get; private set; }
@@ -85,7 +87,8 @@ public sealed class SubnetProposal
         ArgumentException.ThrowIfNullOrWhiteSpace(subject);
         Decision = decision; DecidedBySubject = subject; DecidedAt = at;
         DiscoveryCommandId = null; DiscoveryStatus = null; AttemptedHostCount = null;
-        RespondingHostCount = null; DiscoveryMessage = null; DiscoveredAt = null;
+        RespondingHostCount = null; PassiveCandidateCount = null; FallbackTargetCount = null;
+        DiscoveryMessage = null; DiscoveredAt = null;
         ClearIdentification();
         ClearYamahaIdentification();
         ClearGrandMa2Identification();
@@ -96,18 +99,23 @@ public sealed class SubnetProposal
         if (Decision != SubnetProposalDecision.Approved || commandId == Guid.Empty)
             throw new InvalidOperationException("Only an approved subnet can be authorized for discovery.");
         DiscoveryCommandId = commandId; DiscoveryStatus = SubnetDiscoveryStatus.Pending;
-        AttemptedHostCount = null; RespondingHostCount = null; DiscoveryMessage = null; DiscoveredAt = null;
+        AttemptedHostCount = null; RespondingHostCount = null; PassiveCandidateCount = null;
+        FallbackTargetCount = null; DiscoveryMessage = null; DiscoveredAt = null;
         ClearIdentification();
         ClearYamahaIdentification();
         ClearGrandMa2Identification();
     }
 
-    public void CompleteDiscovery(int attempted, int responding, DateTimeOffset at)
+    public void CompleteDiscovery(
+        int attempted, int responding, int passiveCandidates, int fallbackTargets, DateTimeOffset at)
     {
         if (DiscoveryStatus != SubnetDiscoveryStatus.Pending || attempted is < 0 or > 32 || responding < 0 || responding > attempted)
             throw new InvalidOperationException("Subnet discovery result is invalid.");
+        if (passiveCandidates < 0 || fallbackTargets < 0 || passiveCandidates + fallbackTargets != attempted)
+            throw new InvalidOperationException("Subnet discovery target diagnostics are invalid.");
         DiscoveryStatus = SubnetDiscoveryStatus.Completed; AttemptedHostCount = attempted;
-        RespondingHostCount = responding; DiscoveredAt = at;
+        RespondingHostCount = responding; PassiveCandidateCount = passiveCandidates;
+        FallbackTargetCount = fallbackTargets; DiscoveredAt = at;
     }
 
     public void FailDiscovery(string message, DateTimeOffset at)

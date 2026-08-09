@@ -375,6 +375,8 @@ public sealed class AgentCommandExecutor(
             result.ProposalId,
             result.AttemptedHostCount,
             result.RespondingHostCount,
+            result.PassiveCandidateCount,
+            result.FallbackTargetCount,
             result.CompletedAt
         };
         await queueStore.StoreDiscoveryResultAsync(command.CommandId,
