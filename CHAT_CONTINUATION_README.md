@@ -15,9 +15,9 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/qlab-local-identification`
+- Branch: `codex/scs-local-identification`
 - Latest completed feature: `f0d1350 feat: identify standard OBS Studio data`
-- Latest research decision: `0679b7c docs: defer unsafe QLab workspace discovery`
+- Latest research decision: `afa9b99 docs: defer unsafe SCS show discovery`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Verified baseline: all 17 focused local-recovery candidate tests and all 346 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
@@ -39,6 +39,8 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - OBS verification: 17 focused local-recovery candidate tests and all 346 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors; `git diff --check` passes; all seven cited official OBS pages/source files returned HTTP 200
 - QLab research established the standard `/Applications/QLab.app` location but no dependable recoverable-workspace root: Figure 53 requires the operator to choose each workspace/project folder and stores automatic backups beside that chosen workspace
 - All three official QLab source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, schema, tenant-state, filesystem-discovery, or network-path change. Runtime tests were not rerun because only documentation changed
+- SCS research established the native `C:\Program Files\SCS 11\scs11.exe` example but no dependable recoverable-show root: cue files and optional portable production folders remain operator-located, while broad Documents and machine-specific device-map data are not authoritative production roots
+- All three official SCS source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, schema, tenant-state, filesystem-discovery, or network-path change. Runtime tests were not rerun because only documentation changed
 - Digital Projection was a documentation-only research decision: `git diff --check` passed and both official source links resolved; runtime tests were not rerun because no implementation, test, contract, migration, or build input changed
 - Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged assertions in `AgentCommandExecutorTests.cs` at lines 997, 1003, 1009, and 1015
 
@@ -65,19 +67,20 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - AJA Video Systems automatic broadcast-device identification is deferred. The official generic REST API documents bounded read-only GET mechanics but says product parameters and descriptors vary and publishes no exact model-identity parameter/literal response for the covered products. Official AJA IP-converter discovery relies on SSDP or mDNS and also references NMOS; no multicast listener, generic-framework inference, credentials, scanner, implementation, real-device contact, or support credit was added.
 - OBS Studio uses `showvault.obs-studio`. Catalog detection checks only `/Applications/OBS.app`, native Windows `Program Files/obs-studio/bin/64bit/obs64.exe`, and each user's standard OBS `basic/profiles` and `basic/scenes` directories. Portable/custom/Steam locations are safe false negatives. Candidate contents, credentials, recordings, media, plugins, and logs are not read; validation, protection, backup, verification, and restore remain unsupported.
 - QLab automatic local detection is deferred. Figure 53 documents the standard Applications location, but workspace/project folders are operator-selected and automatic backups live beside the selected workspace. No `.qlab5` or backup-file search, catalog entry, workstation inspection, or installation/recovery support credit was added.
+- SCS automatic local detection is deferred. Official guidance publishes the native SCS 11 executable but not a fixed cue-file or portable-production root. No `.scs11` search, broad Documents candidate, device-map inference, catalog entry, workstation inspection, or installation/recovery support credit was added.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official Show Cue Systems primary sources for dependable automatic local application and recoverable-show roots for the SCS row under `Show control and playback`. Add the smallest safe catalog-driven local identification slice only if official sources establish a stable Windows application path and bounded recovery data; otherwise record an evidence-backed deferral.
+Research official DT Videolabs primary sources for dependable automatic local application and recoverable-playlist/media roots for the PlaybackPro row under `Show control and playback`. Add the smallest safe catalog-driven local identification slice only if official sources establish a stable supported macOS application path and bounded recovery data; otherwise record an evidence-backed deferral.
 
 Required boundaries:
 
-- Start from the SCS (Show Cue System) row under `Show control and playback` in `docs/INTEGRATION_CATALOG.md` and inspect the existing catalog-driven local-candidate architecture before proposing changes.
-- Require official Show Cue Systems sources for stable supported Windows application and recoverable-show locations; distinguish installation, candidate existence, recoverable data, validation, backup, verification, and restore states.
+- Start from the PlaybackPro row under `Show control and playback` in `docs/INTEGRATION_CATALOG.md` and inspect the existing catalog-driven local-candidate architecture before proposing changes.
+- Require official DT Videolabs sources for stable supported macOS application and recoverable-playlist/media locations; distinguish installation, candidate existence, recoverable data, validation, backup, verification, and restore states.
 - Keep resolved paths and file contents Agent-local. Publish only opaque candidate IDs and bounded product/type/evidence metadata through the existing path-free contract.
-- Do not infer SCS installation or recoverable shows from process names, generic files, user-entered paths, or undocumented platform conventions, and do not recursively scan unbounded user-profile or filesystem roots.
-- Use synthetic temporary filesystem fixtures for any implementation. Do not inspect the Product Owner's installed applications, profile, scenes, recordings, or workstation without explicit authorization.
+- Do not infer PlaybackPro installation or recoverable playlists/media from process names, generic files, user-entered paths, or undocumented platform conventions, and do not recursively scan unbounded home or filesystem roots.
+- Use synthetic temporary filesystem fixtures for any implementation. Do not inspect the Product Owner's installed applications, playlists, media, preferences, or workstation without explicit authorization.
 - Do not claim successful backup, validation, verification, or restore from an identification-only or candidate-enumeration slice.
 
 ## Required workflow
