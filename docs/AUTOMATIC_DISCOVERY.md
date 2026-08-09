@@ -55,9 +55,10 @@ Protocol 1.9 adds independently authorized grandMA2 identification against the s
 
 grandMA2 results have independent exact command correlation and pending/completed/failed review state. Host addresses and response bytes remain Agent-local; the control plane receives only attempted/matched counts and bounded `grandMA2` evidence. A new decision or discovery clears grandMA2, grandMA3, and Yamaha results as stale.
 
+Automated synthetic console/onPC fixtures now validate the complete documented greeting, a disabled listener, a silent service at the 100 ms lower timeout bound, fragmented responses, partial guest-only and login-only greetings, a generic Telnet banner, a grandMA3 lookalike, and a valid signature placed beyond the 4,096-byte cap. Every connected fixture asserts that the Agent sends zero bytes. These fixtures do not replace validation against representative real console/onPC versions, which remains deferred until explicitly authorized.
+
 L-Acoustics network identification is deliberately deferred after official-evidence review. Public L-Acoustics material confirms that LA Network Manager and LA Device Scanner discover and identify units, but does not publish their wire contract or a demonstrably read-only query; the same tools also configure, synchronize, rename, or change network settings. The documented Electronics HTTP API could become a defensible product-specific boundary, but its contract is available only after identity submission and separate terms acceptance, and the public page does not establish a safe identity endpoint or response signature. ShowVault sends no L-Acoustics probe and does not treat an open port, generic HTTP, Milan/AVDECC or Dante metadata, or reachability as L-Acoustics evidence. Reconsider only with terms-authorized primary API documentation and a representative fixture, or a newly published read-only protocol contract.
 
 ## Next slices
 
-1. Validate grandMA2 identification against representative automated console/onPC Telnet Remote fixtures with enabled, disabled, partial, and generic-banner cases.
-2. Add the next catalog workstation application by extending the registry and cross-platform fixtures; do not add another product-specific host scanner.
+1. Add catalog-driven rekordbox detection for official documented standard macOS and Windows application and per-user recovery-data locations by extending the registry and cross-platform fixtures; do not add another product-specific host scanner or claim validation/protection.

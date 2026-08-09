@@ -26,26 +26,26 @@ The primary discovery goal is to start ShowVault at an unknown nightclub, concer
 Expected starting state
 
 - Repository: /Users/infamous/Documents/ChatGPT/showvault
-- Branch: codex/link-local-passive-observation
-- Latest feature commit: f29c24f feat: observe passive link-local neighbors before fallback
-- Latest handoff commit: b431501 docs: hand off passive observation milestone
-- Worktree clean except the pre-existing untracked NEXT_CONVERSATION.md and this committed handoff file
-- Verified baseline: 2 contract tests, 21 platform tests, 288 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
+- Branch: codex/grandma2-telnet-fixtures
+- Latest feature commit: d576891 test: validate grandMA2 Telnet fixtures
+- Latest handoff: the HEAD documentation commit containing this file
+- Worktree clean except the pre-existing untracked NEXT_CONVERSATION.md
+- Verified baseline: 2 contract tests, 21 platform tests, 295 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
 - EF Core reports no pending model changes
 
 Next bounded objective
 
-Validate grandMA2 identification against representative automated Telnet Remote fixtures covering enabled, disabled, partial, and generic-banner cases.
+Add catalog-driven rekordbox detection for documented standard macOS and Windows application and per-user recovery-data locations, with cross-platform automated fixtures.
 
 Required boundaries
 
-- Use automated fixtures only; do not contact real consoles, onPC systems, venue hardware, or the Product Owner's installed applications.
-- Preserve zero-byte probing: connect and read only; send no authentication or command bytes.
-- Retain the 4,096-byte response cap and 100–500 ms timeout.
-- Require the documented grandMA2 guest/login-prompt combination; an open port, generic Telnet banner, partial greeting, grandMA3 behavior, or reachability is not product evidence.
-- Bind identification to the exact Agent, approved proposal, discovery command, responder set, and identification command.
-- Keep addresses and response bytes Agent-local; publish only bounded path-free counts and product-family evidence.
-- Do not synchronize, configure, authenticate to, or operate a production device.
+- Research official rekordbox primary sources before defining any standard location.
+- Extend the existing local-application catalog registry; do not add another product-specific host scanner.
+- Use automated macOS- and Windows-shaped filesystem fixtures only; do not inspect the Product Owner's installed applications or personal library.
+- Check only declared standard paths and candidate existence; do not read candidate file contents.
+- Keep resolved paths Agent-local and publish only opaque candidate IDs with bounded product/type/evidence metadata.
+- Keep installed software, recoverable data, operator approval, validation, protection, verification, and restore state distinct.
+- Do not claim rekordbox validation, backup, verification, restore, external-drive enumeration, or device-library support in this detection-only slice.
 
 Required workflow for every task
 
