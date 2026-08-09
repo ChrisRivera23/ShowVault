@@ -24,11 +24,15 @@ Every feature should improve understanding, protection, verification, or safe re
 
 The primary discovery goal is to start ShowVault at an unknown nightclub, concert hall, house of worship, or similar venue and scan for supported equipment and software represented in the integration catalog without pre-entered paths, addresses, models, or vendor inventory.
 
+The beta must broadly recognize supported venue applications and their standard data locations automatically. Resolume and Serato are examples, not the complete target. Build catalog-driven detection contracts and reusable standard-location providers instead of isolated one-off checks. Clearly distinguish installed software, recoverable data found, operator approval, and protected/verified state.
+
 Automatic-discovery goal and safety boundary
 
 ShowVault must install at an unknown venue and discover recovery candidates without requiring operators to pre-enter computer specifications, paths, IP addresses, or vendor inventory.
 
-Support a documented and tested range of older macOS and Windows venue computers. Treat a laptop connected directly to one device by Cat5/Cat6 as a required discovery topology, including explicitly designed handling for safe private-address and future link-local cases.
+Support a documented and tested range of older macOS and Windows venue computers. Treat a laptop connected directly to one device by Cat5/Cat6 as a required discovery topology, including the approved private-address and link-local safety boundaries.
+
+Continue coding with automated fixtures. Do not test against real venue hardware or the Product Owner's installed applications until the Product Owner explicitly says testing may begin, unless a critical blocker cannot be resolved safely any other way. Explain that blocker before requesting real-environment testing.
 
 Discovery must remain:
 
@@ -36,7 +40,7 @@ Discovery must remain:
 - Passive before active.
 - Explicitly authorized before contacting hosts or product services.
 - Bound to exact opaque candidate, subnet, discovery-command, and product-identification identifiers.
-- Limited to directly connected, approved private IPv4 scopes and documented hard limits.
+- Limited to directly connected, approved private or link-local IPv4 scopes and documented hard limits.
 - Path-free and address-free at the control-plane boundary.
 - Based on documented primary product-protocol evidence before claiming product identification.
 - Read-only and non-synchronizing unless a later separately approved workflow explicitly says otherwise.
@@ -78,9 +82,9 @@ The final response must always include:
 Exact context-window usage is not exposed. Give an honest estimate based on accumulated conversation and tool output; do not present it as an exact measurement. Mention the estimate in progress updates when useful and always include it in the final response. As a general guide:
 
 - Below about 60%: continuing is normally fine.
-- Around 60–75%: tell the Product Owner to prepare for a new chat.
-- Above about 75%: recommend starting a new chat after the current bounded task.
-- Around 85% or higher: stop expanding scope, finish the current safe handoff, update the documentation, and strongly recommend a new chat.
+- Around 75–89%: keep the Product Owner informed and avoid unnecessary scope expansion.
+- Around 90%: clearly notify the Product Owner, prepare or refresh this continuation README and the repository handoff, finish the current bounded task, and recommend a new chat.
+- Around 95%: notify the Product Owner again, stop starting new work, finalize verification and commits, refresh this continuation README and the repository handoff a second time, and strongly direct the Product Owner to start a new chat.
 
 Passing work to a new chat
 
@@ -91,6 +95,8 @@ Before recommending a new chat:
 3. Update README.md's copy/paste continuation prompt, expected starting state, latest feature commit, verified baseline, handoff snapshot, and exact next operational target.
 4. Confirm the worktree state and identify unrelated files that remain intentionally untouched.
 5. Tell the Product Owner to paste this entire prompt into the new chat.
+
+Always prepare or refresh the copy/paste continuation material at approximately 90% context usage and again at approximately 95%, even if it was prepared recently. The Product Owner prefers explicit warnings at both thresholds.
 
 At the beginning of the new chat, read both repository context documents, inspect current state, trust the committed handoff over conversational memory, announce one bounded outcome, implement and verify it, commit the feature, then update and separately commit the handoff documentation.
 
