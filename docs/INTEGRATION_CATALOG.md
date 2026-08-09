@@ -119,7 +119,7 @@ Manufacturer names do not imply support for every product the company has shippe
 - ProPresenter — catalog detection checks only the official standard macOS `/Applications/ProPresenter.app` bundle, default Windows `C:\Program Files\Renewed Vision\ProPresenter` directory, and each user's default `Documents/ProPresenter` recovery-data root; custom workspaces/support locations, externally referenced media, file contents, validation, backup, verification, and restore remain unsupported
 - PVP — automatic local detection deferred because Renewed Vision documents placing the macOS application in Applications but publishes no dependable bounded Show or media root; each Show is operator-saved, excludes its media, and references media at arbitrary absolute paths unless the operator creates and relocates a relative-path folder
 - Pandora's Box Manager — current V8 installation is already covered by `showvault.christie-pandoras-box`; Christie replaced the former separate Manager and other edition licenses with one V8 software license containing the full feature suite. Candidate existence does not establish activation, enabled Manager capability, legacy standalone Manager licensing, project data, validation, backup, verification, or restore support
-- CuePilot
+- CuePilot — automatic local detection deferred because official guidance publishes a macOS Applications workflow but no dependable Windows installed path or bounded recovery root; collaborative projects are cloud-synchronized, the local SOLO project's path is unpublished, exports are operator-located, and media is either selected from arbitrary local paths or uploaded to CuePilot's cloud
 - TinkerList
 
 ## PTZ and cameras
