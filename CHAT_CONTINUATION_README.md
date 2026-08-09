@@ -15,12 +15,12 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/crest-audio-network-identification-research`
-- Latest completed feature: `890e9ac feat: identify Behringer WING consoles`
+- Branch: `codex/prototype-readiness-baseline`
+- Latest completed feature: `6108b0d feat: package macOS operator app for personal testing`
 - Latest research decision: `fe264ac docs: defer unsafe Crest Audio identification`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
-- Verified baseline: the Crest Audio decision is documentation-only and `git diff --check` passes; the four cited official Peavey Commercial Audio pages/PDFs resolve with HTTP 200, and relevant PCX device-list/control plus Ci/NexSys module, editable IP/amplifier-ID, gain, and monitoring pages were rendered and visually inspected
+- Verified baseline: venue-neutral prototype-readiness gates are recorded in `docs/PROTOTYPE_READINESS.md`; Flutter analysis and all 22 app tests pass, and the new macOS packaging script produced a 50.0 MB universal release `ShowVault.app`, transfer ZIP, and valid SHA-256 checksum for a loopback personal-test endpoint. Bundle ID is `com.showvault.app`, version is `0.1.0+1`, the embedded signature is ad hoc with no team, and Gatekeeper correctly rejects it because it is not Developer ID-signed/notarized. The script also rejects non-loopback HTTP endpoints before creating output
 - The complete baseline also has 2 contract tests, 28 platform tests, 7 API tests, Flutter analysis, and 22 Flutter tests passing; repository-wide touched-project formatting and the API Release build pass with 0 warnings and 0 errors, and EF Core reports no pending model changes
 - Blackmagic's official protocol PDF resolves with HTTP 206, was rendered, and its complete zero-byte initial status example was inspected
 - `git diff --check` passes; migration `20260809101018_AddBlackmagicVideohubIdentificationResults` exactly matches the current model
@@ -130,20 +130,22 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Soundcraft automatic network identification is deferred. Official ViSi Remote material documents automatic HiQnet discovery but not its wire exchange or exact literal online model replies, and selecting a result opens live mixer control. Generic HARMAN HiQnet discovery uses UDP broadcast, omits Soundcraft-specific device details, and exposes configurable fields; the Ui24R web server is the full control application with credential-protected configuration, not a bounded identity endpoint. No scanner, contract, persistence, API, UI, migration, tests, credentials, access-control changes, broadcast listener, real-hardware contact, or network support credit were added. Existing exact-root Vi showfolder recovery remains separate.
 - Tascam automatic network identification is deferred. Official Sonicview Control and TASCAM IO CONTROL use UPnP multicasting for discovery, show editable names, and proceed into administrator login plus live control/configuration without publishing exact discovery replies. The fixed read-only TELNET `INFORMATION REQUEST` is shared by the DA-6400/DA-6400dp and SS-CDR250N/SS-R250N families and returns only four software-version digits, not a manufacturer or model literal. No scanner, contract, persistence, API, UI, migration, tests, TELNET session, credentials, blank/default-password reliance, multicast listener, real-hardware contact, or network support credit were added. Existing exact-root Model-series `MTR` song recovery remains separate.
 - Crest Audio automatic network identification is deferred. Official PCX material shows a refresh-driven IP device list inside software that uploads/downloads presets and controls device settings and live DSP, but publishes no discovery exchange or exact literal model reply. Official Ci/NexSys material exposes operator-editable IP addresses and amplifier IDs with full amplifier control/monitoring, again without a fixed read-only product-identity response. No scanner, contract, persistence, API, UI, migration, tests, credentials, control session, broadcast listener, real-hardware contact, or network support credit were added. Existing exact-root Peavey MediaMatrix NWare `.npa` recovery and Crest's separate local-configuration deferral remain unchanged.
+- Sequential catalog expansion is paused. Prototype readiness is venue-neutral: Live Nightclub is the intended first venue deployment, not a pilot, test environment, or source of build-time assumptions. All readiness validation stays on personal or otherwise controlled equipment until the six readiness gates pass.
+- The macOS operator application now has a reproducible personal-test packaging script at `apps/showvault_app/packaging/macos/build-app.sh`. It creates `ShowVault.app`, a transfer ZIP, and `SHA256SUMS`; it permits HTTPS or loopback HTTP only and embeds no venue data or client secret. The generated app is deliberately ad hoc signed and unnotarized, so it is not authorized for venue installation.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official primary sources for a bounded, read-only, exact product-identity contract for the Crown row under `Audio manufacturers`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral. Keep network identity separate from recovery capabilities.
+Complete the first personal-equipment clean-install validation for the exact macOS operator-app ZIP produced by `apps/showvault_app/packaging/macos/build-app.sh`. Add a target-side validation/checklist that requires no Flutter, .NET, Git, or repository checkout; then transfer the ZIP and checksum to a separate personal Mac and record checksum validation, launch, Auth0 callback, and control-plane connectivity. If no separate personal Mac is accessible, finish the target-side tooling and stop before claiming clean-machine success. Do not use venue equipment or data.
 
 Required boundaries:
 
-- Start from the Crown row under `Audio manufacturers` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
-- Require official primary sources from Crown/HARMAN for a bounded, read-only request and exact literal product identity; distinguish network identity from reachability, protocol compatibility, configuration, control, validation, backup, verification, and restore states.
-- Keep addresses and raw responses Agent-local. Publish only bounded counts and exact product/type/evidence metadata through the existing path-free contract.
-- Do not infer Crown identity from generic TCP/UDP, SNMP, HiQnet, Dante, CobraNet, broadcast, discovery, or port reachability, and do not add broadcast/multicast discovery, credentials, authentication weakening, configuration, or control. Keep the existing exact-root Crown Audio Architect venue recovery separate.
-- Use synthetic protocol fixtures for any implementation. Do not contact the Product Owner's equipment or network without explicit authorization.
-- Do not claim successful configuration, control, backup, validation, verification, or restore from an identification-only slice.
+- Keep the test bundle, configuration, evidence, and instructions venue-neutral; no Live Nightclub name, credentials, paths, addresses, topology, or equipment data may appear.
+- The separate Mac must not need Flutter, .NET, Git, Xcode, or a repository checkout to validate and launch the artifact.
+- Verify the transferred ZIP against its SHA-256 checksum before extraction and record the exact app version, bundle ID, architecture, endpoint environment, macOS version, and result.
+- Use only a controlled personal-test account and control plane. Never embed or record Auth0 credentials, tokens, enrollment codes, or client secrets.
+- Treat Gatekeeper rejection as expected for this explicitly personal-test artifact. Do not weaken system-wide security; use a narrow attended open only if the Product Owner authorizes it on the personal Mac.
+- Do not claim signing, notarization, clean-machine installation, venue readiness, or full prototype readiness until the corresponding evidence exists.
 
 ## Required workflow
 
