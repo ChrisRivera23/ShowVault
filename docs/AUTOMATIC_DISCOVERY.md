@@ -37,6 +37,8 @@ Protocol 1.11 improves an approved link-local discovery without sweeping the `/1
 
 Protocol 1.12 adds path-free target diagnostics to that exact discovery outcome. `passiveCandidateCount` reports how many of the actively checked targets came from the filtered neighbor cache, and `fallbackTargetCount` reports how many came from bounded sequential fallback. Both are non-negative and must sum exactly to `attemptedHostCount`; no addresses, cache contents, interface names, or MAC addresses leave the Agent. The control plane persists the counts with the correlated discovery result, and native onboarding displays them beside attempted/responding totals while retaining the reachability-only warning.
 
+The direct-link fixture harness now covers populated and empty macOS- and Windows-shaped ARP tables through Agent-local proposal approval, durable command execution, passive-prioritized bounded discovery, responder retention, and path-free completion evidence. Populated fixtures continue through separately authorized grandMA2 and Yamaha DME7 identification. Tests assert that IP addresses, MAC data, and interface identity remain absent from stored path-free results and emitted events while the exact responder remains available only in Agent SQLite.
+
 Protocol 1.6 adds a second manager action for one approved proposal. The Agent resolves its CIDR locally and performs reachability-only ICMP checks against at most 32 usable addresses, with 100-500 ms per-host timeouts and concurrency capped at eight. Responding addresses are retained only in Agent SQLite and keyed by the exact authorization command and proposal. Durable path-free results and control-plane events contain only attempted and responding counts; they contain no host addresses, ports, banners, or product claims, and discovery performs no synchronization. Rejecting the proposal removes its locally retained host sets.
 
 Protocol 1.7 adds a separate manager action for grandMA3 identification after a completed bounded discovery with at least one responder. The command references the opaque proposal and exact discovery command only. The Agent reads that local responder set, checks the officially documented grandMA3 Web Remote HTTP service on port 8080 with 100-500 ms timeouts, and requires a `grandMA3` response signature. Addresses and matches remain in Agent SQLite. The path-free completion contains only attempted and identified counts plus the `grandMA3` product family. The probe does not authenticate, enumerate a session, synchronize state, retain response content, or claim grandMA2 support.
@@ -55,6 +57,6 @@ L-Acoustics network identification is deliberately deferred after official-evide
 
 ## Next slices
 
-1. Build a direct-link fixture harness that validates macOS and Windows empty/populated ARP-cache behavior and path-free diagnostics through the complete Agent/API/native workflow.
+1. Add a short cancellable passive-neighbor observation window before fallback so newly connected devices can announce without a `169.254/16` sweep, and display retry guidance when the cache and responder set are empty.
 2. Validate grandMA2 identification against representative console/onPC fixtures with Telnet Remote enabled and disabled.
 3. Expand standard-location providers for supported workstation applications and export workflows.

@@ -274,6 +274,109 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.DoesNotContain("192.168.10.1", grandMa2Json, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("macos", true)]
+    [InlineData("macos", false)]
+    [InlineData("windows", true)]
+    [InlineData("windows", false)]
+    public async Task Direct_link_fixture_runs_through_queue_and_emits_only_path_free_diagnostics(
+        string platform,
+        bool populatedCache)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var proposalId = Guid.NewGuid();
+        var peer = System.Net.IPAddress.Parse("169.254.220.9");
+        var populatedArpOutput = platform == "windows"
+            ? """
+              Interface: 169.254.73.42 --- 0x6
+                Internet Address      Physical Address      Type
+                169.254.220.9         aa-bb-cc-dd-ee-ff     dynamic
+              """
+            : "? (169.254.220.9) at aa:bb:cc:dd:ee:ff on en7 ifscope [ethernet]";
+        var arpOutput = populatedCache ? populatedArpOutput : platform == "windows"
+            ? "Interface: 169.254.73.42 --- 0x6\r\n  Internet Address Physical Address Type"
+            : "? (169.254.220.9) at (incomplete) on en7 ifscope [ethernet]";
+        var interfaceProvider = new FixtureInterfaceProvider();
+        var arpReader = new FixtureArpTableReader(arpOutput);
+        var neighborProvider = new ArpLinkLocalNeighborProvider(interfaceProvider, arpReader);
+        var approvedDiscovery = new ApprovedSubnetDiscovery(
+            new SelectiveReachabilityProbe(peer), new FixedTimeProvider(now), neighborProvider);
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.StoreSubnetProposalsAsync([
+            new LocalSubnetProposal(proposalId, "169.254.0.0", 16, "GigabitEthernet",
+                "One physical direct link; no hosts were contacted", true)
+        ], now, CancellationToken.None);
+
+        var decision = AgentCommandEnvelope.Create(agentId, AgentCommandType.ApplySubnetProposalDecision,
+            $"{platform}-{populatedCache}-decision", JsonSerializer.Serialize(
+                new ApplySubnetProposalDecisionPayload(proposalId, true)),
+            now, TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(decision, now, CancellationToken.None);
+        await CreateExecutor(store, now, approvedSubnetDiscovery: approvedDiscovery).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+
+        var discovery = AgentCommandEnvelope.Create(agentId, AgentCommandType.DiscoverApprovedSubnet,
+            $"{platform}-{populatedCache}-discovery", JsonSerializer.Serialize(
+                new DiscoverApprovedSubnetPayload(proposalId, 4, 250)),
+            now.AddSeconds(1), TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(discovery, now.AddSeconds(1), CancellationToken.None);
+        await CreateExecutor(store, now.AddSeconds(1), approvedSubnetDiscovery: approvedDiscovery)
+            .ExecutePendingOnceAsync(
+                new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+
+        var result = await store.GetDiscoveryResultJsonAsync(discovery.CommandId, CancellationToken.None);
+        Assert.Contains("\"attemptedHostCount\":4", result, StringComparison.Ordinal);
+        var passiveCount = populatedCache ? 1 : 0;
+        var respondingCount = populatedCache ? 1 : 0;
+        Assert.Contains($"\"respondingHostCount\":{respondingCount}", result, StringComparison.Ordinal);
+        Assert.Contains($"\"passiveCandidateCount\":{passiveCount}", result, StringComparison.Ordinal);
+        Assert.Contains($"\"fallbackTargetCount\":{4 - passiveCount}", result, StringComparison.Ordinal);
+        Assert.DoesNotContain(peer.ToString(), result, StringComparison.Ordinal);
+        Assert.DoesNotContain("aa:bb", result, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("aa-bb", result, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("en7", result, StringComparison.Ordinal);
+        string[] expectedHosts = populatedCache ? [peer.ToString()] : [];
+        Assert.Equal(expectedHosts,
+            await store.GetReachableSubnetHostsAsync(discovery.CommandId, CancellationToken.None));
+        var outcome = (await store.GetPendingEventsAsync(now.AddMinutes(1), 10, CancellationToken.None))
+            .Single(item => item.Envelope.EventId == discovery.CommandId).Envelope;
+        Assert.DoesNotContain(peer.ToString(), outcome.Payload, StringComparison.Ordinal);
+        Assert.Contains($"\"passiveCandidateCount\":{passiveCount}", outcome.Payload, StringComparison.Ordinal);
+        Assert.Equal(1, arpReader.ReadCount);
+
+        if (populatedCache)
+        {
+            var grandMa2 = AgentCommandEnvelope.Create(agentId, AgentCommandType.IdentifyGrandMa2,
+                $"{platform}-grandma2", JsonSerializer.Serialize(new IdentifyGrandMa2Payload(
+                    proposalId, discovery.CommandId, 250)), now.AddSeconds(2), TimeSpan.FromMinutes(5));
+            await store.EnqueueCommandAsync(grandMa2, now.AddSeconds(2), CancellationToken.None);
+            await CreateExecutor(store, now.AddSeconds(2), approvedSubnetDiscovery: approvedDiscovery)
+                .ExecutePendingOnceAsync(
+                    new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+            var grandMa2Result = await store.GetDiscoveryResultJsonAsync(
+                grandMa2.CommandId, CancellationToken.None);
+            Assert.Contains("\"identifiedHostCount\":1", grandMa2Result, StringComparison.Ordinal);
+            Assert.Contains("grandMA2", grandMa2Result, StringComparison.Ordinal);
+            Assert.DoesNotContain(peer.ToString(), grandMa2Result, StringComparison.Ordinal);
+
+            var yamaha = AgentCommandEnvelope.Create(agentId, AgentCommandType.IdentifyYamahaDme,
+                $"{platform}-yamaha", JsonSerializer.Serialize(new IdentifyYamahaDmePayload(
+                    proposalId, discovery.CommandId, 250)), now.AddSeconds(3), TimeSpan.FromMinutes(5));
+            await store.EnqueueCommandAsync(yamaha, now.AddSeconds(3), CancellationToken.None);
+            await CreateExecutor(store, now.AddSeconds(3), approvedSubnetDiscovery: approvedDiscovery)
+                .ExecutePendingOnceAsync(
+                    new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+            var yamahaResult = await store.GetDiscoveryResultJsonAsync(
+                yamaha.CommandId, CancellationToken.None);
+            Assert.Contains("\"identifiedHostCount\":1", yamahaResult, StringComparison.Ordinal);
+            Assert.Contains("Yamaha DME7", yamahaResult, StringComparison.Ordinal);
+            Assert.DoesNotContain(peer.ToString(), yamahaResult, StringComparison.Ordinal);
+            Assert.Equal(1, arpReader.ReadCount);
+        }
+    }
+
     [Fact]
     public async Task Approved_candidate_validation_resolves_local_path_and_emits_path_free_result()
     {
@@ -568,7 +671,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     private AgentCommandExecutor CreateExecutor(
         AgentQueueStore store,
         DateTimeOffset now,
-        bool configureResolumeRoots = true)
+        bool configureResolumeRoots = true,
+        ApprovedSubnetDiscovery? approvedSubnetDiscovery = null)
     {
         var timeProvider = new FixedTimeProvider(now);
         var plugin = new FileSystemDiscoveryPlugin(
@@ -958,7 +1062,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 }),
                 new ReachableNetworkConnector(),
                 timeProvider),
-            new ApprovedSubnetDiscovery(new ReachableSubnetProbe(), timeProvider),
+            approvedSubnetDiscovery ?? new ApprovedSubnetDiscovery(new ReachableSubnetProbe(), timeProvider),
             new MaLightingNetworkIdentification(new GrandMa3Probe(), timeProvider),
             new YamahaDmeNetworkIdentification(new YamahaDmeProbe(), timeProvider),
             new GrandMa2NetworkIdentification(new GrandMa2Probe(), timeProvider),
@@ -986,6 +1090,36 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             System.Net.IPAddress address,
             TimeSpan timeout,
             CancellationToken cancellationToken) => Task.FromResult(true);
+    }
+
+    private sealed class SelectiveReachabilityProbe(System.Net.IPAddress reachable)
+        : ISubnetReachabilityProbe
+    {
+        public Task<bool> IsReachableAsync(
+            System.Net.IPAddress address,
+            TimeSpan timeout,
+            CancellationToken cancellationToken) => Task.FromResult(address.Equals(reachable));
+    }
+
+    private sealed class FixtureInterfaceProvider : ILocalInterfaceProvider
+    {
+        public IReadOnlyList<LocalInterfaceAddress> GetAddresses() =>
+        [
+            new("en7", "USB Ethernet", System.Net.NetworkInformation.NetworkInterfaceType.GigabitEthernet,
+                System.Net.NetworkInformation.OperationalStatus.Up,
+                System.Net.IPAddress.Parse("169.254.73.42"),
+                System.Net.IPAddress.Parse("255.255.0.0"))
+        ];
+    }
+
+    private sealed class FixtureArpTableReader(string output) : IArpTableReader
+    {
+        public int ReadCount { get; private set; }
+        public Task<string> ReadAsync(CancellationToken cancellationToken)
+        {
+            ReadCount++;
+            return Task.FromResult(output);
+        }
     }
 
     private sealed class GrandMa3Probe : IMaLightingProtocolProbe

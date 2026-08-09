@@ -32,6 +32,8 @@ Protocol 1.11 changes no envelope shape. For an approved `169.254.0.0/16` direct
 
 Protocol 1.12 adds `passiveCandidateCount` and `fallbackTargetCount` to the path-free approved-subnet completion. The control plane accepts them only when both are non-negative and their sum equals `attemptedHostCount`; it persists and displays the counts without receiving neighbor addresses, MAC addresses, cache output, or interface identity.
 
+Cross-platform direct-link fixtures exercise populated and empty macOS/Windows neighbor tables through the durable Agent queue and verify the same path-free API evidence. Populated cases also prove that only the locally retained responder set can feed the separately authorized grandMA2 and Yamaha identification commands.
+
 ## Next implementation slice
 
 - Define the minimal plugin manifest and file-oriented discovery contract.
