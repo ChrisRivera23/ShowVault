@@ -54,11 +54,24 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
     [Theory]
     [InlineData(LocalApplicationPlatform.MacOs)]
     [InlineData(LocalApplicationPlatform.Windows)]
-    public void Catalog_registry_finds_fixture_backed_resolume_and_serato_candidates(
+    public void Catalog_registry_finds_fixture_backed_resolume_serato_and_rekordbox_candidates(
         LocalApplicationPlatform platform)
     {
         var applicationRoot = Path.Combine(_root, platform.ToString(), "Applications");
         var userHome = Path.Combine(_root, platform.ToString(), "Users", "operator");
+        var expectedRekordboxApplication = platform == LocalApplicationPlatform.MacOs
+            ? Path.Combine(applicationRoot, "rekordbox 7", "rekordbox.app")
+            : Path.Combine(applicationRoot, "Pioneer", "rekordbox 5.8.7", "rekordbox.exe");
+        var expectedRekordboxData = platform == LocalApplicationPlatform.MacOs
+            ? Path.Combine(userHome, "Library", "Pioneer", "rekordbox")
+            : Path.Combine(userHome, "AppData", "Roaming", "Pioneer", "rekordbox");
+        Directory.CreateDirectory(Path.GetDirectoryName(expectedRekordboxApplication)!);
+        if (Path.HasExtension(expectedRekordboxApplication))
+            File.WriteAllText(expectedRekordboxApplication, "fixture");
+        else
+            Directory.CreateDirectory(expectedRekordboxApplication);
+        Directory.CreateDirectory(expectedRekordboxData);
+
         var registry = new LocalApplicationDetectionRegistry();
         var standardLocations = registry.GetCandidates(platform, [applicationRoot], [userHome]);
         var expectedSeratoApplication = platform == LocalApplicationPlatform.MacOs
@@ -73,8 +86,17 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             location.PluginId == LocalApplicationDetectionRegistry.SeratoDjProPluginId &&
             location.CandidateType == "UserDataRoot" &&
             location.Path == expectedSeratoData);
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == LocalApplicationDetectionRegistry.RekordboxPluginId &&
+            location.CandidateType == "InstalledApplication" &&
+            location.Path == expectedRekordboxApplication);
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == LocalApplicationDetectionRegistry.RekordboxPluginId &&
+            location.CandidateType == "UserDataRoot" &&
+            location.Path == expectedRekordboxData);
 
-        foreach (var location in standardLocations)
+        foreach (var location in standardLocations.Where(location =>
+                     location.PluginId != LocalApplicationDetectionRegistry.RekordboxPluginId))
         {
             if (location.CandidateType == "InstalledApplication" && Path.HasExtension(location.Path))
             {
@@ -90,7 +112,7 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         var candidates = new LocalRecoveryCandidateDiscovery(
             new FixedLocationProvider(standardLocations)).Discover();
 
-        Assert.Equal(6, candidates.Count);
+        Assert.Equal(8, candidates.Count);
         Assert.Equal(2, candidates.Count(candidate =>
             candidate.PluginId == ResolumeDiscoveryPlugin.PluginId &&
             candidate.CandidateType == "InstalledApplication"));
@@ -104,6 +126,14 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             candidate.PluginId == LocalApplicationDetectionRegistry.SeratoDjProPluginId &&
             candidate.CandidateType == "UserDataRoot" &&
             Path.GetFileName(candidate.Path) == "_Serato_");
+        Assert.Single(candidates, candidate =>
+            candidate.PluginId == LocalApplicationDetectionRegistry.RekordboxPluginId &&
+            candidate.CandidateType == "InstalledApplication" &&
+            candidate.Path == expectedRekordboxApplication);
+        Assert.Single(candidates, candidate =>
+            candidate.PluginId == LocalApplicationDetectionRegistry.RekordboxPluginId &&
+            candidate.CandidateType == "UserDataRoot" &&
+            candidate.Path == expectedRekordboxData);
         Assert.All(candidates, candidate => Assert.True(candidate.RequiresOperatorApproval));
     }
 
@@ -131,6 +161,29 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             new FixedLocationProvider(locations)).Discover());
 
         Assert.Equal(LocalApplicationDetectionRegistry.SeratoDjProPluginId, candidate.PluginId);
+    }
+
+    [Fact]
+    public void Versioned_application_expansion_is_prefix_scoped_and_bounded()
+    {
+        var applicationRoot = Path.Combine(_root, "Windows", "Applications");
+        var pioneerRoot = Path.Combine(applicationRoot, "Pioneer");
+        foreach (var index in Enumerable.Range(0, 33))
+            Directory.CreateDirectory(Path.Combine(pioneerRoot, $"rekordbox 5.{index}"));
+        Directory.CreateDirectory(Path.Combine(pioneerRoot, "rekordbox 6.0.0"));
+
+        var candidates = new LocalApplicationDetectionRegistry()
+            .GetCandidates(LocalApplicationPlatform.Windows, [applicationRoot], [])
+            .Where(candidate =>
+                candidate.PluginId == LocalApplicationDetectionRegistry.RekordboxPluginId &&
+                candidate.CandidateType == "InstalledApplication")
+            .ToArray();
+
+        Assert.Equal(32, candidates.Length);
+        Assert.All(candidates, candidate =>
+            Assert.StartsWith(pioneerRoot, candidate.Path, StringComparison.Ordinal));
+        Assert.DoesNotContain(candidates, candidate => candidate.Path.Contains(
+            "rekordbox 6", StringComparison.OrdinalIgnoreCase));
     }
 
     public void Dispose()
