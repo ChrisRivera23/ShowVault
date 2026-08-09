@@ -35,9 +35,10 @@ Protocol 1.8 adds a separate manager-authorized Yamaha DME7 check using only the
 
 Yamaha results use independent tenant-scoped pending/completed/failed state and exact Agent/proposal/discovery/identification correlation. Native onboarding offers a separate Yamaha action, polls pending work, and displays bounded path-free counts and family evidence without overwriting grandMA3 results. A new subnet decision or reachability discovery clears both product results because their responder authorization is stale.
 
+L-Acoustics network identification is deliberately deferred after official-evidence review. Public L-Acoustics material confirms that LA Network Manager and LA Device Scanner discover and identify units, but does not publish their wire contract or a demonstrably read-only query; the same tools also configure, synchronize, rename, or change network settings. The documented Electronics HTTP API could become a defensible product-specific boundary, but its contract is available only after identity submission and separate terms acceptance, and the public page does not establish a safe identity endpoint or response signature. ShowVault sends no L-Acoustics probe and does not treat an open port, generic HTTP, Milan/AVDECC or Dante metadata, or reachability as L-Acoustics evidence. Reconsider only with terms-authorized primary API documentation and a representative fixture, or a newly published read-only protocol contract.
+
 ## Next slices
 
-1. Research official L-Acoustics protocol evidence and implement a separately authorized bounded identification only if a safe read-only primary signature is documented.
-2. Persist and review L-Acoustics evidence independently if that identification slice is defensible.
-3. Define a documented primary-evidence network signature before adding grandMA2 identification.
-4. Expand standard-location providers for supported workstation applications and export workflows.
+1. Research official primary evidence for a read-only grandMA2 network signature; defer rather than infer support from grandMA3 behavior, an open port, generic HTTP, or reachability.
+2. Implement separately authorized grandMA2 identification and independent review state only if that signature is defensible.
+3. Expand standard-location providers for supported workstation applications and export workflows.

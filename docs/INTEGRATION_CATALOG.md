@@ -33,7 +33,7 @@ Manufacturer names do not imply automatic support for every product the company 
 - Dynacord
 - Electro-Voice — IRIS-Net project discovery implemented; QuickSmart Mobile and PREVIEW remain uncredited pending verified portable export artifacts
 - d&b audiotechnik — shared R1/ArrayCalc `.dbpr` project discovery implemented with legacy and commissioning companions preserved
-- L-Acoustics — Soundvision `.xmlp` project discovery implemented with venue and LA Network Manager recovery companions preserved
+- L-Acoustics — Soundvision `.xmlp` project discovery implemented with venue and LA Network Manager recovery companions preserved; automatic network identification deferred because public primary material documents discovery/control tools but no safe read-only wire signature, while the Electronics HTTP API contract requires separate registration and terms acceptance
 - Meyer Sound — MAPP 3D `.mapp` project discovery implemented with `MAPP Backup` autosaves, imported venue drawings, exports, and other exact-root companions preserved
 - NEXO — NS-1 `.nexo`/`.nexo3` project discovery implemented with revisions, imported venue material, exports, and other exact-root companions preserved
 - RCF — deferred pending an official or fixture-verified local RDNet/RDShape project format; current official material documents cloud project/measurement recall and a native RDShape export but not a dependable local extension or signature
