@@ -13,4 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/ShowVault.Agent/ShowVault.Agent.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="Fixtures/GrandMa2TelnetRemote/*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
