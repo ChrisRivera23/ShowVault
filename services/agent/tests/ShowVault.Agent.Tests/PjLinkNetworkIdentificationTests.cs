@@ -1,0 +1,110 @@
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using ShowVault.Agent.Plugins;
+using Xunit;
+
+namespace ShowVault.Agent.Tests;
+
+public sealed class PjLinkNetworkIdentificationTests
+{
+    [Theory]
+    [InlineData("CHRISTIE", "LX41", "Christie LX41")]
+    [InlineData("CHRISTIE", "LW41", "Christie LW41")]
+    [InlineData("CHRISTIE", "Other", null)]
+    [InlineData("OTHER", "LX41", null)]
+    public async Task MatchesOnlyDocumentedChristieManufacturerAndModels(
+        string manufacturer, string model, string? expected)
+    {
+        await using var fixture = PjLinkFixture.Start("PJLINK 0", manufacturer, model);
+
+        var result = await new PjLinkProjectorProbe().IdentifyAsync(
+            IPAddress.Loopback, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public async Task AuthenticationEnabledGreetingIsSafeFalseNegativeWithoutSendingACommand()
+    {
+        await using var fixture = PjLinkFixture.Start("PJLINK 1 01234567", "CHRISTIE", "LX41");
+
+        var result = await new PjLinkProjectorProbe().IdentifyAsync(
+            IPAddress.Loopback, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Null(result);
+        Assert.Empty(await fixture.QueriesReceivedAsync);
+    }
+
+    [Fact]
+    public async Task PublishesOnlyExactFixtureBackedMatches()
+    {
+        var service = new PjLinkNetworkIdentification(new FixedProbe(), TimeProvider.System);
+        var result = await service.IdentifyAsync(Guid.NewGuid(), Guid.NewGuid(),
+            ["192.168.1.2", "192.168.1.3"], 250, CancellationToken.None);
+
+        var match = Assert.Single(result.Identifications);
+        Assert.Equal("192.168.1.2", match.Address.ToString());
+        Assert.Equal("Christie LX41", match.ProductFamily);
+        Assert.Equal(2, result.AttemptedHostCount);
+    }
+
+    private sealed class FixedProbe : IPjLinkProtocolProbe
+    {
+        public Task<string?> IdentifyAsync(IPAddress address, TimeSpan timeout,
+            CancellationToken cancellationToken) => Task.FromResult<string?>(
+                address.ToString().EndsWith(".2", StringComparison.Ordinal) ? "Christie LX41" : null);
+    }
+
+    private sealed class PjLinkFixture : IAsyncDisposable
+    {
+        private readonly TcpListener _listener;
+
+        private PjLinkFixture(string greeting, string manufacturer, string model)
+        {
+            _listener = new TcpListener(IPAddress.Loopback, 4_352);
+            _listener.Start();
+            QueriesReceivedAsync = RunAsync(greeting, manufacturer, model);
+        }
+
+        public Task<IReadOnlyList<string>> QueriesReceivedAsync { get; }
+
+        public static PjLinkFixture Start(string greeting, string manufacturer, string model) =>
+            new(greeting, manufacturer, model);
+
+        public async ValueTask DisposeAsync()
+        {
+            _listener.Stop();
+            await QueriesReceivedAsync.WaitAsync(TimeSpan.FromSeconds(3));
+        }
+
+        private async Task<IReadOnlyList<string>> RunAsync(string greeting, string manufacturer, string model)
+        {
+            using var client = await _listener.AcceptTcpClientAsync();
+            await using var stream = client.GetStream();
+            await stream.WriteAsync(Encoding.ASCII.GetBytes(greeting + "\r"));
+            var queries = new List<string>();
+            if (greeting != "PJLINK 0") return queries;
+
+            queries.Add(await ReadQueryAsync(stream));
+            await stream.WriteAsync(Encoding.ASCII.GetBytes($"%1INF1={manufacturer}\r"));
+            if (manufacturer != "CHRISTIE") return queries;
+
+            queries.Add(await ReadQueryAsync(stream));
+            await stream.WriteAsync(Encoding.ASCII.GetBytes($"%1INF2={model}\r"));
+            return queries;
+        }
+
+        private static async Task<string> ReadQueryAsync(Stream stream)
+        {
+            var bytes = new List<byte>();
+            while (true)
+            {
+                var value = new byte[1];
+                if (await stream.ReadAsync(value) == 0 || value[0] == '\r') break;
+                bytes.Add(value[0]);
+            }
+            return Encoding.ASCII.GetString(bytes.ToArray());
+        }
+    }
+}

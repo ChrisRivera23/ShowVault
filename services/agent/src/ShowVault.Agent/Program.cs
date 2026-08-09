@@ -278,6 +278,8 @@ builder.Services.AddSingleton<IYamahaDmeProtocolProbe, YamahaDmeRemoteControlPro
 builder.Services.AddSingleton<YamahaDmeNetworkIdentification>();
 builder.Services.AddSingleton<IGrandMa2ProtocolProbe, GrandMa2TelnetBannerProbe>();
 builder.Services.AddSingleton<GrandMa2NetworkIdentification>();
+builder.Services.AddSingleton<IPjLinkProtocolProbe, PjLinkProjectorProbe>();
+builder.Services.AddSingleton<PjLinkNetworkIdentification>();
 builder.Services.AddSingleton<ApprovedSubnetDiscovery>();
 builder.Services.AddSingleton<RecoveryPackageWriter>();
 builder.Services.AddSingleton<RecoveryPackageVerifier>();

@@ -259,6 +259,18 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal("grandMA2", grandMa2Proposal.GrandMa2IdentifiedProductFamilies);
         Assert.Equal("grandMA3", grandMa2Proposal.IdentifiedProductFamilies);
         Assert.Equal("Yamaha DME7", grandMa2Proposal.YamahaIdentifiedProductFamilies);
+        var projectorPath = $"{proposalPath}/{proposalId}/identify-projectors";
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
+            projectorPath, new IdentifyProjectorsRequest())).StatusCode);
+        var projectorResponse = await ownerClient.PostAsJsonAsync(
+            projectorPath, new IdentifyProjectorsRequest(500));
+        Assert.Equal(HttpStatusCode.Accepted, projectorResponse.StatusCode);
+        var projectorCommand = (await projectorResponse.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>())!.Payload;
+        Assert.Equal(AgentCommandType.IdentifyProjectors, projectorCommand.Type);
+        Assert.Contains(subnetCommand.CommandId.ToString(), projectorCommand.Payload,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("192.168", projectorCommand.Payload, StringComparison.Ordinal);
         var candidatePath =
             $"/api/v1/organizations/{organizationId}/venues/{venueId}/recovery-candidates";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.GetAsync(candidatePath)).StatusCode);

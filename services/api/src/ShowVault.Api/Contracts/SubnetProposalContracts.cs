@@ -25,3 +25,4 @@ public sealed record DiscoverSubnetRequest(int MaxHosts = 32, int TimeoutMillise
 public sealed record IdentifyMaLightingRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyYamahaDmeRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyGrandMa2Request(int TimeoutMilliseconds = 500);
+public sealed record IdentifyProjectorsRequest(int TimeoutMilliseconds = 500);

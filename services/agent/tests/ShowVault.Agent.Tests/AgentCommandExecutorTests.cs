@@ -272,6 +272,18 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Contains("\"identifiedHostCount\":4", grandMa2Json, StringComparison.Ordinal);
         Assert.Contains("grandMA2", grandMa2Json, StringComparison.Ordinal);
         Assert.DoesNotContain("192.168.10.1", grandMa2Json, StringComparison.Ordinal);
+
+        var projectorCommand = AgentCommandEnvelope.Create(agentId, AgentCommandType.IdentifyProjectors,
+            "projector-identification", JsonSerializer.Serialize(new IdentifyProjectorsPayload(
+                proposalId, discoveryCommand.CommandId, 250)), now.AddSeconds(5), TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(projectorCommand, now.AddSeconds(5), CancellationToken.None);
+        await CreateExecutor(store, now.AddSeconds(5)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+        var projectorJson = await store.GetDiscoveryResultJsonAsync(
+            projectorCommand.CommandId, CancellationToken.None);
+        Assert.Contains("\"identifiedHostCount\":4", projectorJson, StringComparison.Ordinal);
+        Assert.Contains("Christie LX41", projectorJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("192.168.10.1", projectorJson, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -1067,6 +1079,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             new MaLightingNetworkIdentification(new GrandMa3Probe(), timeProvider),
             new YamahaDmeNetworkIdentification(new YamahaDmeProbe(), timeProvider),
             new GrandMa2NetworkIdentification(new GrandMa2Probe(), timeProvider),
+            new PjLinkNetworkIdentification(new PjLinkProbe(), timeProvider),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
@@ -1150,6 +1163,13 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         public Task<string?> IdentifyAsync(
             System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult<string?>("grandMA2");
+    }
+
+    private sealed class PjLinkProbe : IPjLinkProtocolProbe
+    {
+        public Task<string?> IdentifyAsync(
+            System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("Christie LX41");
     }
 
     private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions
