@@ -7,13 +7,12 @@ You are continuing development of ShowVault in this repository:
 
 /Users/infamous/Documents/ChatGPT/showvault
 
-Before planning, researching, editing, or running tests, read these three documents in full:
+Before planning, researching, editing, or running tests, read these two repository documents in full:
 
 1. /Users/infamous/Documents/ChatGPT/showvault/README.md
 2. /Users/infamous/Documents/ChatGPT/showvault/docs/AUTOMATIC_DISCOVERY.md
-3. /Users/infamous/.codex/.chatgpt-projects/g-p-6a73dcb39d9c819184b61d074de6e2d9/BIBLE_CONTEXT.md
 
-Treat the Bible as the enduring product and architecture context—the authoritative explanation of what ShowVault is trying to achieve and why. Treat the repository README and approved contracts, ADRs, tests, migrations, and current implementation as the authoritative record of what is already complete and what comes next. If the Bible conflicts with a newer explicitly approved ADR, versioned specification, contract, or tested decision, the newer approved decision wins and the durable documentation must be updated.
+The repository README, permanent product/discovery documentation, approved contracts, ADRs, tests, migrations, and current implementation are the authoritative record of the goal, completed work, and next task.
 
 Product goal
 
@@ -23,9 +22,13 @@ Scan → Backup → Verify → Restore
 
 Every feature should improve understanding, protection, verification, or safe recovery. The core remains vendor-neutral; vendor-specific executable behavior belongs behind plugin contracts, while declarative product intelligence belongs in Knowledge Packs. Backups require evidence and verification, not merely copied files. Recovery requires identity, authorization, approval, trusted artifacts/plugins, secure execution, audit, and post-restore validation. Essential venue recovery must remain offline-capable.
 
+The primary discovery goal is to start ShowVault at an unknown nightclub, concert hall, house of worship, or similar venue and scan for supported equipment and software represented in the integration catalog without pre-entered paths, addresses, models, or vendor inventory.
+
 Automatic-discovery goal and safety boundary
 
 ShowVault must install at an unknown venue and discover recovery candidates without requiring operators to pre-enter computer specifications, paths, IP addresses, or vendor inventory.
+
+Support a documented and tested range of older macOS and Windows venue computers. Treat a laptop connected directly to one device by Cat5/Cat6 as a required discovery topology, including explicitly designed handling for safe private-address and future link-local cases.
 
 Discovery must remain:
 
@@ -42,11 +45,11 @@ Never treat ICMP reachability, an open TCP/UDP port, generic HTTP, a banner, Dan
 
 Required workflow for every task
 
-1. Read the three required context documents completely.
+1. Read the two required repository context documents completely.
 2. Inspect the current Git branch, worktree status, recent commits, relevant code, tests, contracts, migrations, and documentation.
 3. Preserve unrelated user changes and untracked files. Do not overwrite or delete them.
 4. State the next bounded outcome before changing code.
-5. Search for an existing decision before inventing one. Use official primary sources for vendor protocols and other technical integration claims.
+5. Search for an existing decision before inventing one. Research public and official primary sources autonomously without asking the Product Owner for search approval. Stop only when credentials, identity submission, account access, legally binding terms, payment, or another security-sensitive authorization requires user participation.
 6. Implement one small end-to-end vertical slice that moves the documented next milestone forward.
 7. Preserve tenant isolation, permissions, Agent/control-plane separation, correlation, idempotency, evidence, audit, offline behavior, and failure handling.
 8. Run verification proportional to risk, including relevant contract, Agent, API, Flutter, migration, formatting, and static-analysis checks.
@@ -55,6 +58,8 @@ Required workflow for every task
 11. Update README.md and relevant permanent documentation whenever status, protocol version, test baseline, limitations, or the next task changes.
 12. Commit the documentation handoff separately.
 13. Do not repeat completed work unless inspection or tests prove it incomplete.
+
+Keep progress updates and final answers short and direct to conserve conversation context while still reporting evidence, safety, verification, commits, limitations, and the next task.
 
 Required handoff after every task
 
@@ -87,7 +92,7 @@ Before recommending a new chat:
 4. Confirm the worktree state and identify unrelated files that remain intentionally untouched.
 5. Tell the Product Owner to paste this entire prompt into the new chat.
 
-At the beginning of the new chat, repeat this same process: read the Bible and both repository context documents first, inspect current state, trust the committed handoff over conversational memory, announce one bounded outcome, implement and verify it, commit the feature, then update and separately commit the handoff documentation.
+At the beginning of the new chat, read both repository context documents, inspect current state, trust the committed handoff over conversational memory, announce one bounded outcome, implement and verify it, commit the feature, then update and separately commit the handoff documentation.
 
 Do not ask the Product Owner to repeat these instructions in future chats. They are the standing ShowVault working agreement.
 ```
@@ -97,5 +102,5 @@ Do not ask the Product Owner to repeat these instructions in future chats. They 
 If the complete prompt above is already available to the new chat through project context, this shorter prompt may be used:
 
 ```text
-Continue ShowVault from /Users/infamous/Documents/ChatGPT/showvault. Follow /Users/infamous/Documents/ChatGPT/showvault/CHAT_CONTINUATION_README.md exactly. Read README.md, docs/AUTOMATIC_DISCOVERY.md, and /Users/infamous/.codex/.chatgpt-projects/g-p-6a73dcb39d9c819184b61d074de6e2d9/BIBLE_CONTEXT.md in full before acting. Inspect current Git state and committed handoff, implement the documented next bounded vertical slice, test it, commit the feature, update and separately commit the handoff documentation, and always end with an honest estimated conversation-context usage percentage plus a recommendation about starting a new chat.
+Continue ShowVault from /Users/infamous/Documents/ChatGPT/showvault. Follow /Users/infamous/Documents/ChatGPT/showvault/CHAT_CONTINUATION_README.md exactly. Read README.md and docs/AUTOMATIC_DISCOVERY.md in full before acting. Keep the product goal in every handoff, inspect current Git state, autonomously research official sources, implement the documented next bounded vertical slice, test it, commit the feature, update and separately commit the handoff documentation, and always end with a short result, honest estimated conversation-context usage percentage, and recommendation about starting a new chat.
 ```
