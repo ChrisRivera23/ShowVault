@@ -77,7 +77,7 @@ Manufacturer names do not imply support for every product the company has shippe
 - Ventuz — automatic local detection deferred pending an official stable Windows installation path or project root; current Ventuz guidance makes both the installer location and each `.vzp` project-folder location operator-selectable, so no dependable standard location is published
 - Christie Pandoras Box — catalog detection checks `PandorasBox.exe` only within bounded documented `Pandoras Box <version>` directories beneath native Windows `C:\Program Files\Christie`; custom and 32-bit installs plus operator-selected project/content roots remain unsupported
 - TouchDesigner — catalog detection checks standard macOS `/Applications/TouchDesigner.app` and bounded native Windows `C:\Program Files\Derivative\TouchDesigner.<build>\bin\TouchDesigner.exe` locations; renamed/custom and 32-bit installs plus operator-selected `.toe` project/media roots remain unsupported
-- HeavyM
+- HeavyM — automatic local detection deferred pending an official stable macOS/Windows application path or project root; current HeavyM guidance tells operators to follow the `.dmg`/`.exe` installer without publishing an installed location, and Save As requires the operator to select where each `.hm` project folder is created. The documented `Documents/HeavyM/Project Backups` location is a safety copy, not the authoritative project root
 - MadMapper
 - Isadora
 - Ventana
