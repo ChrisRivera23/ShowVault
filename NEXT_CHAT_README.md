@@ -26,26 +26,26 @@ The primary discovery goal is to start ShowVault at an unknown nightclub, concer
 Expected starting state
 
 - Repository: /Users/infamous/Documents/ChatGPT/showvault
-- Branch: codex/mixxx-catalog-detection
-- Latest feature commit: d247080 feat: detect catalog Mixxx locations
+- Branch: codex/denon-engine-os-drive-detection
+- Latest feature commit: d44c3ce feat: detect Engine OS drive libraries
 - Latest handoff: the HEAD documentation commit containing this file
 - Worktree clean except the pre-existing untracked NEXT_CONVERSATION.md
-- Verified baseline: 2 contract tests, 21 platform tests, 296 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
+- Verified baseline: 2 contract tests, 21 platform tests, 297 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
 - EF Core reports no pending model changes
 
 Next bounded objective
 
-Research official Denon Engine OS primary sources, then define and implement the smallest catalog-driven, Agent-local detection boundary for documented removable-drive recovery data, with synthetic macOS- and Windows-shaped mount fixtures.
+Research official disguise Designer primary sources, then add catalog-driven Windows installed-application and project-root detection only for documented stable standard locations, with synthetic fixtures. If primary sources do not establish a dependable path, record an evidence-backed deferral instead of guessing.
 
 Required boundaries
 
-- Research official Denon Engine OS primary sources before defining any recovery-data boundary.
+- Research official disguise Designer primary sources before defining any application or project location.
 - Extend the reusable catalog/provider architecture; do not add another product-specific host scanner.
-- Use automated macOS- and Windows-shaped mount fixtures only; do not inspect the Product Owner's removable media or personal library.
+- Use automated Windows-shaped filesystem fixtures only; do not inspect the Product Owner's installed applications or projects.
 - Check only declared standard paths and candidate existence; do not read candidate file contents.
 - Keep resolved paths Agent-local and publish only opaque candidate IDs with bounded product/type/evidence metadata.
 - Keep installed software, recoverable data, operator approval, validation, protection, verification, and restore state distinct.
-- Keep Engine OS distinct from Engine DJ Desktop and do not claim validation, backup, verification, restore, hardware identification, or media-library support in this detection-only slice.
+- Do not guess undocumented paths or claim disguise validation, backup, verification, restore, hardware identification, or media support in this detection-only slice.
 
 Required workflow for every task
 
