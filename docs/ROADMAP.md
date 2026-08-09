@@ -1,23 +1,22 @@
 # Roadmap
 
-## Current: Sprint 1 — Foundation
+## Current: Prototype readiness
 
-- Repository and solution foundation
-- API configuration, logging, health checks, and error contracts
-- Flutter shell, theme, routing, and dashboard
-- PostgreSQL development environment
-- Foundational tests and CI
+- Pause sequential integration-catalog expansion while installability and recovery proof are hardened.
+- Make the prototype installable without repository access or a developer toolchain.
+- Validate Install → Enroll → Scan → Backup → Verify → Restore → Prove on personal or otherwise controlled equipment.
+- Keep all packaging, defaults, fixtures, and acceptance gates venue-neutral; Live Nightclub is the intended first deployment, not a pilot or design assumption.
+- Use [`PROTOTYPE_READINESS.md`](PROTOTYPE_READINESS.md) as the readiness gate and implementation order.
 
 ## Next
 
-1. Authentication and session infrastructure
-2. Organization, venue, and workspace model
-3. Discovery contracts and immutable snapshots
-4. Backup package creation and storage abstraction
-5. Verification and Recovery Confidence Score
-6. Guided restore and recovery execution
-7. Plugin SDK and initial production plugins
-8. Internal testing, beta, and public release
+1. Reproducible macOS operator-application release artifact and clean personal-equipment installation
+2. Production-style macOS Agent clean-install, restart, reboot, and upgrade validation
+3. Deployable versioned control-plane environment and migration procedure
+4. Unified venue-neutral onboarding and preflight
+5. Automated success, restart, failure, and tamper readiness matrix
+6. Windows packaging and equivalent readiness validation
+7. Resume prioritized integration work from observed prototype needs
 
 ## Version 1 integration program
 
