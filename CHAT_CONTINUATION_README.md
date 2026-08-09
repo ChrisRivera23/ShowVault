@@ -15,9 +15,9 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/scs-local-identification`
+- Branch: `codex/playbackpro-local-identification`
 - Latest completed feature: `f0d1350 feat: identify standard OBS Studio data`
-- Latest research decision: `afa9b99 docs: defer unsafe SCS show discovery`
+- Latest research decision: `cb66e13 docs: defer unsafe PlaybackPro discovery`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Verified baseline: all 17 focused local-recovery candidate tests and all 346 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
@@ -41,6 +41,8 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - All three official QLab source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, schema, tenant-state, filesystem-discovery, or network-path change. Runtime tests were not rerun because only documentation changed
 - SCS research established the native `C:\Program Files\SCS 11\scs11.exe` example but no dependable recoverable-show root: cue files and optional portable production folders remain operator-located, while broad Documents and machine-specific device-map data are not authoritative production roots
 - All three official SCS source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, schema, tenant-state, filesystem-discovery, or network-path change. Runtime tests were not rerun because only documentation changed
+- PlaybackPro research found that DT Videolabs directs downloaded PlaybackPro-family applications to Applications but publishes neither an exact stable bundle path for the unversioned catalog row nor a standard playlist/show/media root; playlists reference operator-selected media paths
+- Both official DT Videolabs source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, schema, tenant-state, filesystem-discovery, media-content, or network-path change. Runtime tests were not rerun because only documentation changed
 - Digital Projection was a documentation-only research decision: `git diff --check` passed and both official source links resolved; runtime tests were not rerun because no implementation, test, contract, migration, or build input changed
 - Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged assertions in `AgentCommandExecutorTests.cs` at lines 997, 1003, 1009, and 1015
 
@@ -68,19 +70,20 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - OBS Studio uses `showvault.obs-studio`. Catalog detection checks only `/Applications/OBS.app`, native Windows `Program Files/obs-studio/bin/64bit/obs64.exe`, and each user's standard OBS `basic/profiles` and `basic/scenes` directories. Portable/custom/Steam locations are safe false negatives. Candidate contents, credentials, recordings, media, plugins, and logs are not read; validation, protection, backup, verification, and restore remain unsupported.
 - QLab automatic local detection is deferred. Figure 53 documents the standard Applications location, but workspace/project folders are operator-selected and automatic backups live beside the selected workspace. No `.qlab5` or backup-file search, catalog entry, workstation inspection, or installation/recovery support credit was added.
 - SCS automatic local detection is deferred. Official guidance publishes the native SCS 11 executable but not a fixed cue-file or portable-production root. No `.scs11` search, broad Documents candidate, device-map inference, catalog entry, workstation inspection, or installation/recovery support credit was added.
+- PlaybackPro automatic local detection is deferred. DT Videolabs publishes a general Applications-folder instruction but no exact supported bundle identity or bounded show/playlist/media root. No bundle/file-extension guess, home scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official DT Videolabs primary sources for dependable automatic local application and recoverable-playlist/media roots for the PlaybackPro row under `Show control and playback`. Add the smallest safe catalog-driven local identification slice only if official sources establish a stable supported macOS application path and bounded recovery data; otherwise record an evidence-backed deferral.
+Research official Imimot primary sources for dependable automatic local application and recoverable-project/media roots for the Mitti row under `Show control and playback`. Add the smallest safe catalog-driven local identification slice only if official sources establish a stable supported macOS application path and bounded recovery data; otherwise record an evidence-backed deferral.
 
 Required boundaries:
 
-- Start from the PlaybackPro row under `Show control and playback` in `docs/INTEGRATION_CATALOG.md` and inspect the existing catalog-driven local-candidate architecture before proposing changes.
-- Require official DT Videolabs sources for stable supported macOS application and recoverable-playlist/media locations; distinguish installation, candidate existence, recoverable data, validation, backup, verification, and restore states.
+- Start from the Mitti row under `Show control and playback` in `docs/INTEGRATION_CATALOG.md` and inspect the existing catalog-driven local-candidate architecture before proposing changes.
+- Require official Imimot sources for stable supported macOS application and recoverable-project/media locations; distinguish installation, candidate existence, recoverable data, validation, backup, verification, and restore states.
 - Keep resolved paths and file contents Agent-local. Publish only opaque candidate IDs and bounded product/type/evidence metadata through the existing path-free contract.
-- Do not infer PlaybackPro installation or recoverable playlists/media from process names, generic files, user-entered paths, or undocumented platform conventions, and do not recursively scan unbounded home or filesystem roots.
-- Use synthetic temporary filesystem fixtures for any implementation. Do not inspect the Product Owner's installed applications, playlists, media, preferences, or workstation without explicit authorization.
+- Do not infer Mitti installation or recoverable projects/media from process names, generic files, user-entered paths, or undocumented platform conventions, and do not recursively scan unbounded home or filesystem roots.
+- Use synthetic temporary filesystem fixtures for any implementation. Do not inspect the Product Owner's installed applications, projects, media, preferences, or workstation without explicit authorization.
 - Do not claim successful backup, validation, verification, or restore from an identification-only or candidate-enumeration slice.
 
 ## Required workflow
