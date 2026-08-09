@@ -117,7 +117,7 @@ Manufacturer names do not imply support for every product the company has shippe
 - PlaybackPro — automatic local detection deferred because DT Videolabs directs users to place downloaded PlaybackPro-family applications in Applications but does not publish an exact stable bundle path for this unversioned catalog row or a dependable show/playlist root; playlists reference media at operator-selected locations, so neither application identity nor bounded recovery data can be inferred safely
 - Mitti — automatic local detection deferred because Imimot identifies the macOS bundle as `Mitti.app` but does not publish a dependable standard installation location; its portable Bundle Playlist workflow creates an operator-named directory at a user-selected location, and the saved project can continue referencing media at its original locations, so no bounded project/media recovery root can be inferred safely
 - ProPresenter — catalog detection checks only the official standard macOS `/Applications/ProPresenter.app` bundle, default Windows `C:\Program Files\Renewed Vision\ProPresenter` directory, and each user's default `Documents/ProPresenter` recovery-data root; custom workspaces/support locations, externally referenced media, file contents, validation, backup, verification, and restore remain unsupported
-- PVP
+- PVP — automatic local detection deferred because Renewed Vision documents placing the macOS application in Applications but publishes no dependable bounded Show or media root; each Show is operator-saved, excludes its media, and references media at arbitrary absolute paths unless the operator creates and relocates a relative-path folder
 - Pandora's Box Manager
 - CuePilot
 - TinkerList
