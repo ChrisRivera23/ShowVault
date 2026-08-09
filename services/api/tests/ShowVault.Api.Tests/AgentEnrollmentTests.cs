@@ -194,6 +194,30 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Contains(subnetCommand.CommandId.ToString(), yamahaCommand.Payload,
             StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("192.168", yamahaCommand.Payload, StringComparison.Ordinal);
+        var yamahaOutcome = new AgentEventEnvelope(
+            yamahaCommand.CommandId,
+            enrolledAgent.Payload.AgentId,
+            AgentEventType.JobCompleted,
+            AgentProtocol.Version,
+            DateTimeOffset.UtcNow,
+            yamahaCommand.CorrelationId,
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                proposalId,
+                discoveryCommandId = subnetCommand.CommandId,
+                attemptedHostCount = 3,
+                identifiedHostCount = 1,
+                productFamilies = new[] { "Yamaha DME7" }
+            }));
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", yamahaOutcome)).StatusCode);
+        proposals = await ownerClient.GetFromJsonAsync<ApiResponse<IReadOnlyList<SubnetProposalSummary>>>(proposalPath);
+        var yamahaProposal = Assert.Single(proposals!.Payload);
+        Assert.Equal("completed", yamahaProposal.YamahaIdentificationStatus);
+        Assert.Equal(3, yamahaProposal.YamahaIdentificationAttemptedHostCount);
+        Assert.Equal(1, yamahaProposal.YamahaIdentifiedHostCount);
+        Assert.Equal("Yamaha DME7", yamahaProposal.YamahaIdentifiedProductFamilies);
+        Assert.Equal("grandMA3", yamahaProposal.IdentifiedProductFamilies);
         var candidatePath =
             $"/api/v1/organizations/{organizationId}/venues/{venueId}/recovery-candidates";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.GetAsync(candidatePath)).StatusCode);

@@ -231,6 +231,31 @@ class _SubnetOnboarding extends ConsumerWidget {
     }
   }
 
+  Future<void> _identifyYamahaDme(
+    BuildContext context,
+    WidgetRef ref,
+    SubnetProposal proposal,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .identifyYamahaDme(
+            accessToken: session.accessToken,
+            history: history,
+            proposalId: proposal.id,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Yamaha DME7 identification failed: $error')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = history.subnetProposals.where(
@@ -261,14 +286,13 @@ class _SubnetOnboarding extends ConsumerWidget {
                   title: Text('${proposal.network}/${proposal.prefixLength}'),
                   subtitle: Text(
                     '${proposal.interfaceType} • ${proposal.agentName}\n'
-                    '${proposal.evidence}${_discoveryDetail(proposal)}${_identificationDetail(proposal)}',
+                    '${proposal.evidence}${_discoveryDetail(proposal)}'
+                    '${_identificationDetail(proposal)}${_yamahaIdentificationDetail(proposal)}',
                   ),
                   isThreeLine: true,
                   trailing: proposal.decision == 'approved'
                       ? proposal.discoveryStatus == 'pending'
                             ? const Chip(label: Text('Discovering'))
-                            : proposal.identificationStatus == 'pending'
-                            ? const Chip(label: Text('Identifying grandMA3'))
                             : Wrap(
                                 spacing: 8,
                                 children: [
@@ -283,14 +307,38 @@ class _SubnetOnboarding extends ConsumerWidget {
                                   ),
                                   if (proposal.discoveryStatus == 'completed' &&
                                       (proposal.respondingHostCount ?? 0) > 0)
-                                    FilledButton(
-                                      onPressed: () => _identifyMaLighting(
-                                        context,
-                                        ref,
-                                        proposal,
+                                    if (proposal.identificationStatus ==
+                                        'pending')
+                                      const Chip(
+                                        label: Text('Identifying grandMA3'),
+                                      )
+                                    else
+                                      FilledButton(
+                                        onPressed: () => _identifyMaLighting(
+                                          context,
+                                          ref,
+                                          proposal,
+                                        ),
+                                        child: const Text('Identify grandMA3'),
                                       ),
-                                      child: const Text('Identify grandMA3'),
-                                    ),
+                                  if (proposal.discoveryStatus == 'completed' &&
+                                      (proposal.respondingHostCount ?? 0) > 0)
+                                    if (proposal.yamahaIdentificationStatus ==
+                                        'pending')
+                                      const Chip(
+                                        label: Text('Identifying Yamaha DME7'),
+                                      )
+                                    else
+                                      FilledButton(
+                                        onPressed: () => _identifyYamahaDme(
+                                          context,
+                                          ref,
+                                          proposal,
+                                        ),
+                                        child: const Text(
+                                          'Identify Yamaha DME7',
+                                        ),
+                                      ),
                                 ],
                               )
                       : Wrap(
@@ -336,6 +384,19 @@ class _SubnetOnboarding extends ConsumerWidget {
     'failed' =>
       '\nMA Lighting identification failed • '
           '${proposal.identificationMessage ?? 'Unknown error'}',
+    _ => '',
+  };
+
+  String _yamahaIdentificationDetail(
+    SubnetProposal proposal,
+  ) => switch (proposal.yamahaIdentificationStatus) {
+    'completed' =>
+      '\nYamaha review • ${proposal.yamahaIdentifiedHostCount ?? 0} of '
+          '${proposal.yamahaIdentificationAttemptedHostCount ?? 0} identified • '
+          '${proposal.yamahaIdentifiedProductFamilies ?? 'none'} • addresses remain local',
+    'failed' =>
+      '\nYamaha DME7 identification failed • '
+          '${proposal.yamahaIdentificationMessage ?? 'Unknown error'}',
     _ => '',
   };
 }

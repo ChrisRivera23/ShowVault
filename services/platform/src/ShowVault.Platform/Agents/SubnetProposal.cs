@@ -40,6 +40,13 @@ public sealed class SubnetProposal
     public string? IdentifiedProductFamilies { get; private set; }
     public string? IdentificationMessage { get; private set; }
     public DateTimeOffset? IdentifiedAt { get; private set; }
+    public Guid? YamahaIdentificationCommandId { get; private set; }
+    public ProductIdentificationStatus? YamahaIdentificationStatus { get; private set; }
+    public int? YamahaIdentificationAttemptedHostCount { get; private set; }
+    public int? YamahaIdentifiedHostCount { get; private set; }
+    public string? YamahaIdentifiedProductFamilies { get; private set; }
+    public string? YamahaIdentificationMessage { get; private set; }
+    public DateTimeOffset? YamahaIdentifiedAt { get; private set; }
 
     public static SubnetProposal Detected(Guid id, Guid agentId, string network, int prefixLength,
         string interfaceType, string evidence, DateTimeOffset detectedAt)
@@ -68,6 +75,7 @@ public sealed class SubnetProposal
         DiscoveryCommandId = null; DiscoveryStatus = null; AttemptedHostCount = null;
         RespondingHostCount = null; DiscoveryMessage = null; DiscoveredAt = null;
         ClearIdentification();
+        ClearYamahaIdentification();
     }
 
     public void StartDiscovery(Guid commandId)
@@ -77,6 +85,7 @@ public sealed class SubnetProposal
         DiscoveryCommandId = commandId; DiscoveryStatus = SubnetDiscoveryStatus.Pending;
         AttemptedHostCount = null; RespondingHostCount = null; DiscoveryMessage = null; DiscoveredAt = null;
         ClearIdentification();
+        ClearYamahaIdentification();
     }
 
     public void CompleteDiscovery(int attempted, int responding, DateTimeOffset at)
@@ -135,5 +144,48 @@ public sealed class SubnetProposal
         IdentifiedProductFamilies = null;
         IdentificationMessage = null;
         IdentifiedAt = null;
+    }
+
+    public void StartYamahaIdentification(Guid commandId)
+    {
+        if (DiscoveryStatus != SubnetDiscoveryStatus.Completed || RespondingHostCount is null or <= 0 ||
+            commandId == Guid.Empty)
+            throw new InvalidOperationException("Yamaha identification requires completed discovery with responders.");
+        ClearYamahaIdentification();
+        YamahaIdentificationCommandId = commandId;
+        YamahaIdentificationStatus = ProductIdentificationStatus.Pending;
+    }
+
+    public void CompleteYamahaIdentification(int attempted, int identified, string productFamilies, DateTimeOffset at)
+    {
+        if (YamahaIdentificationStatus != ProductIdentificationStatus.Pending || attempted is < 1 or > 32 ||
+            identified < 0 || identified > attempted || string.IsNullOrWhiteSpace(productFamilies))
+            throw new InvalidOperationException("Yamaha identification result is invalid.");
+        YamahaIdentificationStatus = ProductIdentificationStatus.Completed;
+        YamahaIdentificationAttemptedHostCount = attempted;
+        YamahaIdentifiedHostCount = identified;
+        YamahaIdentifiedProductFamilies = productFamilies;
+        YamahaIdentifiedAt = at;
+    }
+
+    public void FailYamahaIdentification(string message, DateTimeOffset at)
+    {
+        if (YamahaIdentificationStatus != ProductIdentificationStatus.Pending)
+            throw new InvalidOperationException("Yamaha identification is not pending.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        YamahaIdentificationStatus = ProductIdentificationStatus.Failed;
+        YamahaIdentificationMessage = message;
+        YamahaIdentifiedAt = at;
+    }
+
+    private void ClearYamahaIdentification()
+    {
+        YamahaIdentificationCommandId = null;
+        YamahaIdentificationStatus = null;
+        YamahaIdentificationAttemptedHostCount = null;
+        YamahaIdentifiedHostCount = null;
+        YamahaIdentifiedProductFamilies = null;
+        YamahaIdentificationMessage = null;
+        YamahaIdentifiedAt = null;
     }
 }

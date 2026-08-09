@@ -24,7 +24,8 @@ final recoveryHistoryProvider = FutureProvider<RecoveryHistory>((ref) async {
       history.subnetProposals.any(
         (proposal) =>
             proposal.discoveryStatus == 'pending' ||
-            proposal.identificationStatus == 'pending',
+            proposal.identificationStatus == 'pending' ||
+            proposal.yamahaIdentificationStatus == 'pending',
       )) {
     final timer = Timer(const Duration(seconds: 3), ref.invalidateSelf);
     ref.onDispose(timer.cancel);

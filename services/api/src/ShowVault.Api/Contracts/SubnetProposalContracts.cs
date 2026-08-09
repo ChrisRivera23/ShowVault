@@ -7,7 +7,11 @@ public sealed record SubnetProposalSummary(Guid Id, Guid AgentId, string AgentNa
     int? RespondingHostCount, string? DiscoveryMessage, DateTimeOffset? DiscoveredAt,
     Guid? IdentificationCommandId, string? IdentificationStatus,
     int? IdentificationAttemptedHostCount, int? IdentifiedHostCount,
-    string? IdentifiedProductFamilies, string? IdentificationMessage, DateTimeOffset? IdentifiedAt);
+    string? IdentifiedProductFamilies, string? IdentificationMessage, DateTimeOffset? IdentifiedAt,
+    Guid? YamahaIdentificationCommandId, string? YamahaIdentificationStatus,
+    int? YamahaIdentificationAttemptedHostCount, int? YamahaIdentifiedHostCount,
+    string? YamahaIdentifiedProductFamilies, string? YamahaIdentificationMessage,
+    DateTimeOffset? YamahaIdentifiedAt);
 
 public sealed record DecideSubnetProposalRequest(bool Approved);
 

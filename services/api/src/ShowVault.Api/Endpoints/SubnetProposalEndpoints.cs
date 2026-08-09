@@ -39,6 +39,7 @@ public static class SubnetProposalEndpoints
                 proposal.Id, discoveryCommandId, request.TimeoutMilliseconds)),
             time.GetUtcNow(), TimeSpan.FromMinutes(10));
         db.IssuedAgentCommands.Add(IssuedAgentCommand.FromEnvelope(command));
+        proposal.StartYamahaIdentification(command.CommandId);
         await db.SaveChangesAsync(ct);
         return Results.Accepted($"/api/v1/agent-commands/{command.CommandId}",
             ApiResponse<AgentCommandEnvelope>.Success(command, context.TraceIdentifier));
@@ -85,7 +86,12 @@ public static class SubnetProposalEndpoints
                 x.p.IdentificationCommandId,
                 x.p.IdentificationStatus?.ToString().ToLowerInvariant(),
                 x.p.IdentificationAttemptedHostCount, x.p.IdentifiedHostCount,
-                x.p.IdentifiedProductFamilies, x.p.IdentificationMessage, x.p.IdentifiedAt)).ToArray(), context.TraceIdentifier));
+                x.p.IdentifiedProductFamilies, x.p.IdentificationMessage, x.p.IdentifiedAt,
+                x.p.YamahaIdentificationCommandId,
+                x.p.YamahaIdentificationStatus?.ToString().ToLowerInvariant(),
+                x.p.YamahaIdentificationAttemptedHostCount, x.p.YamahaIdentifiedHostCount,
+                x.p.YamahaIdentifiedProductFamilies, x.p.YamahaIdentificationMessage,
+                x.p.YamahaIdentifiedAt)).ToArray(), context.TraceIdentifier));
     }
 
     private static async Task<IResult> DiscoverAsync(Guid organizationId, Guid venueId, Guid proposalId,

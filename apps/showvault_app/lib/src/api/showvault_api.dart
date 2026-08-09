@@ -44,6 +44,11 @@ class SubnetProposal {
     this.identifiedHostCount,
     this.identifiedProductFamilies,
     this.identificationMessage,
+    this.yamahaIdentificationStatus,
+    this.yamahaIdentificationAttemptedHostCount,
+    this.yamahaIdentifiedHostCount,
+    this.yamahaIdentifiedProductFamilies,
+    this.yamahaIdentificationMessage,
   });
   factory SubnetProposal.fromJson(Map<String, Object?> json) => SubnetProposal(
     id: json['id']! as String,
@@ -63,6 +68,13 @@ class SubnetProposal {
     identifiedHostCount: json['identifiedHostCount'] as int?,
     identifiedProductFamilies: json['identifiedProductFamilies'] as String?,
     identificationMessage: json['identificationMessage'] as String?,
+    yamahaIdentificationStatus: json['yamahaIdentificationStatus'] as String?,
+    yamahaIdentificationAttemptedHostCount:
+        json['yamahaIdentificationAttemptedHostCount'] as int?,
+    yamahaIdentifiedHostCount: json['yamahaIdentifiedHostCount'] as int?,
+    yamahaIdentifiedProductFamilies:
+        json['yamahaIdentifiedProductFamilies'] as String?,
+    yamahaIdentificationMessage: json['yamahaIdentificationMessage'] as String?,
   );
   final String id, agentName, network, interfaceType, evidence, decision;
   final int prefixLength;
@@ -75,6 +87,11 @@ class SubnetProposal {
   final int? identifiedHostCount;
   final String? identifiedProductFamilies;
   final String? identificationMessage;
+  final String? yamahaIdentificationStatus;
+  final int? yamahaIdentificationAttemptedHostCount;
+  final int? yamahaIdentifiedHostCount;
+  final String? yamahaIdentifiedProductFamilies;
+  final String? yamahaIdentificationMessage;
 }
 
 class RecoveryCandidate {
@@ -252,6 +269,29 @@ class ShowVaultApi {
       Uri.parse(
         '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
         '/venues/${history.venueId}/subnet-proposals/$proposalId/identify-ma-lighting',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'timeoutMilliseconds': 500}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    return (body['payload']! as Map<String, Object?>)['commandId']! as String;
+  }
+
+  Future<String> identifyYamahaDme({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String proposalId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
+        '/venues/${history.venueId}/subnet-proposals/$proposalId/identify-yamaha-dme',
       ),
       headers: {
         'Authorization': 'Bearer $accessToken',
