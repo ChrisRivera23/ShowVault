@@ -114,7 +114,7 @@ Manufacturer names do not imply support for every product the company has shippe
 
 - QLab — automatic local detection deferred because Figure 53 documents `/Applications/QLab.app` but requires the operator to choose where each workspace or project folder is saved; automatic workspace backups are stored beside that chosen workspace, so no dependable bounded recovery root is published
 - SCS (Show Cue System) — automatic local detection deferred because official SCS 11 guidance publishes `C:\Program Files\SCS 11\scs11.exe` but no dependable show root; cue files and optional portable production folders may be placed in operator-selected locations, while the broad Documents initial folder and per-user application-data device maps are not authoritative recovery roots
-- PlaybackPro
+- PlaybackPro — automatic local detection deferred because DT Videolabs directs users to place downloaded PlaybackPro-family applications in Applications but does not publish an exact stable bundle path for this unversioned catalog row or a dependable show/playlist root; playlists reference media at operator-selected locations, so neither application identity nor bounded recovery data can be inferred safely
 - Mitti
 - ProPresenter
 - PVP
