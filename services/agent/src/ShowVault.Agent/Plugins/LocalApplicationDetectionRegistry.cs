@@ -32,6 +32,7 @@ public sealed record LocalApplicationCatalogEntry(
     public IReadOnlyList<LocalApplicationVersionDirectory> WindowsUserVersionDirectories { get; init; } = [];
     public IReadOnlyList<LocalApplicationLocation> WindowsSystemLocations { get; init; } = [];
     public IReadOnlyList<LocalApplicationLocation> WindowsProgramFilesLocations { get; init; } = [];
+    public IReadOnlyList<LocalApplicationVersionDirectory> WindowsProgramFilesVersionDirectories { get; init; } = [];
     public IReadOnlyList<LocalApplicationLocation> MountedVolumeLocations { get; init; } = [];
 }
 
@@ -48,6 +49,7 @@ public sealed class LocalApplicationDetectionRegistry
     public const string DisguiseDesignerPluginId = "showvault.disguise-designer";
     public const string WatchoutPluginId = "showvault.watchout";
     public const string HippotizerPluginId = "showvault.hippotizer";
+    public const string PixeraPluginId = "showvault.pixera";
     private const int MaximumVersionDirectoryCount = 32;
     private const int MaximumMountedVolumeCount = 64;
 
@@ -98,6 +100,18 @@ public sealed class LocalApplicationDetectionRegistry
             WindowsProgramFilesLocations =
             [new("InstalledApplication", Path.Combine("GreenHippo", "HippotizerV4"),
                 "Catalog documented Hippotizer V4 Windows installation location")]
+        },
+        new(
+            PixeraPluginId,
+            "AV Stumpfl PIXERA",
+            [],
+            [],
+            [],
+            [])
+        {
+            WindowsProgramFilesVersionDirectories =
+            [new("InstalledApplication", Path.Combine("AV Stumpfl", "Pixera"), "build_", "presence",
+                "Catalog documented versioned PIXERA Windows installation location")]
         },
         new(
             SeratoDjProPluginId,
@@ -289,6 +303,8 @@ public sealed class LocalApplicationDetectionRegistry
                 AddCandidates(candidates, entry, windowsSystemRoots ?? [], entry.WindowsSystemLocations);
                 AddCandidates(candidates, entry, windowsProgramFilesRoots ?? [],
                     entry.WindowsProgramFilesLocations);
+                AddVersionDirectoryCandidates(candidates, entry, windowsProgramFilesRoots ?? [],
+                    entry.WindowsProgramFilesVersionDirectories);
             }
         }
 

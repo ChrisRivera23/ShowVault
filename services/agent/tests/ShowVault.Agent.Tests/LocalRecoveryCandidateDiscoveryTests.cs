@@ -455,6 +455,63 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
     }
 
     [Fact]
+    public void Catalog_registry_finds_only_documented_versioned_pixera_installation()
+    {
+        var programFilesRoot = Path.Combine(_root, "Windows", "ProgramFiles");
+        var programFilesX86Root = Path.Combine(_root, "Windows", "ProgramFilesX86");
+        var userHome = Path.Combine(_root, "Windows", "Users", "operator");
+        var installationRoot = Path.Combine(
+            programFilesRoot, "AV Stumpfl", "Pixera", "build_2-0-172", "presence");
+        var undocumentedX86Root = Path.Combine(
+            programFilesX86Root, "AV Stumpfl", "Pixera", "build_2-0-172", "presence");
+        var nonBuildRoot = Path.Combine(
+            programFilesRoot, "AV Stumpfl", "Pixera", "release_2-0-172", "presence");
+        var guessedProjectRoot = Path.Combine(userHome, "Documents", "PIXERA Projects");
+        Directory.CreateDirectory(installationRoot);
+        Directory.CreateDirectory(undocumentedX86Root);
+        Directory.CreateDirectory(nonBuildRoot);
+        Directory.CreateDirectory(guessedProjectRoot);
+        var registry = new LocalApplicationDetectionRegistry();
+
+        var windowsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.Windows,
+                [programFilesX86Root],
+                [userHome],
+                windowsProgramFilesRoots: [programFilesRoot])
+            .Where(location =>
+                location.PluginId == LocalApplicationDetectionRegistry.PixeraPluginId)
+            .ToArray();
+        var macOsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.MacOs,
+                [programFilesRoot],
+                [userHome])
+            .Where(location =>
+                location.PluginId == LocalApplicationDetectionRegistry.PixeraPluginId)
+            .ToArray();
+
+        var location = Assert.Single(windowsLocations);
+        Assert.Equal("AV Stumpfl PIXERA", location.ProductName);
+        Assert.Equal("InstalledApplication", location.CandidateType);
+        Assert.Equal(installationRoot, location.Path);
+        Assert.Equal(
+            "Catalog documented versioned PIXERA Windows installation location",
+            location.Evidence);
+        Assert.Empty(macOsLocations);
+        Assert.DoesNotContain(windowsLocations, candidate =>
+            candidate.CandidateType == "UserDataRoot");
+        Assert.DoesNotContain(windowsLocations, candidate =>
+            candidate.Path == undocumentedX86Root ||
+            candidate.Path == nonBuildRoot ||
+            candidate.Path == guessedProjectRoot);
+
+        var candidate = Assert.Single(new LocalRecoveryCandidateDiscovery(
+            new FixedLocationProvider(windowsLocations)).Discover());
+        Assert.Equal(LocalApplicationDetectionRegistry.PixeraPluginId, candidate.PluginId);
+        Assert.Equal(installationRoot, candidate.Path);
+        Assert.True(candidate.RequiresOperatorApproval);
+    }
+
+    [Fact]
     public void Missing_locations_do_not_consume_the_discovered_candidate_limit()
     {
         var existing = Path.Combine(_root, "existing", "_Serato_");
