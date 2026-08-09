@@ -15,12 +15,12 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/aja-broadcast-identification`
-- Latest completed feature: `fe99fac feat: identify NewTek TriCaster TC1`
+- Branch: `codex/obs-studio-local-identification`
+- Latest completed feature: `f0d1350 feat: identify standard OBS Studio data`
 - Latest research decision: `93614fc docs: defer unsafe AJA broadcast discovery`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
-- Verified baseline: 8 focused NewTek TriCaster protocol fixtures and all 342 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
+- Verified baseline: all 17 focused local-recovery candidate tests and all 346 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
 - The complete baseline also has 2 contract tests, 23 platform tests, 7 API tests, Flutter analysis, and 17 Flutter tests passing; API Release build passes with 0 warnings and 0 errors, and EF Core reports no pending model changes
 - Blackmagic's official protocol PDF resolves with HTTP 206, was rendered, and its complete zero-byte initial status example was inspected
 - `git diff --check` passes; migration `20260809101018_AddBlackmagicVideohubIdentificationResults` exactly matches the current model
@@ -35,6 +35,8 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - `git diff --check` passes; EF Core reports no pending model changes, and migration `20260809102940_AddNewTekTriCasterIdentificationResults` exactly matches the current model
 - AJA broadcast-device research inspected AJA's official REST API repository and IPR-10G-HDMI discovery guidance. The target-bounded GET framework publishes no model-identity parameter with literal product values, while official discovery uses SSDP or mDNS and also references NMOS; generic framework behavior and multicast discovery do not establish exact identity
 - Both official AJA source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, schema, tenant-state, filesystem-discovery, or network-path change. Runtime tests were not rerun because only documentation changed
+- OBS Studio official installation guidance and pinned source establish the standard macOS Applications bundle, native Windows Program Files executable, platform config bases, and separate `basic/profiles` and `basic/scenes` roots. Protocol and schemas are unchanged; detection remains catalog-driven, existence-only, approval-required, and path-free outside the Agent
+- OBS verification: 17 focused local-recovery candidate tests and all 346 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors; `git diff --check` passes; all seven cited official OBS pages/source files returned HTTP 200
 - Digital Projection was a documentation-only research decision: `git diff --check` passed and both official source links resolved; runtime tests were not rerun because no implementation, test, contract, migration, or build input changed
 - Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged assertions in `AgentCommandExecutorTests.cs` at lines 997, 1003, 1009, and 1015
 
@@ -59,18 +61,19 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Protocol 1.15 adds separately authorized NewTek TriCaster TC1 identification against the at most 32 responders retained by one exact completed discovery. The Agent sends only `GET /version` on TCP 80, caps headers and the 16,384-byte XML body, disables proxies and redirects, prohibits DTD processing, and requires HTTP 200 with exactly one `TC1` model and `TriCaster TC1` name. Authentication challenges and other/malformed responses are safe false negatives; documented default credentials are never used and operators are not asked to weaken protection. Addresses and privacy-bearing product/session response fields remain Agent-local; only counts and `NewTek TriCaster TC1` reach the control plane.
 - NewTek TriCaster state has independent tenant-scoped pending/completed/failed persistence, exact command/discovery correlation, an owner-authorized API endpoint, and a native dashboard action. Other models, generic NDI/HTTP reachability, configuration, control, backup, verification, and restore remain unsupported.
 - AJA Video Systems automatic broadcast-device identification is deferred. The official generic REST API documents bounded read-only GET mechanics but says product parameters and descriptors vary and publishes no exact model-identity parameter/literal response for the covered products. Official AJA IP-converter discovery relies on SSDP or mDNS and also references NMOS; no multicast listener, generic-framework inference, credentials, scanner, implementation, real-device contact, or support credit was added.
+- OBS Studio uses `showvault.obs-studio`. Catalog detection checks only `/Applications/OBS.app`, native Windows `Program Files/obs-studio/bin/64bit/obs64.exe`, and each user's standard OBS `basic/profiles` and `basic/scenes` directories. Portable/custom/Steam locations are safe false negatives. Candidate contents, credentials, recordings, media, plugins, and logs are not read; validation, protection, backup, verification, and restore remain unsupported.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official OBS Studio primary sources for dependable automatic local application and recoverable-data roots for the streaming-and-production catalog. Add the smallest safe catalog-driven local identification slice only if official sources establish stable platform paths and bounded recovery data; otherwise record an evidence-backed deferral.
+Research official QLab primary sources for dependable automatic local application and recoverable-workspace roots under `Show control and playback`. Add the smallest safe catalog-driven local identification slice only if official sources establish a stable macOS application path and bounded recovery data; otherwise record an evidence-backed deferral.
 
 Required boundaries:
 
-- Start from the OBS Studio row under `Streaming and production` in `docs/INTEGRATION_CATALOG.md` and inspect the existing catalog-driven local-candidate architecture before proposing changes.
-- Require official OBS Project sources for stable Windows and macOS application and recoverable-data locations; distinguish installation, candidate existence, recoverable data, validation, backup, verification, and restore states.
+- Start from the QLab row under `Show control and playback` in `docs/INTEGRATION_CATALOG.md` and inspect the existing catalog-driven local-candidate architecture before proposing changes.
+- Require official Figure 53 sources for stable supported macOS application and recoverable-workspace locations; distinguish installation, candidate existence, recoverable data, validation, backup, verification, and restore states.
 - Keep resolved paths and file contents Agent-local. Publish only opaque candidate IDs and bounded product/type/evidence metadata through the existing path-free contract.
-- Do not infer OBS installation or recoverable projects from process names, generic files, user-entered paths, or undocumented platform conventions, and do not recursively scan unbounded home or filesystem roots.
+- Do not infer QLab installation or recoverable workspaces from process names, generic files, user-entered paths, or undocumented platform conventions, and do not recursively scan unbounded home or filesystem roots.
 - Use synthetic temporary filesystem fixtures for any implementation. Do not inspect the Product Owner's installed applications, profile, scenes, recordings, or workstation without explicit authorization.
 - Do not claim successful backup, validation, verification, or restore from an identification-only or candidate-enumeration slice.
 

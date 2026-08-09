@@ -125,4 +125,4 @@ AJA Video Systems broadcast-device network identification is deliberately deferr
 
 ## Next slices
 
-1. Research official vMix primary sources for dependable automatic local application and recoverable-data roots for the streaming-and-production catalog. Preserve the existing catalog-driven, path-free control-plane boundary; do not infer installation or recovery support from process names, generic files, user-entered paths, or undocumented platform conventions.
+1. Research official QLab primary sources for dependable automatic local application and recoverable-workspace roots under Show control and playback. Preserve the existing catalog-driven, path-free control-plane boundary; do not infer installation or recovery support from process names, generic files, user-entered paths, or undocumented platform conventions.
