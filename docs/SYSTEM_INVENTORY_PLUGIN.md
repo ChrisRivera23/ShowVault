@@ -16,7 +16,7 @@ The control plane issues `CollectSystemInventory` with an empty JSON payload. Th
 - up to 128 existing catalog-defined local application or recovery-data candidates; and
 - bounded local subnet proposals derived without contacting hosts.
 
-Unreadable or unready volumes remain visible with null capacity values. Application discovery checks only declared standard paths, ignores missing or inaccessible locations, and does not read candidate file contents. The catalog currently covers Resolume Arena, Resolume Avenue, Serato DJ Pro, and rekordbox. Each product has its own plugin identity, so detection never silently credits an unrelated integration. Versioned directories are prefix-scoped, sorted, and capped at 32 per catalog location. The plugin performs no writes, network probing, shortcut resolution, or registry traversal. Its manifest requests `ReadSystemInformation` and `ReadFiles`; the latter covers bounded candidate existence checks rather than authorization to protect candidate contents.
+Unreadable or unready volumes remain visible with null capacity values. Application discovery checks only declared standard paths, ignores missing or inaccessible locations, and does not read candidate file contents. The catalog currently covers Resolume Arena, Resolume Avenue, Serato DJ Pro, rekordbox, and Traktor Pro. Each product has its own plugin identity. Versioned application and user-data directories are prefix-scoped, sorted, and capped at 32 per catalog location. The plugin performs no writes, network probing, shortcut resolution, or registry traversal.
 
 ## Boundary
 
