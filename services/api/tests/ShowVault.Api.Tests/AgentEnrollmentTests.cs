@@ -438,6 +438,43 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal("Sony BRC-X400,Sony SRG-A40", sonyProposal.SonyCameraIdentifiedProductFamilies);
         Assert.Equal("Panasonic AW-UE100,Panasonic AW-UE150A",
             sonyProposal.PanasonicCameraIdentifiedProductFamilies);
+        var allenHeathPath = $"{proposalPath}/{proposalId}/identify-allen-heath-qu";
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
+            allenHeathPath, new IdentifyAllenHeathQuRequest())).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await ownerClient.PostAsJsonAsync(
+            allenHeathPath, new IdentifyAllenHeathQuRequest(99))).StatusCode);
+        var allenHeathResponse = await ownerClient.PostAsJsonAsync(
+            allenHeathPath, new IdentifyAllenHeathQuRequest(500));
+        Assert.Equal(HttpStatusCode.Accepted, allenHeathResponse.StatusCode);
+        var allenHeathCommand = (await allenHeathResponse.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>())!.Payload;
+        Assert.Equal(AgentCommandType.IdentifyAllenHeathQu, allenHeathCommand.Type);
+        Assert.Contains(subnetCommand.CommandId.ToString(), allenHeathCommand.Payload,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("192.168", allenHeathCommand.Payload, StringComparison.Ordinal);
+        var allenHeathOutcome = new AgentEventEnvelope(
+            allenHeathCommand.CommandId, enrolledAgent.Payload.AgentId,
+            AgentEventType.JobCompleted, AgentProtocol.Version, DateTimeOffset.UtcNow,
+            allenHeathCommand.CorrelationId,
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                proposalId,
+                discoveryCommandId = subnetCommand.CommandId,
+                attemptedHostCount = 3,
+                identifiedHostCount = 2,
+                productFamilies = new[] { "Allen & Heath Qu-16", "Allen & Heath Qu-Pac" }
+            }));
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", allenHeathOutcome)).StatusCode);
+        proposals = await ownerClient.GetFromJsonAsync<ApiResponse<IReadOnlyList<SubnetProposalSummary>>>(proposalPath);
+        var allenHeathProposal = Assert.Single(proposals!.Payload);
+        Assert.Equal("completed", allenHeathProposal.AllenHeathQuIdentificationStatus);
+        Assert.Equal(3, allenHeathProposal.AllenHeathQuIdentificationAttemptedHostCount);
+        Assert.Equal(2, allenHeathProposal.AllenHeathQuIdentifiedHostCount);
+        Assert.Equal("Allen & Heath Qu-16,Allen & Heath Qu-Pac",
+            allenHeathProposal.AllenHeathQuIdentifiedProductFamilies);
+        Assert.Equal("Sony BRC-X400,Sony SRG-A40",
+            allenHeathProposal.SonyCameraIdentifiedProductFamilies);
         var projectorPath = $"{proposalPath}/{proposalId}/identify-projectors";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
             projectorPath, new IdentifyProjectorsRequest())).StatusCode);

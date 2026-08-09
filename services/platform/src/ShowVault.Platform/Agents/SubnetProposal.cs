@@ -91,6 +91,13 @@ public sealed class SubnetProposal
     public string? SonyCameraIdentifiedProductFamilies { get; private set; }
     public string? SonyCameraIdentificationMessage { get; private set; }
     public DateTimeOffset? SonyCameraIdentifiedAt { get; private set; }
+    public Guid? AllenHeathQuIdentificationCommandId { get; private set; }
+    public ProductIdentificationStatus? AllenHeathQuIdentificationStatus { get; private set; }
+    public int? AllenHeathQuIdentificationAttemptedHostCount { get; private set; }
+    public int? AllenHeathQuIdentifiedHostCount { get; private set; }
+    public string? AllenHeathQuIdentifiedProductFamilies { get; private set; }
+    public string? AllenHeathQuIdentificationMessage { get; private set; }
+    public DateTimeOffset? AllenHeathQuIdentifiedAt { get; private set; }
 
     public static SubnetProposal Detected(Guid id, Guid agentId, string network, int prefixLength,
         string interfaceType, string evidence, DateTimeOffset detectedAt)
@@ -132,6 +139,7 @@ public sealed class SubnetProposal
         ClearBirdDogIdentification();
         ClearPanasonicCameraIdentification();
         ClearSonyCameraIdentification();
+        ClearAllenHeathQuIdentification();
     }
 
     public void StartDiscovery(Guid commandId)
@@ -149,6 +157,7 @@ public sealed class SubnetProposal
         ClearBirdDogIdentification();
         ClearPanasonicCameraIdentification();
         ClearSonyCameraIdentification();
+        ClearAllenHeathQuIdentification();
     }
 
     public void CompleteDiscovery(
@@ -527,5 +536,51 @@ public sealed class SubnetProposal
         SonyCameraIdentifiedProductFamilies = null;
         SonyCameraIdentificationMessage = null;
         SonyCameraIdentifiedAt = null;
+    }
+
+    public void StartAllenHeathQuIdentification(Guid commandId)
+    {
+        if (DiscoveryStatus != SubnetDiscoveryStatus.Completed || RespondingHostCount is null or <= 0 ||
+            commandId == Guid.Empty)
+            throw new InvalidOperationException(
+                "Allen & Heath Qu identification requires completed discovery with responders.");
+        ClearAllenHeathQuIdentification();
+        AllenHeathQuIdentificationCommandId = commandId;
+        AllenHeathQuIdentificationStatus = ProductIdentificationStatus.Pending;
+    }
+
+    public void CompleteAllenHeathQuIdentification(
+        int attempted, int identified, string productFamilies, DateTimeOffset at)
+    {
+        if (AllenHeathQuIdentificationStatus != ProductIdentificationStatus.Pending ||
+            attempted is < 1 or > 32 || identified < 0 || identified > attempted ||
+            string.IsNullOrWhiteSpace(productFamilies))
+            throw new InvalidOperationException("Allen & Heath Qu identification result is invalid.");
+        AllenHeathQuIdentificationStatus = ProductIdentificationStatus.Completed;
+        AllenHeathQuIdentificationAttemptedHostCount = attempted;
+        AllenHeathQuIdentifiedHostCount = identified;
+        AllenHeathQuIdentifiedProductFamilies = productFamilies;
+        AllenHeathQuIdentifiedAt = at;
+    }
+
+    public void FailAllenHeathQuIdentification(string message, DateTimeOffset at)
+    {
+        if (AllenHeathQuIdentificationStatus != ProductIdentificationStatus.Pending)
+            throw new InvalidOperationException("Allen & Heath Qu identification is not pending.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        AllenHeathQuIdentificationStatus = ProductIdentificationStatus.Failed;
+        AllenHeathQuIdentificationMessage = message;
+        AllenHeathQuIdentifiedAt = at;
+    }
+
+    private void ClearAllenHeathQuIdentification()
+    {
+        AllenHeathQuIdentificationCommandId = null;
+        AllenHeathQuIdentificationStatus = null;
+        AllenHeathQuIdentificationAttemptedHostCount = null;
+        AllenHeathQuIdentifiedHostCount = null;
+        AllenHeathQuIdentifiedProductFamilies = null;
+        AllenHeathQuIdentificationMessage = null;
+        AllenHeathQuIdentifiedAt = null;
     }
 }

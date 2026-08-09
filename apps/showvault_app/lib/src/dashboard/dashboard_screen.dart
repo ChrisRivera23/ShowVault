@@ -412,6 +412,33 @@ class _SubnetOnboarding extends ConsumerWidget {
     }
   }
 
+  Future<void> _identifyAllenHeathQu(
+    BuildContext context,
+    WidgetRef ref,
+    SubnetProposal proposal,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .identifyAllenHeathQu(
+            accessToken: session.accessToken,
+            history: history,
+            proposalId: proposal.id,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Allen & Heath Qu identification failed: $error'),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = history.subnetProposals.where(
@@ -449,7 +476,8 @@ class _SubnetOnboarding extends ConsumerWidget {
                     '${_newTekTriCasterIdentificationDetail(proposal)}'
                     '${_birdDogIdentificationDetail(proposal)}'
                     '${_panasonicCameraIdentificationDetail(proposal)}'
-                    '${_sonyCameraIdentificationDetail(proposal)}',
+                    '${_sonyCameraIdentificationDetail(proposal)}'
+                    '${_allenHeathQuIdentificationDetail(proposal)}',
                   ),
                   isThreeLine: true,
                   trailing: proposal.decision == 'approved'
@@ -594,6 +622,27 @@ class _SubnetOnboarding extends ConsumerWidget {
                                         ),
                                         child: const Text(
                                           'Identify Sony camera',
+                                        ),
+                                      ),
+                                  if (proposal.discoveryStatus == 'completed' &&
+                                      (proposal.respondingHostCount ?? 0) > 0)
+                                    if (proposal
+                                            .allenHeathQuIdentificationStatus ==
+                                        'pending')
+                                      const Chip(
+                                        label: Text(
+                                          'Identifying Allen & Heath Qu',
+                                        ),
+                                      )
+                                    else
+                                      FilledButton(
+                                        onPressed: () => _identifyAllenHeathQu(
+                                          context,
+                                          ref,
+                                          proposal,
+                                        ),
+                                        child: const Text(
+                                          'Identify Allen & Heath Qu',
                                         ),
                                       ),
                                   if (proposal.discoveryStatus == 'completed' &&
@@ -759,6 +808,20 @@ class _SubnetOnboarding extends ConsumerWidget {
     'failed' =>
       '\nSony camera identification failed • '
           '${proposal.sonyCameraIdentificationMessage ?? 'Unknown error'}',
+    _ => '',
+  };
+
+  String _allenHeathQuIdentificationDetail(
+    SubnetProposal proposal,
+  ) => switch (proposal.allenHeathQuIdentificationStatus) {
+    'completed' =>
+      '\nAllen & Heath Qu review • '
+          '${proposal.allenHeathQuIdentifiedHostCount ?? 0} of '
+          '${proposal.allenHeathQuIdentificationAttemptedHostCount ?? 0} identified • '
+          '${proposal.allenHeathQuIdentifiedProductFamilies ?? 'none'} • addresses and raw MIDI state responses remain local',
+    'failed' =>
+      '\nAllen & Heath Qu identification failed • '
+          '${proposal.allenHeathQuIdentificationMessage ?? 'Unknown error'}',
     _ => '',
   };
 }

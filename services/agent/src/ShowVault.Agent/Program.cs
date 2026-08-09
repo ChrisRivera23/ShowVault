@@ -288,6 +288,8 @@ builder.Services.AddSingleton<IPanasonicCameraProtocolProbe, PanasonicCameraProt
 builder.Services.AddSingleton<PanasonicCameraNetworkIdentification>();
 builder.Services.AddSingleton<ISonyCameraProtocolProbe, SonyCameraProtocolProbe>();
 builder.Services.AddSingleton<SonyCameraNetworkIdentification>();
+builder.Services.AddSingleton<IAllenHeathQuProtocolProbe, AllenHeathQuProtocolProbe>();
+builder.Services.AddSingleton<AllenHeathQuNetworkIdentification>();
 builder.Services.AddSingleton<PjLinkProjectorProbe>();
 builder.Services.AddSingleton<NecProjectorProbe>();
 builder.Services.AddSingleton<IProjectorProtocolProbe>(services => new ProjectorProtocolProbe(

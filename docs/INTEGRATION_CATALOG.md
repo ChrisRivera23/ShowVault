@@ -9,7 +9,7 @@ Manufacturer names do not imply support for every product the company has shippe
 ## Audio manufacturers
 
 - Yamaha
-- Allen & Heath
+- Allen & Heath — protocol 1.19 separately identifies exact official Qu MIDI-over-TCP `BoxID` replies for Qu-16, Qu-24, Qu-32, Qu-Pac, and Qu-SB against responders retained by one completed authorized discovery; response bytes and addresses remain Agent-local, and SQ/SQ+, CQ, AHM, Avantis, dLive, generic MIDI/TCP behavior, configuration, control, validation, backup, verification, and restore remain unsupported by this network slice
 - DiGiCo
 - Avid
 - SSL (Solid State Logic)

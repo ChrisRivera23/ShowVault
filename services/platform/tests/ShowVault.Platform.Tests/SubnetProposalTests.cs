@@ -159,4 +159,25 @@ public sealed class SubnetProposalTests
         proposal.StartDiscovery(Guid.NewGuid());
         Assert.Null(proposal.SonyCameraIdentificationStatus);
     }
+
+    [Fact]
+    public void Tracks_allen_heath_qu_identification_independently_and_clears_it_on_rediscovery()
+    {
+        var proposal = SubnetProposal.Detected(
+            Guid.NewGuid(), Guid.NewGuid(), "192.168.1.0", 24,
+            "Ethernet", "Private network", DateTimeOffset.UtcNow);
+        proposal.RecordDecision(SubnetProposalDecision.Approved, "owner", DateTimeOffset.UtcNow);
+        proposal.StartDiscovery(Guid.NewGuid());
+        proposal.CompleteDiscovery(4, 1, 0, 4, DateTimeOffset.UtcNow);
+
+        proposal.StartAllenHeathQuIdentification(Guid.NewGuid());
+        proposal.CompleteAllenHeathQuIdentification(
+            1, 1, "Allen & Heath Qu-16", DateTimeOffset.UtcNow);
+
+        Assert.Equal(ProductIdentificationStatus.Completed,
+            proposal.AllenHeathQuIdentificationStatus);
+        Assert.Equal("Allen & Heath Qu-16", proposal.AllenHeathQuIdentifiedProductFamilies);
+        proposal.StartDiscovery(Guid.NewGuid());
+        Assert.Null(proposal.AllenHeathQuIdentificationStatus);
+    }
 }

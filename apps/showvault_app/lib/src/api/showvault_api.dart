@@ -81,6 +81,11 @@ class SubnetProposal {
     this.sonyCameraIdentifiedHostCount,
     this.sonyCameraIdentifiedProductFamilies,
     this.sonyCameraIdentificationMessage,
+    this.allenHeathQuIdentificationStatus,
+    this.allenHeathQuIdentificationAttemptedHostCount,
+    this.allenHeathQuIdentifiedHostCount,
+    this.allenHeathQuIdentifiedProductFamilies,
+    this.allenHeathQuIdentificationMessage,
   });
   factory SubnetProposal.fromJson(Map<String, Object?> json) => SubnetProposal(
     id: json['id']! as String,
@@ -166,6 +171,16 @@ class SubnetProposal {
         json['sonyCameraIdentifiedProductFamilies'] as String?,
     sonyCameraIdentificationMessage:
         json['sonyCameraIdentificationMessage'] as String?,
+    allenHeathQuIdentificationStatus:
+        json['allenHeathQuIdentificationStatus'] as String?,
+    allenHeathQuIdentificationAttemptedHostCount:
+        json['allenHeathQuIdentificationAttemptedHostCount'] as int?,
+    allenHeathQuIdentifiedHostCount:
+        json['allenHeathQuIdentifiedHostCount'] as int?,
+    allenHeathQuIdentifiedProductFamilies:
+        json['allenHeathQuIdentifiedProductFamilies'] as String?,
+    allenHeathQuIdentificationMessage:
+        json['allenHeathQuIdentificationMessage'] as String?,
   );
   final String id, agentName, network, interfaceType, evidence, decision;
   final int prefixLength;
@@ -215,6 +230,11 @@ class SubnetProposal {
   final int? sonyCameraIdentifiedHostCount;
   final String? sonyCameraIdentifiedProductFamilies;
   final String? sonyCameraIdentificationMessage;
+  final String? allenHeathQuIdentificationStatus;
+  final int? allenHeathQuIdentificationAttemptedHostCount;
+  final int? allenHeathQuIdentifiedHostCount;
+  final String? allenHeathQuIdentifiedProductFamilies;
+  final String? allenHeathQuIdentificationMessage;
 
   bool get shouldSuggestDiscoveryRetry =>
       discoveryStatus == 'completed' &&
@@ -560,6 +580,29 @@ class ShowVaultApi {
       Uri.parse(
         '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
         '/venues/${history.venueId}/subnet-proposals/$proposalId/identify-sony-camera',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'timeoutMilliseconds': 500}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    return (body['payload']! as Map<String, Object?>)['commandId']! as String;
+  }
+
+  Future<String> identifyAllenHeathQu({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String proposalId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
+        '/venues/${history.venueId}/subnet-proposals/$proposalId/identify-allen-heath-qu',
       ),
       headers: {
         'Authorization': 'Bearer $accessToken',

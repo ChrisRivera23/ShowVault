@@ -51,7 +51,14 @@ public sealed record SubnetProposalSummary(Guid Id, Guid AgentId, string AgentNa
     int? SonyCameraIdentifiedHostCount,
     string? SonyCameraIdentifiedProductFamilies,
     string? SonyCameraIdentificationMessage,
-    DateTimeOffset? SonyCameraIdentifiedAt);
+    DateTimeOffset? SonyCameraIdentifiedAt,
+    Guid? AllenHeathQuIdentificationCommandId,
+    string? AllenHeathQuIdentificationStatus,
+    int? AllenHeathQuIdentificationAttemptedHostCount,
+    int? AllenHeathQuIdentifiedHostCount,
+    string? AllenHeathQuIdentifiedProductFamilies,
+    string? AllenHeathQuIdentificationMessage,
+    DateTimeOffset? AllenHeathQuIdentifiedAt);
 
 public sealed record DecideSubnetProposalRequest(bool Approved);
 
@@ -66,3 +73,4 @@ public sealed record IdentifyNewTekTriCasterRequest(int TimeoutMilliseconds = 50
 public sealed record IdentifyBirdDogRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyPanasonicCameraRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifySonyCameraRequest(int TimeoutMilliseconds = 500);
+public sealed record IdentifyAllenHeathQuRequest(int TimeoutMilliseconds = 500);

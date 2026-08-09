@@ -359,6 +359,21 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Contains("\"identifiedHostCount\":4", sonyJson, StringComparison.Ordinal);
         Assert.Contains("Sony SRG-A40", sonyJson, StringComparison.Ordinal);
         Assert.DoesNotContain("192.168.10.1", sonyJson, StringComparison.Ordinal);
+
+        var allenHeathCommand = AgentCommandEnvelope.Create(
+            agentId, AgentCommandType.IdentifyAllenHeathQu,
+            "allen-heath-qu-identification",
+            JsonSerializer.Serialize(new IdentifyAllenHeathQuPayload(
+                proposalId, discoveryCommand.CommandId, 250)),
+            now.AddSeconds(11), TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(allenHeathCommand, now.AddSeconds(11), CancellationToken.None);
+        await CreateExecutor(store, now.AddSeconds(11)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+        var allenHeathJson = await store.GetDiscoveryResultJsonAsync(
+            allenHeathCommand.CommandId, CancellationToken.None);
+        Assert.Contains("\"identifiedHostCount\":4", allenHeathJson, StringComparison.Ordinal);
+        Assert.Contains("Allen \\u0026 Heath Qu-16", allenHeathJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("192.168.10.1", allenHeathJson, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -1164,6 +1179,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             new BirdDogNetworkIdentification(new BirdDogProbe(), timeProvider),
             new PanasonicCameraNetworkIdentification(new PanasonicCameraProbe(), timeProvider),
             new SonyCameraNetworkIdentification(new SonyCameraProbe(), timeProvider),
+            new AllenHeathQuNetworkIdentification(new AllenHeathQuProbe(), timeProvider),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
@@ -1289,6 +1305,13 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         public Task<string?> IdentifyAsync(
             System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult<string?>("Sony SRG-A40");
+    }
+
+    private sealed class AllenHeathQuProbe : IAllenHeathQuProtocolProbe
+    {
+        public Task<string?> IdentifyAsync(
+            System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("Allen & Heath Qu-16");
     }
 
     private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions

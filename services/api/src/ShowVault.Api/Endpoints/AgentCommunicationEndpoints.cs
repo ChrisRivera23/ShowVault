@@ -83,6 +83,7 @@ public static class AgentCommunicationEndpoints
         await UpdateBirdDogIdentificationAsync(database, envelope, cancellationToken);
         await UpdatePanasonicCameraIdentificationAsync(database, envelope, cancellationToken);
         await UpdateSonyCameraIdentificationAsync(database, envelope, cancellationToken);
+        await UpdateAllenHeathQuIdentificationAsync(database, envelope, cancellationToken);
         try
         {
             await database.SaveChangesAsync(cancellationToken);
@@ -650,6 +651,73 @@ public static class AgentCommunicationEndpoints
         {
             proposal.FailSonyCameraIdentification(
                 "Agent returned invalid Sony camera identification evidence.", envelope.OccurredAt);
+        }
+    }
+
+    private static async Task UpdateAllenHeathQuIdentificationAsync(
+        PlatformDbContext database,
+        AgentEventEnvelope envelope,
+        CancellationToken cancellationToken)
+    {
+        var command = await database.IssuedAgentCommands.SingleOrDefaultAsync(item =>
+            item.CommandId == envelope.EventId && item.AgentId == envelope.AgentId &&
+            item.Type == AgentCommandType.IdentifyAllenHeathQu, cancellationToken);
+        if (command is null) return;
+        IdentifyAllenHeathQuPayload? request;
+        try { request = JsonSerializer.Deserialize<IdentifyAllenHeathQuPayload>(command.Payload); }
+        catch (JsonException) { return; }
+        if (request is null) return;
+        var proposal = await database.SubnetProposals.SingleOrDefaultAsync(item =>
+            item.Id == request.ProposalId && item.AgentId == envelope.AgentId &&
+            item.DiscoveryCommandId == request.DiscoveryCommandId &&
+            item.AllenHeathQuIdentificationCommandId == envelope.EventId &&
+            item.AllenHeathQuIdentificationStatus == ProductIdentificationStatus.Pending,
+            cancellationToken);
+        if (proposal is null) return;
+        try
+        {
+            using var outcome = JsonDocument.Parse(envelope.Payload);
+            if (envelope.Type == AgentEventType.JobCompleted &&
+                outcome.RootElement.TryGetProperty("attemptedHostCount", out var attemptedValue) &&
+                attemptedValue.TryGetInt32(out var attempted) &&
+                outcome.RootElement.TryGetProperty("identifiedHostCount", out var identifiedValue) &&
+                identifiedValue.TryGetInt32(out var identified) &&
+                outcome.RootElement.TryGetProperty("productFamilies", out var familiesValue) &&
+                familiesValue.ValueKind == JsonValueKind.Array)
+            {
+                var families = familiesValue.EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetString())
+                    .Where(item => !string.IsNullOrWhiteSpace(item))
+                    .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+                var allowed = new[]
+                {
+                    "Allen & Heath Qu-16", "Allen & Heath Qu-24", "Allen & Heath Qu-32",
+                    "Allen & Heath Qu-Pac", "Allen & Heath Qu-SB"
+                };
+                var consistent = identified == 0 ? families.Length == 0 :
+                    families.Length >= 1 && families.Length <= Math.Min(identified, allowed.Length) &&
+                    families.All(item => allowed.Contains(item));
+                var evidence = families.Length == 0 ? "none" : string.Join(",", families);
+                if (attempted is >= 1 and <= 32 && identified >= 0 && identified <= attempted &&
+                    consistent && evidence.Length <= 200)
+                {
+                    proposal.CompleteAllenHeathQuIdentification(
+                        attempted, identified, evidence, envelope.OccurredAt);
+                    return;
+                }
+            }
+            var message = outcome.RootElement.TryGetProperty("error", out var error) &&
+                error.ValueKind == JsonValueKind.String ? error.GetString() :
+                "Agent returned invalid Allen & Heath Qu identification evidence.";
+            proposal.FailAllenHeathQuIdentification(string.IsNullOrWhiteSpace(message) ?
+                "Allen & Heath Qu identification failed." :
+                message[..Math.Min(500, message.Length)], envelope.OccurredAt);
+        }
+        catch (JsonException)
+        {
+            proposal.FailAllenHeathQuIdentification(
+                "Agent returned invalid Allen & Heath Qu identification evidence.", envelope.OccurredAt);
         }
     }
 
