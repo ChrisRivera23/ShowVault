@@ -37,6 +37,7 @@ public sealed class LocalApplicationDetectionRegistry
     public const string SeratoDjProPluginId = "showvault.serato-dj-pro";
     public const string RekordboxPluginId = "showvault.rekordbox";
     public const string TraktorProPluginId = "showvault.traktor-pro";
+    public const string VirtualDjPluginId = "showvault.virtualdj";
     private const int MaximumVersionDirectoryCount = 32;
 
     public IReadOnlyList<LocalApplicationCatalogEntry> Entries { get; } =
@@ -118,7 +119,26 @@ public sealed class LocalApplicationDetectionRegistry
             WindowsUserVersionDirectories =
             [new("UserDataRoot", Path.Combine("Documents", "Native Instruments"), "Traktor ", "",
                 "Catalog standard versioned Traktor root database location")]
-        }
+        },
+        new(
+            VirtualDjPluginId,
+            "VirtualDJ",
+            [new("InstalledApplication", "VirtualDJ.app",
+                "Catalog standard macOS application location")],
+            [new("InstalledApplication", Path.Combine("VirtualDJ", "virtualdj.exe"),
+                "Catalog standard Windows application location")],
+            [
+                new("UserDataRoot", Path.Combine("Library", "Application Support", "VirtualDJ"),
+                    "Catalog current VirtualDJ home location"),
+                new("UserDataRoot", Path.Combine("Documents", "VirtualDJ"),
+                    "Catalog legacy VirtualDJ home location")
+            ],
+            [
+                new("UserDataRoot", Path.Combine("AppData", "Local", "VirtualDJ"),
+                    "Catalog current VirtualDJ home location"),
+                new("UserDataRoot", Path.Combine("Documents", "VirtualDJ"),
+                    "Catalog legacy VirtualDJ home location")
+            ])
     ];
 
     public IReadOnlyList<StandardLocationCandidate> GetCandidates(

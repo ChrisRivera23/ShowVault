@@ -79,6 +79,17 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         Directory.CreateDirectory(expectedTraktorApplication);
         Directory.CreateDirectory(expectedTraktorDatabase);
         Directory.CreateDirectory(expectedTraktorContent);
+        var expectedVirtualDjApplication = platform == LocalApplicationPlatform.MacOs
+            ? Path.Combine(applicationRoot, "VirtualDJ.app")
+            : Path.Combine(applicationRoot, "VirtualDJ", "virtualdj.exe");
+        var expectedVirtualDjCurrentData = platform == LocalApplicationPlatform.MacOs
+            ? Path.Combine(userHome, "Library", "Application Support", "VirtualDJ")
+            : Path.Combine(userHome, "AppData", "Local", "VirtualDJ");
+        var expectedVirtualDjLegacyData = Path.Combine(userHome, "Documents", "VirtualDJ");
+        Directory.CreateDirectory(Path.GetDirectoryName(expectedVirtualDjApplication)!);
+        File.WriteAllText(expectedVirtualDjApplication, "fixture");
+        Directory.CreateDirectory(expectedVirtualDjCurrentData);
+        Directory.CreateDirectory(expectedVirtualDjLegacyData);
 
         var registry = new LocalApplicationDetectionRegistry();
         var standardLocations = registry.GetCandidates(platform, [applicationRoot], [userHome]);
@@ -114,10 +125,23 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             location.PluginId == LocalApplicationDetectionRegistry.TraktorProPluginId &&
             location.CandidateType == "UserDataRoot" &&
             location.Path == expectedTraktorContent);
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == LocalApplicationDetectionRegistry.VirtualDjPluginId &&
+            location.CandidateType == "InstalledApplication" &&
+            location.Path == expectedVirtualDjApplication);
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == LocalApplicationDetectionRegistry.VirtualDjPluginId &&
+            location.CandidateType == "UserDataRoot" &&
+            location.Path == expectedVirtualDjCurrentData);
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == LocalApplicationDetectionRegistry.VirtualDjPluginId &&
+            location.CandidateType == "UserDataRoot" &&
+            location.Path == expectedVirtualDjLegacyData);
 
         foreach (var location in standardLocations.Where(location =>
                      location.PluginId != LocalApplicationDetectionRegistry.RekordboxPluginId &&
-                     location.PluginId != LocalApplicationDetectionRegistry.TraktorProPluginId))
+                     location.PluginId != LocalApplicationDetectionRegistry.TraktorProPluginId &&
+                     location.PluginId != LocalApplicationDetectionRegistry.VirtualDjPluginId))
         {
             if (location.CandidateType == "InstalledApplication" && Path.HasExtension(location.Path))
             {
@@ -133,7 +157,7 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         var candidates = new LocalRecoveryCandidateDiscovery(
             new FixedLocationProvider(standardLocations)).Discover();
 
-        Assert.Equal(11, candidates.Count);
+        Assert.Equal(14, candidates.Count);
         Assert.Equal(2, candidates.Count(candidate =>
             candidate.PluginId == ResolumeDiscoveryPlugin.PluginId &&
             candidate.CandidateType == "InstalledApplication"));
@@ -161,6 +185,13 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             candidate.Path == expectedTraktorApplication);
         Assert.Equal(2, candidates.Count(candidate =>
             candidate.PluginId == LocalApplicationDetectionRegistry.TraktorProPluginId &&
+            candidate.CandidateType == "UserDataRoot"));
+        Assert.Single(candidates, candidate =>
+            candidate.PluginId == LocalApplicationDetectionRegistry.VirtualDjPluginId &&
+            candidate.CandidateType == "InstalledApplication" &&
+            candidate.Path == expectedVirtualDjApplication);
+        Assert.Equal(2, candidates.Count(candidate =>
+            candidate.PluginId == LocalApplicationDetectionRegistry.VirtualDjPluginId &&
             candidate.CandidateType == "UserDataRoot"));
         Assert.All(candidates, candidate => Assert.True(candidate.RequiresOperatorApproval));
     }
