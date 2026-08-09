@@ -15,12 +15,11 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/compact-active-handoff`
-- Latest completed product decision: `0c6d43d docs: defer HeavyM pending documented standard paths`
-- Latest product handoff: `94c176b docs: hand off HeavyM research milestone`
-- This workflow handoff: the HEAD commit containing this file
+- Branch: `codex/madmapper-catalog-detection`
+- Latest completed feature: `798eb55 feat: detect documented MadMapper 6 locations`
+- Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
-- Verified baseline: 2 contract tests, 21 platform tests, 303 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
+- Verified baseline: 2 contract tests, 21 platform tests, 304 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
 - Agent Release build passes and EF Core reports no pending model changes
 - Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged `AgentCommandExecutorTests.cs` at lines 985, 991, 997, and 1003
 
@@ -29,21 +28,21 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Local application discovery is catalog-driven and checks candidate existence only.
 - Resolved paths remain Agent-local. The control plane receives opaque candidate IDs and bounded product/type/evidence metadata.
 - Installed, recoverable-data, approved, validated, protected, verified, and restored states remain distinct.
-- Existing local catalog coverage includes Resolume, supported DJ applications, disguise Designer, WATCHOUT, Hippotizer, PIXERA, Christie Pandoras Box, TouchDesigner, and bounded Engine OS removable roots.
+- Existing local catalog coverage includes Resolume, supported DJ applications, disguise Designer, WATCHOUT, Hippotizer, PIXERA, Christie Pandoras Box, TouchDesigner, MadMapper 6, and bounded Engine OS removable roots.
 - HeavyM, Millumin, and Ventuz automatic detection are deferred because official primary sources do not publish dependable standard application/project roots.
 - Real venue hardware, installed applications, projects, and removable media remain uninspected unless the Product Owner explicitly authorizes testing.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official MadMapper primary sources. Add catalog-driven installed-application and project-root detection only if those sources document dependable stable standard locations. Use synthetic platform-shaped fixtures. If dependable paths are not documented, record an evidence-backed deferral instead of guessing.
+Research official Isadora primary sources. Add catalog-driven installed-application and project-root detection only if those sources document dependable stable standard locations. Use synthetic platform-shaped fixtures. If dependable paths are not documented, record an evidence-backed deferral instead of guessing.
 
 Required boundaries:
 
 - Extend the reusable catalog/provider architecture; do not add a product-specific host scanner.
 - Check only declared standard paths and candidate existence; do not read candidate contents.
 - Keep paths Agent-local and publish only opaque, bounded metadata.
-- Do not claim MadMapper validation, backup, verification, restore, hardware identification, or media support in this detection-only slice.
+- Do not claim Isadora validation, backup, verification, restore, hardware identification, or media support in this detection-only slice.
 
 ## Required workflow
 
