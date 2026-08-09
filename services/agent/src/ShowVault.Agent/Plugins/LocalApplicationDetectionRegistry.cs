@@ -30,6 +30,7 @@ public sealed record LocalApplicationCatalogEntry(
     public IReadOnlyList<LocalApplicationVersionDirectory> WindowsVersionDirectories { get; init; } = [];
     public IReadOnlyList<LocalApplicationVersionDirectory> MacOsUserVersionDirectories { get; init; } = [];
     public IReadOnlyList<LocalApplicationVersionDirectory> WindowsUserVersionDirectories { get; init; } = [];
+    public IReadOnlyList<LocalApplicationLocation> MountedVolumeLocations { get; init; } = [];
 }
 
 public sealed class LocalApplicationDetectionRegistry
@@ -39,9 +40,11 @@ public sealed class LocalApplicationDetectionRegistry
     public const string TraktorProPluginId = "showvault.traktor-pro";
     public const string VirtualDjPluginId = "showvault.virtualdj";
     public const string EngineDjPluginId = "showvault.engine-dj";
+    public const string EngineOsPluginId = "showvault.engine-os";
     public const string DjayProPluginId = "showvault.djay-pro";
     public const string MixxxPluginId = "showvault.mixxx";
     private const int MaximumVersionDirectoryCount = 32;
+    private const int MaximumMountedVolumeCount = 64;
 
     public IReadOnlyList<LocalApplicationCatalogEntry> Entries { get; } =
     [
@@ -154,6 +157,18 @@ public sealed class LocalApplicationDetectionRegistry
             [new("UserDataRoot", Path.Combine("Music", "Engine Library"),
                 "Catalog standard Engine DJ library location")]),
         new(
+            EngineOsPluginId,
+            "Denon Engine OS",
+            [],
+            [],
+            [],
+            [])
+        {
+            MountedVolumeLocations =
+            [new("RemovableDataRoot", "Engine Library",
+                "Catalog documented Engine OS external-drive library location")]
+        },
+        new(
             DjayProPluginId,
             "Algoriddim djay Pro",
             [new("InstalledApplication", "djay.app",
@@ -197,7 +212,8 @@ public sealed class LocalApplicationDetectionRegistry
     public IReadOnlyList<StandardLocationCandidate> GetCandidates(
         LocalApplicationPlatform platform,
         IReadOnlyList<string> applicationRoots,
-        IReadOnlyList<string> userHomes)
+        IReadOnlyList<string> userHomes,
+        IReadOnlyList<string>? mountedVolumeRoots = null)
     {
         var candidates = new List<StandardLocationCandidate>();
         foreach (var entry in Entries)
@@ -226,6 +242,12 @@ public sealed class LocalApplicationDetectionRegistry
                 AddVersionDirectoryCandidates(candidates, entry, [userHome], versionDirectories);
             }
         }
+
+        var boundedMountedVolumeRoots = (mountedVolumeRoots ?? [])
+            .Take(MaximumMountedVolumeCount)
+            .ToArray();
+        foreach (var entry in Entries)
+            AddCandidates(candidates, entry, boundedMountedVolumeRoots, entry.MountedVolumeLocations);
 
         return candidates;
     }

@@ -25,6 +25,7 @@ public sealed class HostStandardLocationProvider(LocalApplicationDetectionRegist
     : IHostStandardLocationProvider
 {
     private const int MaximumUserHomeCount = 64;
+    private const int MaximumMountedVolumeCount = 64;
 
     public IReadOnlyList<StandardLocationCandidate> GetCandidates()
     {
@@ -33,7 +34,8 @@ public sealed class HostStandardLocationProvider(LocalApplicationDetectionRegist
             return registry.GetCandidates(
                 LocalApplicationPlatform.MacOs,
                 ["/Applications"],
-                EnumerateUserHomes("/Users").ToArray());
+                EnumerateUserHomes("/Users").ToArray(),
+                EnumerateMountedVolumeRoots(LocalApplicationPlatform.MacOs));
         }
 
         if (OperatingSystem.IsWindows())
@@ -51,7 +53,8 @@ public sealed class HostStandardLocationProvider(LocalApplicationDetectionRegist
             return registry.GetCandidates(
                 LocalApplicationPlatform.Windows,
                 applicationRoots,
-                EnumerateUserHomes(usersRoot).ToArray());
+                EnumerateUserHomes(usersRoot).ToArray(),
+                EnumerateMountedVolumeRoots(LocalApplicationPlatform.Windows));
         }
 
         return [];
@@ -74,6 +77,67 @@ public sealed class HostStandardLocationProvider(LocalApplicationDetectionRegist
         catch (UnauthorizedAccessException)
         {
             return [];
+        }
+    }
+
+    private static IReadOnlyList<string> EnumerateMountedVolumeRoots(LocalApplicationPlatform platform)
+    {
+        try
+        {
+            var comparison = platform == LocalApplicationPlatform.Windows
+                ? StringComparer.OrdinalIgnoreCase
+                : StringComparer.Ordinal;
+            return DriveInfo.GetDrives()
+                .Select(drive => GetEligibleMountedVolumeRoot(drive, platform))
+                .Where(path => path is not null)
+                .Cast<string>()
+                .Distinct(comparison)
+                .Take(MaximumMountedVolumeCount)
+                .ToArray();
+        }
+        catch (IOException)
+        {
+            return [];
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return [];
+        }
+    }
+
+    private static string? GetEligibleMountedVolumeRoot(
+        DriveInfo drive,
+        LocalApplicationPlatform platform)
+    {
+        try
+        {
+            if (!drive.IsReady)
+                return null;
+
+            var root = drive.RootDirectory.FullName;
+            if (platform == LocalApplicationPlatform.MacOs)
+            {
+                return root.StartsWith("/Volumes/", StringComparison.Ordinal)
+                    ? root
+                    : null;
+            }
+
+            if (drive.DriveType is not (DriveType.Fixed or DriveType.Removable))
+                return null;
+
+            var systemRoot = Path.GetPathRoot(
+                Environment.GetFolderPath(Environment.SpecialFolder.System));
+            return string.Equals(root, systemRoot, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : root;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
         }
     }
 }

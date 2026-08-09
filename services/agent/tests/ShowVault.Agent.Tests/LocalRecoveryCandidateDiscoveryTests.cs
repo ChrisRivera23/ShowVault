@@ -54,7 +54,7 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
     [Theory]
     [InlineData(LocalApplicationPlatform.MacOs)]
     [InlineData(LocalApplicationPlatform.Windows)]
-    public void Catalog_registry_finds_fixture_backed_dj_application_candidates(
+    public void Catalog_registry_finds_fixture_backed_dj_candidates(
         LocalApplicationPlatform platform)
     {
         var applicationRoot = Path.Combine(_root, platform.ToString(), "Applications");
@@ -121,9 +121,20 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         Directory.CreateDirectory(expectedMixxxCurrentData);
         if (platform == LocalApplicationPlatform.MacOs)
             Directory.CreateDirectory(expectedMixxxLegacyData);
+        var mountedVolumeRoot = Path.Combine(
+            _root,
+            platform.ToString(),
+            platform == LocalApplicationPlatform.MacOs ? "Volumes" : "Drives",
+            "ENGINE_USB");
+        var expectedEngineOsLibrary = Path.Combine(mountedVolumeRoot, "Engine Library");
+        Directory.CreateDirectory(expectedEngineOsLibrary);
 
         var registry = new LocalApplicationDetectionRegistry();
-        var standardLocations = registry.GetCandidates(platform, [applicationRoot], [userHome]);
+        var standardLocations = registry.GetCandidates(
+            platform,
+            [applicationRoot],
+            [userHome],
+            [mountedVolumeRoot]);
         var expectedSeratoApplication = platform == LocalApplicationPlatform.MacOs
             ? Path.Combine(applicationRoot, "Serato DJ Pro.app")
             : Path.Combine(applicationRoot, "Serato", "Serato DJ Pro", "Serato DJ Pro.exe");
@@ -203,12 +214,17 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
                 location.CandidateType == "UserDataRoot" &&
                 location.Path == expectedMixxxLegacyData);
         }
+        Assert.Contains(standardLocations, location =>
+            location.PluginId == LocalApplicationDetectionRegistry.EngineOsPluginId &&
+            location.CandidateType == "RemovableDataRoot" &&
+            location.Path == expectedEngineOsLibrary);
 
         foreach (var location in standardLocations.Where(location =>
                      location.PluginId != LocalApplicationDetectionRegistry.RekordboxPluginId &&
                      location.PluginId != LocalApplicationDetectionRegistry.TraktorProPluginId &&
                      location.PluginId != LocalApplicationDetectionRegistry.VirtualDjPluginId &&
                      location.PluginId != LocalApplicationDetectionRegistry.EngineDjPluginId &&
+                     location.PluginId != LocalApplicationDetectionRegistry.EngineOsPluginId &&
                      location.PluginId != LocalApplicationDetectionRegistry.DjayProPluginId &&
                      location.PluginId != LocalApplicationDetectionRegistry.MixxxPluginId))
         {
@@ -226,7 +242,7 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         var candidates = new LocalRecoveryCandidateDiscovery(
             new FixedLocationProvider(standardLocations)).Discover();
 
-        Assert.Equal(platform == LocalApplicationPlatform.MacOs ? 22 : 21, candidates.Count);
+        Assert.Equal(platform == LocalApplicationPlatform.MacOs ? 23 : 22, candidates.Count);
         Assert.Equal(2, candidates.Count(candidate =>
             candidate.PluginId == ResolumeDiscoveryPlugin.PluginId &&
             candidate.CandidateType == "InstalledApplication"));
@@ -270,6 +286,10 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             candidate.PluginId == LocalApplicationDetectionRegistry.EngineDjPluginId &&
             candidate.CandidateType == "UserDataRoot" &&
             candidate.Path == expectedEngineDjLibrary);
+        Assert.Single(candidates, candidate =>
+            candidate.PluginId == LocalApplicationDetectionRegistry.EngineOsPluginId &&
+            candidate.CandidateType == "RemovableDataRoot" &&
+            candidate.Path == expectedEngineOsLibrary);
         Assert.Single(candidates, candidate =>
             candidate.PluginId == LocalApplicationDetectionRegistry.DjayProPluginId &&
             candidate.CandidateType == "InstalledApplication" &&
@@ -334,6 +354,25 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             Assert.StartsWith(pioneerRoot, candidate.Path, StringComparison.Ordinal));
         Assert.DoesNotContain(candidates, candidate => candidate.Path.Contains(
             "rekordbox 6", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Mounted_volume_expansion_is_bounded()
+    {
+        var mountedVolumeRoots = Enumerable.Range(0, 65)
+            .Select(index => Path.Combine(_root, "Volumes", index.ToString()))
+            .ToArray();
+
+        var candidates = new LocalApplicationDetectionRegistry()
+            .GetCandidates(LocalApplicationPlatform.MacOs, [], [], mountedVolumeRoots)
+            .Where(candidate =>
+                candidate.PluginId == LocalApplicationDetectionRegistry.EngineOsPluginId &&
+                candidate.CandidateType == "RemovableDataRoot")
+            .ToArray();
+
+        Assert.Equal(64, candidates.Length);
+        Assert.DoesNotContain(candidates, candidate => candidate.Path.StartsWith(
+            mountedVolumeRoots[64], StringComparison.Ordinal));
     }
 
     public void Dispose()
