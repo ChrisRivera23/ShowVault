@@ -15,9 +15,9 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/cuepilot-local-identification`
+- Branch: `codex/tinkerlist-local-identification`
 - Latest completed feature: `b341808 feat: identify standard ProPresenter data`
-- Latest research decision: `5994022 docs: defer unsafe CuePilot discovery`
+- Latest research decision: `261f7da docs: defer unsafe TinkerList discovery`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Verified baseline: all 19 focused local-recovery candidate tests and all 348 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
@@ -53,6 +53,8 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - All three official Christie source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, filesystem-discovery, file-content, license-inspection, or network-path change. Runtime tests were not rerun because only documentation changed
 - CuePilot research found a macOS Applications workflow but no dependable Windows installed path or bounded local recovery root. Collaborative projects synchronize to CuePilot's cloud; the local SOLO-project path is unpublished; exports are operator-located; and media is selected from arbitrary local paths or optionally uploaded
 - All four official CuePilot help URLs returned HTTP 403 to command-line requests while their indexed primary-source contents remained readable. `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, filesystem-discovery, file-content, account/cloud-access, media-inspection, or network-path change. Runtime tests were not rerun because only documentation changed
+- TinkerList research reconciled the catalog row to the current Cuez by TinkerList product. Its rundown/project workflow is cloud-based; official Automator guidance publishes Windows and macOS downloads but no stable installed executable or bundle path; and downloaded Episode media uses an operator-defined location that may be on another computer or separate storage and may be automatically deleted
+- All four official Cuez/TinkerList source URLs returned HTTP 200. `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, filesystem-discovery, file-content, process inspection, account/cloud-access, media-inspection, or network-path change. Runtime tests were not rerun because only documentation changed
 - Digital Projection was a documentation-only research decision: `git diff --check` passed and both official source links resolved; runtime tests were not rerun because no implementation, test, contract, migration, or build input changed
 - Repository-wide Agent formatting has four pre-existing whitespace findings in unchanged assertions in `AgentCommandExecutorTests.cs` at lines 997, 1003, 1009, and 1015
 
@@ -86,20 +88,21 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - PVP automatic local detection is deferred. Renewed Vision documents the Applications folder but no exact fixed bundle path or bounded Show/media root. No bundle or Show-file-extension guess, home/media scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
 - Pandora's Box Manager current V8 installation is already covered by `showvault.christie-pandoras-box`; no duplicate plugin or candidate was added. Activation, enabled capability, legacy Manager editions, project data, validation, protection, backup, verification, and restore remain unsupported.
 - CuePilot automatic local detection is deferred. Official guidance publishes no dependable Windows installed path or bounded local project/media root. No application/cache/path inference, cloud access, export scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
+- TinkerList automatic local detection is deferred. The current product is Cuez by TinkerList; official sources establish a cloud-based project workflow but no stable installed application path or bounded local media root. No executable/service/cache inference, account/cloud access, user-defined media-path scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official primary sources for dependable automatic local application and recoverable-project/media roots for the TinkerList row under `Show control and playback`. Add the smallest safe catalog-driven local identification slice only if official sources establish stable supported application paths and bounded recovery data; otherwise record an evidence-backed deferral.
+Research official primary sources for a bounded, read-only, exact product-identity contract for the PTZOptics row under `PTZ and cameras`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral.
 
 Required boundaries:
 
-- Start from the TinkerList row under `Show control and playback` in `docs/INTEGRATION_CATALOG.md` and inspect the existing catalog-driven local-candidate architecture before proposing changes.
-- Require official primary sources from TinkerList's publisher for stable supported application and recoverable-project/media locations; distinguish installation, candidate existence, recoverable data, validation, backup, verification, and restore states.
-- Keep resolved paths and file contents Agent-local. Publish only opaque candidate IDs and bounded product/type/evidence metadata through the existing path-free contract.
-- Do not infer TinkerList installation or recoverable projects/media from process names, generic files, user-entered paths, or undocumented platform conventions, and do not recursively scan unbounded home or filesystem roots.
-- Use synthetic temporary filesystem fixtures for any implementation. Do not inspect the Product Owner's installed applications, projects, media, preferences, or workstation without explicit authorization.
-- Do not claim successful backup, validation, verification, or restore from an identification-only or candidate-enumeration slice.
+- Start from the PTZOptics row under `PTZ and cameras` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
+- Require official primary sources from PTZOptics for a bounded, read-only request and exact literal product identity; distinguish product identity, reachability, configuration, control, validation, backup, verification, and restore states.
+- Keep addresses and raw responses Agent-local. Publish only bounded counts and exact product/type/evidence metadata through the existing path-free contract.
+- Do not infer PTZOptics identity from generic ONVIF, VISCA, NDI, HTTP, mDNS, SSDP, or port reachability, and do not add broadcast/multicast discovery or weaken authentication.
+- Use synthetic protocol fixtures for any implementation. Do not contact the Product Owner's cameras or network without explicit authorization.
+- Do not claim successful configuration, control, backup, validation, verification, or restore from an identification-only slice.
 
 ## Required workflow
 
