@@ -26,26 +26,26 @@ The primary discovery goal is to start ShowVault at an unknown nightclub, concer
 Expected starting state
 
 - Repository: /Users/infamous/Documents/ChatGPT/showvault
-- Branch: codex/grandma2-telnet-fixtures
-- Latest feature commit: d576891 test: validate grandMA2 Telnet fixtures
+- Branch: codex/rekordbox-catalog-detection
+- Latest feature commit: e32f17b feat: detect catalog rekordbox locations
 - Latest handoff: the HEAD documentation commit containing this file
 - Worktree clean except the pre-existing untracked NEXT_CONVERSATION.md
-- Verified baseline: 2 contract tests, 21 platform tests, 295 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
+- Verified baseline: 2 contract tests, 21 platform tests, 296 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing
 - EF Core reports no pending model changes
 
 Next bounded objective
 
-Add catalog-driven rekordbox detection for documented standard macOS and Windows application and per-user recovery-data locations, with cross-platform automated fixtures.
+Add catalog-driven Native Instruments Traktor Pro detection for official documented standard macOS and Windows application and per-user recovery-data locations, with cross-platform automated fixtures.
 
 Required boundaries
 
-- Research official rekordbox primary sources before defining any standard location.
+- Research official Native Instruments primary sources before defining any standard location.
 - Extend the existing local-application catalog registry; do not add another product-specific host scanner.
 - Use automated macOS- and Windows-shaped filesystem fixtures only; do not inspect the Product Owner's installed applications or personal library.
 - Check only declared standard paths and candidate existence; do not read candidate file contents.
 - Keep resolved paths Agent-local and publish only opaque candidate IDs with bounded product/type/evidence metadata.
 - Keep installed software, recoverable data, operator approval, validation, protection, verification, and restore state distinct.
-- Do not claim rekordbox validation, backup, verification, restore, external-drive enumeration, or device-library support in this detection-only slice.
+- Do not claim Traktor validation, backup, verification, restore, external-drive enumeration, or device-library support in this detection-only slice.
 
 Required workflow for every task
 
@@ -66,7 +66,7 @@ Required workflow for every task
 
 Communication workflow
 
-- Keep every progress update and final response short and direct.
+- Keep every progress update and final response short and direct, and include an explicitly labeled next step in each one.
 - End every user-facing reply with an explicitly labeled honest estimate of conversation-context usage, for example: “Estimated conversation-context usage: ~45% (unmeasured).” Exact usage is not exposed.
 - Below approximately 60%, continuing in the current chat is normally fine.
 - Around 75–89%, warn the Product Owner and avoid unnecessary scope expansion.

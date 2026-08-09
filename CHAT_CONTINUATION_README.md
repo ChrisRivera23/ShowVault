@@ -63,7 +63,7 @@ Required workflow for every task
 12. Commit the documentation handoff separately.
 13. Do not repeat completed work unless inspection or tests prove it incomplete.
 
-Keep progress updates and final answers short and direct to conserve conversation context while still reporting evidence, safety, verification, commits, limitations, and the next task.
+Keep progress updates and final answers short and direct to conserve conversation context while still reporting evidence, safety, verification, commits, limitations, and the next task. Every progress update and final answer must include an explicitly labeled next step.
 
 Required handoff after every task
 
