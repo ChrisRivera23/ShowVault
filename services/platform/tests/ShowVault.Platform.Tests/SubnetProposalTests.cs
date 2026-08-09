@@ -54,4 +54,26 @@ public sealed class SubnetProposalTests
         Assert.Throws<InvalidOperationException>(() =>
             proposal.CompleteDiscovery(4, 1, 1, 1, DateTimeOffset.UtcNow));
     }
+
+    [Fact]
+    public void Tracks_blackmagic_videohub_identification_independently_and_clears_it_on_rediscovery()
+    {
+        var proposal = SubnetProposal.Detected(
+            Guid.NewGuid(), Guid.NewGuid(), "192.168.1.0", 24,
+            "Ethernet", "Private network", DateTimeOffset.UtcNow);
+        proposal.RecordDecision(SubnetProposalDecision.Approved, "owner", DateTimeOffset.UtcNow);
+        proposal.StartDiscovery(Guid.NewGuid());
+        proposal.CompleteDiscovery(4, 1, 0, 4, DateTimeOffset.UtcNow);
+        proposal.StartBlackmagicVideohubIdentification(Guid.NewGuid());
+
+        proposal.CompleteBlackmagicVideohubIdentification(
+            1, 1, "Blackmagic Smart Videohub 16x16", DateTimeOffset.UtcNow);
+
+        Assert.Equal(ProductIdentificationStatus.Completed,
+            proposal.BlackmagicVideohubIdentificationStatus);
+        Assert.Equal("Blackmagic Smart Videohub 16x16",
+            proposal.BlackmagicVideohubIdentifiedProductFamilies);
+        proposal.StartDiscovery(Guid.NewGuid());
+        Assert.Null(proposal.BlackmagicVideohubIdentificationStatus);
+    }
 }

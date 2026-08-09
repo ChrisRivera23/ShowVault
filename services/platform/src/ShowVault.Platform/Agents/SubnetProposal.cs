@@ -56,6 +56,13 @@ public sealed class SubnetProposal
     public string? GrandMa2IdentifiedProductFamilies { get; private set; }
     public string? GrandMa2IdentificationMessage { get; private set; }
     public DateTimeOffset? GrandMa2IdentifiedAt { get; private set; }
+    public Guid? BlackmagicVideohubIdentificationCommandId { get; private set; }
+    public ProductIdentificationStatus? BlackmagicVideohubIdentificationStatus { get; private set; }
+    public int? BlackmagicVideohubIdentificationAttemptedHostCount { get; private set; }
+    public int? BlackmagicVideohubIdentifiedHostCount { get; private set; }
+    public string? BlackmagicVideohubIdentifiedProductFamilies { get; private set; }
+    public string? BlackmagicVideohubIdentificationMessage { get; private set; }
+    public DateTimeOffset? BlackmagicVideohubIdentifiedAt { get; private set; }
 
     public static SubnetProposal Detected(Guid id, Guid agentId, string network, int prefixLength,
         string interfaceType, string evidence, DateTimeOffset detectedAt)
@@ -92,6 +99,7 @@ public sealed class SubnetProposal
         ClearIdentification();
         ClearYamahaIdentification();
         ClearGrandMa2Identification();
+        ClearBlackmagicVideohubIdentification();
     }
 
     public void StartDiscovery(Guid commandId)
@@ -104,6 +112,7 @@ public sealed class SubnetProposal
         ClearIdentification();
         ClearYamahaIdentification();
         ClearGrandMa2Identification();
+        ClearBlackmagicVideohubIdentification();
     }
 
     public void CompleteDiscovery(
@@ -252,5 +261,51 @@ public sealed class SubnetProposal
         GrandMa2IdentifiedProductFamilies = null;
         GrandMa2IdentificationMessage = null;
         GrandMa2IdentifiedAt = null;
+    }
+
+    public void StartBlackmagicVideohubIdentification(Guid commandId)
+    {
+        if (DiscoveryStatus != SubnetDiscoveryStatus.Completed || RespondingHostCount is null or <= 0 ||
+            commandId == Guid.Empty)
+            throw new InvalidOperationException(
+                "Blackmagic Videohub identification requires completed discovery with responders.");
+        ClearBlackmagicVideohubIdentification();
+        BlackmagicVideohubIdentificationCommandId = commandId;
+        BlackmagicVideohubIdentificationStatus = ProductIdentificationStatus.Pending;
+    }
+
+    public void CompleteBlackmagicVideohubIdentification(
+        int attempted, int identified, string productFamilies, DateTimeOffset at)
+    {
+        if (BlackmagicVideohubIdentificationStatus != ProductIdentificationStatus.Pending ||
+            attempted is < 1 or > 32 || identified < 0 || identified > attempted ||
+            string.IsNullOrWhiteSpace(productFamilies))
+            throw new InvalidOperationException("Blackmagic Videohub identification result is invalid.");
+        BlackmagicVideohubIdentificationStatus = ProductIdentificationStatus.Completed;
+        BlackmagicVideohubIdentificationAttemptedHostCount = attempted;
+        BlackmagicVideohubIdentifiedHostCount = identified;
+        BlackmagicVideohubIdentifiedProductFamilies = productFamilies;
+        BlackmagicVideohubIdentifiedAt = at;
+    }
+
+    public void FailBlackmagicVideohubIdentification(string message, DateTimeOffset at)
+    {
+        if (BlackmagicVideohubIdentificationStatus != ProductIdentificationStatus.Pending)
+            throw new InvalidOperationException("Blackmagic Videohub identification is not pending.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        BlackmagicVideohubIdentificationStatus = ProductIdentificationStatus.Failed;
+        BlackmagicVideohubIdentificationMessage = message;
+        BlackmagicVideohubIdentifiedAt = at;
+    }
+
+    private void ClearBlackmagicVideohubIdentification()
+    {
+        BlackmagicVideohubIdentificationCommandId = null;
+        BlackmagicVideohubIdentificationStatus = null;
+        BlackmagicVideohubIdentificationAttemptedHostCount = null;
+        BlackmagicVideohubIdentifiedHostCount = null;
+        BlackmagicVideohubIdentifiedProductFamilies = null;
+        BlackmagicVideohubIdentificationMessage = null;
+        BlackmagicVideohubIdentifiedAt = null;
     }
 }

@@ -284,6 +284,21 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Contains("\"identifiedHostCount\":4", projectorJson, StringComparison.Ordinal);
         Assert.Contains("Christie LX41", projectorJson, StringComparison.Ordinal);
         Assert.DoesNotContain("192.168.10.1", projectorJson, StringComparison.Ordinal);
+
+        var blackmagicCommand = AgentCommandEnvelope.Create(
+            agentId, AgentCommandType.IdentifyBlackmagicVideohub,
+            "blackmagic-videohub-identification",
+            JsonSerializer.Serialize(new IdentifyBlackmagicVideohubPayload(
+                proposalId, discoveryCommand.CommandId, 250)),
+            now.AddSeconds(6), TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(blackmagicCommand, now.AddSeconds(6), CancellationToken.None);
+        await CreateExecutor(store, now.AddSeconds(6)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+        var blackmagicJson = await store.GetDiscoveryResultJsonAsync(
+            blackmagicCommand.CommandId, CancellationToken.None);
+        Assert.Contains("\"identifiedHostCount\":4", blackmagicJson, StringComparison.Ordinal);
+        Assert.Contains("Blackmagic Smart Videohub 16x16", blackmagicJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("192.168.10.1", blackmagicJson, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -1080,6 +1095,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             new YamahaDmeNetworkIdentification(new YamahaDmeProbe(), timeProvider),
             new GrandMa2NetworkIdentification(new GrandMa2Probe(), timeProvider),
             new PjLinkNetworkIdentification(new PjLinkProbe(), timeProvider),
+            new BlackmagicVideohubNetworkIdentification(new BlackmagicVideohubProbe(), timeProvider),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
@@ -1170,6 +1186,13 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         public Task<string?> IdentifyAsync(
             System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult<string?>("Christie LX41");
+    }
+
+    private sealed class BlackmagicVideohubProbe : IBlackmagicVideohubProtocolProbe
+    {
+        public Task<string?> IdentifyAsync(
+            System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("Blackmagic Smart Videohub 16x16");
     }
 
     private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions

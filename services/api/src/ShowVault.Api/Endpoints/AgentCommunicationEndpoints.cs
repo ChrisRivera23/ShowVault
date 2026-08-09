@@ -78,6 +78,7 @@ public static class AgentCommunicationEndpoints
         await UpdateMaLightingIdentificationAsync(database, envelope, cancellationToken);
         await UpdateYamahaDmeIdentificationAsync(database, envelope, cancellationToken);
         await UpdateGrandMa2IdentificationAsync(database, envelope, cancellationToken);
+        await UpdateBlackmagicVideohubIdentificationAsync(database, envelope, cancellationToken);
         try
         {
             await database.SaveChangesAsync(cancellationToken);
@@ -331,6 +332,67 @@ public static class AgentCommunicationEndpoints
         {
             proposal.FailGrandMa2Identification(
                 "Agent returned invalid grandMA2 identification evidence.", envelope.OccurredAt);
+        }
+    }
+
+    private static async Task UpdateBlackmagicVideohubIdentificationAsync(
+        PlatformDbContext database,
+        AgentEventEnvelope envelope,
+        CancellationToken cancellationToken)
+    {
+        var command = await database.IssuedAgentCommands.SingleOrDefaultAsync(item =>
+            item.CommandId == envelope.EventId && item.AgentId == envelope.AgentId &&
+            item.Type == AgentCommandType.IdentifyBlackmagicVideohub, cancellationToken);
+        if (command is null) return;
+        IdentifyBlackmagicVideohubPayload? request;
+        try { request = JsonSerializer.Deserialize<IdentifyBlackmagicVideohubPayload>(command.Payload); }
+        catch (JsonException) { return; }
+        if (request is null) return;
+        var proposal = await database.SubnetProposals.SingleOrDefaultAsync(item =>
+            item.Id == request.ProposalId && item.AgentId == envelope.AgentId &&
+            item.DiscoveryCommandId == request.DiscoveryCommandId &&
+            item.BlackmagicVideohubIdentificationCommandId == envelope.EventId &&
+            item.BlackmagicVideohubIdentificationStatus == ProductIdentificationStatus.Pending,
+            cancellationToken);
+        if (proposal is null) return;
+        try
+        {
+            using var outcome = JsonDocument.Parse(envelope.Payload);
+            if (envelope.Type == AgentEventType.JobCompleted &&
+                outcome.RootElement.TryGetProperty("attemptedHostCount", out var attemptedValue) &&
+                attemptedValue.TryGetInt32(out var attempted) &&
+                outcome.RootElement.TryGetProperty("identifiedHostCount", out var identifiedValue) &&
+                identifiedValue.TryGetInt32(out var identified) &&
+                outcome.RootElement.TryGetProperty("productFamilies", out var familiesValue) &&
+                familiesValue.ValueKind == JsonValueKind.Array)
+            {
+                var families = familiesValue.EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetString())
+                    .Where(item => !string.IsNullOrWhiteSpace(item))
+                    .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+                var consistent = identified == 0 ? families.Length == 0 :
+                    families.Length == 1 && families[0] == "Blackmagic Smart Videohub 16x16";
+                var evidence = families.Length == 0 ? "none" : string.Join(",", families);
+                if (attempted is >= 1 and <= 32 && identified >= 0 && identified <= attempted &&
+                    consistent && evidence.Length <= 200)
+                {
+                    proposal.CompleteBlackmagicVideohubIdentification(
+                        attempted, identified, evidence, envelope.OccurredAt);
+                    return;
+                }
+            }
+            var message = outcome.RootElement.TryGetProperty("error", out var error) &&
+                error.ValueKind == JsonValueKind.String ? error.GetString() :
+                "Agent returned invalid Blackmagic Videohub identification evidence.";
+            proposal.FailBlackmagicVideohubIdentification(string.IsNullOrWhiteSpace(message) ?
+                "Blackmagic Videohub identification failed." :
+                message[..Math.Min(500, message.Length)], envelope.OccurredAt);
+        }
+        catch (JsonException)
+        {
+            proposal.FailBlackmagicVideohubIdentification(
+                "Agent returned invalid Blackmagic Videohub identification evidence.", envelope.OccurredAt);
         }
     }
 

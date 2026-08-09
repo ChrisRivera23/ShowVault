@@ -281,6 +281,33 @@ class _SubnetOnboarding extends ConsumerWidget {
     }
   }
 
+  Future<void> _identifyBlackmagicVideohub(
+    BuildContext context,
+    WidgetRef ref,
+    SubnetProposal proposal,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .identifyBlackmagicVideohub(
+            accessToken: session.accessToken,
+            history: history,
+            proposalId: proposal.id,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Blackmagic Videohub identification failed: $error'),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = history.subnetProposals.where(
@@ -313,7 +340,8 @@ class _SubnetOnboarding extends ConsumerWidget {
                     '${proposal.interfaceType} • ${proposal.agentName}\n'
                     '${proposal.evidence}${_discoveryDetail(proposal)}'
                     '${_identificationDetail(proposal)}${_grandMa2IdentificationDetail(proposal)}'
-                    '${_yamahaIdentificationDetail(proposal)}',
+                    '${_yamahaIdentificationDetail(proposal)}'
+                    '${_blackmagicVideohubIdentificationDetail(proposal)}',
                   ),
                   isThreeLine: true,
                   trailing: proposal.decision == 'approved'
@@ -362,6 +390,26 @@ class _SubnetOnboarding extends ConsumerWidget {
                                           proposal,
                                         ),
                                         child: const Text('Identify grandMA2'),
+                                      ),
+                                  if (proposal.discoveryStatus == 'completed' &&
+                                      (proposal.respondingHostCount ?? 0) > 0)
+                                    if (proposal
+                                            .blackmagicVideohubIdentificationStatus ==
+                                        'pending')
+                                      const Chip(
+                                        label: Text('Identifying Videohub'),
+                                      )
+                                    else
+                                      FilledButton(
+                                        onPressed: () =>
+                                            _identifyBlackmagicVideohub(
+                                              context,
+                                              ref,
+                                              proposal,
+                                            ),
+                                        child: const Text(
+                                          'Identify Blackmagic Videohub',
+                                        ),
                                       ),
                                   if (proposal.discoveryStatus == 'completed' &&
                                       (proposal.respondingHostCount ?? 0) > 0)
@@ -456,6 +504,20 @@ class _SubnetOnboarding extends ConsumerWidget {
     'failed' =>
       '\ngrandMA2 identification failed • '
           '${proposal.grandMa2IdentificationMessage ?? 'Unknown error'}',
+    _ => '',
+  };
+
+  String _blackmagicVideohubIdentificationDetail(
+    SubnetProposal proposal,
+  ) => switch (proposal.blackmagicVideohubIdentificationStatus) {
+    'completed' =>
+      '\nBlackmagic Videohub review • '
+          '${proposal.blackmagicVideohubIdentifiedHostCount ?? 0} of '
+          '${proposal.blackmagicVideohubIdentificationAttemptedHostCount ?? 0} identified • '
+          '${proposal.blackmagicVideohubIdentifiedProductFamilies ?? 'none'} • addresses remain local',
+    'failed' =>
+      '\nBlackmagic Videohub identification failed • '
+          '${proposal.blackmagicVideohubIdentificationMessage ?? 'Unknown error'}',
     _ => '',
   };
 }

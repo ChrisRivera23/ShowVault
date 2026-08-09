@@ -16,7 +16,14 @@ public sealed record SubnetProposalSummary(Guid Id, Guid AgentId, string AgentNa
     Guid? GrandMa2IdentificationCommandId, string? GrandMa2IdentificationStatus,
     int? GrandMa2IdentificationAttemptedHostCount, int? GrandMa2IdentifiedHostCount,
     string? GrandMa2IdentifiedProductFamilies, string? GrandMa2IdentificationMessage,
-    DateTimeOffset? GrandMa2IdentifiedAt);
+    DateTimeOffset? GrandMa2IdentifiedAt,
+    Guid? BlackmagicVideohubIdentificationCommandId,
+    string? BlackmagicVideohubIdentificationStatus,
+    int? BlackmagicVideohubIdentificationAttemptedHostCount,
+    int? BlackmagicVideohubIdentifiedHostCount,
+    string? BlackmagicVideohubIdentifiedProductFamilies,
+    string? BlackmagicVideohubIdentificationMessage,
+    DateTimeOffset? BlackmagicVideohubIdentifiedAt);
 
 public sealed record DecideSubnetProposalRequest(bool Approved);
 
@@ -26,3 +33,4 @@ public sealed record IdentifyMaLightingRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyYamahaDmeRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyGrandMa2Request(int TimeoutMilliseconds = 500);
 public sealed record IdentifyProjectorsRequest(int TimeoutMilliseconds = 500);
+public sealed record IdentifyBlackmagicVideohubRequest(int TimeoutMilliseconds = 500);

@@ -259,6 +259,42 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal("grandMA2", grandMa2Proposal.GrandMa2IdentifiedProductFamilies);
         Assert.Equal("grandMA3", grandMa2Proposal.IdentifiedProductFamilies);
         Assert.Equal("Yamaha DME7", grandMa2Proposal.YamahaIdentifiedProductFamilies);
+        var blackmagicPath = $"{proposalPath}/{proposalId}/identify-blackmagic-videohub";
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
+            blackmagicPath, new IdentifyBlackmagicVideohubRequest())).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await ownerClient.PostAsJsonAsync(
+            blackmagicPath, new IdentifyBlackmagicVideohubRequest(99))).StatusCode);
+        var blackmagicResponse = await ownerClient.PostAsJsonAsync(
+            blackmagicPath, new IdentifyBlackmagicVideohubRequest(500));
+        Assert.Equal(HttpStatusCode.Accepted, blackmagicResponse.StatusCode);
+        var blackmagicCommand = (await blackmagicResponse.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>())!.Payload;
+        Assert.Equal(AgentCommandType.IdentifyBlackmagicVideohub, blackmagicCommand.Type);
+        Assert.Contains(subnetCommand.CommandId.ToString(), blackmagicCommand.Payload,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("192.168", blackmagicCommand.Payload, StringComparison.Ordinal);
+        var blackmagicOutcome = new AgentEventEnvelope(
+            blackmagicCommand.CommandId, enrolledAgent.Payload.AgentId,
+            AgentEventType.JobCompleted, AgentProtocol.Version, DateTimeOffset.UtcNow,
+            blackmagicCommand.CorrelationId,
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                proposalId,
+                discoveryCommandId = subnetCommand.CommandId,
+                attemptedHostCount = 3,
+                identifiedHostCount = 1,
+                productFamilies = new[] { "Blackmagic Smart Videohub 16x16" }
+            }));
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", blackmagicOutcome)).StatusCode);
+        proposals = await ownerClient.GetFromJsonAsync<ApiResponse<IReadOnlyList<SubnetProposalSummary>>>(proposalPath);
+        var blackmagicProposal = Assert.Single(proposals!.Payload);
+        Assert.Equal("completed", blackmagicProposal.BlackmagicVideohubIdentificationStatus);
+        Assert.Equal(3, blackmagicProposal.BlackmagicVideohubIdentificationAttemptedHostCount);
+        Assert.Equal(1, blackmagicProposal.BlackmagicVideohubIdentifiedHostCount);
+        Assert.Equal("Blackmagic Smart Videohub 16x16",
+            blackmagicProposal.BlackmagicVideohubIdentifiedProductFamilies);
+        Assert.Equal("grandMA2", blackmagicProposal.GrandMa2IdentifiedProductFamilies);
         var projectorPath = $"{proposalPath}/{proposalId}/identify-projectors";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
             projectorPath, new IdentifyProjectorsRequest())).StatusCode);

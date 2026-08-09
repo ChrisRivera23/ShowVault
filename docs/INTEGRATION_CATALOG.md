@@ -94,7 +94,7 @@ Manufacturer names do not imply support for every product the company has shippe
 
 ## Broadcast
 
-- Blackmagic Design
+- Blackmagic Design — protocol 1.14 provides separately authorized, bounded, zero-byte identification for the exact official Blackmagic Smart Videohub 16x16 status fixture on TCP 9990; addresses and raw status remain Agent-local, while other Videohub models, HyperDeck, ATEM hardware, configuration/control, and generic port reachability remain unsupported
 - Sony
 - NewTek
 - AJA Video Systems
