@@ -25,6 +25,7 @@ public sealed class AgentCommandExecutor(
     PanasonicCameraNetworkIdentification panasonicCameraIdentification,
     SonyCameraNetworkIdentification sonyCameraIdentification,
     AllenHeathQuNetworkIdentification allenHeathQuIdentification,
+    BehringerWingNetworkIdentification behringerWingIdentification,
     RecoveryPackageWriter packageWriter,
     RecoveryPackageVerifier packageVerifier,
     RecoveryPackageRestorer packageRestorer,
@@ -117,6 +118,9 @@ public sealed class AgentCommandExecutor(
                     break;
                 case AgentCommandType.IdentifyAllenHeathQu:
                     await ExecuteAllenHeathQuIdentificationAsync(identity, command, cancellationToken);
+                    break;
+                case AgentCommandType.IdentifyBehringerWing:
+                    await ExecuteBehringerWingIdentificationAsync(identity, command, cancellationToken);
                     break;
                 case AgentCommandType.ApplyRecoveryCandidateDecision:
                     await ExecuteRecoveryCandidateDecisionAsync(identity, command, cancellationToken);
@@ -688,6 +692,35 @@ public sealed class AgentCommandExecutor(
         var result = await allenHeathQuIdentification.IdentifyAsync(payload.ProposalId,
             payload.DiscoveryCommandId, hosts, payload.TimeoutMilliseconds, cancellationToken);
         await queueStore.StoreAllenHeathQuIdentificationsAsync(command.CommandId, result, cancellationToken);
+        var pathFreeResult = new
+        {
+            result.ProposalId,
+            result.DiscoveryCommandId,
+            result.AttemptedHostCount,
+            identifiedHostCount = result.Identifications.Count,
+            productFamilies = result.Identifications.Select(item => item.ProductFamily).Distinct().Order().ToArray(),
+            result.CompletedAt
+        };
+        await queueStore.StoreDiscoveryResultAsync(command.CommandId,
+            JsonSerializer.Serialize(pathFreeResult, JsonOptions), result.CompletedAt, cancellationToken);
+        await RecordOutcomeAsync(identity, command, AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Completed, JsonSerializer.Serialize(pathFreeResult, JsonOptions), cancellationToken);
+    }
+
+    private async Task ExecuteBehringerWingIdentificationAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Deserialize<IdentifyBehringerWingPayload>(command.Payload, JsonOptions)
+            ?? throw new InvalidOperationException("Behringer WING identification payload is required.");
+        if (!await queueStore.IsReachableHostAuthorizationAsync(
+                payload.ProposalId, payload.DiscoveryCommandId, cancellationToken))
+            throw new InvalidOperationException("The responding-host authorization is not present on this Agent.");
+        var hosts = await queueStore.GetReachableSubnetHostsAsync(payload.DiscoveryCommandId, cancellationToken);
+        var result = await behringerWingIdentification.IdentifyAsync(payload.ProposalId,
+            payload.DiscoveryCommandId, hosts, payload.TimeoutMilliseconds, cancellationToken);
+        await queueStore.StoreBehringerWingIdentificationsAsync(command.CommandId, result, cancellationToken);
         var pathFreeResult = new
         {
             result.ProposalId,

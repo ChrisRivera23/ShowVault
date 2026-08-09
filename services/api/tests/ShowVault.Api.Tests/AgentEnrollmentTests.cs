@@ -475,6 +475,42 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
             allenHeathProposal.AllenHeathQuIdentifiedProductFamilies);
         Assert.Equal("Sony BRC-X400,Sony SRG-A40",
             allenHeathProposal.SonyCameraIdentifiedProductFamilies);
+        var behringerPath = $"{proposalPath}/{proposalId}/identify-behringer-wing";
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
+            behringerPath, new IdentifyBehringerWingRequest())).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await ownerClient.PostAsJsonAsync(
+            behringerPath, new IdentifyBehringerWingRequest(99))).StatusCode);
+        var behringerResponse = await ownerClient.PostAsJsonAsync(
+            behringerPath, new IdentifyBehringerWingRequest(500));
+        Assert.Equal(HttpStatusCode.Accepted, behringerResponse.StatusCode);
+        var behringerCommand = (await behringerResponse.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>())!.Payload;
+        Assert.Equal(AgentCommandType.IdentifyBehringerWing, behringerCommand.Type);
+        Assert.Contains(subnetCommand.CommandId.ToString(), behringerCommand.Payload,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("192.168", behringerCommand.Payload, StringComparison.Ordinal);
+        var behringerOutcome = new AgentEventEnvelope(
+            behringerCommand.CommandId, enrolledAgent.Payload.AgentId,
+            AgentEventType.JobCompleted, AgentProtocol.Version, DateTimeOffset.UtcNow,
+            behringerCommand.CorrelationId,
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                proposalId,
+                discoveryCommandId = subnetCommand.CommandId,
+                attemptedHostCount = 3,
+                identifiedHostCount = 2,
+                productFamilies = new[] { "Behringer WING" }
+            }));
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", behringerOutcome)).StatusCode);
+        proposals = await ownerClient.GetFromJsonAsync<ApiResponse<IReadOnlyList<SubnetProposalSummary>>>(proposalPath);
+        var behringerProposal = Assert.Single(proposals!.Payload);
+        Assert.Equal("completed", behringerProposal.BehringerWingIdentificationStatus);
+        Assert.Equal(3, behringerProposal.BehringerWingIdentificationAttemptedHostCount);
+        Assert.Equal(2, behringerProposal.BehringerWingIdentifiedHostCount);
+        Assert.Equal("Behringer WING", behringerProposal.BehringerWingIdentifiedProductFamilies);
+        Assert.Equal("Allen & Heath Qu-16,Allen & Heath Qu-Pac",
+            behringerProposal.AllenHeathQuIdentifiedProductFamilies);
         var projectorPath = $"{proposalPath}/{proposalId}/identify-projectors";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
             projectorPath, new IdentifyProjectorsRequest())).StatusCode);

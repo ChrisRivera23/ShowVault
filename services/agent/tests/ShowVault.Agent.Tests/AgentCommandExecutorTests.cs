@@ -374,6 +374,21 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Contains("\"identifiedHostCount\":4", allenHeathJson, StringComparison.Ordinal);
         Assert.Contains("Allen \\u0026 Heath Qu-16", allenHeathJson, StringComparison.Ordinal);
         Assert.DoesNotContain("192.168.10.1", allenHeathJson, StringComparison.Ordinal);
+
+        var behringerCommand = AgentCommandEnvelope.Create(
+            agentId, AgentCommandType.IdentifyBehringerWing,
+            "behringer-wing-identification",
+            JsonSerializer.Serialize(new IdentifyBehringerWingPayload(
+                proposalId, discoveryCommand.CommandId, 250)),
+            now.AddSeconds(12), TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(behringerCommand, now.AddSeconds(12), CancellationToken.None);
+        await CreateExecutor(store, now.AddSeconds(12)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+        var behringerJson = await store.GetDiscoveryResultJsonAsync(
+            behringerCommand.CommandId, CancellationToken.None);
+        Assert.Contains("\"identifiedHostCount\":4", behringerJson, StringComparison.Ordinal);
+        Assert.Contains("Behringer WING", behringerJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("192.168.10.1", behringerJson, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -1180,6 +1195,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             new PanasonicCameraNetworkIdentification(new PanasonicCameraProbe(), timeProvider),
             new SonyCameraNetworkIdentification(new SonyCameraProbe(), timeProvider),
             new AllenHeathQuNetworkIdentification(new AllenHeathQuProbe(), timeProvider),
+            new BehringerWingNetworkIdentification(new BehringerWingProbe(), timeProvider),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
@@ -1312,6 +1328,13 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         public Task<string?> IdentifyAsync(
             System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult<string?>("Allen & Heath Qu-16");
+    }
+
+    private sealed class BehringerWingProbe : IBehringerWingProtocolProbe
+    {
+        public Task<string?> IdentifyAsync(
+            System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("Behringer WING");
     }
 
     private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions

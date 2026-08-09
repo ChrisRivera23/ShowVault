@@ -180,4 +180,25 @@ public sealed class SubnetProposalTests
         proposal.StartDiscovery(Guid.NewGuid());
         Assert.Null(proposal.AllenHeathQuIdentificationStatus);
     }
+
+    [Fact]
+    public void Tracks_behringer_wing_identification_independently_and_clears_it_on_rediscovery()
+    {
+        var proposal = SubnetProposal.Detected(
+            Guid.NewGuid(), Guid.NewGuid(), "192.168.1.0", 24,
+            "Ethernet", "Private network", DateTimeOffset.UtcNow);
+        proposal.RecordDecision(SubnetProposalDecision.Approved, "owner", DateTimeOffset.UtcNow);
+        proposal.StartDiscovery(Guid.NewGuid());
+        proposal.CompleteDiscovery(4, 1, 0, 4, DateTimeOffset.UtcNow);
+
+        proposal.StartBehringerWingIdentification(Guid.NewGuid());
+        proposal.CompleteBehringerWingIdentification(
+            1, 1, "Behringer WING", DateTimeOffset.UtcNow);
+
+        Assert.Equal(ProductIdentificationStatus.Completed,
+            proposal.BehringerWingIdentificationStatus);
+        Assert.Equal("Behringer WING", proposal.BehringerWingIdentifiedProductFamilies);
+        proposal.StartDiscovery(Guid.NewGuid());
+        Assert.Null(proposal.BehringerWingIdentificationStatus);
+    }
 }

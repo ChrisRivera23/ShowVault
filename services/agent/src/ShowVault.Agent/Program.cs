@@ -290,6 +290,8 @@ builder.Services.AddSingleton<ISonyCameraProtocolProbe, SonyCameraProtocolProbe>
 builder.Services.AddSingleton<SonyCameraNetworkIdentification>();
 builder.Services.AddSingleton<IAllenHeathQuProtocolProbe, AllenHeathQuProtocolProbe>();
 builder.Services.AddSingleton<AllenHeathQuNetworkIdentification>();
+builder.Services.AddSingleton<IBehringerWingProtocolProbe, BehringerWingProtocolProbe>();
+builder.Services.AddSingleton<BehringerWingNetworkIdentification>();
 builder.Services.AddSingleton<PjLinkProjectorProbe>();
 builder.Services.AddSingleton<NecProjectorProbe>();
 builder.Services.AddSingleton<IProjectorProtocolProbe>(services => new ProjectorProtocolProbe(

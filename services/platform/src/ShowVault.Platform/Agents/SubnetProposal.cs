@@ -98,6 +98,13 @@ public sealed class SubnetProposal
     public string? AllenHeathQuIdentifiedProductFamilies { get; private set; }
     public string? AllenHeathQuIdentificationMessage { get; private set; }
     public DateTimeOffset? AllenHeathQuIdentifiedAt { get; private set; }
+    public Guid? BehringerWingIdentificationCommandId { get; private set; }
+    public ProductIdentificationStatus? BehringerWingIdentificationStatus { get; private set; }
+    public int? BehringerWingIdentificationAttemptedHostCount { get; private set; }
+    public int? BehringerWingIdentifiedHostCount { get; private set; }
+    public string? BehringerWingIdentifiedProductFamilies { get; private set; }
+    public string? BehringerWingIdentificationMessage { get; private set; }
+    public DateTimeOffset? BehringerWingIdentifiedAt { get; private set; }
 
     public static SubnetProposal Detected(Guid id, Guid agentId, string network, int prefixLength,
         string interfaceType, string evidence, DateTimeOffset detectedAt)
@@ -140,6 +147,7 @@ public sealed class SubnetProposal
         ClearPanasonicCameraIdentification();
         ClearSonyCameraIdentification();
         ClearAllenHeathQuIdentification();
+        ClearBehringerWingIdentification();
     }
 
     public void StartDiscovery(Guid commandId)
@@ -158,6 +166,7 @@ public sealed class SubnetProposal
         ClearPanasonicCameraIdentification();
         ClearSonyCameraIdentification();
         ClearAllenHeathQuIdentification();
+        ClearBehringerWingIdentification();
     }
 
     public void CompleteDiscovery(
@@ -582,5 +591,51 @@ public sealed class SubnetProposal
         AllenHeathQuIdentifiedProductFamilies = null;
         AllenHeathQuIdentificationMessage = null;
         AllenHeathQuIdentifiedAt = null;
+    }
+
+    public void StartBehringerWingIdentification(Guid commandId)
+    {
+        if (DiscoveryStatus != SubnetDiscoveryStatus.Completed || RespondingHostCount is null or <= 0 ||
+            commandId == Guid.Empty)
+            throw new InvalidOperationException(
+                "Behringer WING identification requires completed discovery with responders.");
+        ClearBehringerWingIdentification();
+        BehringerWingIdentificationCommandId = commandId;
+        BehringerWingIdentificationStatus = ProductIdentificationStatus.Pending;
+    }
+
+    public void CompleteBehringerWingIdentification(
+        int attempted, int identified, string productFamilies, DateTimeOffset at)
+    {
+        if (BehringerWingIdentificationStatus != ProductIdentificationStatus.Pending ||
+            attempted is < 1 or > 32 || identified < 0 || identified > attempted ||
+            string.IsNullOrWhiteSpace(productFamilies))
+            throw new InvalidOperationException("Behringer WING identification result is invalid.");
+        BehringerWingIdentificationStatus = ProductIdentificationStatus.Completed;
+        BehringerWingIdentificationAttemptedHostCount = attempted;
+        BehringerWingIdentifiedHostCount = identified;
+        BehringerWingIdentifiedProductFamilies = productFamilies;
+        BehringerWingIdentifiedAt = at;
+    }
+
+    public void FailBehringerWingIdentification(string message, DateTimeOffset at)
+    {
+        if (BehringerWingIdentificationStatus != ProductIdentificationStatus.Pending)
+            throw new InvalidOperationException("Behringer WING identification is not pending.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        BehringerWingIdentificationStatus = ProductIdentificationStatus.Failed;
+        BehringerWingIdentificationMessage = message;
+        BehringerWingIdentifiedAt = at;
+    }
+
+    private void ClearBehringerWingIdentification()
+    {
+        BehringerWingIdentificationCommandId = null;
+        BehringerWingIdentificationStatus = null;
+        BehringerWingIdentificationAttemptedHostCount = null;
+        BehringerWingIdentifiedHostCount = null;
+        BehringerWingIdentifiedProductFamilies = null;
+        BehringerWingIdentificationMessage = null;
+        BehringerWingIdentifiedAt = null;
     }
 }

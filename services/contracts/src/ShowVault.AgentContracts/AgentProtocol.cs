@@ -2,7 +2,7 @@ namespace ShowVault.AgentContracts;
 
 public static class AgentProtocol
 {
-    public const string Version = "1.19";
+    public const string Version = "1.20";
 }
 
 public enum AgentCommandType
@@ -23,6 +23,7 @@ public enum AgentCommandType
     IdentifyPanasonicCamera,
     IdentifySonyCamera,
     IdentifyAllenHeathQu,
+    IdentifyBehringerWing,
     ValidateRecoveryCandidate,
     CreateBackup,
     VerifyBackup,

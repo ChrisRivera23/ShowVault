@@ -58,7 +58,14 @@ public sealed record SubnetProposalSummary(Guid Id, Guid AgentId, string AgentNa
     int? AllenHeathQuIdentifiedHostCount,
     string? AllenHeathQuIdentifiedProductFamilies,
     string? AllenHeathQuIdentificationMessage,
-    DateTimeOffset? AllenHeathQuIdentifiedAt);
+    DateTimeOffset? AllenHeathQuIdentifiedAt,
+    Guid? BehringerWingIdentificationCommandId,
+    string? BehringerWingIdentificationStatus,
+    int? BehringerWingIdentificationAttemptedHostCount,
+    int? BehringerWingIdentifiedHostCount,
+    string? BehringerWingIdentifiedProductFamilies,
+    string? BehringerWingIdentificationMessage,
+    DateTimeOffset? BehringerWingIdentifiedAt);
 
 public sealed record DecideSubnetProposalRequest(bool Approved);
 
@@ -74,3 +81,4 @@ public sealed record IdentifyBirdDogRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyPanasonicCameraRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifySonyCameraRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyAllenHeathQuRequest(int TimeoutMilliseconds = 500);
+public sealed record IdentifyBehringerWingRequest(int TimeoutMilliseconds = 500);

@@ -439,6 +439,33 @@ class _SubnetOnboarding extends ConsumerWidget {
     }
   }
 
+  Future<void> _identifyBehringerWing(
+    BuildContext context,
+    WidgetRef ref,
+    SubnetProposal proposal,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .identifyBehringerWing(
+            accessToken: session.accessToken,
+            history: history,
+            proposalId: proposal.id,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Behringer WING identification failed: $error'),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = history.subnetProposals.where(
@@ -477,7 +504,8 @@ class _SubnetOnboarding extends ConsumerWidget {
                     '${_birdDogIdentificationDetail(proposal)}'
                     '${_panasonicCameraIdentificationDetail(proposal)}'
                     '${_sonyCameraIdentificationDetail(proposal)}'
-                    '${_allenHeathQuIdentificationDetail(proposal)}',
+                    '${_allenHeathQuIdentificationDetail(proposal)}'
+                    '${_behringerWingIdentificationDetail(proposal)}',
                   ),
                   isThreeLine: true,
                   trailing: proposal.decision == 'approved'
@@ -643,6 +671,27 @@ class _SubnetOnboarding extends ConsumerWidget {
                                         ),
                                         child: const Text(
                                           'Identify Allen & Heath Qu',
+                                        ),
+                                      ),
+                                  if (proposal.discoveryStatus == 'completed' &&
+                                      (proposal.respondingHostCount ?? 0) > 0)
+                                    if (proposal
+                                            .behringerWingIdentificationStatus ==
+                                        'pending')
+                                      const Chip(
+                                        label: Text(
+                                          'Identifying Behringer WING',
+                                        ),
+                                      )
+                                    else
+                                      FilledButton(
+                                        onPressed: () => _identifyBehringerWing(
+                                          context,
+                                          ref,
+                                          proposal,
+                                        ),
+                                        child: const Text(
+                                          'Identify Behringer WING',
                                         ),
                                       ),
                                   if (proposal.discoveryStatus == 'completed' &&
@@ -822,6 +871,20 @@ class _SubnetOnboarding extends ConsumerWidget {
     'failed' =>
       '\nAllen & Heath Qu identification failed • '
           '${proposal.allenHeathQuIdentificationMessage ?? 'Unknown error'}',
+    _ => '',
+  };
+
+  String _behringerWingIdentificationDetail(
+    SubnetProposal proposal,
+  ) => switch (proposal.behringerWingIdentificationStatus) {
+    'completed' =>
+      '\nBehringer WING review • '
+          '${proposal.behringerWingIdentifiedHostCount ?? 0} of '
+          '${proposal.behringerWingIdentificationAttemptedHostCount ?? 0} identified • '
+          '${proposal.behringerWingIdentifiedProductFamilies ?? 'none'} • addresses, console names, serials, firmware, and raw replies remain local',
+    'failed' =>
+      '\nBehringer WING identification failed • '
+          '${proposal.behringerWingIdentificationMessage ?? 'Unknown error'}',
     _ => '',
   };
 }
