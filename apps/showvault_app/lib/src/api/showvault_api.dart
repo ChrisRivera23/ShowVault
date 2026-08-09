@@ -71,6 +71,11 @@ class SubnetProposal {
     this.birdDogIdentifiedHostCount,
     this.birdDogIdentifiedProductFamilies,
     this.birdDogIdentificationMessage,
+    this.panasonicCameraIdentificationStatus,
+    this.panasonicCameraIdentificationAttemptedHostCount,
+    this.panasonicCameraIdentifiedHostCount,
+    this.panasonicCameraIdentifiedProductFamilies,
+    this.panasonicCameraIdentificationMessage,
   });
   factory SubnetProposal.fromJson(Map<String, Object?> json) => SubnetProposal(
     id: json['id']! as String,
@@ -136,6 +141,16 @@ class SubnetProposal {
         json['birdDogIdentifiedProductFamilies'] as String?,
     birdDogIdentificationMessage:
         json['birdDogIdentificationMessage'] as String?,
+    panasonicCameraIdentificationStatus:
+        json['panasonicCameraIdentificationStatus'] as String?,
+    panasonicCameraIdentificationAttemptedHostCount:
+        json['panasonicCameraIdentificationAttemptedHostCount'] as int?,
+    panasonicCameraIdentifiedHostCount:
+        json['panasonicCameraIdentifiedHostCount'] as int?,
+    panasonicCameraIdentifiedProductFamilies:
+        json['panasonicCameraIdentifiedProductFamilies'] as String?,
+    panasonicCameraIdentificationMessage:
+        json['panasonicCameraIdentificationMessage'] as String?,
   );
   final String id, agentName, network, interfaceType, evidence, decision;
   final int prefixLength;
@@ -175,6 +190,11 @@ class SubnetProposal {
   final int? birdDogIdentifiedHostCount;
   final String? birdDogIdentifiedProductFamilies;
   final String? birdDogIdentificationMessage;
+  final String? panasonicCameraIdentificationStatus;
+  final int? panasonicCameraIdentificationAttemptedHostCount;
+  final int? panasonicCameraIdentifiedHostCount;
+  final String? panasonicCameraIdentifiedProductFamilies;
+  final String? panasonicCameraIdentificationMessage;
 
   bool get shouldSuggestDiscoveryRetry =>
       discoveryStatus == 'completed' &&
@@ -474,6 +494,29 @@ class ShowVaultApi {
       Uri.parse(
         '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
         '/venues/${history.venueId}/subnet-proposals/$proposalId/identify-birddog',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'timeoutMilliseconds': 500}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    return (body['payload']! as Map<String, Object?>)['commandId']! as String;
+  }
+
+  Future<String> identifyPanasonicCamera({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String proposalId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
+        '/venues/${history.venueId}/subnet-proposals/$proposalId/identify-panasonic-camera',
       ),
       headers: {
         'Authorization': 'Bearer $accessToken',

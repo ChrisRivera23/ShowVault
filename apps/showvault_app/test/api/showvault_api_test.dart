@@ -467,6 +467,45 @@ void main() {
     expect(captured.body, '{"timeoutMilliseconds":500}');
   });
 
+  test(
+    'separately authorizes path-free Panasonic camera identification',
+    () async {
+      late http.Request captured;
+      final api = ShowVaultApi(
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(
+            '{"payload":{"commandId":"panasonic-command"}}',
+            202,
+          );
+        }),
+      );
+      const history = RecoveryHistory(
+        organizationId: 'org-id',
+        organizationName: 'ShowVault',
+        venueId: 'venue-id',
+        venueName: 'Main Stage',
+        agents: [],
+        candidates: [],
+        runs: [],
+      );
+
+      final commandId = await api.identifyPanasonicCamera(
+        accessToken: 'access-token',
+        history: history,
+        proposalId: 'proposal-id',
+      );
+
+      expect(commandId, 'panasonic-command');
+      expect(captured.method, 'POST');
+      expect(
+        captured.url.path,
+        '/api/v1/organizations/org-id/venues/venue-id/subnet-proposals/proposal-id/identify-panasonic-camera',
+      );
+      expect(captured.body, '{"timeoutMilliseconds":500}');
+    },
+  );
+
   test('queues path-free approved candidate validation', () async {
     late http.Request captured;
     final api = ShowVaultApi(

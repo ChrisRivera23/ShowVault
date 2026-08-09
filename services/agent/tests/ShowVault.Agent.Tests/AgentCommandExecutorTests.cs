@@ -329,6 +329,21 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Contains("\"identifiedHostCount\":4", birdDogJson, StringComparison.Ordinal);
         Assert.Contains("BirdDog P200 (A4/A5)", birdDogJson, StringComparison.Ordinal);
         Assert.DoesNotContain("192.168.10.1", birdDogJson, StringComparison.Ordinal);
+
+        var panasonicCommand = AgentCommandEnvelope.Create(
+            agentId, AgentCommandType.IdentifyPanasonicCamera,
+            "panasonic-camera-identification",
+            JsonSerializer.Serialize(new IdentifyPanasonicCameraPayload(
+                proposalId, discoveryCommand.CommandId, 250)),
+            now.AddSeconds(9), TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(panasonicCommand, now.AddSeconds(9), CancellationToken.None);
+        await CreateExecutor(store, now.AddSeconds(9)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+        var panasonicJson = await store.GetDiscoveryResultJsonAsync(
+            panasonicCommand.CommandId, CancellationToken.None);
+        Assert.Contains("\"identifiedHostCount\":4", panasonicJson, StringComparison.Ordinal);
+        Assert.Contains("Panasonic AW-UE100", panasonicJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("192.168.10.1", panasonicJson, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -1132,6 +1147,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             new BlackmagicVideohubNetworkIdentification(new BlackmagicVideohubProbe(), timeProvider),
             new NewTekTriCasterNetworkIdentification(new NewTekTriCasterProbe(), timeProvider),
             new BirdDogNetworkIdentification(new BirdDogProbe(), timeProvider),
+            new PanasonicCameraNetworkIdentification(new PanasonicCameraProbe(), timeProvider),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
@@ -1243,6 +1259,13 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         public Task<string?> IdentifyAsync(
             System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult<string?>("BirdDog P200 (A4/A5)");
+    }
+
+    private sealed class PanasonicCameraProbe : IPanasonicCameraProtocolProbe
+    {
+        public Task<string?> IdentifyAsync(
+            System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("Panasonic AW-UE100");
     }
 
     private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions

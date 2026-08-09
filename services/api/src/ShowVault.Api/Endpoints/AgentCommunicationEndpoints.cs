@@ -81,6 +81,7 @@ public static class AgentCommunicationEndpoints
         await UpdateBlackmagicVideohubIdentificationAsync(database, envelope, cancellationToken);
         await UpdateNewTekTriCasterIdentificationAsync(database, envelope, cancellationToken);
         await UpdateBirdDogIdentificationAsync(database, envelope, cancellationToken);
+        await UpdatePanasonicCameraIdentificationAsync(database, envelope, cancellationToken);
         try
         {
             await database.SaveChangesAsync(cancellationToken);
@@ -517,6 +518,69 @@ public static class AgentCommunicationEndpoints
         {
             proposal.FailBirdDogIdentification(
                 "Agent returned invalid BirdDog identification evidence.", envelope.OccurredAt);
+        }
+    }
+
+    private static async Task UpdatePanasonicCameraIdentificationAsync(
+        PlatformDbContext database,
+        AgentEventEnvelope envelope,
+        CancellationToken cancellationToken)
+    {
+        var command = await database.IssuedAgentCommands.SingleOrDefaultAsync(item =>
+            item.CommandId == envelope.EventId && item.AgentId == envelope.AgentId &&
+            item.Type == AgentCommandType.IdentifyPanasonicCamera, cancellationToken);
+        if (command is null) return;
+        IdentifyPanasonicCameraPayload? request;
+        try { request = JsonSerializer.Deserialize<IdentifyPanasonicCameraPayload>(command.Payload); }
+        catch (JsonException) { return; }
+        if (request is null) return;
+        var proposal = await database.SubnetProposals.SingleOrDefaultAsync(item =>
+            item.Id == request.ProposalId && item.AgentId == envelope.AgentId &&
+            item.DiscoveryCommandId == request.DiscoveryCommandId &&
+            item.PanasonicCameraIdentificationCommandId == envelope.EventId &&
+            item.PanasonicCameraIdentificationStatus == ProductIdentificationStatus.Pending,
+            cancellationToken);
+        if (proposal is null) return;
+        try
+        {
+            using var outcome = JsonDocument.Parse(envelope.Payload);
+            if (envelope.Type == AgentEventType.JobCompleted &&
+                outcome.RootElement.TryGetProperty("attemptedHostCount", out var attemptedValue) &&
+                attemptedValue.TryGetInt32(out var attempted) &&
+                outcome.RootElement.TryGetProperty("identifiedHostCount", out var identifiedValue) &&
+                identifiedValue.TryGetInt32(out var identified) &&
+                outcome.RootElement.TryGetProperty("productFamilies", out var familiesValue) &&
+                familiesValue.ValueKind == JsonValueKind.Array)
+            {
+                var families = familiesValue.EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetString())
+                    .Where(item => !string.IsNullOrWhiteSpace(item))
+                    .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+                var allowed = new[] { "Panasonic AW-UE100", "Panasonic AW-UE150A" };
+                var consistent = identified == 0 ? families.Length == 0 :
+                    families.Length >= 1 && families.Length <= Math.Min(identified, allowed.Length) &&
+                    families.All(item => allowed.Contains(item));
+                var evidence = families.Length == 0 ? "none" : string.Join(",", families);
+                if (attempted is >= 1 and <= 32 && identified >= 0 && identified <= attempted &&
+                    consistent && evidence.Length <= 200)
+                {
+                    proposal.CompletePanasonicCameraIdentification(
+                        attempted, identified, evidence, envelope.OccurredAt);
+                    return;
+                }
+            }
+            var message = outcome.RootElement.TryGetProperty("error", out var error) &&
+                error.ValueKind == JsonValueKind.String ? error.GetString() :
+                "Agent returned invalid Panasonic camera identification evidence.";
+            proposal.FailPanasonicCameraIdentification(string.IsNullOrWhiteSpace(message) ?
+                "Panasonic camera identification failed." :
+                message[..Math.Min(500, message.Length)], envelope.OccurredAt);
+        }
+        catch (JsonException)
+        {
+            proposal.FailPanasonicCameraIdentification(
+                "Agent returned invalid Panasonic camera identification evidence.", envelope.OccurredAt);
         }
     }
 

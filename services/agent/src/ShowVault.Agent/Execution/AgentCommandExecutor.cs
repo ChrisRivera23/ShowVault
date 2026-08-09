@@ -22,6 +22,7 @@ public sealed class AgentCommandExecutor(
     BlackmagicVideohubNetworkIdentification blackmagicVideohubIdentification,
     NewTekTriCasterNetworkIdentification newTekTriCasterIdentification,
     BirdDogNetworkIdentification birdDogIdentification,
+    PanasonicCameraNetworkIdentification panasonicCameraIdentification,
     RecoveryPackageWriter packageWriter,
     RecoveryPackageVerifier packageVerifier,
     RecoveryPackageRestorer packageRestorer,
@@ -105,6 +106,9 @@ public sealed class AgentCommandExecutor(
                     break;
                 case AgentCommandType.IdentifyBirdDog:
                     await ExecuteBirdDogIdentificationAsync(identity, command, cancellationToken);
+                    break;
+                case AgentCommandType.IdentifyPanasonicCamera:
+                    await ExecutePanasonicCameraIdentificationAsync(identity, command, cancellationToken);
                     break;
                 case AgentCommandType.ApplyRecoveryCandidateDecision:
                     await ExecuteRecoveryCandidateDecisionAsync(identity, command, cancellationToken);
@@ -589,6 +593,35 @@ public sealed class AgentCommandExecutor(
         var result = await birdDogIdentification.IdentifyAsync(payload.ProposalId,
             payload.DiscoveryCommandId, hosts, payload.TimeoutMilliseconds, cancellationToken);
         await queueStore.StoreBirdDogIdentificationsAsync(command.CommandId, result, cancellationToken);
+        var pathFreeResult = new
+        {
+            result.ProposalId,
+            result.DiscoveryCommandId,
+            result.AttemptedHostCount,
+            identifiedHostCount = result.Identifications.Count,
+            productFamilies = result.Identifications.Select(item => item.ProductFamily).Distinct().Order().ToArray(),
+            result.CompletedAt
+        };
+        await queueStore.StoreDiscoveryResultAsync(command.CommandId,
+            JsonSerializer.Serialize(pathFreeResult, JsonOptions), result.CompletedAt, cancellationToken);
+        await RecordOutcomeAsync(identity, command, AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Completed, JsonSerializer.Serialize(pathFreeResult, JsonOptions), cancellationToken);
+    }
+
+    private async Task ExecutePanasonicCameraIdentificationAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Deserialize<IdentifyPanasonicCameraPayload>(command.Payload, JsonOptions)
+            ?? throw new InvalidOperationException("Panasonic camera identification payload is required.");
+        if (!await queueStore.IsReachableHostAuthorizationAsync(
+                payload.ProposalId, payload.DiscoveryCommandId, cancellationToken))
+            throw new InvalidOperationException("The responding-host authorization is not present on this Agent.");
+        var hosts = await queueStore.GetReachableSubnetHostsAsync(payload.DiscoveryCommandId, cancellationToken);
+        var result = await panasonicCameraIdentification.IdentifyAsync(payload.ProposalId,
+            payload.DiscoveryCommandId, hosts, payload.TimeoutMilliseconds, cancellationToken);
+        await queueStore.StorePanasonicCameraIdentificationsAsync(command.CommandId, result, cancellationToken);
         var pathFreeResult = new
         {
             result.ProposalId,

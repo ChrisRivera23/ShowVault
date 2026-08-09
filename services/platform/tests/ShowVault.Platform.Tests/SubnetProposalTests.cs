@@ -117,4 +117,25 @@ public sealed class SubnetProposalTests
         proposal.StartDiscovery(Guid.NewGuid());
         Assert.Null(proposal.BirdDogIdentificationStatus);
     }
+
+    [Fact]
+    public void Tracks_panasonic_camera_identification_independently_and_clears_it_on_rediscovery()
+    {
+        var proposal = SubnetProposal.Detected(
+            Guid.NewGuid(), Guid.NewGuid(), "192.168.1.0", 24,
+            "Ethernet", "Private network", DateTimeOffset.UtcNow);
+        proposal.RecordDecision(SubnetProposalDecision.Approved, "owner", DateTimeOffset.UtcNow);
+        proposal.StartDiscovery(Guid.NewGuid());
+        proposal.CompleteDiscovery(4, 1, 0, 4, DateTimeOffset.UtcNow);
+
+        proposal.StartPanasonicCameraIdentification(Guid.NewGuid());
+        proposal.CompletePanasonicCameraIdentification(
+            1, 1, "Panasonic AW-UE100", DateTimeOffset.UtcNow);
+
+        Assert.Equal(ProductIdentificationStatus.Completed,
+            proposal.PanasonicCameraIdentificationStatus);
+        Assert.Equal("Panasonic AW-UE100", proposal.PanasonicCameraIdentifiedProductFamilies);
+        proposal.StartDiscovery(Guid.NewGuid());
+        Assert.Null(proposal.PanasonicCameraIdentificationStatus);
+    }
 }

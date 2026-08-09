@@ -284,6 +284,8 @@ builder.Services.AddSingleton<INewTekTriCasterProtocolProbe, NewTekTriCasterProt
 builder.Services.AddSingleton<NewTekTriCasterNetworkIdentification>();
 builder.Services.AddSingleton<IBirdDogProtocolProbe, BirdDogProtocolProbe>();
 builder.Services.AddSingleton<BirdDogNetworkIdentification>();
+builder.Services.AddSingleton<IPanasonicCameraProtocolProbe, PanasonicCameraProtocolProbe>();
+builder.Services.AddSingleton<PanasonicCameraNetworkIdentification>();
 builder.Services.AddSingleton<PjLinkProjectorProbe>();
 builder.Services.AddSingleton<NecProjectorProbe>();
 builder.Services.AddSingleton<IProjectorProtocolProbe>(services => new ProjectorProtocolProbe(

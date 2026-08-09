@@ -360,6 +360,33 @@ class _SubnetOnboarding extends ConsumerWidget {
     }
   }
 
+  Future<void> _identifyPanasonicCamera(
+    BuildContext context,
+    WidgetRef ref,
+    SubnetProposal proposal,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .identifyPanasonicCamera(
+            accessToken: session.accessToken,
+            history: history,
+            proposalId: proposal.id,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Panasonic camera identification failed: $error'),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = history.subnetProposals.where(
@@ -395,7 +422,8 @@ class _SubnetOnboarding extends ConsumerWidget {
                     '${_yamahaIdentificationDetail(proposal)}'
                     '${_blackmagicVideohubIdentificationDetail(proposal)}'
                     '${_newTekTriCasterIdentificationDetail(proposal)}'
-                    '${_birdDogIdentificationDetail(proposal)}',
+                    '${_birdDogIdentificationDetail(proposal)}'
+                    '${_panasonicCameraIdentificationDetail(proposal)}',
                   ),
                   isThreeLine: true,
                   trailing: proposal.decision == 'approved'
@@ -500,6 +528,28 @@ class _SubnetOnboarding extends ConsumerWidget {
                                           proposal,
                                         ),
                                         child: const Text('Identify BirdDog'),
+                                      ),
+                                  if (proposal.discoveryStatus == 'completed' &&
+                                      (proposal.respondingHostCount ?? 0) > 0)
+                                    if (proposal
+                                            .panasonicCameraIdentificationStatus ==
+                                        'pending')
+                                      const Chip(
+                                        label: Text(
+                                          'Identifying Panasonic camera',
+                                        ),
+                                      )
+                                    else
+                                      FilledButton(
+                                        onPressed: () =>
+                                            _identifyPanasonicCamera(
+                                              context,
+                                              ref,
+                                              proposal,
+                                            ),
+                                        child: const Text(
+                                          'Identify Panasonic camera',
+                                        ),
                                       ),
                                   if (proposal.discoveryStatus == 'completed' &&
                                       (proposal.respondingHostCount ?? 0) > 0)
@@ -636,6 +686,20 @@ class _SubnetOnboarding extends ConsumerWidget {
     'failed' =>
       '\nBirdDog identification failed • '
           '${proposal.birdDogIdentificationMessage ?? 'Unknown error'}',
+    _ => '',
+  };
+
+  String _panasonicCameraIdentificationDetail(
+    SubnetProposal proposal,
+  ) => switch (proposal.panasonicCameraIdentificationStatus) {
+    'completed' =>
+      '\nPanasonic camera review • '
+          '${proposal.panasonicCameraIdentifiedHostCount ?? 0} of '
+          '${proposal.panasonicCameraIdentificationAttemptedHostCount ?? 0} identified • '
+          '${proposal.panasonicCameraIdentifiedProductFamilies ?? 'none'} • addresses and raw responses remain local',
+    'failed' =>
+      '\nPanasonic camera identification failed • '
+          '${proposal.panasonicCameraIdentificationMessage ?? 'Unknown error'}',
     _ => '',
   };
 }

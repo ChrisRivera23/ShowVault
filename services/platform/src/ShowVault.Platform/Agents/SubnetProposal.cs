@@ -77,6 +77,13 @@ public sealed class SubnetProposal
     public string? BirdDogIdentifiedProductFamilies { get; private set; }
     public string? BirdDogIdentificationMessage { get; private set; }
     public DateTimeOffset? BirdDogIdentifiedAt { get; private set; }
+    public Guid? PanasonicCameraIdentificationCommandId { get; private set; }
+    public ProductIdentificationStatus? PanasonicCameraIdentificationStatus { get; private set; }
+    public int? PanasonicCameraIdentificationAttemptedHostCount { get; private set; }
+    public int? PanasonicCameraIdentifiedHostCount { get; private set; }
+    public string? PanasonicCameraIdentifiedProductFamilies { get; private set; }
+    public string? PanasonicCameraIdentificationMessage { get; private set; }
+    public DateTimeOffset? PanasonicCameraIdentifiedAt { get; private set; }
 
     public static SubnetProposal Detected(Guid id, Guid agentId, string network, int prefixLength,
         string interfaceType, string evidence, DateTimeOffset detectedAt)
@@ -116,6 +123,7 @@ public sealed class SubnetProposal
         ClearBlackmagicVideohubIdentification();
         ClearNewTekTriCasterIdentification();
         ClearBirdDogIdentification();
+        ClearPanasonicCameraIdentification();
     }
 
     public void StartDiscovery(Guid commandId)
@@ -131,6 +139,7 @@ public sealed class SubnetProposal
         ClearBlackmagicVideohubIdentification();
         ClearNewTekTriCasterIdentification();
         ClearBirdDogIdentification();
+        ClearPanasonicCameraIdentification();
     }
 
     public void CompleteDiscovery(
@@ -417,5 +426,51 @@ public sealed class SubnetProposal
         BirdDogIdentifiedProductFamilies = null;
         BirdDogIdentificationMessage = null;
         BirdDogIdentifiedAt = null;
+    }
+
+    public void StartPanasonicCameraIdentification(Guid commandId)
+    {
+        if (DiscoveryStatus != SubnetDiscoveryStatus.Completed || RespondingHostCount is null or <= 0 ||
+            commandId == Guid.Empty)
+            throw new InvalidOperationException(
+                "Panasonic camera identification requires completed discovery with responders.");
+        ClearPanasonicCameraIdentification();
+        PanasonicCameraIdentificationCommandId = commandId;
+        PanasonicCameraIdentificationStatus = ProductIdentificationStatus.Pending;
+    }
+
+    public void CompletePanasonicCameraIdentification(
+        int attempted, int identified, string productFamilies, DateTimeOffset at)
+    {
+        if (PanasonicCameraIdentificationStatus != ProductIdentificationStatus.Pending ||
+            attempted is < 1 or > 32 || identified < 0 || identified > attempted ||
+            string.IsNullOrWhiteSpace(productFamilies))
+            throw new InvalidOperationException("Panasonic camera identification result is invalid.");
+        PanasonicCameraIdentificationStatus = ProductIdentificationStatus.Completed;
+        PanasonicCameraIdentificationAttemptedHostCount = attempted;
+        PanasonicCameraIdentifiedHostCount = identified;
+        PanasonicCameraIdentifiedProductFamilies = productFamilies;
+        PanasonicCameraIdentifiedAt = at;
+    }
+
+    public void FailPanasonicCameraIdentification(string message, DateTimeOffset at)
+    {
+        if (PanasonicCameraIdentificationStatus != ProductIdentificationStatus.Pending)
+            throw new InvalidOperationException("Panasonic camera identification is not pending.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        PanasonicCameraIdentificationStatus = ProductIdentificationStatus.Failed;
+        PanasonicCameraIdentificationMessage = message;
+        PanasonicCameraIdentifiedAt = at;
+    }
+
+    private void ClearPanasonicCameraIdentification()
+    {
+        PanasonicCameraIdentificationCommandId = null;
+        PanasonicCameraIdentificationStatus = null;
+        PanasonicCameraIdentificationAttemptedHostCount = null;
+        PanasonicCameraIdentifiedHostCount = null;
+        PanasonicCameraIdentifiedProductFamilies = null;
+        PanasonicCameraIdentificationMessage = null;
+        PanasonicCameraIdentifiedAt = null;
     }
 }

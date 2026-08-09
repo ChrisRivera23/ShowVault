@@ -366,6 +366,42 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal(1, birdDogProposal.BirdDogIdentifiedHostCount);
         Assert.Equal("BirdDog P200 (A4/A5)", birdDogProposal.BirdDogIdentifiedProductFamilies);
         Assert.Equal("NewTek TriCaster TC1", birdDogProposal.NewTekTriCasterIdentifiedProductFamilies);
+        var panasonicPath = $"{proposalPath}/{proposalId}/identify-panasonic-camera";
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
+            panasonicPath, new IdentifyPanasonicCameraRequest())).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await ownerClient.PostAsJsonAsync(
+            panasonicPath, new IdentifyPanasonicCameraRequest(99))).StatusCode);
+        var panasonicResponse = await ownerClient.PostAsJsonAsync(
+            panasonicPath, new IdentifyPanasonicCameraRequest(500));
+        Assert.Equal(HttpStatusCode.Accepted, panasonicResponse.StatusCode);
+        var panasonicCommand = (await panasonicResponse.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>())!.Payload;
+        Assert.Equal(AgentCommandType.IdentifyPanasonicCamera, panasonicCommand.Type);
+        Assert.Contains(subnetCommand.CommandId.ToString(), panasonicCommand.Payload,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("192.168", panasonicCommand.Payload, StringComparison.Ordinal);
+        var panasonicOutcome = new AgentEventEnvelope(
+            panasonicCommand.CommandId, enrolledAgent.Payload.AgentId,
+            AgentEventType.JobCompleted, AgentProtocol.Version, DateTimeOffset.UtcNow,
+            panasonicCommand.CorrelationId,
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                proposalId,
+                discoveryCommandId = subnetCommand.CommandId,
+                attemptedHostCount = 3,
+                identifiedHostCount = 2,
+                productFamilies = new[] { "Panasonic AW-UE100", "Panasonic AW-UE150A" }
+            }));
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", panasonicOutcome)).StatusCode);
+        proposals = await ownerClient.GetFromJsonAsync<ApiResponse<IReadOnlyList<SubnetProposalSummary>>>(proposalPath);
+        var panasonicProposal = Assert.Single(proposals!.Payload);
+        Assert.Equal("completed", panasonicProposal.PanasonicCameraIdentificationStatus);
+        Assert.Equal(3, panasonicProposal.PanasonicCameraIdentificationAttemptedHostCount);
+        Assert.Equal(2, panasonicProposal.PanasonicCameraIdentifiedHostCount);
+        Assert.Equal("Panasonic AW-UE100,Panasonic AW-UE150A",
+            panasonicProposal.PanasonicCameraIdentifiedProductFamilies);
+        Assert.Equal("BirdDog P200 (A4/A5)", panasonicProposal.BirdDogIdentifiedProductFamilies);
         var projectorPath = $"{proposalPath}/{proposalId}/identify-projectors";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
             projectorPath, new IdentifyProjectorsRequest())).StatusCode);

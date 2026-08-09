@@ -46,6 +46,11 @@ public sealed record IdentifyBirdDogPayload(
     Guid DiscoveryCommandId,
     int TimeoutMilliseconds = 500);
 
+public sealed record IdentifyPanasonicCameraPayload(
+    Guid ProposalId,
+    Guid DiscoveryCommandId,
+    int TimeoutMilliseconds = 500);
+
 public sealed record AgentCommandEnvelope(
     Guid CommandId,
     Guid AgentId,
