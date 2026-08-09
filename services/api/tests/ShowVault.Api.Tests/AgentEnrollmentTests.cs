@@ -295,6 +295,42 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.Equal("Blackmagic Smart Videohub 16x16",
             blackmagicProposal.BlackmagicVideohubIdentifiedProductFamilies);
         Assert.Equal("grandMA2", blackmagicProposal.GrandMa2IdentifiedProductFamilies);
+        var newTekPath = $"{proposalPath}/{proposalId}/identify-newtek-tricaster";
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
+            newTekPath, new IdentifyNewTekTriCasterRequest())).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await ownerClient.PostAsJsonAsync(
+            newTekPath, new IdentifyNewTekTriCasterRequest(99))).StatusCode);
+        var newTekResponse = await ownerClient.PostAsJsonAsync(
+            newTekPath, new IdentifyNewTekTriCasterRequest(500));
+        Assert.Equal(HttpStatusCode.Accepted, newTekResponse.StatusCode);
+        var newTekCommand = (await newTekResponse.Content.ReadFromJsonAsync<
+            ApiResponse<AgentCommandEnvelope>>())!.Payload;
+        Assert.Equal(AgentCommandType.IdentifyNewTekTriCaster, newTekCommand.Type);
+        Assert.Contains(subnetCommand.CommandId.ToString(), newTekCommand.Payload,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("192.168", newTekCommand.Payload, StringComparison.Ordinal);
+        var newTekOutcome = new AgentEventEnvelope(
+            newTekCommand.CommandId, enrolledAgent.Payload.AgentId,
+            AgentEventType.JobCompleted, AgentProtocol.Version, DateTimeOffset.UtcNow,
+            newTekCommand.CorrelationId,
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                proposalId,
+                discoveryCommandId = subnetCommand.CommandId,
+                attemptedHostCount = 3,
+                identifiedHostCount = 1,
+                productFamilies = new[] { "NewTek TriCaster TC1" }
+            }));
+        Assert.Equal(HttpStatusCode.Accepted,
+            (await agentClient.PostAsJsonAsync("/api/v1/agent-events", newTekOutcome)).StatusCode);
+        proposals = await ownerClient.GetFromJsonAsync<ApiResponse<IReadOnlyList<SubnetProposalSummary>>>(proposalPath);
+        var newTekProposal = Assert.Single(proposals!.Payload);
+        Assert.Equal("completed", newTekProposal.NewTekTriCasterIdentificationStatus);
+        Assert.Equal(3, newTekProposal.NewTekTriCasterIdentificationAttemptedHostCount);
+        Assert.Equal(1, newTekProposal.NewTekTriCasterIdentifiedHostCount);
+        Assert.Equal("NewTek TriCaster TC1", newTekProposal.NewTekTriCasterIdentifiedProductFamilies);
+        Assert.Equal("Blackmagic Smart Videohub 16x16",
+            newTekProposal.BlackmagicVideohubIdentifiedProductFamilies);
         var projectorPath = $"{proposalPath}/{proposalId}/identify-projectors";
         Assert.Equal(HttpStatusCode.Forbidden, (await outsiderClient.PostAsJsonAsync(
             projectorPath, new IdentifyProjectorsRequest())).StatusCode);

@@ -23,7 +23,34 @@ public static class SubnetProposalEndpoints
         endpoints.MapPost(path + "/{proposalId:guid}/identify-projectors", IdentifyProjectorsAsync).RequireAuthorization();
         endpoints.MapPost(path + "/{proposalId:guid}/identify-blackmagic-videohub",
             IdentifyBlackmagicVideohubAsync).RequireAuthorization();
+        endpoints.MapPost(path + "/{proposalId:guid}/identify-newtek-tricaster",
+            IdentifyNewTekTriCasterAsync).RequireAuthorization();
         return endpoints;
+    }
+
+    private static async Task<IResult> IdentifyNewTekTriCasterAsync(
+        Guid organizationId, Guid venueId, Guid proposalId,
+        IdentifyNewTekTriCasterRequest request, ClaimsPrincipal user, HttpContext context,
+        PlatformDbContext db, TimeProvider time, CancellationToken ct)
+    {
+        var subject = user.FindFirstValue("sub");
+        if (!await HasAccess(db, organizationId, venueId, subject, true, ct)) return Results.Forbid();
+        if (request.TimeoutMilliseconds is < 100 or > 500) return Results.BadRequest();
+        var proposal = await db.SubnetProposals.SingleOrDefaultAsync(p => p.Id == proposalId &&
+            p.Decision == SubnetProposalDecision.Approved &&
+            p.DiscoveryStatus == SubnetDiscoveryStatus.Completed && p.RespondingHostCount > 0 &&
+            db.VenueAgents.Any(a => a.Id == p.AgentId && a.VenueId == venueId && a.RevokedAt == null), ct);
+        if (proposal?.DiscoveryCommandId is not Guid discoveryCommandId) return Results.BadRequest();
+        var command = AgentCommandEnvelope.Create(
+            proposal.AgentId, AgentCommandType.IdentifyNewTekTriCaster,
+            context.TraceIdentifier, JsonSerializer.Serialize(new IdentifyNewTekTriCasterPayload(
+                proposal.Id, discoveryCommandId, request.TimeoutMilliseconds)),
+            time.GetUtcNow(), TimeSpan.FromMinutes(10));
+        db.IssuedAgentCommands.Add(IssuedAgentCommand.FromEnvelope(command));
+        proposal.StartNewTekTriCasterIdentification(command.CommandId);
+        await db.SaveChangesAsync(ct);
+        return Results.Accepted($"/api/v1/agent-commands/{command.CommandId}",
+            ApiResponse<AgentCommandEnvelope>.Success(command, context.TraceIdentifier));
     }
 
     private static async Task<IResult> IdentifyBlackmagicVideohubAsync(
@@ -178,7 +205,14 @@ public static class SubnetProposalEndpoints
                 x.p.BlackmagicVideohubIdentifiedHostCount,
                 x.p.BlackmagicVideohubIdentifiedProductFamilies,
                 x.p.BlackmagicVideohubIdentificationMessage,
-                x.p.BlackmagicVideohubIdentifiedAt)).ToArray(), context.TraceIdentifier));
+                x.p.BlackmagicVideohubIdentifiedAt,
+                x.p.NewTekTriCasterIdentificationCommandId,
+                x.p.NewTekTriCasterIdentificationStatus?.ToString().ToLowerInvariant(),
+                x.p.NewTekTriCasterIdentificationAttemptedHostCount,
+                x.p.NewTekTriCasterIdentifiedHostCount,
+                x.p.NewTekTriCasterIdentifiedProductFamilies,
+                x.p.NewTekTriCasterIdentificationMessage,
+                x.p.NewTekTriCasterIdentifiedAt)).ToArray(), context.TraceIdentifier));
     }
 
     private static async Task<IResult> DiscoverAsync(Guid organizationId, Guid venueId, Guid proposalId,

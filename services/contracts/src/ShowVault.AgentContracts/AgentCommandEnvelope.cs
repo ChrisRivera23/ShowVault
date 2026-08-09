@@ -36,6 +36,11 @@ public sealed record IdentifyBlackmagicVideohubPayload(
     Guid DiscoveryCommandId,
     int TimeoutMilliseconds = 500);
 
+public sealed record IdentifyNewTekTriCasterPayload(
+    Guid ProposalId,
+    Guid DiscoveryCommandId,
+    int TimeoutMilliseconds = 500);
+
 public sealed record AgentCommandEnvelope(
     Guid CommandId,
     Guid AgentId,

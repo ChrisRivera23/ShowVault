@@ -96,7 +96,7 @@ Manufacturer names do not imply support for every product the company has shippe
 
 - Blackmagic Design — protocol 1.14 provides separately authorized, bounded, zero-byte identification for the exact official Blackmagic Smart Videohub 16x16 status fixture on TCP 9990; addresses and raw status remain Agent-local, while other Videohub models, HyperDeck, ATEM hardware, configuration/control, and generic port reachability remain unsupported
 - Sony — automatic broadcast-device identification deferred because the official LMD-1951MD protocol publishes target-bounded SDCP status/control but no exact model-identity request and literal response, while its SDAP identity service broadcasts product name with serial, location, community, power, and network metadata; official XVS-9000 material documents NMOS and optional SNMP capabilities without an exact bounded product-identity exchange, so generic protocol participation, ports, reachability, broadcast collection, and projector/PTZ evidence remain unsupported
-- NewTek
+- NewTek — protocol 1.15 provides separately authorized, bounded, read-only identification for the exact official TriCaster TC1 `GET /version` fixture on TCP 80; HTTP 200 must contain exactly one `TC1` model and `TriCaster TC1` product name, addresses and privacy-bearing product/session XML remain Agent-local, authentication challenges are safe false negatives without using default credentials or weakening protection, and other models, generic NDI/HTTP reachability, configuration/control, backup, verification, and restore remain unsupported
 - AJA Video Systems
 
 ## Streaming and production

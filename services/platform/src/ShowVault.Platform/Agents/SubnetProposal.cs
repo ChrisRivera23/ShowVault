@@ -63,6 +63,13 @@ public sealed class SubnetProposal
     public string? BlackmagicVideohubIdentifiedProductFamilies { get; private set; }
     public string? BlackmagicVideohubIdentificationMessage { get; private set; }
     public DateTimeOffset? BlackmagicVideohubIdentifiedAt { get; private set; }
+    public Guid? NewTekTriCasterIdentificationCommandId { get; private set; }
+    public ProductIdentificationStatus? NewTekTriCasterIdentificationStatus { get; private set; }
+    public int? NewTekTriCasterIdentificationAttemptedHostCount { get; private set; }
+    public int? NewTekTriCasterIdentifiedHostCount { get; private set; }
+    public string? NewTekTriCasterIdentifiedProductFamilies { get; private set; }
+    public string? NewTekTriCasterIdentificationMessage { get; private set; }
+    public DateTimeOffset? NewTekTriCasterIdentifiedAt { get; private set; }
 
     public static SubnetProposal Detected(Guid id, Guid agentId, string network, int prefixLength,
         string interfaceType, string evidence, DateTimeOffset detectedAt)
@@ -100,6 +107,7 @@ public sealed class SubnetProposal
         ClearYamahaIdentification();
         ClearGrandMa2Identification();
         ClearBlackmagicVideohubIdentification();
+        ClearNewTekTriCasterIdentification();
     }
 
     public void StartDiscovery(Guid commandId)
@@ -113,6 +121,7 @@ public sealed class SubnetProposal
         ClearYamahaIdentification();
         ClearGrandMa2Identification();
         ClearBlackmagicVideohubIdentification();
+        ClearNewTekTriCasterIdentification();
     }
 
     public void CompleteDiscovery(
@@ -307,5 +316,51 @@ public sealed class SubnetProposal
         BlackmagicVideohubIdentifiedProductFamilies = null;
         BlackmagicVideohubIdentificationMessage = null;
         BlackmagicVideohubIdentifiedAt = null;
+    }
+
+    public void StartNewTekTriCasterIdentification(Guid commandId)
+    {
+        if (DiscoveryStatus != SubnetDiscoveryStatus.Completed || RespondingHostCount is null or <= 0 ||
+            commandId == Guid.Empty)
+            throw new InvalidOperationException(
+                "NewTek TriCaster identification requires completed discovery with responders.");
+        ClearNewTekTriCasterIdentification();
+        NewTekTriCasterIdentificationCommandId = commandId;
+        NewTekTriCasterIdentificationStatus = ProductIdentificationStatus.Pending;
+    }
+
+    public void CompleteNewTekTriCasterIdentification(
+        int attempted, int identified, string productFamilies, DateTimeOffset at)
+    {
+        if (NewTekTriCasterIdentificationStatus != ProductIdentificationStatus.Pending ||
+            attempted is < 1 or > 32 || identified < 0 || identified > attempted ||
+            string.IsNullOrWhiteSpace(productFamilies))
+            throw new InvalidOperationException("NewTek TriCaster identification result is invalid.");
+        NewTekTriCasterIdentificationStatus = ProductIdentificationStatus.Completed;
+        NewTekTriCasterIdentificationAttemptedHostCount = attempted;
+        NewTekTriCasterIdentifiedHostCount = identified;
+        NewTekTriCasterIdentifiedProductFamilies = productFamilies;
+        NewTekTriCasterIdentifiedAt = at;
+    }
+
+    public void FailNewTekTriCasterIdentification(string message, DateTimeOffset at)
+    {
+        if (NewTekTriCasterIdentificationStatus != ProductIdentificationStatus.Pending)
+            throw new InvalidOperationException("NewTek TriCaster identification is not pending.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        NewTekTriCasterIdentificationStatus = ProductIdentificationStatus.Failed;
+        NewTekTriCasterIdentificationMessage = message;
+        NewTekTriCasterIdentifiedAt = at;
+    }
+
+    private void ClearNewTekTriCasterIdentification()
+    {
+        NewTekTriCasterIdentificationCommandId = null;
+        NewTekTriCasterIdentificationStatus = null;
+        NewTekTriCasterIdentificationAttemptedHostCount = null;
+        NewTekTriCasterIdentifiedHostCount = null;
+        NewTekTriCasterIdentifiedProductFamilies = null;
+        NewTekTriCasterIdentificationMessage = null;
+        NewTekTriCasterIdentifiedAt = null;
     }
 }

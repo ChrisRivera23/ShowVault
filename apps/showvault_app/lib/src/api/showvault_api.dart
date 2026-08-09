@@ -61,6 +61,11 @@ class SubnetProposal {
     this.blackmagicVideohubIdentifiedHostCount,
     this.blackmagicVideohubIdentifiedProductFamilies,
     this.blackmagicVideohubIdentificationMessage,
+    this.newTekTriCasterIdentificationStatus,
+    this.newTekTriCasterIdentificationAttemptedHostCount,
+    this.newTekTriCasterIdentifiedHostCount,
+    this.newTekTriCasterIdentifiedProductFamilies,
+    this.newTekTriCasterIdentificationMessage,
   });
   factory SubnetProposal.fromJson(Map<String, Object?> json) => SubnetProposal(
     id: json['id']! as String,
@@ -108,6 +113,16 @@ class SubnetProposal {
         json['blackmagicVideohubIdentifiedProductFamilies'] as String?,
     blackmagicVideohubIdentificationMessage:
         json['blackmagicVideohubIdentificationMessage'] as String?,
+    newTekTriCasterIdentificationStatus:
+        json['newTekTriCasterIdentificationStatus'] as String?,
+    newTekTriCasterIdentificationAttemptedHostCount:
+        json['newTekTriCasterIdentificationAttemptedHostCount'] as int?,
+    newTekTriCasterIdentifiedHostCount:
+        json['newTekTriCasterIdentifiedHostCount'] as int?,
+    newTekTriCasterIdentifiedProductFamilies:
+        json['newTekTriCasterIdentifiedProductFamilies'] as String?,
+    newTekTriCasterIdentificationMessage:
+        json['newTekTriCasterIdentificationMessage'] as String?,
   );
   final String id, agentName, network, interfaceType, evidence, decision;
   final int prefixLength;
@@ -137,6 +152,11 @@ class SubnetProposal {
   final int? blackmagicVideohubIdentifiedHostCount;
   final String? blackmagicVideohubIdentifiedProductFamilies;
   final String? blackmagicVideohubIdentificationMessage;
+  final String? newTekTriCasterIdentificationStatus;
+  final int? newTekTriCasterIdentificationAttemptedHostCount;
+  final int? newTekTriCasterIdentifiedHostCount;
+  final String? newTekTriCasterIdentifiedProductFamilies;
+  final String? newTekTriCasterIdentificationMessage;
 
   bool get shouldSuggestDiscoveryRetry =>
       discoveryStatus == 'completed' &&
@@ -390,6 +410,29 @@ class ShowVaultApi {
       Uri.parse(
         '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
         '/venues/${history.venueId}/subnet-proposals/$proposalId/identify-blackmagic-videohub',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'timeoutMilliseconds': 500}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    return (body['payload']! as Map<String, Object?>)['commandId']! as String;
+  }
+
+  Future<String> identifyNewTekTriCaster({
+    required String accessToken,
+    required RecoveryHistory history,
+    required String proposalId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse(
+        '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
+        '/venues/${history.venueId}/subnet-proposals/$proposalId/identify-newtek-tricaster',
       ),
       headers: {
         'Authorization': 'Bearer $accessToken',

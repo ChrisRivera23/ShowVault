@@ -23,7 +23,14 @@ public sealed record SubnetProposalSummary(Guid Id, Guid AgentId, string AgentNa
     int? BlackmagicVideohubIdentifiedHostCount,
     string? BlackmagicVideohubIdentifiedProductFamilies,
     string? BlackmagicVideohubIdentificationMessage,
-    DateTimeOffset? BlackmagicVideohubIdentifiedAt);
+    DateTimeOffset? BlackmagicVideohubIdentifiedAt,
+    Guid? NewTekTriCasterIdentificationCommandId,
+    string? NewTekTriCasterIdentificationStatus,
+    int? NewTekTriCasterIdentificationAttemptedHostCount,
+    int? NewTekTriCasterIdentifiedHostCount,
+    string? NewTekTriCasterIdentifiedProductFamilies,
+    string? NewTekTriCasterIdentificationMessage,
+    DateTimeOffset? NewTekTriCasterIdentifiedAt);
 
 public sealed record DecideSubnetProposalRequest(bool Approved);
 
@@ -34,3 +41,4 @@ public sealed record IdentifyYamahaDmeRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyGrandMa2Request(int TimeoutMilliseconds = 500);
 public sealed record IdentifyProjectorsRequest(int TimeoutMilliseconds = 500);
 public sealed record IdentifyBlackmagicVideohubRequest(int TimeoutMilliseconds = 500);
+public sealed record IdentifyNewTekTriCasterRequest(int TimeoutMilliseconds = 500);

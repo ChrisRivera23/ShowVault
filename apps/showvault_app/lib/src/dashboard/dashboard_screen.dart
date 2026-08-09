@@ -308,6 +308,33 @@ class _SubnetOnboarding extends ConsumerWidget {
     }
   }
 
+  Future<void> _identifyNewTekTriCaster(
+    BuildContext context,
+    WidgetRef ref,
+    SubnetProposal proposal,
+  ) async {
+    final session = ref.read(authSessionProvider).valueOrNull;
+    if (session == null) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .identifyNewTekTriCaster(
+            accessToken: session.accessToken,
+            history: history,
+            proposalId: proposal.id,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('NewTek TriCaster identification failed: $error'),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = history.subnetProposals.where(
@@ -341,7 +368,8 @@ class _SubnetOnboarding extends ConsumerWidget {
                     '${proposal.evidence}${_discoveryDetail(proposal)}'
                     '${_identificationDetail(proposal)}${_grandMa2IdentificationDetail(proposal)}'
                     '${_yamahaIdentificationDetail(proposal)}'
-                    '${_blackmagicVideohubIdentificationDetail(proposal)}',
+                    '${_blackmagicVideohubIdentificationDetail(proposal)}'
+                    '${_newTekTriCasterIdentificationDetail(proposal)}',
                   ),
                   isThreeLine: true,
                   trailing: proposal.decision == 'approved'
@@ -409,6 +437,26 @@ class _SubnetOnboarding extends ConsumerWidget {
                                             ),
                                         child: const Text(
                                           'Identify Blackmagic Videohub',
+                                        ),
+                                      ),
+                                  if (proposal.discoveryStatus == 'completed' &&
+                                      (proposal.respondingHostCount ?? 0) > 0)
+                                    if (proposal
+                                            .newTekTriCasterIdentificationStatus ==
+                                        'pending')
+                                      const Chip(
+                                        label: Text('Identifying TriCaster'),
+                                      )
+                                    else
+                                      FilledButton(
+                                        onPressed: () =>
+                                            _identifyNewTekTriCaster(
+                                              context,
+                                              ref,
+                                              proposal,
+                                            ),
+                                        child: const Text(
+                                          'Identify NewTek TriCaster',
                                         ),
                                       ),
                                   if (proposal.discoveryStatus == 'completed' &&
@@ -518,6 +566,20 @@ class _SubnetOnboarding extends ConsumerWidget {
     'failed' =>
       '\nBlackmagic Videohub identification failed • '
           '${proposal.blackmagicVideohubIdentificationMessage ?? 'Unknown error'}',
+    _ => '',
+  };
+
+  String _newTekTriCasterIdentificationDetail(
+    SubnetProposal proposal,
+  ) => switch (proposal.newTekTriCasterIdentificationStatus) {
+    'completed' =>
+      '\nNewTek TriCaster review • '
+          '${proposal.newTekTriCasterIdentifiedHostCount ?? 0} of '
+          '${proposal.newTekTriCasterIdentificationAttemptedHostCount ?? 0} identified • '
+          '${proposal.newTekTriCasterIdentifiedProductFamilies ?? 'none'} • addresses and raw system data remain local',
+    'failed' =>
+      '\nNewTek TriCaster identification failed • '
+          '${proposal.newTekTriCasterIdentificationMessage ?? 'Unknown error'}',
     _ => '',
   };
 }

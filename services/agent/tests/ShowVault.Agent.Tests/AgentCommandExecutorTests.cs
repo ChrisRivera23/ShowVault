@@ -299,6 +299,21 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Contains("\"identifiedHostCount\":4", blackmagicJson, StringComparison.Ordinal);
         Assert.Contains("Blackmagic Smart Videohub 16x16", blackmagicJson, StringComparison.Ordinal);
         Assert.DoesNotContain("192.168.10.1", blackmagicJson, StringComparison.Ordinal);
+
+        var newTekCommand = AgentCommandEnvelope.Create(
+            agentId, AgentCommandType.IdentifyNewTekTriCaster,
+            "newtek-tricaster-identification",
+            JsonSerializer.Serialize(new IdentifyNewTekTriCasterPayload(
+                proposalId, discoveryCommand.CommandId, 250)),
+            now.AddSeconds(7), TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(newTekCommand, now.AddSeconds(7), CancellationToken.None);
+        await CreateExecutor(store, now.AddSeconds(7)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"), CancellationToken.None);
+        var newTekJson = await store.GetDiscoveryResultJsonAsync(
+            newTekCommand.CommandId, CancellationToken.None);
+        Assert.Contains("\"identifiedHostCount\":4", newTekJson, StringComparison.Ordinal);
+        Assert.Contains("NewTek TriCaster TC1", newTekJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("192.168.10.1", newTekJson, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -1096,6 +1111,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             new GrandMa2NetworkIdentification(new GrandMa2Probe(), timeProvider),
             new PjLinkNetworkIdentification(new PjLinkProbe(), timeProvider),
             new BlackmagicVideohubNetworkIdentification(new BlackmagicVideohubProbe(), timeProvider),
+            new NewTekTriCasterNetworkIdentification(new NewTekTriCasterProbe(), timeProvider),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
@@ -1193,6 +1209,13 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         public Task<string?> IdentifyAsync(
             System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
             Task.FromResult<string?>("Blackmagic Smart Videohub 16x16");
+    }
+
+    private sealed class NewTekTriCasterProbe : INewTekTriCasterProtocolProbe
+    {
+        public Task<string?> IdentifyAsync(
+            System.Net.IPAddress address, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("NewTek TriCaster TC1");
     }
 
     private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions

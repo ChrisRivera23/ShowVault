@@ -280,6 +280,8 @@ builder.Services.AddSingleton<IGrandMa2ProtocolProbe, GrandMa2TelnetBannerProbe>
 builder.Services.AddSingleton<GrandMa2NetworkIdentification>();
 builder.Services.AddSingleton<IBlackmagicVideohubProtocolProbe, BlackmagicVideohubProtocolProbe>();
 builder.Services.AddSingleton<BlackmagicVideohubNetworkIdentification>();
+builder.Services.AddSingleton<INewTekTriCasterProtocolProbe, NewTekTriCasterProtocolProbe>();
+builder.Services.AddSingleton<NewTekTriCasterNetworkIdentification>();
 builder.Services.AddSingleton<PjLinkProjectorProbe>();
 builder.Services.AddSingleton<NecProjectorProbe>();
 builder.Services.AddSingleton<IProjectorProtocolProbe>(services => new ProjectorProtocolProbe(
