@@ -43,7 +43,7 @@ Manufacturer names do not imply automatic support for every product the company 
 - Adamson — deferred pending an official or fixture-verified complete Blueprint AV/ArrayIntelligence project format; the documented `.rm` artifact contains room geometry only and is not a complete system-design recovery anchor
 - Outline — deferred pending an official or fixture-verified complete Outline Dashboard or OpenArray project format; the Newton manual documents saved Dashboard projects and a hazardous supervised device-application workflow, but publishes no dependable project extension, signature, or storage boundary, and current OpenArray material likewise does not define a complete portable recovery anchor
 - DAS Audio — ALMA `.prj` project discovery implemented at the exact `Documents/Alma`-style data-root boundary, with JSON project identity validation and colocated configuration, backups, health reports, snapshots, DASaim data, and other recovery companions preserved
-- KV2 Audio
+- KV2 Audio — deferred pending an official or fixture-verified Control & Diagnostics preset/show-file format; KV2 documents save/recall and supported D-series amplifiers but publishes no dependable extension, signature, schema, or storage boundary, while recall can change live amplifier settings
 
 ## Audio networking, control, and DSP
 
