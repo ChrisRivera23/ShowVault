@@ -30,6 +30,7 @@ public sealed record LocalApplicationCatalogEntry(
     public IReadOnlyList<LocalApplicationVersionDirectory> WindowsVersionDirectories { get; init; } = [];
     public IReadOnlyList<LocalApplicationVersionDirectory> MacOsUserVersionDirectories { get; init; } = [];
     public IReadOnlyList<LocalApplicationVersionDirectory> WindowsUserVersionDirectories { get; init; } = [];
+    public IReadOnlyList<LocalApplicationLocation> WindowsSystemLocations { get; init; } = [];
     public IReadOnlyList<LocalApplicationLocation> MountedVolumeLocations { get; init; } = [];
 }
 
@@ -44,6 +45,7 @@ public sealed class LocalApplicationDetectionRegistry
     public const string DjayProPluginId = "showvault.djay-pro";
     public const string MixxxPluginId = "showvault.mixxx";
     public const string DisguiseDesignerPluginId = "showvault.disguise-designer";
+    public const string WatchoutPluginId = "showvault.watchout";
     private const int MaximumVersionDirectoryCount = 32;
     private const int MaximumMountedVolumeCount = 64;
 
@@ -71,6 +73,18 @@ public sealed class LocalApplicationDetectionRegistry
             [],
             [new("UserDataRoot", Path.Combine("Documents", "d3 Projects"),
                 "Catalog documented default disguise Designer project-root location")]),
+        new(
+            WatchoutPluginId,
+            "Dataton WATCHOUT 7",
+            [],
+            [],
+            [],
+            [])
+        {
+            WindowsSystemLocations =
+            [new("InstalledApplication", "WATCHOUT7",
+                "Catalog documented default WATCHOUT 7 installation location")]
+        },
         new(
             SeratoDjProPluginId,
             "Serato DJ Pro",
@@ -222,7 +236,8 @@ public sealed class LocalApplicationDetectionRegistry
         LocalApplicationPlatform platform,
         IReadOnlyList<string> applicationRoots,
         IReadOnlyList<string> userHomes,
-        IReadOnlyList<string>? mountedVolumeRoots = null)
+        IReadOnlyList<string>? mountedVolumeRoots = null,
+        IReadOnlyList<string>? windowsSystemRoots = null)
     {
         var candidates = new List<StandardLocationCandidate>();
         foreach (var entry in Entries)
@@ -250,6 +265,12 @@ public sealed class LocalApplicationDetectionRegistry
                     : entry.WindowsUserVersionDirectories;
                 AddVersionDirectoryCandidates(candidates, entry, [userHome], versionDirectories);
             }
+        }
+
+        if (platform == LocalApplicationPlatform.Windows)
+        {
+            foreach (var entry in Entries)
+                AddCandidates(candidates, entry, windowsSystemRoots ?? [], entry.WindowsSystemLocations);
         }
 
         var boundedMountedVolumeRoots = (mountedVolumeRoots ?? [])

@@ -50,11 +50,17 @@ public sealed class HostStandardLocationProvider(LocalApplicationDetectionRegist
             var usersRoot = Path.GetFullPath(Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 ".."));
+            var systemRoot = Path.GetPathRoot(
+                Environment.GetFolderPath(Environment.SpecialFolder.System));
+            var systemRoots = string.IsNullOrWhiteSpace(systemRoot)
+                ? []
+                : new[] { systemRoot };
             return registry.GetCandidates(
                 LocalApplicationPlatform.Windows,
                 applicationRoots,
                 EnumerateUserHomes(usersRoot).ToArray(),
-                EnumerateMountedVolumeRoots(LocalApplicationPlatform.Windows));
+                EnumerateMountedVolumeRoots(LocalApplicationPlatform.Windows),
+                systemRoots);
         }
 
         return [];

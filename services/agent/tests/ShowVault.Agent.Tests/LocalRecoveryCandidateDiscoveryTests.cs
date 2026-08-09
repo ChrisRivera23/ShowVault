@@ -351,6 +351,55 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
     }
 
     [Fact]
+    public void Catalog_registry_finds_only_documented_default_watchout_installation()
+    {
+        var systemRoot = Path.Combine(_root, "Windows", "SystemDrive");
+        var customInstallRoot = Path.Combine(_root, "Windows", "CustomWATCHOUT");
+        var defaultInstallRoot = Path.Combine(systemRoot, "WATCHOUT7");
+        Directory.CreateDirectory(defaultInstallRoot);
+        Directory.CreateDirectory(customInstallRoot);
+        var registry = new LocalApplicationDetectionRegistry();
+
+        var windowsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.Windows,
+                [customInstallRoot],
+                [],
+                null,
+                [systemRoot])
+            .Where(location =>
+                location.PluginId == LocalApplicationDetectionRegistry.WatchoutPluginId)
+            .ToArray();
+        var macOsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.MacOs,
+                [],
+                [],
+                null,
+                [systemRoot])
+            .Where(location =>
+                location.PluginId == LocalApplicationDetectionRegistry.WatchoutPluginId)
+            .ToArray();
+
+        var location = Assert.Single(windowsLocations);
+        Assert.Equal("Dataton WATCHOUT 7", location.ProductName);
+        Assert.Equal("InstalledApplication", location.CandidateType);
+        Assert.Equal(defaultInstallRoot, location.Path);
+        Assert.Equal(
+            "Catalog documented default WATCHOUT 7 installation location",
+            location.Evidence);
+        Assert.Empty(macOsLocations);
+        Assert.DoesNotContain(windowsLocations, candidate =>
+            candidate.CandidateType == "UserDataRoot");
+        Assert.DoesNotContain(windowsLocations, candidate =>
+            candidate.Path == customInstallRoot);
+
+        var candidate = Assert.Single(new LocalRecoveryCandidateDiscovery(
+            new FixedLocationProvider(windowsLocations)).Discover());
+        Assert.Equal(LocalApplicationDetectionRegistry.WatchoutPluginId, candidate.PluginId);
+        Assert.Equal(defaultInstallRoot, candidate.Path);
+        Assert.True(candidate.RequiresOperatorApproval);
+    }
+
+    [Fact]
     public void Missing_locations_do_not_consume_the_discovered_candidate_limit()
     {
         var existing = Path.Combine(_root, "existing", "_Serato_");
