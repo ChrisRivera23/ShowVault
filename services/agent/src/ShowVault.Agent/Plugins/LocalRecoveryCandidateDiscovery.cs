@@ -40,9 +40,10 @@ public sealed class HostStandardLocationProvider(LocalApplicationDetectionRegist
 
         if (OperatingSystem.IsWindows())
         {
+            var programFilesRoot = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
             var applicationRoots = new[]
             {
-                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                programFilesRoot,
                 Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
             }.Where(path => !string.IsNullOrWhiteSpace(path))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -60,7 +61,8 @@ public sealed class HostStandardLocationProvider(LocalApplicationDetectionRegist
                 applicationRoots,
                 EnumerateUserHomes(usersRoot).ToArray(),
                 EnumerateMountedVolumeRoots(LocalApplicationPlatform.Windows),
-                systemRoots);
+                systemRoots,
+                string.IsNullOrWhiteSpace(programFilesRoot) ? [] : [programFilesRoot]);
         }
 
         return [];

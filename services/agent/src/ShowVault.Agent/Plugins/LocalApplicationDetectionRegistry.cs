@@ -31,6 +31,7 @@ public sealed record LocalApplicationCatalogEntry(
     public IReadOnlyList<LocalApplicationVersionDirectory> MacOsUserVersionDirectories { get; init; } = [];
     public IReadOnlyList<LocalApplicationVersionDirectory> WindowsUserVersionDirectories { get; init; } = [];
     public IReadOnlyList<LocalApplicationLocation> WindowsSystemLocations { get; init; } = [];
+    public IReadOnlyList<LocalApplicationLocation> WindowsProgramFilesLocations { get; init; } = [];
     public IReadOnlyList<LocalApplicationLocation> MountedVolumeLocations { get; init; } = [];
 }
 
@@ -46,6 +47,7 @@ public sealed class LocalApplicationDetectionRegistry
     public const string MixxxPluginId = "showvault.mixxx";
     public const string DisguiseDesignerPluginId = "showvault.disguise-designer";
     public const string WatchoutPluginId = "showvault.watchout";
+    public const string HippotizerPluginId = "showvault.hippotizer";
     private const int MaximumVersionDirectoryCount = 32;
     private const int MaximumMountedVolumeCount = 64;
 
@@ -84,6 +86,18 @@ public sealed class LocalApplicationDetectionRegistry
             WindowsSystemLocations =
             [new("InstalledApplication", "WATCHOUT7",
                 "Catalog documented default WATCHOUT 7 installation location")]
+        },
+        new(
+            HippotizerPluginId,
+            "Green Hippo Hippotizer V4",
+            [],
+            [],
+            [],
+            [])
+        {
+            WindowsProgramFilesLocations =
+            [new("InstalledApplication", Path.Combine("GreenHippo", "HippotizerV4"),
+                "Catalog documented Hippotizer V4 Windows installation location")]
         },
         new(
             SeratoDjProPluginId,
@@ -237,7 +251,8 @@ public sealed class LocalApplicationDetectionRegistry
         IReadOnlyList<string> applicationRoots,
         IReadOnlyList<string> userHomes,
         IReadOnlyList<string>? mountedVolumeRoots = null,
-        IReadOnlyList<string>? windowsSystemRoots = null)
+        IReadOnlyList<string>? windowsSystemRoots = null,
+        IReadOnlyList<string>? windowsProgramFilesRoots = null)
     {
         var candidates = new List<StandardLocationCandidate>();
         foreach (var entry in Entries)
@@ -270,7 +285,11 @@ public sealed class LocalApplicationDetectionRegistry
         if (platform == LocalApplicationPlatform.Windows)
         {
             foreach (var entry in Entries)
+            {
                 AddCandidates(candidates, entry, windowsSystemRoots ?? [], entry.WindowsSystemLocations);
+                AddCandidates(candidates, entry, windowsProgramFilesRoots ?? [],
+                    entry.WindowsProgramFilesLocations);
+            }
         }
 
         var boundedMountedVolumeRoots = (mountedVolumeRoots ?? [])

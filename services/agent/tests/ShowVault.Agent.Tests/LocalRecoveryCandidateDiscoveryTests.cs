@@ -134,7 +134,8 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             platform,
             [applicationRoot],
             [userHome],
-            [mountedVolumeRoot]);
+            [mountedVolumeRoot],
+            windowsProgramFilesRoots: [applicationRoot]);
         var expectedSeratoApplication = platform == LocalApplicationPlatform.MacOs
             ? Path.Combine(applicationRoot, "Serato DJ Pro.app")
             : Path.Combine(applicationRoot, "Serato", "Serato DJ Pro", "Serato DJ Pro.exe");
@@ -243,7 +244,7 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         var candidates = new LocalRecoveryCandidateDiscovery(
             new FixedLocationProvider(standardLocations)).Discover();
 
-        Assert.Equal(platform == LocalApplicationPlatform.MacOs ? 23 : 22, candidates.Count);
+        Assert.Equal(23, candidates.Count);
         Assert.Equal(2, candidates.Count(candidate =>
             candidate.PluginId == ResolumeDiscoveryPlugin.PluginId &&
             candidate.CandidateType == "InstalledApplication"));
@@ -396,6 +397,60 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
             new FixedLocationProvider(windowsLocations)).Discover());
         Assert.Equal(LocalApplicationDetectionRegistry.WatchoutPluginId, candidate.PluginId);
         Assert.Equal(defaultInstallRoot, candidate.Path);
+        Assert.True(candidate.RequiresOperatorApproval);
+    }
+
+    [Fact]
+    public void Catalog_registry_finds_only_documented_hippotizer_v4_installation()
+    {
+        var applicationRoot = Path.Combine(_root, "Windows", "ProgramFiles");
+        var programFilesX86Root = Path.Combine(_root, "Windows", "ProgramFilesX86");
+        var userHome = Path.Combine(_root, "Windows", "Users", "operator");
+        var installationRoot = Path.Combine(applicationRoot, "GreenHippo", "HippotizerV4");
+        var undocumentedX86Root = Path.Combine(programFilesX86Root, "GreenHippo", "HippotizerV4");
+        var userDefinedShowRoot = Path.Combine(userHome, "Documents", "Hippotizer Shows");
+        var configurableStrataRoot = Path.Combine(_root, "Windows", "Media", "STRATA");
+        Directory.CreateDirectory(installationRoot);
+        Directory.CreateDirectory(undocumentedX86Root);
+        Directory.CreateDirectory(userDefinedShowRoot);
+        Directory.CreateDirectory(configurableStrataRoot);
+        var registry = new LocalApplicationDetectionRegistry();
+
+        var windowsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.Windows,
+                [programFilesX86Root],
+                [userHome],
+                windowsProgramFilesRoots: [applicationRoot])
+            .Where(location =>
+                location.PluginId == LocalApplicationDetectionRegistry.HippotizerPluginId)
+            .ToArray();
+        var macOsLocations = registry.GetCandidates(
+                LocalApplicationPlatform.MacOs,
+                [applicationRoot],
+                [userHome])
+            .Where(location =>
+                location.PluginId == LocalApplicationDetectionRegistry.HippotizerPluginId)
+            .ToArray();
+
+        var location = Assert.Single(windowsLocations);
+        Assert.Equal("Green Hippo Hippotizer V4", location.ProductName);
+        Assert.Equal("InstalledApplication", location.CandidateType);
+        Assert.Equal(installationRoot, location.Path);
+        Assert.Equal(
+            "Catalog documented Hippotizer V4 Windows installation location",
+            location.Evidence);
+        Assert.Empty(macOsLocations);
+        Assert.DoesNotContain(windowsLocations, candidate =>
+            candidate.CandidateType == "UserDataRoot");
+        Assert.DoesNotContain(windowsLocations, candidate =>
+            candidate.Path == undocumentedX86Root ||
+            candidate.Path == userDefinedShowRoot ||
+            candidate.Path == configurableStrataRoot);
+
+        var candidate = Assert.Single(new LocalRecoveryCandidateDiscovery(
+            new FixedLocationProvider(windowsLocations)).Discover());
+        Assert.Equal(LocalApplicationDetectionRegistry.HippotizerPluginId, candidate.PluginId);
+        Assert.Equal(installationRoot, candidate.Path);
         Assert.True(candidate.RequiresOperatorApproval);
     }
 
