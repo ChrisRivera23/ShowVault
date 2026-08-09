@@ -76,7 +76,7 @@ Manufacturer names do not imply support for every product the company has shippe
 - Millumin — automatic local detection deferred pending an official stable macOS application-bundle path or project root; current Millumin guidance documents downloading/running the app, portable `.millumin` project files, and collected-project folders chosen by the operator, but does not publish a dependable standard location for either the application or projects
 - Ventuz — automatic local detection deferred pending an official stable Windows installation path or project root; current Ventuz guidance makes both the installer location and each `.vzp` project-folder location operator-selectable, so no dependable standard location is published
 - Christie Pandoras Box — catalog detection checks `PandorasBox.exe` only within bounded documented `Pandoras Box <version>` directories beneath native Windows `C:\Program Files\Christie`; custom and 32-bit installs plus operator-selected project/content roots remain unsupported
-- TouchDesigner
+- TouchDesigner — catalog detection checks standard macOS `/Applications/TouchDesigner.app` and bounded native Windows `C:\Program Files\Derivative\TouchDesigner.<build>\bin\TouchDesigner.exe` locations; renamed/custom and 32-bit installs plus operator-selected `.toe` project/media roots remain unsupported
 - HeavyM
 - MadMapper
 - Isadora
