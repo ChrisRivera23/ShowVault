@@ -15,12 +15,12 @@ It must recognize supported venue equipment and software at an unknown venue wit
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/behringer-network-identification-research`
+- Branch: `codex/soundcraft-network-identification-research`
 - Latest completed feature: `890e9ac feat: identify Behringer WING consoles`
-- Latest research decision: `039508d docs: defer unsafe SSL identification`
+- Latest research decision: `7371620 docs: defer unsafe Soundcraft identification`
 - Latest product handoff: the HEAD documentation commit containing this file
 - Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
-- Verified baseline: all 13 focused Behringer WING protocol fixtures and all 425 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors
+- Verified baseline: the Soundcraft decision is documentation-only and `git diff --check` passes; all five official source links resolve with HTTP 200, and relevant ViSi Remote and Ui24R manual pages were rendered and visually inspected
 - The complete baseline also has 2 contract tests, 28 platform tests, 7 API tests, Flutter analysis, and 22 Flutter tests passing; repository-wide touched-project formatting and the API Release build pass with 0 warnings and 0 errors, and EF Core reports no pending model changes
 - Blackmagic's official protocol PDF resolves with HTTP 206, was rendered, and its complete zero-byte initial status example was inspected
 - `git diff --check` passes; migration `20260809101018_AddBlackmagicVideohubIdentificationResults` exactly matches the current model
@@ -127,18 +127,19 @@ It must recognize supported venue equipment and software at an unknown venue wit
 - Avid automatic network identification is deferred because official VENUE and EUCON discovery is undocumented at the wire level and the published interfaces expose control-capable workflows, editable names, UI type icons, configurable endpoints, optional broadcasts, and credentials without a fixed read-only exact model response. Generic EUCON, VENUE Link, VNC, OSC, AVB, Dante, discovery, names, icons, broadcasts, ports, and reachability are not identity evidence. Existing VENUE recovery remains a separate deferral; no Avid network support is credited.
 - SSL automatic network identification is deferred because official Live/SOLSA and Network I/O discovery are undocumented at the wire level and lead into authenticated or ownership-bearing control workflows. Editable console/Dante names, derived Control IDs, device-list labels, generic TCP/UDP, OSC, MIDI, Dante, MADI, System T/NMOS, discovery, default ports, and reachability are not identity evidence. Existing exact-root SSL Live `.show` recovery remains separate; no SSL network support is credited.
 - Protocol 1.20 identifies only the standard Behringer WING console from the exact official five-byte UDP `WING?` request on port 2222 and exact `ngc-full` reply field. The privacy-bearing IP/name/serial/firmware fields and raw datagram remain Agent-local. WING COMPACT/RACK, `wing-bk`, X32/X AIR/FLOW, altered fields, generic OSC/UDP/AES50/Dante behavior, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported by this network slice. Existing exact-root WING `.show` folder recovery remains separate.
+- Soundcraft automatic network identification is deferred. Official ViSi Remote material documents automatic HiQnet discovery but not its wire exchange or exact literal online model replies, and selecting a result opens live mixer control. Generic HARMAN HiQnet discovery uses UDP broadcast, omits Soundcraft-specific device details, and exposes configurable fields; the Ui24R web server is the full control application with credential-protected configuration, not a bounded identity endpoint. No scanner, contract, persistence, API, UI, migration, tests, credentials, access-control changes, broadcast listener, real-hardware contact, or network support credit were added. Existing exact-root Vi showfolder recovery remains separate.
 - `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
 
 ## Next bounded objective
 
-Research official primary sources for a bounded, read-only, exact product-identity contract for the Soundcraft row under `Audio manufacturers`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral. Keep network identity separate from the existing exact-root Vi showfolder recovery capability.
+Research official primary sources for a bounded, read-only, exact product-identity contract for the Tascam row under `Audio manufacturers`. Add the smallest safe identification slice only if official sources establish an exact signature that can remain within the existing manager-authorized responder boundary; otherwise record an evidence-backed deferral. Keep network identity separate from the existing exact-root Model 12/16/24/2400 `MTR` song recovery capability.
 
 Required boundaries:
 
-- Start from the Soundcraft row under `Audio manufacturers` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
-- Require official primary sources from Soundcraft/Harman for a bounded, read-only request and exact literal product identity; distinguish network identity from the existing Vi showfolder recovery capability, reachability, protocol compatibility, configuration, control, validation, backup, verification, and restore states.
+- Start from the Tascam row under `Audio manufacturers` in `docs/INTEGRATION_CATALOG.md` and inspect the existing manager-authorized network-identification architecture before proposing changes.
+- Require official primary sources from Tascam/TEAC for a bounded, read-only request and exact literal product identity; distinguish network identity from the existing Model-series `MTR` song recovery capability, reachability, protocol compatibility, configuration, control, validation, backup, verification, and restore states.
 - Keep addresses and raw responses Agent-local. Publish only bounded counts and exact product/type/evidence metadata through the existing path-free contract.
-- Do not infer Soundcraft identity from generic TCP/UDP, OSC, MIDI, HiQnet, Dante, broadcast, discovery, or port reachability, and do not add broadcast/multicast discovery, credentials, authentication weakening, configuration, or control.
+- Do not infer Tascam identity from generic TCP/UDP, OSC, MIDI, Dante, broadcast, discovery, or port reachability, and do not add broadcast/multicast discovery, credentials, authentication weakening, configuration, or control.
 - Use synthetic protocol fixtures for any implementation. Do not contact the Product Owner's equipment or network without explicit authorization.
 - Do not claim successful configuration, control, backup, validation, verification, or restore from an identification-only slice.
 
