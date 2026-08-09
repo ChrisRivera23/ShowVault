@@ -1,6 +1,7 @@
 namespace ShowVault.Agent.Plugins;
 
 public sealed record StandardLocationCandidate(
+    string PluginId,
     string ProductName,
     string CandidateType,
     string Path,
@@ -20,87 +21,40 @@ public interface IHostStandardLocationProvider
     IReadOnlyList<StandardLocationCandidate> GetCandidates();
 }
 
-public sealed class HostStandardLocationProvider : IHostStandardLocationProvider
+public sealed class HostStandardLocationProvider(LocalApplicationDetectionRegistry registry)
+    : IHostStandardLocationProvider
 {
     private const int MaximumUserHomeCount = 64;
 
     public IReadOnlyList<StandardLocationCandidate> GetCandidates()
     {
-        var candidates = new List<StandardLocationCandidate>();
         if (OperatingSystem.IsMacOS())
         {
-            AddMacOsCandidates(candidates);
-        }
-        else if (OperatingSystem.IsWindows())
-        {
-            AddWindowsCandidates(candidates);
-        }
-
-        return candidates;
-    }
-
-    private static void AddMacOsCandidates(List<StandardLocationCandidate> candidates)
-    {
-        candidates.Add(new(
-            "Resolume Arena",
-            "InstalledApplication",
-            "/Applications/Resolume Arena.app",
-            "Standard macOS application location"));
-        candidates.Add(new(
-            "Resolume Avenue",
-            "InstalledApplication",
-            "/Applications/Resolume Avenue.app",
-            "Standard macOS application location"));
-
-        foreach (var home in EnumerateUserHomes("/Users"))
-        {
-            AddResolumeDataCandidates(candidates, Path.Combine(home, "Documents"));
-        }
-    }
-
-    private static void AddWindowsCandidates(List<StandardLocationCandidate> candidates)
-    {
-        foreach (var programFiles in new[]
-        {
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
-        }.Where(path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            candidates.Add(new(
-                "Resolume Arena",
-                "InstalledApplication",
-                Path.Combine(programFiles, "Resolume Arena"),
-                "Standard Windows application location"));
-            candidates.Add(new(
-                "Resolume Avenue",
-                "InstalledApplication",
-                Path.Combine(programFiles, "Resolume Avenue"),
-                "Standard Windows application location"));
+            return registry.GetCandidates(
+                LocalApplicationPlatform.MacOs,
+                ["/Applications"],
+                EnumerateUserHomes("/Users").ToArray());
         }
 
-        var usersRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            "..");
-        foreach (var home in EnumerateUserHomes(Path.GetFullPath(usersRoot)))
+        if (OperatingSystem.IsWindows())
         {
-            AddResolumeDataCandidates(candidates, Path.Combine(home, "Documents"));
+            var applicationRoots = new[]
+            {
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
+            }.Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var usersRoot = Path.GetFullPath(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".."));
+            return registry.GetCandidates(
+                LocalApplicationPlatform.Windows,
+                applicationRoots,
+                EnumerateUserHomes(usersRoot).ToArray());
         }
-    }
 
-    private static void AddResolumeDataCandidates(
-        List<StandardLocationCandidate> candidates,
-        string documentsPath)
-    {
-        candidates.Add(new(
-            "Resolume Arena",
-            "UserDataRoot",
-            Path.Combine(documentsPath, "Resolume Arena"),
-            "Standard Resolume user-data location"));
-        candidates.Add(new(
-            "Resolume Avenue",
-            "UserDataRoot",
-            Path.Combine(documentsPath, "Resolume Avenue"),
-            "Standard Resolume user-data location"));
+        return [];
     }
 
     private static IEnumerable<string> EnumerateUserHomes(string usersRoot)
@@ -131,7 +85,7 @@ public sealed class LocalRecoveryCandidateDiscovery(IHostStandardLocationProvide
     public IReadOnlyList<LocalRecoveryCandidate> Discover()
     {
         var results = new List<LocalRecoveryCandidate>();
-        foreach (var candidate in locationProvider.GetCandidates().Take(MaximumCandidateCount))
+        foreach (var candidate in locationProvider.GetCandidates())
         {
             try
             {
@@ -142,12 +96,16 @@ public sealed class LocalRecoveryCandidateDiscovery(IHostStandardLocationProvide
 
                 results.Add(new LocalRecoveryCandidate(
                     Guid.NewGuid(),
-                    ResolumeDiscoveryPlugin.PluginId,
+                    candidate.PluginId,
                     candidate.ProductName,
                     candidate.CandidateType,
                     Path.GetFullPath(candidate.Path),
                     candidate.Evidence,
                     true));
+                if (results.Count == MaximumCandidateCount)
+                {
+                    break;
+                }
             }
             catch (Exception exception) when (
                 exception is IOException or UnauthorizedAccessException or ArgumentException)

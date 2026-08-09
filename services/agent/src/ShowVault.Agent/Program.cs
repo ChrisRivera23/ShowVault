@@ -260,6 +260,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, JblVenueSynthesisDiscoveryPlugin
 builder.Services.AddSingleton<IDiscoveryPlugin, MartinAudioVuNetDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, DasAudioAlmaDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
+builder.Services.AddSingleton<LocalApplicationDetectionRegistry>();
 builder.Services.AddSingleton<IHostStandardLocationProvider, HostStandardLocationProvider>();
 builder.Services.AddSingleton<LocalRecoveryCandidateDiscovery>();
 builder.Services.AddSingleton<ILocalInterfaceProvider, LocalInterfaceProvider>();
