@@ -363,10 +363,10 @@ This section is maintained so a new Codex task can resume without relying on the
 - Implement two or three tasks together only when they are independently safe, clearly bounded, and can be fully verified; otherwise complete one focused task.
 - Use exact locally approved roots, reject incomplete/lookalike data, preserve recovery companions, and keep incompatible product families separate.
 - Run focused tests followed by the complete relevant regression suite.
-- Create a new `codex/` branch for each implementation slice and commit the feature and README handoff separately.
+- Create a new `codex/` branch for each implementation slice and commit the feature/research decision and active handoff separately.
 - Keep responses short and direct to conserve context.
-- End every user-facing reply with an estimated conversation-context percentage. Codex does not expose an exact measurement, so label it as unmeasured.
-- Warn when the estimate approaches 90%. Before recommending a new task, update this README with completed work, branches, commits, tests, research decisions, deferred items, the exact next step, and these work preferences so it can be copied into the next chat.
+- Keep `CHAT_CONTINUATION_README.md` current as the concise operational handoff; use this README as long-form history rather than mandatory startup reading.
+- Exact context usage is unavailable. Do not end a healthy chat or repeatedly rewrite handoffs based only on an invented percentage; rely on platform signals, automatic compaction quality, and the compact active handoff.
 
 - Completed draft PR stack: PRs #3 through #11, ending with `codex/recovery-history-read-model`.
 - Draft PR #12 branch: `codex/flutter-auth0-live-history`, stacked on PR #11. It adds native Android/iOS/macOS/Windows runners, Auth0 Universal Login/session restoration, bearer-authenticated tenant discovery and recovery-history loading, and removes all preview recovery records.
@@ -519,39 +519,14 @@ dotnet test tests/ShowVault.Agent.Tests/ShowVault.Agent.Tests.csproj
 2. Yamaha product families/models available in the first pilot venue.
 3. Initial storage targets: local disk only, local plus NAS, or local plus S3-compatible cloud.
 
-## Instructions for a new development conversation
+## Continuing development
 
-1. Read this entire README before making changes.
-2. Inspect the repository, current branch, open pull requests, and test status.
-3. Treat the architecture and scope above as approved.
-4. Do not broaden the MVP without product-owner approval.
-5. Discuss material architecture or product changes before implementing them.
-6. Prefer one tested vertical slice over many placeholder modules.
-7. Keep this README current when approved decisions, versions, repository status, or the next implementation step changes.
-8. At significant milestones, update this handoff so another conversation can continue without reconstructing chat history.
-9. Treat the completed-work list, branch history, expected starting state, and handoff snapshot as the authoritative memory of prior conversations; do not redo completed work unless verification shows it is incomplete or incorrect.
-10. Work in one bounded vertical slice: state the intended outcome, inspect existing implementation and tests, preserve unrelated changes, implement, run proportional verification, commit the feature, then commit the README handoff separately when the milestone materially changes project state.
-11. In the final response, always report the outcome, important files or commits, verification results, remaining limitations, and the next recommended task.
-12. End every final response with an approximate conversation-context usage percentage and say whether a new conversation is recommended. Exact context-window usage is not exposed, so label the number as an estimate and base it on the amount of accumulated discussion and tool output.
+New development chats should read only `CHAT_CONTINUATION_README.md` in full before starting. It contains the current branch, verified baseline, active architectural and safety boundaries, exact next task, workflow, and a reference map for targeted inspection.
 
-### Copy/paste continuation prompt
+This README remains the durable long-form product and milestone history. Consult relevant sections when a task needs historical or architectural depth; do not load it automatically in every chat.
+
+Copy/paste prompt:
 
 ```text
-Open and read /Users/infamous/Documents/ChatGPT/showvault/CHAT_CONTINUATION_README.md, README.md, and docs/AUTOMATIC_DISCOVERY.md in full. Keep the standing goal authoritative: start ShowVault at an unknown venue and automatically recognize supported catalog equipment and software without pre-entered paths, addresses, models, or vendors, including older Macs/Windows PCs and direct Ethernet. Inspect Git and the committed handoff, research official MadMapper primary sources, then add catalog-driven installed-application and project-root detection only for documented stable standard locations with synthetic fixtures. If primary sources do not establish dependable paths, document a deferral instead of guessing or inspecting a real workstation. Keep paths Agent-local and do not read candidate contents or claim validation/protection. Follow the separate feature/handoff commit, explicitly labeled next-step, and context-percentage workflow in CHAT_CONTINUATION_README.md.
+Continue ShowVault from /Users/infamous/Documents/ChatGPT/showvault. Read /Users/infamous/Documents/ChatGPT/showvault/CHAT_CONTINUATION_README.md completely, follow its active objective and workflow, and inspect only the task-relevant repository sources it identifies.
 ```
-
-Expected starting state:
-
-- Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/heavym-catalog-research`
-- Clean worktree after the feature and documentation handoff commits, except the pre-existing untracked `NEXT_CONVERSATION.md`
-- Latest research-decision commit: `0c6d43d docs: defer HeavyM pending documented standard paths`
-- Verified baseline: 2 contract tests, 21 platform tests, 303 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing; changed-file formatting passes and EF Core reports no pending model changes
-- Known baseline issue: repository-wide Agent formatting reports four pre-existing whitespace findings in unchanged `AgentCommandExecutorTests.cs`
-- Next operational target: official-source research followed by documented-path-only MadMapper application/project detection, or an evidence-backed deferral if stable locations are not published
-
-## Handoff snapshot
-
-The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
-
-The repository is authoritative. The standing goal is zero-entry discovery of supported venue technology on older macOS/Windows systems and direct Ethernet while preserving Agent-local evidence and explicit authorization. `docs/INTEGRATION_CATALOG.md` is now the authoritative first prototype testing matrix. Previously implemented integrations outside it remain capabilities but are not prototype test commitments; specifically, Engine DJ, djay Pro, Mixxx, and Engine OS are outside the prototype DJ matrix while rekordbox, Serato DJ Pro, Traktor Pro, and VirtualDJ remain in scope. disguise Designer detects its documented default Windows `Documents/d3 Projects` root only. WATCHOUT 7 detects its documented default Windows `C:\WATCHOUT7` installation only. Hippotizer V4 detects only official `C:\Program Files\GreenHippo\HippotizerV4`. PIXERA detects only bounded versioned native Program Files `AV Stumpfl/Pixera/build_/presence` locations; its unspecified project root remains unsupported. Christie Pandoras Box detects only bounded versioned native Program Files `Christie/Pandoras Box <version>/PandorasBox.exe` locations; custom installs and operator-selected project/content roots remain unsupported. TouchDesigner detects only standard macOS `/Applications/TouchDesigner.app` and bounded native Windows `Derivative/TouchDesigner.<build>/bin/TouchDesigner.exe` locations; renamed/custom and 32-bit installs plus operator-selected projects remain unsupported. HeavyM, Millumin, and Ventuz automatic detection are deferred because official material publishes no dependable standard application/project roots. Real hardware, removable media, and installed-application testing is deferred. The verified baseline is 2 contract tests, 21 platform tests, 303 Agent tests, 7 API tests, Flutter analysis, and 15 Flutter tests passing, with changed-file formatting clean and no pending EF Core model changes; repository-wide Agent formatting still reports four pre-existing whitespace findings in unchanged `AgentCommandExecutorTests.cs`. Next is official MadMapper research followed by documented-path-only application/project detection, or an evidence-backed deferral if stable locations are not published.
