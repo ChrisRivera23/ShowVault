@@ -40,6 +40,7 @@ void main() {
     expect(history.subnetProposals.single.network, '169.254.0.0');
     expect(history.subnetProposals.single.passiveCandidateCount, 1);
     expect(history.subnetProposals.single.fallbackTargetCount, 3);
+    expect(history.subnetProposals.single.shouldSuggestDiscoveryRetry, isFalse);
     expect(requestedPaths, [
       '/api/v1/organizations',
       '/api/v1/organizations/org-id/venues',
@@ -48,6 +49,40 @@ void main() {
       '/api/v1/organizations/org-id/venues/venue-id/recovery-candidates',
       '/api/v1/organizations/org-id/venues/venue-id/subnet-proposals',
     ]);
+  });
+
+  test('suggests retry only when passive cache and responders are empty', () {
+    const proposal = SubnetProposal(
+      id: 'proposal-id',
+      agentName: 'Control Agent',
+      network: '169.254.0.0',
+      prefixLength: 16,
+      interfaceType: 'Ethernet',
+      evidence: 'No hosts contacted',
+      decision: 'approved',
+      discoveryStatus: 'completed',
+      attemptedHostCount: 4,
+      respondingHostCount: 0,
+      passiveCandidateCount: 0,
+      fallbackTargetCount: 4,
+    );
+
+    expect(proposal.shouldSuggestDiscoveryRetry, isTrue);
+    expect(
+      SubnetProposal(
+        id: proposal.id,
+        agentName: proposal.agentName,
+        network: '192.168.10.0',
+        prefixLength: 24,
+        interfaceType: proposal.interfaceType,
+        evidence: proposal.evidence,
+        decision: proposal.decision,
+        discoveryStatus: proposal.discoveryStatus,
+        respondingHostCount: 0,
+        passiveCandidateCount: 0,
+      ).shouldSuggestDiscoveryRetry,
+      isFalse,
+    );
   });
 
   test('issues typed recovery workflow commands', () async {

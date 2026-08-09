@@ -70,9 +70,23 @@ public interface ILinkLocalNeighborProvider
         CancellationToken cancellationToken);
 }
 
+public interface IPassiveNeighborObservationDelay
+{
+    Task WaitAsync(CancellationToken cancellationToken);
+}
+
+public sealed class PassiveNeighborObservationDelay : IPassiveNeighborObservationDelay
+{
+    public static readonly TimeSpan ObservationWindow = TimeSpan.FromSeconds(1);
+
+    public Task WaitAsync(CancellationToken cancellationToken) =>
+        Task.Delay(ObservationWindow, cancellationToken);
+}
+
 public sealed class ArpLinkLocalNeighborProvider(
     ILocalInterfaceProvider interfaceProvider,
-    IArpTableReader arpTableReader) : ILinkLocalNeighborProvider
+    IArpTableReader arpTableReader,
+    IPassiveNeighborObservationDelay observationDelay) : ILinkLocalNeighborProvider
 {
     private const int MaximumCandidateCount = 64;
 
@@ -86,6 +100,30 @@ public sealed class ArpLinkLocalNeighborProvider(
             !IsInSubnet(networkInterface.Address, subnet.Network, subnet.PrefixLength))
             return [];
 
+        var initialCandidates = await ReadCandidatesAsync(
+            networkInterface, subnet, cancellationToken);
+        await observationDelay.WaitAsync(cancellationToken);
+        if (!LocalSubnetProposalDiscovery.TryGetSingleLinkLocalInterface(
+                interfaceProvider.GetAddresses(), out var observedInterface) ||
+            !observedInterface.Address.Equals(networkInterface.Address) ||
+            !string.Equals(observedInterface.InterfaceName, networkInterface.InterfaceName,
+                StringComparison.Ordinal))
+            return [];
+
+        var observedCandidates = await ReadCandidatesAsync(
+            observedInterface, subnet, cancellationToken);
+        return initialCandidates
+            .Concat(observedCandidates)
+            .Distinct()
+            .Take(MaximumCandidateCount)
+            .ToArray();
+    }
+
+    private async Task<IReadOnlyList<IPAddress>> ReadCandidatesAsync(
+        LocalInterfaceAddress networkInterface,
+        ApprovedSubnet subnet,
+        CancellationToken cancellationToken)
+    {
         var output = await arpTableReader.ReadAsync(cancellationToken);
         return Parse(output, networkInterface, subnet)
             .Distinct()

@@ -117,6 +117,13 @@ class SubnetProposal {
   final int? grandMa2IdentifiedHostCount;
   final String? grandMa2IdentifiedProductFamilies;
   final String? grandMa2IdentificationMessage;
+
+  bool get shouldSuggestDiscoveryRetry =>
+      discoveryStatus == 'completed' &&
+      network == '169.254.0.0' &&
+      prefixLength == 16 &&
+      (passiveCandidateCount ?? 0) == 0 &&
+      (respondingHostCount ?? 0) == 0;
 }
 
 class RecoveryCandidate {

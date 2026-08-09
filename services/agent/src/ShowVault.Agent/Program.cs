@@ -270,6 +270,7 @@ builder.Services.AddSingleton<INetworkEndpointConnector, TcpNetworkEndpointConne
 builder.Services.AddSingleton<NetworkDeviceDiscoveryPlugin>();
 builder.Services.AddSingleton<ISubnetReachabilityProbe, IcmpSubnetReachabilityProbe>();
 builder.Services.AddSingleton<IArpTableReader, SystemArpTableReader>();
+builder.Services.AddSingleton<IPassiveNeighborObservationDelay, PassiveNeighborObservationDelay>();
 builder.Services.AddSingleton<ILinkLocalNeighborProvider, ArpLinkLocalNeighborProvider>();
 builder.Services.AddSingleton<IMaLightingProtocolProbe, GrandMa3WebRemoteProbe>();
 builder.Services.AddSingleton<MaLightingNetworkIdentification>();

@@ -413,7 +413,8 @@ class _SubnetOnboarding extends ConsumerWidget {
           '${proposal.attemptedHostCount ?? 0} hosts responded • '
           '${proposal.passiveCandidateCount ?? 0} passive-cache targets + '
           '${proposal.fallbackTargetCount ?? proposal.attemptedHostCount ?? 0} fallback targets • '
-          'reachability only',
+          'reachability only'
+          '${proposal.shouldSuggestDiscoveryRetry ? '\nNo device responded. Keep the direct Ethernet link connected and retry discovery so passive neighbor announcements can be observed.' : ''}',
     'failed' =>
       '\nDiscovery failed • ${proposal.discoveryMessage ?? 'Unknown error'}',
     _ => '',

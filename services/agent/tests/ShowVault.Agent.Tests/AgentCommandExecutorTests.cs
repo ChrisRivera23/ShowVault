@@ -299,7 +299,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             : "? (169.254.220.9) at (incomplete) on en7 ifscope [ethernet]";
         var interfaceProvider = new FixtureInterfaceProvider();
         var arpReader = new FixtureArpTableReader(arpOutput);
-        var neighborProvider = new ArpLinkLocalNeighborProvider(interfaceProvider, arpReader);
+        var neighborProvider = new ArpLinkLocalNeighborProvider(
+            interfaceProvider, arpReader, new ImmediateObservationDelay());
         var approvedDiscovery = new ApprovedSubnetDiscovery(
             new SelectiveReachabilityProbe(peer), new FixedTimeProvider(now), neighborProvider);
         var store = CreateStore();
@@ -344,7 +345,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             .Single(item => item.Envelope.EventId == discovery.CommandId).Envelope;
         Assert.DoesNotContain(peer.ToString(), outcome.Payload, StringComparison.Ordinal);
         Assert.Contains($"\"passiveCandidateCount\":{passiveCount}", outcome.Payload, StringComparison.Ordinal);
-        Assert.Equal(1, arpReader.ReadCount);
+        Assert.Equal(2, arpReader.ReadCount);
 
         if (populatedCache)
         {
@@ -373,7 +374,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             Assert.Contains("\"identifiedHostCount\":1", yamahaResult, StringComparison.Ordinal);
             Assert.Contains("Yamaha DME7", yamahaResult, StringComparison.Ordinal);
             Assert.DoesNotContain(peer.ToString(), yamahaResult, StringComparison.Ordinal);
-            Assert.Equal(1, arpReader.ReadCount);
+            Assert.Equal(2, arpReader.ReadCount);
         }
     }
 
@@ -1120,6 +1121,12 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             ReadCount++;
             return Task.FromResult(output);
         }
+    }
+
+    private sealed class ImmediateObservationDelay : IPassiveNeighborObservationDelay
+    {
+        public Task WaitAsync(CancellationToken cancellationToken) =>
+            Task.Delay(TimeSpan.Zero, cancellationToken);
     }
 
     private sealed class GrandMa3Probe : IMaLightingProtocolProbe
