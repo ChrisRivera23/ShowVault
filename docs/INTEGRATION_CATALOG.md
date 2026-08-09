@@ -101,7 +101,7 @@ Manufacturer names do not imply support for every product the company has shippe
 
 ## Streaming and production
 
-- OBS Studio
+- OBS Studio — catalog detection checks only the official standard macOS `/Applications/OBS.app` bundle, native Windows `C:\Program Files\obs-studio\bin\64bit\obs64.exe`, and each user's standard `obs-studio/basic/profiles` and `obs-studio/basic/scenes` recovery roots; portable/custom installations, recordings, media, plugins, file contents, validation, backup, verification, and restore remain unsupported
 
 ## DJ platforms
 

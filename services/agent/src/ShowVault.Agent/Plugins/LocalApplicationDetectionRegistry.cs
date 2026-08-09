@@ -55,6 +55,7 @@ public sealed class LocalApplicationDetectionRegistry
     public const string TouchDesignerPluginId = "showvault.touchdesigner";
     public const string MadMapperPluginId = "showvault.madmapper";
     public const string IsadoraPluginId = "showvault.isadora";
+    public const string ObsStudioPluginId = "showvault.obs-studio";
     private const int MaximumVersionDirectoryCount = 32;
     private const int MaximumMountedVolumeCount = 64;
 
@@ -178,6 +179,29 @@ public sealed class LocalApplicationDetectionRegistry
             WindowsProgramFilesLocations =
             [new("InstalledApplication", "Isadora 4",
                 "Catalog documented usual Isadora 4 Windows installation location")]
+        },
+        new(
+            ObsStudioPluginId,
+            "OBS Studio",
+            [new("InstalledApplication", "OBS.app",
+                "Catalog documented standard OBS Studio macOS application location")],
+            [],
+            [
+                new("ProfileRoot", Path.Combine("Library", "Application Support", "obs-studio", "basic", "profiles"),
+                    "Catalog documented standard OBS Studio profile location"),
+                new("SceneCollectionRoot", Path.Combine("Library", "Application Support", "obs-studio", "basic", "scenes"),
+                    "Catalog documented standard OBS Studio scene-collection location")
+            ],
+            [
+                new("ProfileRoot", Path.Combine("AppData", "Roaming", "obs-studio", "basic", "profiles"),
+                    "Catalog documented standard OBS Studio profile location"),
+                new("SceneCollectionRoot", Path.Combine("AppData", "Roaming", "obs-studio", "basic", "scenes"),
+                    "Catalog documented standard OBS Studio scene-collection location")
+            ])
+        {
+            WindowsProgramFilesLocations =
+            [new("InstalledApplication", Path.Combine("obs-studio", "bin", "64bit", "obs64.exe"),
+                "Catalog documented standard OBS Studio Windows application location")]
         },
         new(
             SeratoDjProPluginId,

@@ -228,6 +228,7 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
                      location.PluginId != LocalApplicationDetectionRegistry.EngineOsPluginId &&
                      location.PluginId != LocalApplicationDetectionRegistry.DjayProPluginId &&
                      location.PluginId != LocalApplicationDetectionRegistry.MixxxPluginId &&
+                     location.PluginId != LocalApplicationDetectionRegistry.ObsStudioPluginId &&
                      location.PluginId != LocalApplicationDetectionRegistry.DisguiseDesignerPluginId))
         {
             if (location.CandidateType == "InstalledApplication" && Path.HasExtension(location.Path))
@@ -786,6 +787,76 @@ public sealed class LocalRecoveryCandidateDiscoveryTests : IDisposable
         Assert.All(candidates, candidate =>
         {
             Assert.Equal(LocalApplicationDetectionRegistry.IsadoraPluginId, candidate.PluginId);
+            Assert.True(candidate.RequiresOperatorApproval);
+        });
+    }
+
+    [Theory]
+    [InlineData(LocalApplicationPlatform.MacOs)]
+    [InlineData(LocalApplicationPlatform.Windows)]
+    public void Catalog_registry_finds_only_standard_obs_application_profiles_and_scenes(
+        LocalApplicationPlatform platform)
+    {
+        var applicationRoot = Path.Combine(_root, platform.ToString(), "Applications");
+        var userHome = Path.Combine(_root, platform.ToString(), "Users", "operator");
+        var expectedApplication = platform == LocalApplicationPlatform.MacOs
+            ? Path.Combine(applicationRoot, "OBS.app")
+            : Path.Combine(applicationRoot, "obs-studio", "bin", "64bit", "obs64.exe");
+        var configRoot = platform == LocalApplicationPlatform.MacOs
+            ? Path.Combine(userHome, "Library", "Application Support", "obs-studio", "basic")
+            : Path.Combine(userHome, "AppData", "Roaming", "obs-studio", "basic");
+        var expectedProfiles = Path.Combine(configRoot, "profiles");
+        var expectedScenes = Path.Combine(configRoot, "scenes");
+        var customApplication = Path.Combine(_root, "PortableOBS", "bin", "64bit", "obs64.exe");
+        var customScenes = Path.Combine(_root, "PortableOBS", "config", "obs-studio", "basic", "scenes");
+        Directory.CreateDirectory(Path.GetDirectoryName(expectedApplication)!);
+        File.WriteAllText(expectedApplication, "synthetic application fixture");
+        Directory.CreateDirectory(expectedProfiles);
+        Directory.CreateDirectory(expectedScenes);
+        Directory.CreateDirectory(Path.GetDirectoryName(customApplication)!);
+        File.WriteAllText(customApplication, "synthetic portable application fixture");
+        Directory.CreateDirectory(customScenes);
+
+        var locations = new LocalApplicationDetectionRegistry().GetCandidates(
+                platform,
+                [applicationRoot],
+                [userHome],
+                windowsProgramFilesRoots: [applicationRoot])
+            .Where(location => location.PluginId == LocalApplicationDetectionRegistry.ObsStudioPluginId)
+            .ToArray();
+
+        Assert.Collection(
+            locations.OrderBy(location => location.CandidateType),
+            location =>
+            {
+                Assert.Equal("InstalledApplication", location.CandidateType);
+                Assert.Equal(expectedApplication, location.Path);
+            },
+            location =>
+            {
+                Assert.Equal("ProfileRoot", location.CandidateType);
+                Assert.Equal(expectedProfiles, location.Path);
+            },
+            location =>
+            {
+                Assert.Equal("SceneCollectionRoot", location.CandidateType);
+                Assert.Equal(expectedScenes, location.Path);
+            });
+        Assert.DoesNotContain(locations, location =>
+            location.Path == customApplication || location.Path == customScenes);
+        Assert.All(locations, location =>
+        {
+            Assert.Equal("OBS Studio", location.ProductName);
+            Assert.StartsWith("Catalog documented standard OBS Studio", location.Evidence,
+                StringComparison.Ordinal);
+        });
+
+        var candidates = new LocalRecoveryCandidateDiscovery(
+            new FixedLocationProvider(locations)).Discover();
+        Assert.Equal(3, candidates.Count);
+        Assert.All(candidates, candidate =>
+        {
+            Assert.Equal(LocalApplicationDetectionRegistry.ObsStudioPluginId, candidate.PluginId);
             Assert.True(candidate.RequiresOperatorApproval);
         });
     }
