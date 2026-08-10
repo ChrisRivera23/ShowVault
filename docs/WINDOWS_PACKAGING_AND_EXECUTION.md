@@ -69,9 +69,21 @@ Successful evidence must show:
 - exact artifact SHA-256 values; and
 - removal of the synthetic fixture, installed application, callback registration, and owned workspace.
 
+## Independent downloaded-artifact verification
+
+After downloading and extracting `showvault-controlled-windows-evidence`, verify it from `apps/showvault_app`:
+
+```bash
+dart run tool/verify_windows_evidence.dart /path/to/extracted/showvault-controlled-windows-evidence
+```
+
+The verifier requires exactly the package and installed-proof directories, refuses linked or unexpected entries, verifies both exact `SHA256SUMS` domains, validates closed JSON schemas and the report-core digest, rejects embedded paths and sensitive terms, and emits a path-free JSON summary containing artifact hashes, recorded Authenticode states, preservation results, and explicit claim limitations.
+
+This is independent checksum, schema, privacy, and claim-boundary verification. It validates that the Authenticode statuses are bounded values recorded by the Windows runner; it does not cryptographically establish signer trust on macOS. Distribution-signing trust still requires a separate Windows signing-policy check.
+
 ## Current evidence and blocker
 
-As of 2026-08-10, Flutter analysis passes and 99 Flutter tests pass with one Windows-only NTFS-junction test skipped on macOS. Static packaging tests verify the current-user protocol registration, complete Flutter deployment checks, checksum production, external-vault retention rule, marker-scoped cleanup, manual workflow boundary, and absence of installer-driven vault deletion.
+As of 2026-08-10, Flutter analysis passes and 105 Flutter tests pass with one Windows-only NTFS-junction test skipped on macOS. Static packaging tests verify the current-user protocol registration, complete Flutter deployment checks, checksum production, external-vault retention rule, marker-scoped cleanup, manual workflow boundary, downloaded-evidence verification, and absence of installer-driven vault deletion.
 
 The current host exposes only macOS and Chrome Flutter targets and has no Windows VM/device, PowerShell runtime, Wine environment, Windows SDK/MSVC toolchain, or Inno Setup compiler. Therefore the installer has not been compiled or executed, PowerShell/Inno syntax has not been validated by their native engines, the URL callback has not been exercised, the junction test has not run, and no Windows artifact hash or installed evidence exists. Do not claim Windows packaging or runtime readiness until the controlled command above passes on Windows.
 

@@ -55,7 +55,7 @@ Only after explicit authorization for each external stage:
 4. Review the one-file diff and confirm that the checkout source is exactly `ddfcaa6af7ccd03a1e7ae8d6de29f0865a81e97b`.
 5. Obtain separate approval to mark ready and merge the bridge PR.
 6. Obtain separate approval to dispatch the workflow exactly once.
-7. Wait for completion, download `showvault-controlled-windows-evidence`, and independently verify both checksum sets, path/privacy boundaries, callback removal, owned-fixture cleanup, package metadata, report-core checksum, and actual Authenticode states.
+7. Wait for completion, download and extract `showvault-controlled-windows-evidence`, then run `dart run tool/verify_windows_evidence.dart <artifact-directory>` from `apps/showvault_app`. Independently review both checksum sets, path/privacy boundaries, callback removal, owned-fixture cleanup, package metadata, report-core checksum, and recorded Authenticode states. Signer trust remains a separate Windows signing-policy check.
 8. Record runner OS/build, architecture, workflow/run/job identities, source SHA, artifact identity, exact hashes, results, and limitations.
 9. Replace or remove the bridge through a later reviewed PR when the product stack reaches `main`; do not silently retarget it to mutable source.
 
