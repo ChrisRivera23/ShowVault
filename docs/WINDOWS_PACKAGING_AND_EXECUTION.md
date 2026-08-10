@@ -77,13 +77,13 @@ After downloading and extracting `showvault-controlled-windows-evidence`, verify
 dart run tool/verify_windows_evidence.dart /path/to/extracted/showvault-controlled-windows-evidence
 ```
 
-The verifier requires exactly the package and installed-proof directories, refuses linked or unexpected entries, verifies both exact `SHA256SUMS` domains, validates closed JSON schemas and the report-core digest, rejects embedded paths and sensitive terms, and emits a path-free JSON summary containing artifact hashes, recorded Authenticode states, preservation results, and explicit claim limitations.
+The verifier requires exactly the package and installed-proof directories, refuses linked or unexpected entries, accepts the real LF or CRLF checksum encoding, verifies both exact `SHA256SUMS` domains, validates closed JSON schemas and the report-core digest, rejects embedded paths and sensitive terms, and emits a path-free JSON summary containing artifact hashes, recorded Authenticode states, preservation results, workflow provenance, and explicit claim limitations. The checksummed provenance binds the artifact to the checked-out commit, manual workflow event, run ID, run attempt, job, runner OS/architecture, and artifact name.
 
 This is independent checksum, schema, privacy, and claim-boundary verification. It validates that the Authenticode statuses are bounded values recorded by the Windows runner; it does not cryptographically establish signer trust on macOS. Distribution-signing trust still requires a separate Windows signing-policy check.
 
 ## Current evidence and blocker
 
-As of 2026-08-10, Flutter analysis passes and 105 Flutter tests pass with one Windows-only NTFS-junction test skipped on macOS. Static packaging tests verify the current-user protocol registration, complete Flutter deployment checks, checksum production, external-vault retention rule, marker-scoped cleanup, manual workflow boundary, downloaded-evidence verification, and absence of installer-driven vault deletion.
+As of 2026-08-10, Flutter analysis passes and 106 Flutter tests pass with one Windows-only NTFS-junction test skipped on macOS. Static packaging tests verify the current-user protocol registration, complete Flutter deployment checks, checksum production, external-vault retention rule, marker-scoped cleanup, manual workflow/provenance boundary, downloaded-evidence verification, and absence of installer-driven vault deletion.
 
 The current host exposes only macOS and Chrome Flutter targets and has no Windows VM/device, PowerShell runtime, Wine environment, Windows SDK/MSVC toolchain, or Inno Setup compiler. Therefore the installer has not been compiled or executed, PowerShell/Inno syntax has not been validated by their native engines, the URL callback has not been exercised, the junction test has not run, and no Windows artifact hash or installed evidence exists. Do not claim Windows packaging or runtime readiness until the controlled command above passes on Windows.
 
@@ -97,6 +97,10 @@ The safe default-branch strategy is specified in `docs/WINDOWS_EVIDENCE_INTEGRAT
 
 The workflow verifies the Windows toolchain and Inno Setup presence, runs analysis and the complete Flutter suite (including the NTFS-junction test), builds the normal current-user package, executes the silent installed replacement proof, independently checks both `SHA256SUMS` files, requires callback-registration and owned-fixture cleanup, and uploads only checksummed package/evidence files.
 
+Before checksum verification and upload, it records `windows-workflow-provenance.json` and adds that file to the installed-proof checksum set. The source commit is read from the actual checked-out Git tree rather than inferred from the workflow branch.
+
 This workflow is published on `codex/windows-packaging` in mergeable draft PR [#25](https://github.com/ChrisRivera23/ShowVault/pull/25), but it has not been merged to the repository default branch or dispatched. PR #25 targets the nearest published ancestor and contains the accumulated post-PR #24 integration, so it must not be treated as a Windows-only diff or merged merely to expose this workflow. The branch push and normal PR CI do not authorize retargeting, marking ready, merging, or manual dispatch.
+
+Draft PR [#26](https://github.com/ChrisRivera23/ShowVault/pull/26) is the isolated default-branch bridge, but its current published revision predates the provenance contract and pins the older source `ddfcaa6`. Do not mark it ready, merge it, or dispatch it unchanged. It must be refreshed to an explicitly approved, published, green source commit containing workflow provenance and the matching independent verifier.
 
 A successful hosted run would establish native compiler, PowerShell, Inno Setup, NTFS test, silent installer, command-mode recovery, and cleanup evidence on the recorded runner image. It would not prove attended file-picker UX, interactive Auth0 callback behavior, a separate clean customer computer, hardware/driver compatibility, or the supported Windows range; those still require controlled attended Windows execution.

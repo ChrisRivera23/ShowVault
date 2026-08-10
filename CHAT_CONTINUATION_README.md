@@ -40,6 +40,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Manual Windows-native evidence workflow commit: `6fdccca ci: add controlled Windows evidence workflow`
 - Published CI correction commit: `ddfcaa6 fix: preserve configured package storage in CI`
 - Downloaded Windows evidence verifier commit: `a1a69eb feat: verify downloaded Windows evidence`
+- Workflow-provenance binding commit: `0644cb1 feat: bind Windows evidence to workflow provenance`
 - Sandbox-safe selected-target restore commit: `a62649f fix: restore safely into selected sandbox folders`
 - Immediate cloud-status refresh commit: `a7eee0d fix: refresh synchronized recovery status`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
@@ -89,7 +90,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - A manual-only `windows-2025` workflow now runs the complete native test/package/installed-proof/checksum/cleanup sequence with read-only repository permission, pinned action revisions, Flutter 3.44.8 x64, no secrets, no automatic trigger, and 14-day synthetic artifact retention. It is published on `codex/windows-packaging` in mergeable draft PR [#25](https://github.com/ChrisRivera23/ShowVault/pull/25), but it is not on the default branch and has not been dispatched.
 - PR #25 targets the nearest published ancestor, `codex/yamaha-dme5-dme3`, because the intervening branch stack exists only locally. GitHub reports 287 accumulated commits and 293 changed files, so it is an integration draft rather than a Windows-only review.
 - The first PR CI run exposed a Linux-runner defect: legacy Agent package-directory mode unnecessarily resolved the unavailable Documents folder. Commit `ddfcaa6` makes local-vault construction conditional while retaining the fail-closed default-vault behavior. All 429 Agent tests pass locally, and all four push/pull-request API and Flutter checks on the corrected head pass.
-- The cross-platform downloaded-evidence verifier independently requires the exact two artifact directories, refuses links and unlisted files, verifies both exact checksum sets, enforces closed package/metadata/report schemas, verifies the report-core digest, rejects path/sensitive-value leakage, and emits only bounded hashes, statuses, results, and limitations. Six focused positive/adversarial tests pass. Recorded Authenticode statuses are validated as bounded evidence; signer trust remains a separate Windows check.
+- The cross-platform downloaded-evidence verifier independently requires the exact two artifact directories, refuses links and unlisted files, accepts real PowerShell CRLF or LF checksum files, verifies both exact checksum sets, enforces closed package/metadata/report/provenance schemas, verifies the report-core digest, rejects path/sensitive-value leakage, and emits only bounded hashes, statuses, workflow identity, results, and limitations. Seven focused positive/adversarial tests pass. Recorded Authenticode statuses are validated as bounded evidence; signer trust remains a separate Windows check.
+- The workflow adds a checksummed, path-free provenance file containing the actual checked-out commit, manual event, run ID/attempt, job, runner OS/architecture, and artifact name. Draft PR #26 currently pins the older `ddfcaa6` workflow and must not be merged or dispatched unchanged; it needs a refreshed pin after the protected source commit is explicitly published and green.
 - **Restore** is available from a locally verified recovery point while signed out. It reverifies independent and package manifests plus the exact content tree, accepts only an absent or operator-selected empty regular target, rejects links/substitutions/unsafe paths, copies through owned staging, verifies staged and published bytes, and writes path-free local evidence. A picker-selected existing target keeps staging inside the sandbox-authorized directory and publishes a fixed `ShowVault Restored Files` child; absent programmatic targets retain direct publication.
 - Cancellation, timeout, source mutation, target mutation, and interrupted-restart failures publish no partial completion. Cleanup removes only staging with a matching bounded ownership marker and never alters the immutable recovery point.
 - Normal builds do not expose the direct folder substitute. **Synchronize pending** is available when a signed-in hosted transport has organization/venue context; an isolated direct-substitute build requires both explicit synthetic fixture-home and synthetic object-store defines.
@@ -179,7 +181,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 ## Verification baseline
 
 - Flutter analysis: no issues
-- Flutter tests: 105 passed; 1 Windows-only NTFS-junction test skipped on macOS
+- Flutter tests: 106 passed; 1 Windows-only NTFS-junction test skipped on macOS
 - Contracts tests: 2 passed
 - Agent tests: 429 passed
 - Platform tests: 28 passed
@@ -216,11 +218,11 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-Establish an explicitly authorized path that places the versioned Windows evidence workflow on the default branch, then execute it once, or use explicitly authorized controlled Windows equipment.
+Publish and validate the provenance-protected source, refresh isolated draft PR #26 to that exact source, then obtain separate merge and dispatch approvals, or use explicitly authorized controlled Windows equipment.
 
 The next slice must satisfy these boundaries:
 
-1. The branch push and draft PR are complete. Obtain separate explicit authorization for the integration strategy and manual dispatch of `.github/workflows/windows-evidence.yml`, or for use of a controlled Windows 10/11 x64 computer. Do not merge, retarget, mark ready, dispatch, or access a machine without that authorization.
+1. The original branch push and draft PR are complete, but PR #26 predates provenance and is not merge-ready. Obtain explicit authorization before pushing the six local `codex/windows-packaging` commits or updating PR #26. Obtain separate authorization for marking ready/merging, manual dispatch, or use of a controlled Windows 10/11 x64 computer.
 2. Treat PR #25 as an accumulated integration draft, not a Windows-only change. Review the 287-commit stack and choose a deliberate default-branch integration path; do not merge the accumulated draft merely to expose the workflow.
 3. For the manual workflow path, ensure it exists on the default branch, dispatch it once, wait for completion, download and extract `showvault-controlled-windows-evidence`, then run `dart run tool/verify_windows_evidence.dart <artifact-directory>` from `apps/showvault_app` and review its bounded output. Treat it as native headless evidence, not attended picker/Auth0 or clean-customer-machine evidence.
 4. For a controlled computer, use PowerShell 7, Flutter Windows tooling, Visual Studio Desktop C++, and Inno Setup 6 on the build side. The installed target must not require Flutter, Git, the repository, or a separate Agent.

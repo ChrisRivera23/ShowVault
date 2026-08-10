@@ -4,7 +4,9 @@
 
 Separate native Windows evidence from the accumulated product-integration review.
 
-The recommended path is a one-file evidence-bridge pull request based on `main`. The bridge places a manual-only workflow on the default branch and checks out the exact already-reviewed source commit `ddfcaa6af7ccd03a1e7ae8d6de29f0865a81e97b`. It does not merge the 320 commits currently ahead of `main`, change product code, or claim that the accumulated product stack is ready to ship.
+The recommended path is the one-file evidence-bridge PR [#26](https://github.com/ChrisRivera23/ShowVault/pull/26), based on `main`. The bridge places a manual-only workflow on the default branch and checks out one explicitly approved immutable source commit. It does not merge the accumulated product stack or claim that stack is ready to ship.
+
+PR #26's current published revision pins `ddfcaa6af7ccd03a1e7ae8d6de29f0865a81e97b`, which predates the checksummed workflow-provenance contract and matching independent verifier. It is no longer merge-ready. Local candidate `0644cb1` contains those protections but must be pushed and pass remote CI before it can become the approved source pin.
 
 Creating, merging, or dispatching this bridge requires explicit authorization. This document grants none of those permissions.
 
@@ -16,7 +18,7 @@ As of 2026-08-10:
 - Draft PRs #3 through #24 form a published stack. Together they place 32 commits, 237 changed files, 16,079 additions, and 106 deletions ahead of `main`.
 - All four API/Flutter push and pull-request checks shown for each published PR pass. GitHub reports PRs #3–#20 and #22–#25 mergeable; PR #21's mergeability is currently unevaluated even though its checks pass.
 - Draft PR #25 targets `codex/yamaha-dme5-dme3` and adds another 287 commits, 293 changed files, 46,491 additions, and 392 deletions.
-- The published PR #25 head is `ddfcaa6af7ccd03a1e7ae8d6de29f0865a81e97b`. Its four current API/Flutter checks pass.
+- The published PR #25 head is `ddfcaa6af7ccd03a1e7ae8d6de29f0865a81e97b`. Its four current API/Flutter checks pass, but it lacks the newer provenance contract.
 - The local handoff-only commit `d5e441e` is not required for Windows execution and is not part of the published head.
 - `.github/workflows/windows-evidence.yml` exists on the published feature head, but not on `main`. It has never been dispatched.
 
@@ -30,7 +32,7 @@ Create a new `codex/` branch directly from the current `origin/main`. Add only `
 - name: Check out exact audited source
   uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
   with:
-    ref: ddfcaa6af7ccd03a1e7ae8d6de29f0865a81e97b
+    ref: <explicitly-approved-published-green-source-sha>
     persist-credentials: false
 ```
 
@@ -52,7 +54,7 @@ Only after explicit authorization for each external stage:
 1. Create the evidence-bridge branch from the current `origin/main` and add the one pinned workflow file.
 2. Validate the YAML and the manual/read-only/pinned policy locally.
 3. Push the bridge branch and open a draft PR to `main`.
-4. Review the one-file diff and confirm that the checkout source is exactly `ddfcaa6af7ccd03a1e7ae8d6de29f0865a81e97b`.
+4. Review the one-file diff and confirm that the checkout source is the exact explicitly approved, published, green commit containing checksummed workflow provenance and the matching independent verifier.
 5. Obtain separate approval to mark ready and merge the bridge PR.
 6. Obtain separate approval to dispatch the workflow exactly once.
 7. Wait for completion, download and extract `showvault-controlled-windows-evidence`, then run `dart run tool/verify_windows_evidence.dart <artifact-directory>` from `apps/showvault_app`. Independently review both checksum sets, path/privacy boundaries, callback removal, owned-fixture cleanup, package metadata, report-core checksum, and recorded Authenticode states. Signer trust remains a separate Windows signing-policy check.
