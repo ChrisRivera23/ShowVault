@@ -4,6 +4,8 @@ ShowVault is a venue-resilience platform that inventories production systems, cr
 
 The current architecture is local-first. The authoritative direction is [docs/LOCAL_FIRST_PRODUCT_BIBLE.md](docs/LOCAL_FIRST_PRODUCT_BIBLE.md): ShowVault creates and verifies immutable recovery points in a local ShowVault Pro vault, remains operational offline, and synchronizes verified copies when cloud connectivity is available. Older direct-to-cloud/no-local-persistence notes are superseded.
 
+The first Flutter desktop Save slice is documented in [docs/LOCAL_DESKTOP_SAVE.md](docs/LOCAL_DESKTOP_SAVE.md). Local Scan and Save remain available without cloud connectivity; an explicit Save creates and verifies an immutable local recovery point and records verified-only cloud queue intent.
+
 The first product promise is intentionally focused:
 
 > ShowVault can tell a venue what is installed, what is protected, whether its backup is usable, and exactly how to recover it.

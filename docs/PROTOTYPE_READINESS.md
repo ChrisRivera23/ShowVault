@@ -28,7 +28,7 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 |---|---|---|
 | Recovery semantics | The earlier API/Agent path completed a controlled filesystem recovery loop with matching SHA-256 output. | Useful implementation evidence, but the customer path is being simplified to direct app-to-cloud operation. |
 | Package safety | The local package format is immutable and content-addressed; the canonical local-vault layout and verified-only durable upload queue are implemented. | Friendly application/device naming, independent manifest copies, sync execution, retention, and dependency closure remain. |
-| Native operator application | The Flutter macOS application performs the initial catalog scan directly with the full product navigation restored and no exposed enrollment or Agent setup. The attended personal-beta build omits login behind Development-plus-loopback guards. | Direct scan is implemented; commercial authentication/entitlement and direct cloud backup/verify/restore remain. |
+| Native operator application | The Flutter macOS application performs exact catalog scanning and synthetic local Save/verify/queue without requiring cloud connectivity or exposed Agent setup. A universal release bundle builds successfully. | Installed sandbox permission onboarding, personal-data runtime proof, status rehydration, cloud synchronization, and restore remain. |
 | Control plane | The API and PostgreSQL stack support the authenticated workflow and durable evidence. | The prototype runbook still requires Docker, the .NET SDK, repository access, migrations, and command-line startup. |
 | Onboarding | The intended customer path is install and scan, then authenticate when the first paid cloud operation is requested. No Agent or enrollment control appears in the app. | Clean-machine execution still requires recorded evidence; the installed personal-Mac direct scan is proven. |
 | Platform coverage | Direct exact-location scan definitions include macOS and Windows candidates for the current beta products. | Windows packaging and installed execution remain unproven. |
@@ -82,7 +82,7 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 
 1. Produce a reproducible macOS operator-application release artifact and a personal-equipment clean-install procedure that does not require Flutter. A release packaging script now creates a venue-neutral personal-test app/ZIP and checksum; clean-machine execution remains to be recorded.
 2. Prove the direct, path-free installed-app scan on the Product Owner's Mac without Agent enrollment, Keychain access, or local persistence.
-3. Complete the local-vault workflow, then implement resumable checksum-verified synchronization and attended restore.
+3. Prove installed-app source/vault permission onboarding and durable status rehydration, then implement resumable checksum-verified synchronization and attended restore.
 4. Replace development-only control-plane startup assumptions with a versioned deployable prototype environment and migration procedure.
 5. Automate and record the personal-equipment success, restart, reboot, failure, and tamper matrix.
 6. Add Windows packaging and execute the same gates before claiming Windows venue readiness.
@@ -90,4 +90,4 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 
 ## Immediate bounded task
 
-Connect the installed desktop Save workflow to the local vault using synthetic fixtures first. Prove that a locally verified recovery point survives offline operation and creates exactly one durable queued upload job. Do not access personal application data without explicit authorization.
+Implement macOS and Windows source/vault permission onboarding plus durable local-status rehydration. Then run an installed-app Save drill only against an explicitly authorized synthetic folder; do not access personal Serato or Resolume data without separate explicit authorization.
