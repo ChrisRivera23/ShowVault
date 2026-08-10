@@ -21,7 +21,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/installed-hosted-sync-drill`
+- Branch: `codex/deployable-object-storage`
 - Local-first vault foundation commit: `bc53f4b feat: establish local-first vault foundation`
 - Offline desktop Save commit: `85b3e92 feat: save desktop recovery points offline`
 - Desktop permission/rehydration commit: `07e6e62 feat: authorize and rehydrate local vaults`
@@ -29,6 +29,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Attended local restore commit: `36fcda9 feat: restore verified local recovery points`
 - Authenticated hosted synchronization commit: `5f05f44 feat: synchronize through authenticated hosted storage`
 - Installed-drill starting handoff commit: `e980165 docs: hand off installed hosted sync drill`
+- Deployable object-storage implementation commit: `c965719 feat: add deployable object storage sync`
+- Prototype storage runbook commit: `69b83ab docs: document prototype storage operations`
 - Sandbox-safe selected-target restore commit: `a62649f fix: restore safely into selected sandbox folders`
 - Immediate cloud-status refresh commit: `a7eee0d fix: refresh synchronized recovery status`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
@@ -60,7 +62,9 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - The desktop synchronization executor reverifies exact package content, filters local paths from its remote manifest, resumes bounded chunks from durable remote length, uses an append-only local state journal with capped retry/backoff, remotely verifies every checksum, and publishes idempotently through either the authenticated hosted API or the explicitly synthetic folder substitute.
 - Normal signed-in builds hold the Auth0 access token only in memory and construct the hosted transport only after an organization and venue load. The server requires manager/administrator/owner membership, independently validates the exact manifest and approved catalog metadata, and derives all storage paths from authorized tenant GUIDs and bounded identities.
 - The hosted `begin` operation freezes the validated manifest before chunks are accepted. Duplicate chunks and concurrent completion are idempotent; gaps, conflicting bytes, wrong checksums, extra files, links, unsafe metadata, and cross-tenant access are rejected.
-- `HostedSync:RootPath` is empty by default. The first backend is explicitly configured server-owned filesystem storage behind the API; it proves the hosted authorization/transport boundary but not production object-storage durability or distributed locking.
+- Production API startup now requires the S3-compatible provider and fails closed on missing/unsafe storage configuration. The configured server-owned filesystem provider and disabled provider are Development-only.
+- Hosted manifests and create-only chunks use server-derived tenant/package keys; logical paths are represented only by SHA-256 key segments. Commit relists and rehashes the package and conditionally creates `receipt.json` last as the sole completion marker.
+- A pinned multi-stage API image, PostgreSQL service, one-shot migration job, workload-identity-compatible configuration, liveness/readiness endpoints, disposable MinIO override, synthetic hosted-sync smoke command, and operator runbook are versioned under `infra/` and `docs/DEPLOYABLE_PROTOTYPE_STORAGE.md`.
 - **Restore** is available from a locally verified recovery point while signed out. It reverifies independent and package manifests plus the exact content tree, accepts only an absent or operator-selected empty regular target, rejects links/substitutions/unsafe paths, copies through owned staging, verifies staged and published bytes, and writes path-free local evidence. A picker-selected existing target keeps staging inside the sandbox-authorized directory and publishes a fixed `ShowVault Restored Files` child; absent programmatic targets retain direct publication.
 - Cancellation, timeout, source mutation, target mutation, and interrupted-restart failures publish no partial completion. Cleanup removes only staging with a matching bounded ownership marker and never alters the immutable recovery point.
 - Normal builds do not expose the direct folder substitute. **Synchronize pending** is available when a signed-in hosted transport has organization/venue context; an isolated direct-substitute build requires both explicit synthetic fixture-home and synthetic object-store defines.
@@ -106,7 +110,17 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - That final run also exposed a stale per-recovery chip: the vault summary refreshed while the chip retained its initial queued result. The dashboard now prefers the rehydrated vault record, so synchronization status refreshes immediately without restart.
 - A preliminary synthetic picker selection accidentally targeted the fixture's `Music` parent. The app was stopped before proceeding; ShowVault-owned artifacts were moved intact to `misselected-vault-attempt`, the fixture was restored cleanly, and the quarantined attempt was excluded from evidence. No personal path or data was involved.
 - Automated transport/API coverage still proves bearer authorization, tenant binding, missing-session/viewer/outsider denial, resume/idempotency, tamper rejection, path safety, concurrent completion, and linked-storage rejection. Restore tests cover absent and selected-empty targets, internal interrupted staging, non-empty/linked targets, tamper/mutation, cancellation, containment, evidence, and signed-out UI wiring.
-- The server backend remains controlled development filesystem storage, not a production object store. Do not claim retention policy, regional durability, distributed multi-server concurrency, billing enforcement, bandwidth scheduling, personal-data readiness, Windows runtime readiness, notarization, venue readiness, or Recovery Confidence.
+- The installed app evidence above predates the S3 adapter and remains valid protocol evidence. The adapter has only disposable-emulator execution evidence. Do not claim selected-provider retention, regional durability, billing enforcement, bandwidth scheduling, personal-data readiness, Windows runtime readiness, notarization, venue readiness, or Recovery Confidence.
+
+## Deployable object-storage evidence
+
+- The production provider uses AWS SDK S3 conditional create, bounded reads, paginated listings, and the standard credential chain. No credential fields were added to application options.
+- Configuration validation rejects disabled or filesystem storage outside Development, invalid bucket/prefix values, and non-HTTPS custom endpoints outside Development.
+- Object contract tests cover tenant isolation, resume, duplicate/conflicting chunks, incomplete commit, tamper, unexpected objects, concurrent/idempotent completion, unavailable storage, path-free hashed keys, and production fail-closed behavior.
+- The image built cleanly from exact .NET SDK/runtime tags. PostgreSQL `18.3-alpine3.23` became healthy, the one-shot migration exited 0, and the API reported healthy liveness and S3-backed readiness.
+- Pinned disposable MinIO created the private test bucket. The final committed-source image smoke command wrote a random synthetic package, repeated its first chunk, resumed from the persisted offset, verified the exact checksum, and committed twice with one stable receipt. Evidence package ID: `1c258353eef3f14ae274f0300a12162968030751adb0f74a5d5483e95d045199`.
+- MinIO is emulator evidence only. No production cloud bucket, IAM policy, TLS ingress, retention rule, replication, monitoring, backup, or regional failure test was configured.
+- Docker Desktop intermittently left attach/start client calls waiting while containers remained `Created`; stopping only those exact disposable client processes and issuing a fresh start completed the proof. This was local tooling behavior, not a ShowVault service failure.
 
 ## Verification baseline
 
@@ -115,7 +129,11 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - Contracts tests: 2 passed
 - Agent tests: 429 passed
 - Platform tests: 28 passed
-- API tests: 22 passed, including hosted-sync authorization, tenant isolation, integrity, privacy, resume, and idempotency coverage
+- API tests: 29 passed, including hosted-sync authorization plus filesystem and object-store tenant isolation, integrity, privacy, resume, duplicate, tamper, concurrency, unavailability, and idempotency coverage
+- Focused hosted-sync tests: 14 passed
+- Disposable S3-compatible smoke: passed with immutable write/resume/commit/idempotency behavior
+- Deployable Compose configuration validation: passed
+- API container image build: passed
 - EF Core migrations `20260810003349_AddDesktopCatalogScanCandidates` and `20260810003907_AddDesktopCatalogScans` are applied to the local database
 - EF Core pending-model check: no pending changes
 - macOS release build: 50.1 MB build report (48 MiB on disk), universal `x86_64` + `arm64` app; ad hoc signed and strictly validated with sandbox user-selected read/write access
@@ -136,20 +154,19 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-Replace development-only control-plane startup and filesystem-storage assumptions with a versioned deployable prototype environment and a production-object-storage adapter behind the existing hosted-sync contract.
+Automate the controlled installed-app success, restart/reboot, failure, and tamper evidence matrix without touching personal application data or venue equipment.
 
-The design must satisfy all of these acceptance boundaries:
+The next slice must satisfy these boundaries:
 
-1. Preserve the existing desktop hosted-sync protocol, tenant authorization, resumable offset semantics, idempotent completion, immutable local package, and append-only local retry journal.
-2. Add an object-storage abstraction/adapter suitable for the selected deployable prototype provider. Keep the controlled filesystem backend for local development and automated tests.
-3. Derive object keys only from authorized organization/venue IDs, bounded package IDs, and validated logical paths. Never accept a client storage root or local path.
-4. Define credential and secret boundaries, least-privilege runtime identity, environment-specific configuration validation, and fail-closed startup behavior. Commit no secrets.
-5. Define safe begin/chunk/commit behavior for object storage, including concurrent/idempotent requests, incomplete multipart or temporary objects, checksum verification, final receipt publication, cleanup, and retry recovery.
-6. Add versioned deployment configuration and migration/runbook material for database migrations, storage provisioning, health checks, rollback, and moving controlled filesystem packages if required.
-7. Add automated adapter contract tests for authorization isolation, resume, duplicate chunks, tamper, incomplete commit, concurrency, link/path analogues, and unavailable storage. Use emulation or disposable controlled infrastructure by default.
-8. Record local-development parity and a bounded deployed synthetic proof before claiming production-like execution. Do not claim regional durability, retention compliance, notarization, Windows readiness, or venue readiness without direct evidence.
+1. Add a versioned, repeatable synthetic evidence harness that drives the installed customer app and deployable API through Save → verify → offline queue → synchronize → Restore without `flutter run` or a separate customer Agent.
+2. Automate safe cases for unavailable API/storage, interrupted upload and resume, stale or conflicting remote chunks, corrupt/incomplete remote objects, failed verification, source mutation, non-empty restore target, interrupted restore, and duplicate completion.
+3. Record path-free machine-readable outcomes, artifact versions, checksums, timings, retry attempts, health state, and cleanup results. Never record credentials, tokens, source/vault paths, file contents, or unrestricted host inventories.
+4. Preserve the immutable local recovery point and append-only queue across every cloud failure. A failed case must never publish a receipt or partial restore.
+5. Keep host reboot and real production-provider testing as separately attended gates. The harness may prepare and verify restart-safe state, but must not reboot the user's Mac or access personal data without explicit authorization.
+6. Run the harness only against synthetic fixtures and disposable controlled infrastructure first. Keep macOS and Windows parity visible, but claim only directly executed platforms.
+7. Produce a concise evidence report and update readiness/handoff documentation. Do not claim clean-machine, notarization, Windows, venue, retention, regional durability, or Recovery Confidence.
 
-The installed synthetic Save → hosted sync → Restore drill is complete. Deployable infrastructure and production-object-storage semantics are now the next bounded slice.
+The deployable object-storage slice is complete. Real filesystem-to-object migration remains blocked on a dedicated migration utility and actual legacy data approval; it is not part of the next automated failure-matrix slice.
 
 ## Required workflow
 
@@ -179,6 +196,7 @@ The installed synthetic Save → hosted sync → Restore drill is complete. Depl
 
 - `docs/PROTOTYPE_READINESS.md` — venue-neutral readiness gates and direct desktop boundary
 - `docs/LOCAL_QUEUE_SYNC.md` — desktop queue journal, substitute transport, resumability, verification, and privacy boundary
+- `docs/DEPLOYABLE_PROTOTYPE_STORAGE.md` — container deployment, S3 key/credential boundary, smoke check, cleanup, migration, and rollback
 - `docs/LOCAL_ATTENDED_RESTORE.md` — offline attended restore, staging, verification, cleanup, evidence, and limitations
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` — customer identity, licensing, subscription, portal, and Admin-console structure
 - `docs/SYSTEM_INVENTORY_PLUGIN.md` — direct app scan versus legacy Agent compatibility
