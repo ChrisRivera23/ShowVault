@@ -10,7 +10,9 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly string? _legacyPackageDirectory = ResolveLegacyPackageDirectory(options.Value);
-    private readonly LocalVaultLayout _vault = new(options);
+    private readonly LocalVaultLayout? _vault = string.IsNullOrWhiteSpace(options.Value.PackageDirectory)
+        ? new(options)
+        : null;
 
     public async Task<CreatedRecoveryPackage> CreateAsync(
         Guid agentId,
@@ -54,11 +56,11 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
         var packageId = Convert.ToHexStringLower(SHA256.HashData(manifestBytes));
         if (_legacyPackageDirectory is null)
         {
-            _vault.EnsureInitialized();
+            _vault!.EnsureInitialized();
         }
         var packagePath = _legacyPackageDirectory is not null
             ? Path.Combine(_legacyPackageDirectory, packageId)
-            : _vault.GetRecoveryPointPath(discovery.PluginId, createdAt, packageId);
+            : _vault!.GetRecoveryPointPath(discovery.PluginId, createdAt, packageId);
         var packageDirectory = Path.GetDirectoryName(packagePath)!;
 
         Directory.CreateDirectory(packageDirectory);
