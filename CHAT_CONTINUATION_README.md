@@ -46,6 +46,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Deterministic Windows evidence-bridge verification commit: `1ce2efc feat: verify deterministic Windows evidence bridge`
 - Product-integration decomposition plan commit: `626e88d docs: plan local-first product integration`
 - Local-first integration overlap audit commit: `a1c3c83 docs: audit local-first integration overlaps`
+- Direct-scan integration milestone manifest commit: `d0c69b3 docs: manifest direct scan integration milestone`
 - Sandbox-safe selected-target restore commit: `a62649f fix: restore safely into selected sandbox folders`
 - Immediate cloud-status refresh commit: `a7eee0d fix: refresh synchronized recovery status`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
@@ -102,6 +103,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - The independent bridge verifier reads only regular bounded source/candidate files, regenerates the expected bridge in memory, requires the exact filename and byte-for-byte equality, and emits the verified source SHA and workflow digest. Six focused tamper/substitution tests plus a real prepare-to-verify dry run pass. It performs no write or GitHub operation.
 - The accumulated PR #25 history is now locally decomposed: 247 paused legacy catalog/Agent commits precede 40 product-directed desktop/local-first/storage/resilience/Windows commits. Their net patches overlap 29 files, so blind tail cherry-picking is not an accepted integration strategy. The documented recommendation keeps PR #25 as a comparison view, integrates PRs #3-#24 first, then reconstructs six reviewable local-first product milestones while keeping the legacy expansion separate.
 - `docs/LOCAL_FIRST_INTEGRATION_AUDIT.md` classifies all 29 shared files as carry, split, regenerate, or compatibility work; assigns each to a milestone; and records local-only reproduction and extraction gates. The overlap comprises 7 repository/documentation files, 4 desktop files, 11 Agent compatibility files, and 7 API/persistence files. Dashboard, Agent executor, API startup, combined tests, and the EF snapshot must be reconstructed or regenerated rather than replayed wholesale.
+- `docs/LOCAL_FIRST_MILESTONE_1_EXTRACTION.md` fixes the first reconstruction milestone to the nine-commit `310190c..ce5be25` source range and all 41 net files: 23 legacy overlaps plus 18 range-only files. It excludes two net-zero navigation changes and separates tenant-scoped persistence/API, exact-candidate desktop Scan, guarded beta authentication/packaging, bounded Agent compatibility, and current documentation into reviewable commits with explicit test, migration, privacy, and authorization gates.
 - **Restore** is available from a locally verified recovery point while signed out. It reverifies independent and package manifests plus the exact content tree, accepts only an absent or operator-selected empty regular target, rejects links/substitutions/unsafe paths, copies through owned staging, verifies staged and published bytes, and writes path-free local evidence. A picker-selected existing target keeps staging inside the sandbox-authorized directory and publishes a fixed `ShowVault Restored Files` child; absent programmatic targets retain direct publication.
 - Cancellation, timeout, source mutation, target mutation, and interrupted-restart failures publish no partial completion. Cleanup removes only staging with a matching bounded ownership marker and never alters the immutable recovery point.
 - Normal builds do not expose the direct folder substitute. **Synchronize pending** is available when a signed-in hosted transport has organization/venue context; an isolated direct-substitute build requires both explicit synthetic fixture-home and synthetic object-store defines.
@@ -215,6 +217,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - `git diff --check`: passes
 - Local integration decomposition: eight bounded commit ranges account for all 287 post-PR #24 commits; the final 40-commit product patch changes 123 files and overlaps the paused legacy patch in 29 files
 - Local overlap audit reproduction: 247 legacy commits, 40 product-directed commits, and exactly 29 shared paths; file-level milestone dispositions recorded
+- Milestone 1 manifest reproduction: 9 historical commits, 41 net files, 23 legacy-overlap files, 18 range-only files, and 2 transient net-zero navigation exclusions
 
 ## Safety boundaries
 
@@ -234,7 +237,7 @@ Publish and validate the provenance-protected source, refresh isolated draft PR 
 
 The next slice must satisfy these boundaries:
 
-1. The original branch push and draft PR are complete, but PR #26 predates provenance and is not merge-ready. Obtain explicit authorization before pushing the sixteen local `codex/windows-packaging` commits (including this verifier handoff) or updating PR #26. Obtain separate authorization for marking ready/merging, manual dispatch, or use of a controlled Windows 10/11 x64 computer.
+1. The original branch push and draft PR are complete, but PR #26 predates provenance and is not merge-ready. Obtain explicit authorization before pushing the eighteen local `codex/windows-packaging` commits (including this milestone-manifest handoff) or updating PR #26. Obtain separate authorization for marking ready/merging, manual dispatch, or use of a controlled Windows 10/11 x64 computer.
 2. Treat PR #25 as an accumulated integration draft, not a Windows-only change. Follow `docs/WINDOWS_EVIDENCE_INTEGRATION_PLAN.md` and `docs/LOCAL_FIRST_INTEGRATION_AUDIT.md`: keep PR #25 as a comparison view, integrate PRs #3-#24 first, and reconstruct the six local-first milestones using the file-level dispositions for all 29 overlaps. Do not merge the accumulated draft merely to expose the workflow.
 3. Generate the refreshed one-file bridge with `dart run tool/prepare_windows_evidence_bridge.dart <approved-source-sha> ../../.github/workflows/windows-evidence.yml <bridge-worktree>/.github/workflows/windows-evidence.yml`, then run `dart run tool/verify_windows_evidence_bridge.dart` with the same three arguments, confirm matching digests and the one-file diff, and only then follow the separately authorized review/merge sequence. After an approved manual run completes, use `dart run tool/verify_windows_run.dart <workflow-run-id> <absent-output-directory>` and review its bounded output. Treat it as native headless evidence, not attended picker/Auth0 or clean-customer-machine evidence.
 4. For a controlled computer, use PowerShell 7, Flutter Windows tooling, Visual Studio Desktop C++, and Inno Setup 6 on the build side. The installed target must not require Flutter, Git, the repository, or a separate Agent.
@@ -278,6 +281,7 @@ The next slice must satisfy these boundaries:
 - `docs/WINDOWS_PACKAGING_AND_EXECUTION.md` — Windows package boundary, local-path rules, installed-proof procedure, current blocker, and claim limits
 - `docs/WINDOWS_EVIDENCE_INTEGRATION_PLAN.md` — one-file default-branch evidence bridge and separate accumulated product-integration path
 - `docs/LOCAL_FIRST_INTEGRATION_AUDIT.md` — exact 29-file overlap, milestone dispositions, reproduction commands, and extraction gates
+- `docs/LOCAL_FIRST_MILESTONE_1_EXTRACTION.md` — complete direct-Scan milestone source/file manifest, reconstruction order, exclusions, and verification gates
 - `docs/LOCAL_ATTENDED_RESTORE.md` — offline attended restore, staging, verification, cleanup, evidence, and limitations
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` — customer identity, licensing, subscription, portal, and Admin-console structure
 - `docs/SYSTEM_INVENTORY_PLUGIN.md` — direct app scan versus legacy Agent compatibility
