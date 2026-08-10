@@ -78,9 +78,64 @@ Any failure stops the readiness claim. Preserve failed logs and bounded syntheti
 
 Do not retarget or merge PR #25 merely to make the workflow visible on `main`.
 
-The published stack can be integrated in two later phases:
+### Local decomposition audit
+
+The local first-parent history makes the review problem more specific. The 287
+commits after the PR #24 head (`254cbbf`) and through the published PR #25 head
+(`ddfcaa6`) divide as follows:
+
+| Slice | Commit range | Commits | Net diff for that range |
+| --- | --- | ---: | --- |
+| Paused legacy catalog and Agent expansion | `254cbbf..310190c` | 247 | 199 files, +30,090/-209 |
+| Venue-neutral desktop prototype | `310190c..ce5be25` | 9 | 41 files, +3,471/-231 |
+| Local-first recovery core | `ce5be25..e980165` | 12 | 57 files, +7,842/-222 |
+| Installed hosted-drill corrections | `e980165..fff4434` | 4 | 11 files, +204/-56 |
+| Deployable object storage | `fff4434..69b83ab` | 2 | 28 files, +1,622/-17 |
+| Installed resilience evidence | `69b83ab..75a2586` | 3 | 11 files, +1,207/-21 |
+| Upgrade and support diagnostics | `75a2586..3a5e715` | 4 | 15 files, +1,431/-39 |
+| Windows packaging and CI correction | `3a5e715..ddfcaa6` | 6 | 22 files, +1,067/-40 |
+
+File counts are per-range and are not additive. The final 40 product-directed
+commits change 123 files as a net patch. That patch overlaps 29 files changed by
+the preceding 247-commit legacy slice, including the desktop API/dashboard,
+Agent compatibility code, API endpoints and persistence, contracts, and the EF
+model snapshot. Therefore neither tail cherry-picking nor dropping the legacy
+slice is presumed safe without a compile-and-test-backed dependency audit.
+
+### Recommended product-integration decision
+
+Use PR #25 only as a comparison view. Do not merge, squash-merge, or retarget it.
+After PRs #3-#24 have been reviewed and integrated, reconstruct the current
+product direction on a new branch from the then-current `main` in these
+dependency-ordered milestones:
+
+1. Venue-neutral direct desktop Scan and guarded personal-beta shell.
+2. Local vault, offline Save/Verify, authorization, and rehydration.
+3. Durable authenticated synchronization and attended Restore, including the
+   installed-drill corrections.
+4. Deployable object storage and its tenant/privacy boundaries.
+5. Installed resilience, upgrade preservation, and support diagnostics.
+6. Windows packaging and controlled native-evidence tooling.
+
+For each milestone, derive the smallest net patch from the recorded boundary,
+then inspect every one of the 29 overlapping files against the current
+local-first product bible. Preserve legacy Agent protocol code only where it is
+still required as compatibility infrastructure; do not reintroduce Agent
+installation, enrollment, service setup, or broad catalog enumeration into the
+customer desktop path. Each milestone gets its own reviewable PR, migrations and
+model check where applicable, focused tests, full relevant regression, privacy
+and tenant-isolation audit, and a clean diff check before the next milestone is
+started.
+
+The 247-commit legacy catalog/Agent expansion remains a separate paused review.
+It must be evaluated by current product value and authorization boundaries, not
+merged merely because later local-first work was originally developed on top of
+it. Any retained catalog entries or compatibility changes should be proposed in
+small venue-neutral slices after the recovery path is integrated.
+
+The published stack can therefore be integrated in two later phases:
 
 1. Review and merge PRs #3–#24 in dependency order, retargeting each next PR to `main` only after its predecessor is merged and rechecking its resulting diff and CI.
-2. Decompose the 287 post-PR #24 commits into reviewable, dependency-ordered product milestones, or authorize a deliberately audited integration roll-up. The existing PR #25 remains a useful accumulated integration view, but it is not a substitute for that review decision.
+2. Reconstruct the six product milestones above from the updated `main`, while keeping the paused legacy expansion separate. A deliberately audited roll-up remains possible only with explicit authorization and is not the recommended path.
 
 Native Windows evidence can inform the second phase, but a passing run does not approve the accumulated product integration.
