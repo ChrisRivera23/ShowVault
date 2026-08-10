@@ -16,6 +16,8 @@ final localSyncServiceProvider = Provider<LocalSyncService?>((ref) {
       AppConfig.syntheticObjectStoreRoot.isNotEmpty) {
     return LocalSyncService(
       objectStore: LocalFolderObjectStore(AppConfig.syntheticObjectStoreRoot),
+      chunkBytes: AppConfig.syntheticSyncChunkBytes,
+      chunkDelay: AppConfig.syntheticSyncChunkDelay,
     );
   }
   final session = ref.watch(authSessionProvider).valueOrNull;
@@ -33,6 +35,8 @@ final localSyncServiceProvider = Provider<LocalSyncService?>((ref) {
       organizationId: history.organizationId,
       venueId: history.venueId,
     ),
+    chunkBytes: AppConfig.syntheticSyncChunkBytes,
+    chunkDelay: AppConfig.syntheticSyncChunkDelay,
   );
 });
 
@@ -42,6 +46,7 @@ class LocalSyncService {
     LocalRecoveryService? recoveryService,
     DateTime Function()? now,
     this.chunkBytes = 256 * 1024,
+    this.chunkDelay = Duration.zero,
     this.maxAttempts = 5,
     this.baseRetryDelay = const Duration(seconds: 30),
     this.maxRetryDelay = const Duration(minutes: 30),
@@ -59,6 +64,7 @@ class LocalSyncService {
   final LocalRecoveryService _recoveryService;
   final DateTime Function() _now;
   final int chunkBytes;
+  final Duration chunkDelay;
   final int maxAttempts;
   final Duration baseRetryDelay;
   final Duration maxRetryDelay;
@@ -204,6 +210,9 @@ class LocalSyncService {
                 chunk,
               );
               offset += chunk.length;
+              if (chunkDelay > Duration.zero) {
+                await Future<void>.delayed(chunkDelay);
+              }
               checkActive();
             }
           } finally {

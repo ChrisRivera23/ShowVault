@@ -1419,8 +1419,9 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
         content: const Text(
           'Choose a new or empty folder. ShowVault will ask your operating '
           'system for access, reverify the recovery point, copy through a '
-          'private staging folder, and verify every restored file. Existing '
-          'content will never be overwritten.',
+          'private staging folder, and atomically publish a ShowVault Restored '
+          'Files folder inside your selection. Existing content will never be '
+          'overwritten.',
         ),
         actions: [
           TextButton(

@@ -67,12 +67,19 @@ class LocalRestoreService {
     }
     checkActive();
 
-    final target = await _validateTarget(snapshot.vaultRoot, targetPath);
+    final target = await _validateTarget(
+      snapshot.vaultRoot,
+      targetPath,
+      recoveryPointId,
+    );
     final evidenceRoot = await _prepareEvidenceDirectory(snapshot.vaultRoot);
-    final stagingName =
-        '.showvault-restore-${recoveryPointId.substring(0, 16)}-'
-        '${sha256.convert(utf8.encode(target.name)).toString().substring(0, 8)}';
-    final stagingRoot = Directory(_join(target.parentPath, stagingName));
+    final stagingName = _stageName(recoveryPointId, target.name);
+    final stagingRoot = Directory(
+      _join(target.existed ? target.path : target.parentPath, stagingName),
+    );
+    final publishedRoot = target.existed
+        ? Directory(_join(target.path, 'ShowVault Restored Files'))
+        : Directory(target.path);
     await _cleanOwnedInterruptedStage(
       stagingRoot,
       recoveryPointId,
@@ -144,9 +151,9 @@ class LocalRestoreService {
       );
       if (target.existed) {
         if (currentTargetType != FileSystemEntityType.directory ||
-            !await _directoryIsEmpty(target.path)) {
+            !await _directoryContainsOnly(target.path, stagingRoot.path)) {
           throw const LocalRestoreException(
-            'The restore target changed or is no longer empty.',
+            'The restore target changed or contains unrelated content.',
           );
         }
         if (await Directory(target.path).resolveSymbolicLinks() !=
@@ -155,15 +162,20 @@ class LocalRestoreService {
             'The restore target identity changed.',
           );
         }
-        await Directory(target.path).delete();
       } else if (currentTargetType != FileSystemEntityType.notFound) {
         throw const LocalRestoreException(
           'The restore target appeared during restore.',
         );
       }
-      await restoredRoot.rename(target.path);
+      if (await FileSystemEntity.type(publishedRoot.path, followLinks: false) !=
+          FileSystemEntityType.notFound) {
+        throw const LocalRestoreException(
+          'The restore publication target already exists.',
+        );
+      }
+      await restoredRoot.rename(publishedRoot.path);
       published = true;
-      await _verifyRestoredTree(target.path, package, checkActive);
+      await _verifyRestoredTree(publishedRoot.path, package, checkActive);
 
       final completedAt = _now().toUtc();
       final evidencePath = await _writeEvidence(
@@ -211,6 +223,7 @@ class LocalRestoreService {
   Future<_RestoreTarget> _validateTarget(
     String vaultRoot,
     String requestedPath,
+    String recoveryPointId,
   ) async {
     if (requestedPath.trim().isEmpty) {
       throw const LocalRestoreException('A restore target is required.');
@@ -226,7 +239,12 @@ class LocalRestoreService {
     late final bool existed;
     if (type == FileSystemEntityType.directory) {
       targetPath = await Directory(absolute).resolveSymbolicLinks();
-      if (!await _directoryIsEmpty(targetPath)) {
+      final expectedStageName = _stageName(recoveryPointId, name);
+      if (!await _directoryIsEmpty(targetPath) &&
+          !await _directoryContainsOnly(
+            targetPath,
+            _join(targetPath, expectedStageName),
+          )) {
         throw const LocalRestoreException('The restore target must be empty.');
       }
       parentPath = Directory(targetPath).parent.path;
@@ -475,6 +493,22 @@ class LocalRestoreService {
     return true;
   }
 
+  static Future<bool> _directoryContainsOnly(
+    String path,
+    String expectedChild,
+  ) async {
+    var count = 0;
+    await for (final entry in Directory(path).list(followLinks: false)) {
+      count++;
+      if (count > 1 || entry.path != expectedChild) return false;
+      if (await FileSystemEntity.type(entry.path, followLinks: false) !=
+          FileSystemEntityType.directory) {
+        return false;
+      }
+    }
+    return count == 1;
+  }
+
   static Future<void> _createSafeDestinationParents(
     String root,
     String relativePath,
@@ -525,6 +559,10 @@ class LocalRestoreService {
       (_) => random.nextInt(256),
     ).map((value) => value.toRadixString(16).padLeft(2, '0')).join();
   }
+
+  static String _stageName(String recoveryPointId, String targetName) =>
+      '.showvault-restore-${recoveryPointId.substring(0, 16)}-'
+      '${sha256.convert(utf8.encode(targetName)).toString().substring(0, 8)}';
 }
 
 class LocalRestoreCancellation {

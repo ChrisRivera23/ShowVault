@@ -23,6 +23,12 @@ class AppConfig {
   static const syntheticObjectStoreRoot = String.fromEnvironment(
     'SHOWVAULT_SYNTHETIC_OBJECT_STORE_ROOT',
   );
+  static const _syntheticSyncChunkBytes = int.fromEnvironment(
+    'SHOWVAULT_SYNTHETIC_SYNC_CHUNK_BYTES',
+  );
+  static const _syntheticSyncChunkDelayMilliseconds = int.fromEnvironment(
+    'SHOWVAULT_SYNTHETIC_SYNC_CHUNK_DELAY_MS',
+  );
   static const _personalBetaBypassRequested = bool.fromEnvironment(
     'SHOWVAULT_PERSONAL_BETA_BYPASS_AUTH',
   );
@@ -30,6 +36,17 @@ class AppConfig {
   static const windowsCallbackUrl = 'showvault://callback';
 
   static bool get hasAuth0Client => auth0ClientId.isNotEmpty;
+
+  static int get syntheticSyncChunkBytes =>
+      syntheticFixtureHome.isNotEmpty && _syntheticSyncChunkBytes > 0
+      ? _syntheticSyncChunkBytes
+      : 256 * 1024;
+
+  static Duration get syntheticSyncChunkDelay =>
+      syntheticFixtureHome.isNotEmpty &&
+          _syntheticSyncChunkDelayMilliseconds > 0
+      ? const Duration(milliseconds: _syntheticSyncChunkDelayMilliseconds)
+      : Duration.zero;
 
   static bool get personalBetaBypassAuth {
     if (!_personalBetaBypassRequested) return false;

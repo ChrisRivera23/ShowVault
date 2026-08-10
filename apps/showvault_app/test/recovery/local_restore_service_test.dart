@@ -76,7 +76,12 @@ void main() {
       targetPath: target.path,
     );
 
-    expect(await File('${target.path}/database V2').readAsString(), 'library');
+    expect(
+      await File(
+        '${target.path}/ShowVault Restored Files/database V2',
+      ).readAsString(),
+      'library',
+    );
   });
 
   test('rejects a non-empty target before creating staging', () async {
@@ -220,6 +225,45 @@ void main() {
     );
     expect(await stage.exists(), isFalse);
   });
+
+  test(
+    'picker-selected target resumes owned internal staging safely',
+    () async {
+      final saved = await saveFixture();
+      const targetName = 'empty-target';
+      final target = await Directory('${testRoot.path}/$targetName').create();
+      final suffix = sha256
+          .convert(utf8.encode(targetName))
+          .toString()
+          .substring(0, 8);
+      final stage = await Directory(
+        '${target.path}/.showvault-restore-'
+        '${saved.recoveryPointId.substring(0, 16)}-$suffix',
+      ).create();
+      await File('${stage.path}/intent.json').writeAsString(
+        jsonEncode({
+          'formatVersion': 'showvault.restore-intent.v1',
+          'packageId': saved.recoveryPointId,
+          'targetName': targetName,
+        }),
+      );
+      await File('${stage.path}/partial').writeAsString('partial');
+
+      await LocalRestoreService(now: () => clock).restore(
+        authorizedVaultRoot: vaultRoot,
+        recoveryPointId: saved.recoveryPointId,
+        targetPath: target.path,
+      );
+
+      expect(await stage.exists(), isFalse);
+      expect(
+        await File(
+          '${target.path}/ShowVault Restored Files/database V2',
+        ).readAsString(),
+        'library',
+      );
+    },
+  );
 
   test('unowned interrupted staging is refused and preserved', () async {
     final saved = await saveFixture();

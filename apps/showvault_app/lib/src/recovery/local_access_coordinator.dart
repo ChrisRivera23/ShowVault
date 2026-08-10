@@ -99,10 +99,15 @@ class LocalAccessCoordinator {
       selected,
       'The selected restore target is missing or is a filesystem link.',
     );
-    await for (final _ in Directory(canonical).list(followLinks: false)) {
-      throw const LocalRecoveryException(
-        'The selected restore target must be empty.',
-      );
+    await for (final entry in Directory(canonical).list(followLinks: false)) {
+      final name = entry.path.split(Platform.pathSeparator).last;
+      final type = await FileSystemEntity.type(entry.path, followLinks: false);
+      if (!name.startsWith('.showvault-restore-') ||
+          type != FileSystemEntityType.directory) {
+        throw const LocalRecoveryException(
+          'The selected restore target must be empty.',
+        );
+      }
     }
     return canonical;
   }

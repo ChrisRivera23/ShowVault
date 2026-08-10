@@ -145,4 +145,29 @@ void main() {
       throwsA(isA<LocalRecoveryException>()),
     );
   });
+
+  test(
+    'restore permission permits only an interrupted staging directory',
+    () async {
+      final target = await Directory(
+        '${testRoot.path}/restore-target',
+      ).create();
+      await Directory(
+        '${target.path}/.showvault-restore-0123456789abcdef-01234567',
+      ).create();
+      final coordinator = LocalAccessCoordinator(
+        directoryPicker:
+            ({
+              initialDirectory,
+              confirmButtonText,
+              canCreateDirectories,
+            }) async => target.path,
+      );
+
+      expect(
+        await coordinator.authorizeEmptyRestoreTarget(),
+        await target.resolveSymbolicLinks(),
+      );
+    },
+  );
 }
