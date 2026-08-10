@@ -162,6 +162,10 @@ range, including the installed sandbox and UI reconciliation fixes.
 production fail-closed, migration, rollback, and destructive-cleanup gates
 explicit.
 
+`LOCAL_FIRST_MILESTONE_5_EXTRACTION.md` fixes installed resilience, support
+diagnostics, and upgrade preservation to the 19-file harness/diagnostic range
+and keeps all command-mode execution synthetic, local, and separately gated.
+
 The 247-commit legacy catalog/Agent expansion remains a separate paused review.
 It must be evaluated by current product value and authorization boundaries, not
 merged merely because later local-first work was originally developed on top of

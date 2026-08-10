@@ -115,6 +115,10 @@ the installed-drill corrections for sandbox staging and immediate status refresh
 deployable S3-compatible provider, production fail-closed configuration, pinned
 container/migration topology, and bounded disposable smoke contract.
 
+`LOCAL_FIRST_MILESTONE_5_EXTRACTION.md` fixes the fifth milestone to installed
+resilience automation, explicit bounded support diagnostics, and
+upgrade/reinstall vault preservation with synthetic-only proof gates.
+
 Before a milestone is proposed for integration:
 
 1. Start from the then-current integrated `main`, never from PR #25.
