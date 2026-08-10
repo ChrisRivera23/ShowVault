@@ -37,6 +37,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Upgrade evidence and operating-boundary documentation commit: `b9f0824 docs: record upgrade diagnostic evidence`
 - Windows packaging and safety implementation commit: `58ad46a feat: package the Windows local-first client`
 - Windows package execution-gate documentation commit: `5c7ade7 docs: define Windows package execution gate`
+- Manual Windows-native evidence workflow commit: `6fdccca ci: add controlled Windows evidence workflow`
 - Sandbox-safe selected-target restore commit: `a62649f fix: restore safely into selected sandbox folders`
 - Immediate cloud-status refresh commit: `a7eee0d fix: refresh synchronized recovery status`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
@@ -83,6 +84,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Windows selected-folder policy rejects relative, drive-root, UNC/network, extended/device, traversal, alternate-stream, trailing-alias, and linked/substituted paths. Canonical comparison and containment are case-insensitive and segment-bounded. Diagnostic privacy rejects embedded drive, UNC, Unix, and `file://` paths.
 - A marker-scoped installed-proof runner is ready to compile/install before and after packages, exercise synthetic Save/retry/sync/Restore/diagnostic/source-removal, verify source-free rehydration, export checksummed path-free evidence, clean the fixture, uninstall the app, and remove only its owned workspace.
 - The current host has no Windows Flutter target/VM, PowerShell runtime, Wine, MSVC/Windows SDK, or Inno Setup. Windows scripts and installer syntax have not run in their native engines, the NTFS-junction test is skipped, and no Windows artifact or runtime evidence exists. Windows readiness remains unclaimed.
+- A manual-only `windows-2025` workflow now runs the complete native test/package/installed-proof/checksum/cleanup sequence with read-only repository permission, pinned action revisions, Flutter 3.44.8 x64, no secrets, no automatic trigger, and 14-day synthetic artifact retention. It is committed locally but has not been pushed, merged to the default branch, or dispatched; none of those external actions are authorized by this handoff.
 - **Restore** is available from a locally verified recovery point while signed out. It reverifies independent and package manifests plus the exact content tree, accepts only an absent or operator-selected empty regular target, rejects links/substitutions/unsafe paths, copies through owned staging, verifies staged and published bytes, and writes path-free local evidence. A picker-selected existing target keeps staging inside the sandbox-authorized directory and publishes a fixed `ShowVault Restored Files` child; absent programmatic targets retain direct publication.
 - Cancellation, timeout, source mutation, target mutation, and interrupted-restart failures publish no partial completion. Cleanup removes only staging with a matching bounded ownership marker and never alters the immutable recovery point.
 - Normal builds do not expose the direct folder substitute. **Synchronize pending** is available when a signed-in hosted transport has organization/venue context; an isolated direct-substitute build requires both explicit synthetic fixture-home and synthetic object-store defines.
@@ -172,7 +174,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 ## Verification baseline
 
 - Flutter analysis: no issues
-- Flutter tests: 98 passed; 1 Windows-only NTFS-junction test skipped on macOS
+- Flutter tests: 99 passed; 1 Windows-only NTFS-junction test skipped on macOS
 - Contracts tests: 2 passed
 - Agent tests: 429 passed
 - Platform tests: 28 passed
@@ -184,6 +186,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - Installed macOS resilience matrix: 7 report phases and 7 safe negative cases passed
 - Installed macOS upgrade proof: two distinct artifacts; replacement, source-free rehydration, manifest, attempt-2/four-event queue journal, restore evidence, path-free diagnostics, checksums, and cleanup passed
 - Windows packaging: implementation and host-independent static/path-policy coverage passed; native package compilation and installed execution not run because no Windows environment is available
+- Windows-native CI bridge: YAML parsing and static policy test passed; workflow not pushed or executed
 - Final harness ZIP/report checksums and internal evidence checksum: passed
 - Final harness strict deep code-signature validation: passed
 - Normal macOS release clean rebuild and strict deep code-signature validation: passed
@@ -211,14 +214,14 @@ Execute the versioned Windows packaging and installed-proof runner on explicitly
 
 The next slice must satisfy these boundaries:
 
-1. Use a controlled Windows 10/11 x64 user with PowerShell 7, Flutter Windows tooling, Visual Studio Desktop C++, and Inno Setup 6 on the build side. The installed target must not require Flutter, Git, the repository, or a separate Agent.
-2. Review `docs/WINDOWS_PACKAGING_AND_EXECUTION.md`, then run the normal package command and `tool/run-windows-installed-proof.ps1` into absent local-drive output directories.
-3. Confirm native PowerShell and Inno parsing/build, complete deployment, current-user `showvault://` registration, installer launch/uninstall, package manifest, checksums, and actual Authenticode states.
-4. Run the Windows-only NTFS-junction test and the complete Flutter suite on Windows. Confirm drive/UNC/device/traversal/ADS/case/containment rules and selected-folder behavior.
-5. Execute installed exact catalog Scan, offline Save/Verify, process restart, durable queue rehydration, attended Restore to an absent or empty target, explicit bounded diagnostics, and before/after application replacement with the source removed.
-6. Verify the installer and proof runner retain the external vault, remove the synthetic fixture, uninstall application files and callback registration, remove only marker-owned temporary state, and emit no path/content/credential/host identity in support evidence.
-7. Record exact OS build, architecture, signature status, hashes, pass/fail results, and limitations. Do not claim Windows readiness if any native stage is unavailable or fails.
-8. Keep host reboot, expired commercial sessions, quota exhaustion, real production-provider outage, distribution signing, personal data, clean-machine support range, and venue use separate.
+1. Obtain explicit authorization either to push/merge and manually dispatch `.github/workflows/windows-evidence.yml`, or to use a controlled Windows 10/11 x64 computer. Do not perform an external push, merge, dispatch, or machine access without that authorization.
+2. For the manual workflow path, ensure it exists on the default branch, dispatch it once, wait for completion, download `showvault-controlled-windows-evidence`, and verify the artifact checksums/report boundaries locally. Treat it as native headless evidence, not attended picker/Auth0 or clean-customer-machine evidence.
+3. For a controlled computer, use PowerShell 7, Flutter Windows tooling, Visual Studio Desktop C++, and Inno Setup 6 on the build side. The installed target must not require Flutter, Git, the repository, or a separate Agent.
+4. Review `docs/WINDOWS_PACKAGING_AND_EXECUTION.md`, then run the normal package command and `tool/run-windows-installed-proof.ps1` into absent local-drive output directories.
+5. Confirm native PowerShell and Inno parsing/build, complete deployment, current-user `showvault://` registration, installer launch/uninstall, package manifest, checksums, and actual Authenticode states.
+6. Run the Windows-only NTFS-junction test and the complete Flutter suite on Windows. Confirm drive/UNC/device/traversal/ADS/case/containment rules and selected-folder behavior.
+7. On controlled attended equipment, execute installed exact catalog Scan, offline Save/Verify, process restart, durable queue rehydration, attended Restore, explicit diagnostics, and before/after replacement with the source removed.
+8. Verify retention and cleanup, record exact evidence/limitations, and keep reboot, commercial-session expiry, provider quota/outage, distribution signing, personal data, clean-machine support range, and venue use separate.
 
 ## Required workflow
 

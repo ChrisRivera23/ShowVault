@@ -111,3 +111,5 @@ pwsh -File .\packaging\windows\build-app.ps1 `
 The current-user installer registers only the `showvault://` authentication callback, replaces only application files during upgrade, and retains the operator-selected external vault during upgrade or uninstall. The package includes a portable ZIP, path-free package manifest, observed signature status, and SHA-256 checksums.
 
 The controlled installed proof is ready at `tool\run-windows-installed-proof.ps1`. It must be executed on authorized Windows equipment before Windows readiness is claimed. See [`../../docs/WINDOWS_PACKAGING_AND_EXECUTION.md`](../../docs/WINDOWS_PACKAGING_AND_EXECUTION.md).
+
+A manual-only Windows Server 2025 workflow is also versioned at `.github/workflows/windows-evidence.yml`. It has read-only repository permission, pinned actions, no secret usage, and no automatic trigger. It has not been pushed or executed; doing so requires separate authorization and still does not replace attended picker/Auth0 validation on a controlled Windows computer.

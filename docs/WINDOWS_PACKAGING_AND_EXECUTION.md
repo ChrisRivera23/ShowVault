@@ -71,8 +71,16 @@ Successful evidence must show:
 
 ## Current evidence and blocker
 
-As of 2026-08-10, Flutter analysis passes and 98 Flutter tests pass with one Windows-only NTFS-junction test skipped on macOS. Static packaging tests verify the current-user protocol registration, complete Flutter deployment checks, checksum production, external-vault retention rule, marker-scoped cleanup, and absence of installer-driven vault deletion.
+As of 2026-08-10, Flutter analysis passes and 99 Flutter tests pass with one Windows-only NTFS-junction test skipped on macOS. Static packaging tests verify the current-user protocol registration, complete Flutter deployment checks, checksum production, external-vault retention rule, marker-scoped cleanup, manual workflow boundary, and absence of installer-driven vault deletion.
 
 The current host exposes only macOS and Chrome Flutter targets and has no Windows VM/device, PowerShell runtime, Wine environment, Windows SDK/MSVC toolchain, or Inno Setup compiler. Therefore the installer has not been compiled or executed, PowerShell/Inno syntax has not been validated by their native engines, the URL callback has not been exercised, the junction test has not run, and no Windows artifact hash or installed evidence exists. Do not claim Windows packaging or runtime readiness until the controlled command above passes on Windows.
 
 Host reboot, Authenticode trust/distribution signing, commercial Auth0 session expiry, provider quota exhaustion, real production-provider outage, personal-data recovery, clean-machine support range, and venue use remain separate gates.
+
+## Manual Windows-native CI bridge
+
+`.github/workflows/windows-evidence.yml` provides a manually dispatched `windows-2025` bridge when a physical controlled Windows build machine is unavailable. It grants only `contents: read`, uses pinned checkout/Flutter/upload action revisions and Flutter 3.44.8 x64, contains no secret references, has no push or pull-request trigger, and retains the synthetic artifact for 14 days.
+
+The workflow verifies the Windows toolchain and Inno Setup presence, runs analysis and the complete Flutter suite (including the NTFS-junction test), builds the normal current-user package, executes the silent installed replacement proof, independently checks both `SHA256SUMS` files, requires callback-registration and owned-fixture cleanup, and uploads only checksummed package/evidence files.
+
+This workflow is committed locally but has not been pushed, merged to the repository default branch, or dispatched. Adding the workflow does not authorize those external actions. A successful hosted run would establish native compiler, PowerShell, Inno Setup, NTFS test, silent installer, command-mode recovery, and cleanup evidence on the recorded runner image. It would not prove attended file-picker UX, interactive Auth0 callback behavior, a separate clean customer computer, hardware/driver compatibility, or the supported Windows range; those still require controlled attended Windows execution.
