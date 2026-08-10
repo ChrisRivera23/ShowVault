@@ -42,6 +42,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Downloaded Windows evidence verifier commit: `a1a69eb feat: verify downloaded Windows evidence`
 - Workflow-provenance binding commit: `0644cb1 feat: bind Windows evidence to workflow provenance`
 - GitHub run/workflow attestation commit: `7592fbe feat: attest downloaded Windows workflow runs`
+- Deterministic Windows evidence-bridge preparation commit: `a927c20 feat: prepare deterministic Windows evidence bridge`
 - Sandbox-safe selected-target restore commit: `a62649f fix: restore safely into selected sandbox folders`
 - Immediate cloud-status refresh commit: `a7eee0d fix: refresh synchronized recovery status`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
@@ -94,6 +95,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - The cross-platform downloaded-evidence verifier independently requires the exact two artifact directories, refuses links and unlisted files, accepts real PowerShell CRLF or LF checksum files, verifies both exact checksum sets, enforces closed package/metadata/report/provenance schemas, verifies the report-core digest, rejects path/sensitive-value leakage, and emits only bounded hashes, statuses, workflow identity, results, and limitations. Seven focused positive/adversarial tests pass. Recorded Authenticode statuses are validated as bounded evidence; signer trust remains a separate Windows check.
 - The workflow adds a checksummed, path-free provenance file containing the actual checked-out commit, manual event, run ID/attempt, job, runner OS/architecture, and artifact name. Draft PR #26 currently pins the older `ddfcaa6` workflow and must not be merged or dispatched unchanged; it needs a refreshed pin after the protected source commit is explicitly published and green.
 - The post-run verifier accepts a workflow run ID and absent output directory, requires a completed successful manual run with the expected identity, fetches the workflow at its exact head SHA, verifies the manual/read-only/provenance boundary and single immutable source pin, downloads only the named artifact, invokes the independent artifact verifier, and matches artifact provenance to the actual run ID, attempt, and pin. Six focused positive/adversarial tests pass. It performs no dispatch or repository mutation.
+- The bridge preparer accepts an approved lowercase full source SHA, the audited product workflow, and an absent `windows-evidence.yml`. It requires the manual/read-only policy and exactly the three approved commit-pinned actions, injects one immutable checkout ref with persisted credentials disabled, refuses overwrite and linked input, rereads the output, and emits a bounded digest. Seven focused tests and a real local dry run pass; no bridge branch or GitHub state was changed.
 - **Restore** is available from a locally verified recovery point while signed out. It reverifies independent and package manifests plus the exact content tree, accepts only an absent or operator-selected empty regular target, rejects links/substitutions/unsafe paths, copies through owned staging, verifies staged and published bytes, and writes path-free local evidence. A picker-selected existing target keeps staging inside the sandbox-authorized directory and publishes a fixed `ShowVault Restored Files` child; absent programmatic targets retain direct publication.
 - Cancellation, timeout, source mutation, target mutation, and interrupted-restart failures publish no partial completion. Cleanup removes only staging with a matching bounded ownership marker and never alters the immutable recovery point.
 - Normal builds do not expose the direct folder substitute. **Synchronize pending** is available when a signed-in hosted transport has organization/venue context; an isolated direct-substitute build requires both explicit synthetic fixture-home and synthetic object-store defines.
@@ -183,7 +185,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 ## Verification baseline
 
 - Flutter analysis: no issues
-- Flutter tests: 112 passed; 1 Windows-only NTFS-junction test skipped on macOS
+- Flutter tests: 119 passed; 1 Windows-only NTFS-junction test skipped on macOS
 - Contracts tests: 2 passed
 - Agent tests: 429 passed
 - Platform tests: 28 passed
@@ -224,9 +226,9 @@ Publish and validate the provenance-protected source, refresh isolated draft PR 
 
 The next slice must satisfy these boundaries:
 
-1. The original branch push and draft PR are complete, but PR #26 predates provenance and is not merge-ready. Obtain explicit authorization before pushing the eight local `codex/windows-packaging` commits or updating PR #26. Obtain separate authorization for marking ready/merging, manual dispatch, or use of a controlled Windows 10/11 x64 computer.
+1. The original branch push and draft PR are complete, but PR #26 predates provenance and is not merge-ready. Obtain explicit authorization before pushing the ten local `codex/windows-packaging` commits or updating PR #26. Obtain separate authorization for marking ready/merging, manual dispatch, or use of a controlled Windows 10/11 x64 computer.
 2. Treat PR #25 as an accumulated integration draft, not a Windows-only change. Review the 287-commit stack and choose a deliberate default-branch integration path; do not merge the accumulated draft merely to expose the workflow.
-3. For the manual workflow path, ensure it exists on the default branch, dispatch it once, wait for completion, then run `dart run tool/verify_windows_run.dart <workflow-run-id> <absent-output-directory>` from `apps/showvault_app` and review its bounded output. Treat it as native headless evidence, not attended picker/Auth0 or clean-customer-machine evidence.
+3. Generate the refreshed one-file bridge with `dart run tool/prepare_windows_evidence_bridge.dart <approved-source-sha> ../../.github/workflows/windows-evidence.yml <bridge-worktree>/.github/workflows/windows-evidence.yml`, confirm its digest and diff, and only then follow the separately authorized review/merge sequence. After an approved manual run completes, use `dart run tool/verify_windows_run.dart <workflow-run-id> <absent-output-directory>` and review its bounded output. Treat it as native headless evidence, not attended picker/Auth0 or clean-customer-machine evidence.
 4. For a controlled computer, use PowerShell 7, Flutter Windows tooling, Visual Studio Desktop C++, and Inno Setup 6 on the build side. The installed target must not require Flutter, Git, the repository, or a separate Agent.
 5. Review `docs/WINDOWS_PACKAGING_AND_EXECUTION.md`, then run the normal package command and `tool/run-windows-installed-proof.ps1` into absent local-drive output directories.
 6. Confirm native PowerShell and Inno parsing/build, complete deployment, current-user `showvault://` registration, installer launch/uninstall, package manifest, checksums, and actual Authenticode states.

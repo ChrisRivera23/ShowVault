@@ -91,7 +91,7 @@ This is independent checksum, schema, privacy, and claim-boundary verification. 
 
 ## Current evidence and blocker
 
-As of 2026-08-10, Flutter analysis passes and 112 Flutter tests pass with one Windows-only NTFS-junction test skipped on macOS. Static packaging tests verify the current-user protocol registration, complete Flutter deployment checks, checksum production, external-vault retention rule, marker-scoped cleanup, manual workflow/provenance boundary, downloaded-evidence verification, GitHub run/workflow-revision attestation, and absence of installer-driven vault deletion.
+As of 2026-08-10, Flutter analysis passes and 119 Flutter tests pass with one Windows-only NTFS-junction test skipped on macOS. Static packaging tests verify the current-user protocol registration, complete Flutter deployment checks, checksum production, external-vault retention rule, marker-scoped cleanup, manual workflow/provenance boundary, deterministic one-file bridge preparation, downloaded-evidence verification, GitHub run/workflow-revision attestation, and absence of installer-driven vault deletion.
 
 The current host exposes only macOS and Chrome Flutter targets and has no Windows VM/device, PowerShell runtime, Wine environment, Windows SDK/MSVC toolchain, or Inno Setup compiler. Therefore the installer has not been compiled or executed, PowerShell/Inno syntax has not been validated by their native engines, the URL callback has not been exercised, the junction test has not run, and no Windows artifact hash or installed evidence exists. Do not claim Windows packaging or runtime readiness until the controlled command above passes on Windows.
 
