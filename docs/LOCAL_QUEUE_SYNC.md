@@ -42,7 +42,7 @@ After authentication and organization/venue loading, a normal build constructs t
 
 The hosted API requires manager, administrator, or owner membership for the route organization and venue. Before receiving chunks, its `begin` operation independently validates the exact remote-manifest shape, package identity, approved catalog candidate metadata, logical paths, file count, sizes, and hashes. Server storage paths are derived only from authorized organization/venue GUIDs, the bounded package ID, and validated logical segments. The client cannot supply a storage root or local filesystem path.
 
-The first hosted storage implementation uses a configured server-owned filesystem root behind the API. `HostedSync:RootPath` is empty by default, causing a retryable `503` until an operator explicitly configures controlled development storage. This proves authenticated hosted transport and tenant binding, but it is not production object-storage durability.
+The deployable provider stores immutable manifest/chunk objects in a private S3-compatible bucket and publishes the receipt last as the sole completion marker. Production startup requires this provider and fails closed on missing or unsafe configuration. The configured server-owned filesystem backend remains available only in Development and controlled tests. See `docs/DEPLOYABLE_PROTOTYPE_STORAGE.md` for key layout, credentials, deployment, cleanup, and migration boundaries.
 
 An isolated build can still use the test substitute by defining both:
 
@@ -59,4 +59,4 @@ Automated tests prove successful remote verification, restart resume, cancellati
 
 The installed release-mode macOS synthetic drill traversed the authenticated loopback API without the direct folder substitute. It captured a durable partial hosted object, terminated and relaunched the app, reopened the vault, and completed from append-only local attempt 2 without duplicate completion. The committed tenant-derived package contained only the expected content, path-free manifest, and receipt, with matching SHA-256 values. A request without authentication returned `401`. A second isolated local vault remained verified while the API was stopped, recorded a 30-second retry, and synchronized on attempt 2 after the API returned.
 
-This slice does not claim production object-storage retention or regional durability, distributed multi-server locking, bandwidth scheduling, billing enforcement, Windows installed execution, dependency closure, or Recovery Confidence.
+The S3 adapter and disposable MinIO proof establish immutable writes, resumability, checksum verification, concurrent receipt publication, health checks, and container startup ordering. They do not claim production-provider retention or regional durability, bandwidth scheduling, billing enforcement, Windows installed execution, or Recovery Confidence.
