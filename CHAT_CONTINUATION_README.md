@@ -21,7 +21,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/automated-resilience-matrix`
+- Branch: `codex/upgrade-diagnostics`
 - Local-first vault foundation commit: `bc53f4b feat: establish local-first vault foundation`
 - Offline desktop Save commit: `85b3e92 feat: save desktop recovery points offline`
 - Desktop permission/rehydration commit: `07e6e62 feat: authorize and rehydrate local vaults`
@@ -33,6 +33,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Prototype storage runbook commit: `69b83ab docs: document prototype storage operations`
 - Installed resilience harness commit: `d744c03 feat: automate installed resilience matrix`
 - Installed resilience evidence commit: `75a2586 docs: record installed resilience evidence`
+- Upgrade preservation and support diagnostics implementation commit: `237f076 feat: preserve upgrades and generate support diagnostics`
+- Upgrade evidence and operating-boundary documentation commit: `b9f0824 docs: record upgrade diagnostic evidence`
 - Sandbox-safe selected-target restore commit: `a62649f fix: restore safely into selected sandbox folders`
 - Immediate cloud-status refresh commit: `a7eee0d fix: refresh synchronized recovery status`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
@@ -69,6 +71,11 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - A pinned multi-stage API image, PostgreSQL service, one-shot migration job, workload-identity-compatible configuration, liveness/readiness endpoints, disposable MinIO override, synthetic hosted-sync smoke command, and operator runbook are versioned under `infra/` and `docs/DEPLOYABLE_PROTOTYPE_STORAGE.md`.
 - A compile-time-gated macOS resilience command mode runs only with an opaque sandbox fixture identity and loopback API. Normal builds keep it disabled. The versioned runner launches the copied release executable as a new process for each phase; it does not use `flutter run` or a separate customer Agent.
 - The installed matrix now automates API/storage outage and recovery, durable partial upload and cross-process resume, idempotent completion, verified Restore, source mutation, local/remote tamper, incomplete/conflicting remote chunks, non-empty targets, and interrupted Restore. Its report is path-free and checksummed.
+- **Create support diagnostic** is an explicit confirmed operator action after opening a vault. It validates bounded ShowVault-owned manifests, every queue-state event, and restore evidence, then writes a checksummed `showvault.support-diagnostic.v1` report under `Reports/Diagnostics` without reading package contents or recovery sources.
+- Diagnostics include only versions, timestamps, counts, opaque package/candidate identities, statuses, bounded error categories, and integrity results. They exclude raw errors, credentials, tokens, contents, exact paths, host identity, and unrestricted filesystem/network/application inventory.
+- Linked, substituted, malformed, oversized, wrongly identified, or checksum-invalid manifest/queue/report entries fail before diagnostic publication. Linked diagnostic destinations cannot redirect a write outside the authorized vault.
+- A two-artifact installed macOS proof replaces a before app with an independently compiled after app. With the synthetic source deleted, the after app rehydrated the same immutable recovery point, independent manifest, synchronized attempt 2/four-event journal, and one restore-evidence record, then generated a second diagnostic.
+- App replacement and ordinary app removal retain the selected external vault. Full local-data removal is a distinct attended procedure and is not currently an in-app destructive control. Clean-machine reinstall and rollback execution remain unproven.
 - **Restore** is available from a locally verified recovery point while signed out. It reverifies independent and package manifests plus the exact content tree, accepts only an absent or operator-selected empty regular target, rejects links/substitutions/unsafe paths, copies through owned staging, verifies staged and published bytes, and writes path-free local evidence. A picker-selected existing target keeps staging inside the sandbox-authorized directory and publishes a fixed `ShowVault Restored Files` child; absent programmatic targets retain direct publication.
 - Cancellation, timeout, source mutation, target mutation, and interrupted-restart failures publish no partial completion. Cleanup removes only staging with a matching bounded ownership marker and never alters the immutable recovery point.
 - Normal builds do not expose the direct folder substitute. **Synchronize pending** is available when a signed-in hosted transport has organization/venue context; an isolated direct-substitute build requires both explicit synthetic fixture-home and synthetic object-store defines.
@@ -141,10 +148,24 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - Three preliminary failed generated artifacts were moved recoverably to Trash while the executable-name and sandbox-root assumptions were corrected. They contain only synthetic loopback test builds; they were excluded from evidence.
 - This is process-restart evidence, not host-reboot evidence. MinIO is not a production-provider claim. Native picker behavior remains supported by the earlier attended drill, not this command-mode matrix.
 
+## Installed upgrade and support-diagnostic evidence
+
+- Final artifact directory: `/private/tmp/showvault-upgrade-diagnostic-final-20260810`
+- Before ZIP SHA-256: `47b22ad7d022f405e856ddd55e3c4d5c2d12139a5450d88dd2813d00b7020971`
+- After ZIP SHA-256: `2f9ae2078bb31235505dd89931932aa21fc6f9cb465138cb73baae82ec3a1788`
+- Report file SHA-256: `780f50a6dd924f7349fe34dd65114e26b420ca048a4dcc50a5be10a00a665db6`
+- Report core evidence SHA-256: `e9a8d46207dd299d6f79ec9dc761422af02f5ad9b2f3bee59b57359f4ca1eb51`
+- The before/after executable SHA-256 values were distinct. Both copied release apps passed strict deep code-signature validation with ad hoc personal-test signing.
+- The before app created one two-file immutable recovery point, recorded an unavailable retry, synchronized it at attempt 2, accumulated four append-only state events, performed one exact Restore, generated a diagnostic, and deleted the synthetic source.
+- The after app replaced the fixed installed path and, without the source, verified the unchanged package and independent manifest, synchronized journal, restore evidence, and source-free rehydration. It generated a second checksummed diagnostic.
+- The exported report contains no local path, source content, credential, token, raw error, or host identity. Report-core and outer artifact checksums verified; the owned synthetic sandbox was removed.
+- One earlier proof generated before queue-history validation was tightened was moved recoverably to Trash and excluded. Generated iOS SwiftPM resolution side effects from the macOS builds were also moved recoverably to Trash and were not committed.
+- This is controlled forward macOS application-replacement evidence. It is not clean-machine reinstall, rollback, host-reboot, Windows, distribution-signing/notarization, production-provider, personal-data, or venue evidence.
+
 ## Verification baseline
 
 - Flutter analysis: no issues
-- Flutter tests: 78 passed
+- Flutter tests: 85 passed
 - Contracts tests: 2 passed
 - Agent tests: 429 passed
 - Platform tests: 28 passed
@@ -154,12 +175,13 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - Deployable Compose configuration validation: passed
 - API container image build: passed
 - Installed macOS resilience matrix: 7 report phases and 7 safe negative cases passed
+- Installed macOS upgrade proof: two distinct artifacts; replacement, source-free rehydration, manifest, attempt-2/four-event queue journal, restore evidence, path-free diagnostics, checksums, and cleanup passed
 - Final harness ZIP/report checksums and internal evidence checksum: passed
 - Final harness strict deep code-signature validation: passed
 - Normal macOS release clean rebuild and strict deep code-signature validation: passed
 - EF Core migrations `20260810003349_AddDesktopCatalogScanCandidates` and `20260810003907_AddDesktopCatalogScans` are applied to the local database
 - EF Core pending-model check: no pending changes
-- macOS release build: 50.1 MB build report (48 MiB on disk), universal `x86_64` + `arm64` app; ad hoc signed and strictly validated with sandbox user-selected read/write access
+- macOS release build: 50.2 MB build report (48 MiB on disk), universal `x86_64` + `arm64` app; ad hoc signed and strictly validated with sandbox user-selected read/write access
 - ZIP checksum matches `SHA256SUMS`
 - `git diff --check`: passes
 
@@ -177,19 +199,17 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-Add upgrade/reinstall preservation evidence and a bounded customer-support diagnostic bundle for the local vault and durable queue.
+Add reproducible Windows packaging and controlled installed execution for the local-first customer workflow.
 
 The next slice must satisfy these boundaries:
 
-1. Define a versioned diagnostic schema containing only path-free workflow counts/statuses, bounded error categories, package/manifest identities where necessary, app/schema versions, timestamps, and integrity results. Exclude package contents, credentials, tokens, exact paths, host identity, and unrestricted filesystem/network inventory.
-2. Generate diagnostics only after explicit operator action. Inspect only ShowVault-owned vault directories and bounded records through the existing validation logic; do not rescan recovery sources or follow links.
-3. Prove that malformed, oversized, linked, or substituted vault/queue/report entries fail safely and cannot make the diagnostic generator read outside the authorized vault.
-4. Build two controlled app artifacts representing an upgrade/reinstall boundary. Use only synthetic sandbox data. Prove that an immutable recovery point, independent manifest, queued/retry/synchronized journal state, and restore evidence survive replacement and rehydrate without source access.
-5. Define uninstall/removal behavior separately from upgrade: application replacement must not delete the selected local vault, while attended removal must identify exactly which ShowVault-owned state is retained or deleted.
-6. Produce checksummed path-free evidence from installed macOS artifacts. Keep Windows upgrade behavior, host reboot, notarization, production-provider failures, and personal-data execution as separate gates.
-7. Update readiness and support documentation without claiming clean-machine, venue, Windows, regional durability, retention compliance, or Recovery Confidence.
-
-The installed synthetic resilience matrix is complete. Three scenarios remain outside it and should not be silently folded into this slice: expired commercial Auth0 sessions, provider quota exhaustion, and real production-provider outage behavior.
+1. Produce a versioned Windows release packaging path that needs no Flutter, Git, repository checkout, or separate customer Agent on the target computer. Register only the required application/protocol identity and do not package credentials or venue assumptions.
+2. Preserve the operator-selected external vault across application replacement. Keep ordinary uninstall bundle-only by default and any local-data deletion explicit, attended, and exactly scoped.
+3. Exercise the packaged application on explicitly authorized controlled Windows equipment: exact allowlisted Scan, offline Save/Verify, process restart and vault rehydration, durable queue state, attended Restore to an absent or empty target, and explicit bounded support diagnostic generation.
+4. Add Windows-specific tests for path canonicalization, drive/UNC handling, junctions/reparse points, selected-folder authorization, staging containment, and diagnostics rejecting exact paths or linked/substituted entries.
+5. Emit checksummed path-free evidence from the exact installed artifact and record OS/build, architecture, signature status, execution scope, and cleanup honestly.
+6. If controlled Windows equipment is unavailable, complete the packaging and automated test seam but stop before claiming installed Windows readiness; record the execution blocker explicitly.
+7. Keep host reboot, expired commercial sessions, provider quota exhaustion, real production-provider outage, distribution signing, personal-data execution, and venue use as separate gates.
 
 ## Required workflow
 
@@ -221,6 +241,7 @@ The installed synthetic resilience matrix is complete. Three scenarios remain ou
 - `docs/LOCAL_QUEUE_SYNC.md` — desktop queue journal, substitute transport, resumability, verification, and privacy boundary
 - `docs/DEPLOYABLE_PROTOTYPE_STORAGE.md` — container deployment, S3 key/credential boundary, smoke check, cleanup, migration, and rollback
 - `docs/INSTALLED_RESILIENCE_MATRIX.md` — installed release command-mode gates, scenario matrix, path-free evidence, and limitations
+- `docs/UPGRADE_AND_SUPPORT_DIAGNOSTICS.md` — diagnostic schema/boundary, upgrade/removal semantics, installed replacement evidence, and limitations
 - `docs/LOCAL_ATTENDED_RESTORE.md` — offline attended restore, staging, verification, cleanup, evidence, and limitations
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` — customer identity, licensing, subscription, portal, and Admin-console structure
 - `docs/SYSTEM_INVENTORY_PLUGIN.md` — direct app scan versus legacy Agent compatibility
