@@ -52,6 +52,9 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
             Assert.True(candidate.DirectDesktopScan);
             Assert.Equal(Guid.Empty, candidate.AgentId);
             Assert.Equal("This computer", candidate.AgentName);
+            Assert.NotNull(candidate.CandidateKey);
+            Assert.DoesNotContain("/", candidate.CandidateKey, StringComparison.Ordinal);
+            Assert.DoesNotContain("\\", candidate.CandidateKey, StringComparison.Ordinal);
             Assert.DoesNotContain("/", candidate.Evidence, StringComparison.Ordinal);
         });
         Assert.Contains(candidates.Payload, candidate => candidate.ProductName == "Resolume Arena");

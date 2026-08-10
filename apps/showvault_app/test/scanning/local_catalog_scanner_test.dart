@@ -44,4 +44,21 @@ void main() {
     expect(await scanner.scan(), isEmpty);
     expect(attempted, isFalse);
   });
+
+  test('backup path resolves only for exact UserDataRoot catalog keys', () {
+    final scanner = LocalCatalogScanner(
+      platform: DesktopPlatform.macOs,
+      environment: const {'HOME': '/Users/tester'},
+    );
+
+    final source = scanner.resolveBackupSource('macos.serato-dj-pro.user-data');
+    expect(source, isNotNull);
+    expect(source!.rootPath, '/Users/tester/Music/_Serato_');
+    expect(source.productName, 'Serato DJ Pro');
+    expect(
+      scanner.resolveBackupSource('macos.serato-dj-pro.application'),
+      isNull,
+    );
+    expect(scanner.resolveBackupSource('macos.unknown.user-data'), isNull);
+  });
 }

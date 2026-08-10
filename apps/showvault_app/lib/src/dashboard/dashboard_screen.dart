@@ -4,6 +4,7 @@ import 'package:showvault_app/src/api/showvault_api.dart';
 import 'package:showvault_app/src/auth/auth_provider.dart';
 import 'package:showvault_app/src/config/app_config.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
+import 'package:showvault_app/src/recovery/local_recovery_service.dart';
 import 'package:showvault_app/src/recovery/recovery_run.dart';
 import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
 
@@ -12,79 +13,66 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!AppConfig.hasAuth0Client && !AppConfig.personalBetaBypassAuth) {
-      return const _ConfigurationRequired();
-    }
     return ref
         .watch(authSessionProvider)
         .when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => _AuthPrompt(error: error),
+          loading: () => const _LocalFirstDashboard(
+            cloudLabel: 'Cloud connecting',
+            cloudIcon: Icons.cloud_sync_outlined,
+          ),
+          error: (error, _) => _LocalFirstDashboard(
+            cloudLabel: 'Cloud unavailable',
+            cloudIcon: Icons.cloud_off_outlined,
+            cloudMessage: '$error',
+          ),
           data: (session) => session == null
-              ? const _AuthPrompt()
+              ? _LocalFirstDashboard(
+                  cloudLabel: 'Cloud not connected',
+                  cloudIcon: Icons.cloud_off_outlined,
+                  showSignIn: AppConfig.hasAuth0Client,
+                )
               : ref
                     .watch(recoveryHistoryProvider)
                     .when(
-                      loading: () =>
-                          const Center(child: CircularProgressIndicator()),
-                      error: (error, _) => _LoadError(error: error),
-                      data: (history) => _LiveDashboard(history: history),
+                      loading: () => const _LocalFirstDashboard(
+                        cloudLabel: 'Cloud connecting',
+                        cloudIcon: Icons.cloud_sync_outlined,
+                      ),
+                      error: (error, _) => _LocalFirstDashboard(
+                        cloudLabel: 'Cloud unavailable',
+                        cloudIcon: Icons.cloud_off_outlined,
+                        cloudMessage: '$error',
+                        showRetry: true,
+                      ),
+                      data: (history) => _LocalFirstDashboard(
+                        history: history,
+                        cloudLabel: 'Cloud connected',
+                        cloudIcon: Icons.cloud_done_outlined,
+                        showSignOut: !AppConfig.personalBetaBypassAuth,
+                      ),
                     ),
         );
   }
 }
 
-class _ConfigurationRequired extends StatelessWidget {
-  const _ConfigurationRequired();
+class _LocalFirstDashboard extends ConsumerWidget {
+  const _LocalFirstDashboard({
+    this.history,
+    required this.cloudLabel,
+    required this.cloudIcon,
+    this.cloudMessage,
+    this.showSignIn = false,
+    this.showSignOut = false,
+    this.showRetry = false,
+  });
 
-  @override
-  Widget build(BuildContext context) => const _CenteredCard(
-    icon: Icons.settings_suggest_outlined,
-    title: 'Auth0 client configuration required',
-    message:
-        'Run with --dart-define=AUTH0_CLIENT_ID=… to connect this native client. See the Flutter app README for the complete command.',
-  );
-}
-
-class _AuthPrompt extends ConsumerWidget {
-  const _AuthPrompt({this.error});
-  final Object? error;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => _CenteredCard(
-    icon: Icons.lock_outline,
-    title: 'Sign in to ShowVault',
-    message: error == null
-        ? 'Use your ShowVault account to connect this computer to cloud backup.'
-        : 'Sign-in did not complete. $error',
-    action: FilledButton.icon(
-      onPressed: () => ref.read(authSessionProvider.notifier).login(),
-      icon: const Icon(Icons.login),
-      label: const Text('Sign in with Auth0'),
-    ),
-  );
-}
-
-class _LoadError extends ConsumerWidget {
-  const _LoadError({required this.error});
-  final Object error;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => _CenteredCard(
-    icon: Icons.cloud_off_outlined,
-    title: 'Live history unavailable',
-    message: '$error',
-    action: FilledButton.icon(
-      onPressed: () => ref.invalidate(recoveryHistoryProvider),
-      icon: const Icon(Icons.refresh),
-      label: const Text('Retry'),
-    ),
-  );
-}
-
-class _LiveDashboard extends ConsumerWidget {
-  const _LiveDashboard({required this.history});
-  final RecoveryHistory history;
+  final RecoveryHistory? history;
+  final String cloudLabel;
+  final IconData cloudIcon;
+  final String? cloudMessage;
+  final bool showSignIn;
+  final bool showSignOut;
+  final bool showRetry;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -109,29 +97,52 @@ class _LiveDashboard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '${history.organizationName} • ${history.venueName}',
+                      history == null
+                          ? 'Local vault • available offline'
+                          : '${history!.organizationName} • ${history!.venueName}',
                       style: TextStyle(color: colors.onSurfaceVariant),
                     ),
                   ],
                 ),
-                const Chip(
-                  avatar: Icon(Icons.cloud_done_outlined, size: 18),
-                  label: Text('Cloud connected'),
+                Chip(
+                  avatar: Icon(cloudIcon, size: 18),
+                  label: Text(cloudLabel),
                 ),
               ],
             ),
+            if (cloudMessage != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Local Scan and Save remain available. $cloudMessage',
+                style: TextStyle(color: colors.onSurfaceVariant),
+              ),
+            ],
             const SizedBox(height: 24),
             _CandidateOnboarding(history: history),
-            if (!AppConfig.personalBetaBypassAuth) ...[
+            if (showSignIn || showSignOut || showRetry) ...[
               const SizedBox(height: 24),
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: () =>
-                      ref.read(authSessionProvider.notifier).logout(),
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Sign out'),
-                ),
+                child: showSignIn
+                    ? FilledButton.icon(
+                        onPressed: () =>
+                            ref.read(authSessionProvider.notifier).login(),
+                        icon: const Icon(Icons.login),
+                        label: const Text('Connect cloud service'),
+                      )
+                    : showRetry
+                    ? TextButton.icon(
+                        onPressed: () =>
+                            ref.invalidate(recoveryHistoryProvider),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry cloud connection'),
+                      )
+                    : TextButton.icon(
+                        onPressed: () =>
+                            ref.read(authSessionProvider.notifier).logout(),
+                        icon: const Icon(Icons.logout),
+                        label: const Text('Sign out'),
+                      ),
               ),
             ],
           ],
@@ -884,27 +895,45 @@ class _SubnetOnboarding extends ConsumerWidget {
 
 class _CandidateOnboarding extends ConsumerWidget {
   const _CandidateOnboarding({required this.history});
-  final RecoveryHistory history;
+  final RecoveryHistory? history;
 
   Future<void> _scanComputer(BuildContext context, WidgetRef ref) async {
-    final session = ref.read(authSessionProvider).valueOrNull;
-    if (session == null) return;
     try {
-      final candidateKeys = await ref.read(localCatalogScannerProvider).scan();
-      final count = await ref
-          .read(showVaultApiProvider)
-          .submitComputerScan(
-            accessToken: session.accessToken,
-            history: history,
-            candidateKeys: candidateKeys,
-          );
+      final findings = await ref
+          .read(localCatalogScannerProvider)
+          .scanFindings();
+      ref.read(localCatalogFindingsProvider.notifier).state = findings;
+      final session = ref.read(authSessionProvider).valueOrNull;
+      var cloudRecorded = false;
+      String? cloudError;
+      if (session != null && history != null) {
+        try {
+          await ref
+              .read(showVaultApiProvider)
+              .submitComputerScan(
+                accessToken: session.accessToken,
+                history: history!,
+                candidateKeys: findings
+                    .map((finding) => finding.candidateKey)
+                    .toList(growable: false),
+              );
+          cloudRecorded = true;
+          ref.invalidate(recoveryHistoryProvider);
+        } catch (error) {
+          cloudError = '$error';
+        }
+      }
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Computer scan complete • $count candidates found.'),
+          content: Text(
+            cloudRecorded
+                ? 'Computer scan complete • ${findings.length} candidates found.'
+                : 'Local scan complete • ${findings.length} candidates found • '
+                      'cloud not updated${cloudError == null ? '.' : ': $cloudError'}',
+          ),
         ),
       );
-      ref.invalidate(recoveryHistoryProvider);
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
@@ -920,13 +949,14 @@ class _CandidateOnboarding extends ConsumerWidget {
     bool approved,
   ) async {
     final session = ref.read(authSessionProvider).valueOrNull;
-    if (session == null) return;
+    final currentHistory = history;
+    if (session == null || currentHistory == null) return;
     try {
       await ref
           .read(showVaultApiProvider)
           .decideRecoveryCandidate(
             accessToken: session.accessToken,
-            history: history,
+            history: currentHistory,
             candidateId: candidate.id,
             approved: approved,
           );
@@ -945,13 +975,14 @@ class _CandidateOnboarding extends ConsumerWidget {
     RecoveryCandidate candidate,
   ) async {
     final session = ref.read(authSessionProvider).valueOrNull;
-    if (session == null) return;
+    final currentHistory = history;
+    if (session == null || currentHistory == null) return;
     try {
       await ref
           .read(showVaultApiProvider)
           .validateRecoveryCandidate(
             accessToken: session.accessToken,
-            history: history,
+            history: currentHistory,
             candidateId: candidate.id,
           );
       ref.invalidate(recoveryHistoryProvider);
@@ -973,13 +1004,14 @@ class _CandidateOnboarding extends ConsumerWidget {
     RecoveryCandidate candidate,
   ) async {
     final session = ref.read(authSessionProvider).valueOrNull;
-    if (session == null) return;
+    final currentHistory = history;
+    if (session == null || currentHistory == null) return;
     try {
       await ref
           .read(showVaultApiProvider)
           .backupRecoveryCandidate(
             accessToken: session.accessToken,
-            history: history,
+            history: currentHistory,
             candidateId: candidate.id,
           );
       if (!context.mounted) return;
@@ -996,9 +1028,28 @@ class _CandidateOnboarding extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final visible = history.candidates
+    final visible = (history?.candidates ?? const <RecoveryCandidate>[])
         .where((candidate) => candidate.decision != 'rejected')
-        .toList(growable: false);
+        .toList();
+    final existingKeys = visible
+        .map((candidate) => candidate.candidateKey)
+        .whereType<String>()
+        .toSet();
+    for (final finding in ref.watch(localCatalogFindingsProvider)) {
+      if (!existingKeys.add(finding.candidateKey)) continue;
+      visible.add(
+        RecoveryCandidate(
+          id: finding.candidateKey,
+          agentName: 'This computer',
+          productName: finding.productName,
+          candidateType: finding.candidateType,
+          evidence: 'Exact local catalog match',
+          decision: 'detected',
+          candidateKey: finding.candidateKey,
+          directDesktopScan: true,
+        ),
+      );
+    }
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -1040,8 +1091,11 @@ class _CandidateOnboarding extends ConsumerWidget {
                     '${candidate.evidence}${_validationDetail(candidate)}',
                   ),
                   isThreeLine: true,
-                  trailing: candidate.agentName == 'This computer'
-                      ? const Chip(label: Text('Detected'))
+                  trailing: candidate.directDesktopScan
+                      ? candidate.candidateType == 'UserDataRoot' &&
+                                candidate.candidateKey != null
+                            ? _LocalSaveButton(candidate: candidate)
+                            : const Chip(label: Text('Detected'))
                       : candidate.decision == 'approved'
                       ? candidate.candidateType == 'UserDataRoot'
                             ? candidate.validationStatus == 'pending'
@@ -1095,6 +1149,125 @@ class _CandidateOnboarding extends ConsumerWidget {
       '\nValidation failed • ${candidate.validationMessage ?? 'Unknown error'}',
     _ => '',
   };
+}
+
+class _LocalSaveButton extends ConsumerStatefulWidget {
+  const _LocalSaveButton({required this.candidate});
+
+  final RecoveryCandidate candidate;
+
+  @override
+  ConsumerState<_LocalSaveButton> createState() => _LocalSaveButtonState();
+}
+
+class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
+  bool _saving = false;
+  LocalBackupResult? _result;
+
+  Future<void> _save() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Save ${widget.candidate.productName}?'),
+        content: const Text(
+          'ShowVault will now read the exact catalog-approved user-data folder, '
+          'create a new immutable recovery point in the local ShowVault Pro vault, '
+          'verify it, and queue the verified copy for cloud synchronization. '
+          'No existing recovery point will be overwritten.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final key = widget.candidate.candidateKey!;
+    final source = ref
+        .read(localCatalogScannerProvider)
+        .resolveBackupSource(key);
+    if (source == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This detected item is not an approved local backup source.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      final result = await ref.read(localRecoveryServiceProvider).save(source);
+      if (!mounted) return;
+      setState(() => _result = result);
+      final message = result.cloudStatus == LocalCloudSyncStatus.queued
+          ? 'Verified locally • cloud synchronization queued.'
+          : result.warning ?? 'Verified locally • cloud queue needs attention.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Local Save failed: $error')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final result = _result;
+    if (result == null) {
+      return FilledButton.icon(
+        onPressed: _saving ? null : _save,
+        icon: _saving
+            ? const SizedBox.square(
+                dimension: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.save_outlined),
+        label: Text(_saving ? 'Saving' : 'Save'),
+      );
+    }
+    return SizedBox(
+      width: 238,
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: 6,
+        runSpacing: 4,
+        children: [
+          const Chip(
+            avatar: Icon(Icons.verified_outlined, size: 17),
+            label: Text('Verified locally'),
+          ),
+          Chip(
+            avatar: Icon(
+              result.cloudStatus == LocalCloudSyncStatus.queued
+                  ? Icons.cloud_upload_outlined
+                  : Icons.cloud_off_outlined,
+              size: 17,
+            ),
+            label: Text(
+              result.cloudStatus == LocalCloudSyncStatus.queued
+                  ? 'Cloud queued'
+                  : 'Queue attention',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _RecoveryControls extends ConsumerStatefulWidget {
@@ -1404,46 +1577,6 @@ class _HistoryContent extends StatelessWidget {
       ],
     );
   }
-}
-
-class _CenteredCard extends StatelessWidget {
-  const _CenteredCard({
-    required this.icon,
-    required this.title,
-    required this.message,
-    this.action,
-  });
-  final IconData icon;
-  final String title;
-  final String message;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 560),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 46),
-              const SizedBox(height: 18),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              Text(message, textAlign: TextAlign.center),
-              if (action != null) ...[const SizedBox(height: 22), action!],
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 }
 
 class _ReadinessCard extends StatelessWidget {

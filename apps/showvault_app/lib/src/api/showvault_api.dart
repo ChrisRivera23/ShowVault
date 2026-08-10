@@ -276,6 +276,8 @@ class RecoveryCandidate {
     this.validationFileCount,
     this.validationTruncated,
     this.validationMessage,
+    this.candidateKey,
+    this.directDesktopScan = false,
   });
 
   factory RecoveryCandidate.fromJson(Map<String, Object?> json) =>
@@ -290,6 +292,8 @@ class RecoveryCandidate {
         validationFileCount: json['validationFileCount'] as int?,
         validationTruncated: json['validationTruncated'] as bool?,
         validationMessage: json['validationMessage'] as String?,
+        candidateKey: json['candidateKey'] as String?,
+        directDesktopScan: json['directDesktopScan'] as bool? ?? false,
       );
 
   final String id;
@@ -302,6 +306,8 @@ class RecoveryCandidate {
   final int? validationFileCount;
   final bool? validationTruncated;
   final String? validationMessage;
+  final String? candidateKey;
+  final bool directDesktopScan;
 }
 
 class VenueAgent {

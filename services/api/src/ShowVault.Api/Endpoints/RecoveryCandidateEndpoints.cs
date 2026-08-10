@@ -290,7 +290,8 @@ public static class RecoveryCandidateEndpoints
                 null,
                 null,
                 null,
-                true)));
+                true,
+                candidate.CandidateKey)));
         }
         return Results.Ok(ApiResponse<IReadOnlyList<RecoveryCandidateSummary>>.Success(
             candidates.OrderByDescending(candidate => candidate.DetectedAt).ToArray(),

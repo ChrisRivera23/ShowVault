@@ -17,7 +17,8 @@ public sealed record RecoveryCandidateSummary(
     bool? ValidationTruncated,
     string? ValidationMessage,
     DateTimeOffset? ValidatedAt,
-    bool DirectDesktopScan = false);
+    bool DirectDesktopScan = false,
+    string? CandidateKey = null);
 
 public sealed record SubmitComputerScanRequest(IReadOnlyList<string> CandidateKeys);
 
