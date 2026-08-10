@@ -157,6 +157,11 @@ construction correction.
 authorization/protocol, and offline Restore to the complete corrected 31-file
 range, including the installed sandbox and UI reconciliation fixes.
 
+`LOCAL_FIRST_MILESTONE_4_EXTRACTION.md` fixes deployable object storage to the
+28-file provider/container/runbook range and makes credential, immutability,
+production fail-closed, migration, rollback, and destructive-cleanup gates
+explicit.
+
 The 247-commit legacy catalog/Agent expansion remains a separate paused review.
 It must be evaluated by current product value and authorization boundaries, not
 merged merely because later local-first work was originally developed on top of

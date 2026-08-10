@@ -111,6 +111,10 @@ also requires the later `ddfcaa6` compatibility correction during reconstruction
 synchronization, authenticated hosted transport, and attended Restore, including
 the installed-drill corrections for sandbox staging and immediate status refresh.
 
+`LOCAL_FIRST_MILESTONE_4_EXTRACTION.md` fixes the fourth milestone to the
+deployable S3-compatible provider, production fail-closed configuration, pinned
+container/migration topology, and bounded disposable smoke contract.
+
 Before a milestone is proposed for integration:
 
 1. Start from the then-current integrated `main`, never from PR #25.
