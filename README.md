@@ -2,6 +2,8 @@
 
 ShowVault is a venue-resilience platform that inventories production systems, creates verified recovery packages, and proves that critical show infrastructure can be restored.
 
+The current architecture is local-first. The authoritative direction is [docs/LOCAL_FIRST_PRODUCT_BIBLE.md](docs/LOCAL_FIRST_PRODUCT_BIBLE.md): ShowVault creates and verifies immutable recovery points in a local ShowVault Pro vault, remains operational offline, and synchronizes verified copies when cloud connectivity is available. Older direct-to-cloud/no-local-persistence notes are superseded.
+
 The first product promise is intentionally focused:
 
 > ShowVault can tell a venue what is installed, what is protected, whether its backup is usable, and exactly how to recover it.

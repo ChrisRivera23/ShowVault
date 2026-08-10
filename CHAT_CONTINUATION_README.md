@@ -12,14 +12,17 @@ The customer desktop experience must be simple:
 
 **Install → Scan this computer → Sign in for cloud service**
 
-There is no customer-facing Agent installation, enrollment code, service setup, or personal-Keychain workflow. The desktop app must not persist scan results or backup packages locally. Exact source paths may exist only transiently in memory while the app checks catalog entries or streams an authorized backup directly to cloud storage. The control plane receives path-free metadata.
+There is no customer-facing Agent installation, enrollment code, service setup, or personal-Keychain workflow. The product is local-first: it creates immutable recovery points, manifests, verification evidence, and a durable upload queue in a configurable local ShowVault Pro vault. The control plane receives only the metadata required for hosted coordination; secrets remain separately protected.
+
+`docs/LOCAL_FIRST_PRODUCT_BIBLE.md` is the current product authority. It supersedes the former direct-to-cloud/no-local-persistence direction in older commits and handoffs.
 
 The implementation remains venue-neutral and cross-platform. LIV nightclub is the intended first venue deployment, not a source of build-time assumptions or current test data. Use only the Product Owner's Mac and other explicitly authorized controlled equipment until the readiness gates pass.
 
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/personal-catalog-scan-beta`
+- Branch: `codex/local-first-vault`
+- Local-first vault foundation commit: `bc53f4b feat: establish local-first vault foundation`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
 - Navigation/no-login beta commit: `eea1d45 feat: restore navigation and add guarded no-login beta`
 - Expected worktree after the handoff commit: clean except intentionally untracked `NEXT_CONVERSATION.md`
@@ -38,7 +41,10 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Direct scan headers and candidates are stored in the cloud database. An empty newer scan correctly supersedes older results.
 - Direct detections appear as **Detected** and cannot enter the legacy Agent approval/backup controls.
 - Legacy Agent protocol 1.21 remains in the repository only as compatibility infrastructure; it is not part of the customer desktop onboarding flow.
-- Product documentation now states that the future backup path must stream source bytes directly to cloud storage without a local backup package or local scan database.
+- Product direction now requires a local ShowVault Pro vault, offline backup and verification, local manifests, and durable verified-only cloud synchronization state.
+- The local recovery foundation creates the configurable canonical vault folders at startup before network enrollment, and stores its durable SQLite workflow/upload queue in `Upload Queue` by default.
+- Default recovery points are immutable and named `Backups/<parent>/<UTC timestamp>__<SHA-256 recovery-point ID>`; legacy configured package directories remain compatible.
+- A passing local structural/cryptographic verification creates exactly one idempotent queued cloud-upload job. Failed or unverified packages are not queued; synchronization execution is not implemented yet.
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` records the recommended commercial structure: desktop app, customer web portal, and private ShowVault Admin web console; branded ShowVault authentication backed by Auth0; Stripe one-time license plus recurring tiers; and no staff access to customer passwords.
 
 ## Installed personal-Mac evidence
@@ -64,7 +70,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - Flutter analysis: no issues
 - Flutter tests: 26 passed
 - Contracts tests: 2 passed
-- Agent tests: 426 passed
+- Agent tests: 429 passed
 - Platform tests: 28 passed
 - API tests: 15 passed, including exact beta-token and Development/configuration/loopback guard coverage
 - EF Core migrations `20260810003349_AddDesktopCatalogScanCandidates` and `20260810003907_AddDesktopCatalogScans` are applied to the local database
@@ -78,7 +84,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - Never request or approve access to the user's personal login Keychain for ShowVault.
 - Never enable the no-login bypass for staging, production, a non-loopback endpoint, or a distributed customer build.
 - ShowVault administrators may view account and entitlement status but must never see or retrieve customer passwords.
-- Never store Auth0 credentials, tokens, enrollment codes, client secrets, exact source paths, scan databases, or backup packages on the customer computer.
+- Never store Auth0 credentials, tokens, enrollment codes, or client secrets in the vault. Exact source paths may appear only in protected local recovery metadata where required for restore and must not leak into cloud-facing logs or path-free discovery evidence.
 - Never enumerate unrelated installed applications, arbitrary directories, disks, networks, or machine identity.
 - Detection is not backup, verification, restore, or recovery readiness. Preserve those states separately.
 - Do not weaken Gatekeeper or system-wide security for the ad hoc personal-test build.
@@ -87,21 +93,21 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-Implement the smallest direct-to-cloud backup vertical slice for a detected **UserDataRoot** candidate, beginning with Serato DJ Pro on the controlled personal Mac.
+Connect the installed desktop **Save** action to the bounded local recovery engine for an explicitly selected **UserDataRoot** candidate, using synthetic fixtures before any personal data.
 
 The design must satisfy all of these acceptance boundaries:
 
-1. The desktop app resolves the exact catalog path only in memory after the user explicitly starts backup.
-2. The API authorizes the tenant, venue, candidate, and backup attempt and issues only short-lived, least-privilege upload capability; do not add an Agent/enrollment dependency.
-3. The app streams files directly from the exact allowlisted root to cloud object storage. It must not create a local archive, staging directory, scan database, resume database, or plaintext manifest.
-4. Cloud metadata must use normalized relative logical names, hashes, sizes, and bounded status—not absolute local paths.
-5. Apply strict containment, symlink, file-count, per-file-size, total-byte, timeout, cancellation, and mutation/error rules before reading contents.
-6. Do not read file contents during detection. Content reads begin only after the explicit backup action and authorization.
-7. The first slice must remain venue-neutral and use only synthetic fixtures plus the Product Owner's explicitly authorized personal Serato data when runtime testing is reached.
-8. Add tests for tenant authorization, key allowlisting, containment, path privacy, no local artifacts, interrupted uploads, and an empty/changed source.
-9. Do not claim verification or restore until independently implemented and proven.
+1. Initialize the canonical configurable vault without requiring internet access.
+2. Resolve and read an exact approved source only after the user explicitly chooses Save.
+3. Create a new immutable recovery point; never overwrite the previous known-good point.
+4. Store a machine-readable local manifest with normalized relative paths, hashes, sizes, source relationships, exclusions, and local/cloud status.
+5. Apply strict containment, symlink, file-count, size, timeout, cancellation, and mutation/error rules.
+6. Verify locally before adding exactly one idempotent job to the durable cloud-upload queue.
+7. Preserve separate local-protection and cloud-sync states; an unavailable cloud must not fail the local Save.
+8. Remain venue-neutral and use synthetic fixtures until personal data is explicitly authorized.
+9. Do not claim dependency closure, cloud synchronization, Recovery Confidence, or production readiness until independently implemented and proven.
 
-Before implementation, inspect existing backup/object-storage contracts and ADRs, then choose the smallest compatible upload design. If the existing storage layer cannot safely support direct streaming, document the precise gap and implement only the prerequisite bounded contract rather than inventing credentials or local staging.
+The first foundation now creates the canonical vault layout, places default recovery points under `Backups/<parent>/<UTC timestamp>__<immutable ID>`, accepts that layout during verification, and records a durable queued cloud-upload job only after verification passes. Next, connect the installed desktop Save action to this bounded local engine and surface local-versus-cloud state without exposing infrastructure controls.
 
 ## Required workflow
 
