@@ -1,184 +1,133 @@
 # ShowVault active continuation handoff
 
-Read this file completely at the start of a new ShowVault development chat. It is the concise authority for the current state and next task.
+Read this file completely at the start of a new ShowVault development chat. It is the concise authority for the current state and next task. Repository code, contracts, tests, migrations, ADRs, and Git history remain authoritative when more specific.
 
-Do not automatically read `README.md` or other long records in full. Use the reference map below to inspect only the sections relevant to the active task. Repository contracts, ADRs, tests, migrations, commits, and implementation remain authoritative when they are more specific than this summary.
-
-## Product goal
+## Product direction
 
 ShowVault is a recovery-first venue-resilience platform:
 
 **Scan → Backup → Verify → Restore**
 
-It must recognize supported venue equipment and software at an unknown venue without pre-entered paths, addresses, models, vendors, or computer specifications. Preserve documented older macOS/Windows compatibility and direct laptop-to-device Ethernet as product boundaries.
+The customer desktop experience must be simple:
+
+**Install → Sign in → Scan this computer**
+
+There is no customer-facing Agent installation, enrollment code, service setup, or personal-Keychain workflow. The desktop app must not persist scan results or backup packages locally. Exact source paths may exist only transiently in memory while the app checks catalog entries or streams an authorized backup directly to cloud storage. The control plane receives path-free metadata.
+
+The implementation remains venue-neutral and cross-platform. LIV nightclub is the intended first venue deployment, not a source of build-time assumptions or current test data. Use only the Product Owner's Mac and other explicitly authorized controlled equipment until the readiness gates pass.
 
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/prototype-readiness-baseline`
-- Latest completed feature: `7e04e74 feat: scan catalog applications on personal computers`
-- Latest research decision: `fe264ac docs: defer unsafe Crest Audio identification`
-- Latest product handoff: the HEAD documentation commit containing this file
-- Expected worktree: clean except intentionally untracked `NEXT_CONVERSATION.md`
-- Verified baseline: venue-neutral prototype-readiness gates are recorded in `docs/PROTOTYPE_READINESS.md`; protocol 1.21 adds the dedicated manager-authorized catalog-only computer scan, and the current personal Mac has exact bounded matches for Resolume Arena's nested application and user-data layout plus Serato DJ Pro and its `_Serato_` library. Full Release tests pass: 2 contracts, 426 Agent, and 7 API; Flutter analysis and all 24 app tests pass. The updated build produced a 50.0 MB universal release `ShowVault.app`, transfer ZIP, and valid SHA-256 checksum for a loopback personal-test endpoint
-- The prior complete baseline also has 28 platform tests passing; repository-wide touched-project formatting and the API Release build pass with 0 warnings and 0 errors, and EF Core reports no pending model changes
-- Blackmagic's official protocol PDF resolves with HTTP 206, was rendered, and its complete zero-byte initial status example was inspected
-- `git diff --check` passes; migration `20260809101018_AddBlackmagicVideohubIdentificationResults` exactly matches the current model
-- One full parallel Agent run had a transient failure in the duplicate-field TCP fixture; the isolated fixture passed immediately, the full 336-test Agent suite passed on rerun, and the complete 7-fixture Blackmagic class passed again after the final validation change
-- Sony projector research rendered the official common protocol manual and inspected its relevant PJLink and SDAP pages; `git diff --check` passed, and no implementation, test, contract, API, migration, or control-plane schema changed
-- During Sony projector research, Sony's CDN returned HTTP 403 to a command-line range request even though the official PDF remained readable through the indexed web document; source validation used the rendered primary-source pages rather than treating the CDN response as missing evidence
-- Runtime tests were not rerun for the Sony projector decision because only documentation changed
-- Sony broadcast-device research inspected the official LMD-1951MD SDCP/SDAP protocol and XVS-9000 product material. The published bounded TCP protocol has no exact model-identity exchange, while the identity-bearing alternative is a privacy-bearing periodic UDP broadcast; XVS material documents NMOS and optional SNMP capability without an exact bounded product-identity contract
-- `git diff --check` passes for the Sony broadcast decision. Both official Sony URLs returned HTTP 403 to command-line requests while remaining readable through Sony's indexed web documents; no runtime tests were rerun because only documentation changed
-- NewTek's official 2026 Automation, Integration & Control PDF was downloaded, rendered, and visually inspected at the HTTP/password and `/version` response pages. It documents exact `TC1` and `TriCaster TC1` identity values and states that web password protection is enabled by default
-- Verified NewTek baseline: 8 focused protocol fixtures, 342 Agent tests, 7 API tests, 23 platform tests, 2 contract tests, 17 Flutter tests, and Flutter analysis pass; Agent and API Release builds pass with 0 warnings and 0 errors
-- `git diff --check` passes; EF Core reports no pending model changes, and migration `20260809102940_AddNewTekTriCasterIdentificationResults` exactly matches the current model
-- AJA broadcast-device research inspected AJA's official REST API repository and IPR-10G-HDMI discovery guidance. The target-bounded GET framework publishes no model-identity parameter with literal product values, while official discovery uses SSDP or mDNS and also references NMOS; generic framework behavior and multicast discovery do not establish exact identity
-- Both official AJA source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, schema, tenant-state, filesystem-discovery, or network-path change. Runtime tests were not rerun because only documentation changed
-- OBS Studio official installation guidance and pinned source establish the standard macOS Applications bundle, native Windows Program Files executable, platform config bases, and separate `basic/profiles` and `basic/scenes` roots. Protocol and schemas are unchanged; detection remains catalog-driven, existence-only, approval-required, and path-free outside the Agent
-- OBS verification: 17 focused local-recovery candidate tests and all 346 Agent tests pass; Agent Release build passes with 0 warnings and 0 errors; `git diff --check` passes; all seven cited official OBS pages/source files returned HTTP 200
-- QLab research established the standard `/Applications/QLab.app` location but no dependable recoverable-workspace root: Figure 53 requires the operator to choose each workspace/project folder and stores automatic backups beside that chosen workspace
-- All three official QLab source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, schema, tenant-state, filesystem-discovery, or network-path change. Runtime tests were not rerun because only documentation changed
-- SCS research established the native `C:\Program Files\SCS 11\scs11.exe` example but no dependable recoverable-show root: cue files and optional portable production folders remain operator-located, while broad Documents and machine-specific device-map data are not authoritative production roots
-- All three official SCS source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, schema, tenant-state, filesystem-discovery, or network-path change. Runtime tests were not rerun because only documentation changed
-- PlaybackPro research found that DT Videolabs directs downloaded PlaybackPro-family applications to Applications but publishes neither an exact stable bundle path for the unversioned catalog row nor a standard playlist/show/media root; playlists reference operator-selected media paths
-- Both official DT Videolabs source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, schema, tenant-state, filesystem-discovery, media-content, or network-path change. Runtime tests were not rerun because only documentation changed
-- Mitti research found that Imimot identifies `Mitti.app` but does not publish a dependable standard installation location; Bundle Playlist creates an operator-named directory at a user-selected location, and the project can continue referencing media at original locations
-- Both official Imimot source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, filesystem-discovery, file-content, media-inspection, or network-path change. Runtime tests were not rerun because only documentation changed
-- ProPresenter uses `showvault.propresenter` and checks only `/Applications/ProPresenter.app`, the native Windows Program Files `Renewed Vision/ProPresenter` directory, and each user's default `Documents/ProPresenter` recovery-data root. Paths and contents remain Agent-local; custom support/workspace locations, cloud-backed redirections, external media, validation, backup, verification, and restore remain unsupported
-- ProPresenter verification: 19 focused local-recovery candidate tests and all 348 Agent tests pass; Agent Release build and touched-file formatting pass with 0 warnings and 0 errors; `git diff --check` passes. The current official download archive and four support pages returned HTTP 200. Renewed Vision's official guide PDF returned HTTP 521 to command-line access while its indexed primary-source contents remained readable; the current official download archive independently confirmed the `ProPresenter.app` bundle identity
-- PVP research found that Renewed Vision directs the macOS application to Applications but publishes no dependable bounded Show or media root. Shows are operator-saved files that exclude media; absolute media paths are operator-selected, and relative media requires an operator-created, operator-located folder
-- All four official Renewed Vision PVP source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, filesystem-discovery, file-content, media-inspection, or network-path change. Runtime tests were not rerun because only documentation changed
-- Pandora's Box Manager is reconciled to the existing `showvault.christie-pandoras-box` candidate for current V8 installation. Christie states that V8 replaced the former separate Manager and other edition licenses with one software license containing the combined feature suite. Candidate existence does not establish activation, enabled Manager capability, legacy standalone Manager licensing, or recovery readiness
-- All three official Christie source URLs returned HTTP 200, `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, filesystem-discovery, file-content, license-inspection, or network-path change. Runtime tests were not rerun because only documentation changed
-- CuePilot research found a macOS Applications workflow but no dependable Windows installed path or bounded local recovery root. Collaborative projects synchronize to CuePilot's cloud; the local SOLO-project path is unpublished; exports are operator-located; and media is selected from arbitrary local paths or optionally uploaded
-- All four official CuePilot help URLs returned HTTP 403 to command-line requests while their indexed primary-source contents remained readable. `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, filesystem-discovery, file-content, account/cloud-access, media-inspection, or network-path change. Runtime tests were not rerun because only documentation changed
-- TinkerList research reconciled the catalog row to the current Cuez by TinkerList product. Its rundown/project workflow is cloud-based; official Automator guidance publishes Windows and macOS downloads but no stable installed executable or bundle path; and downloaded Episode media uses an operator-defined location that may be on another computer or separate storage and may be automatically deleted
-- All four official Cuez/TinkerList source URLs returned HTTP 200. `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, filesystem-discovery, file-content, process inspection, account/cloud-access, media-inspection, or network-path change. Runtime tests were not rerun because only documentation changed
-- PTZOptics research inspected the complete rendered three-page official VISCA command PDF and the current VISCA query reference; neither publishes a manufacturer or model inquiry. The digest-authenticated HTTP device-info endpoint covers Move 4K and Link 4K but publishes only one example containing an editable name, serial/firmware data, and undocumented internal type/model codes
-- All five official PTZOptics source URLs returned HTTP 200. `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, migration, schema, tenant-state, scanner, protocol-fixture, credential, authentication, broadcast/multicast, real-device, raw-response, or network-path change. Runtime tests were not rerun because only documentation changed
-- Protocol 1.16 adds separately authorized BirdDog P200 A4/A5 identification against at most 32 responders retained by one completed discovery. The Agent sends only `GET /version` on TCP 8080 with a 100-500 ms timeout, caps the body at 64 bytes, and accepts only the exact official `BirdDog P200A4_A5` response with an optional terminal LF/CRLF
-- BirdDog results have independent tenant-scoped pending/completed/failed persistence, exact command/discovery correlation, migration `20260809211327_AddBirdDogIdentificationResults`, an owner-authorized API endpoint, and a native dashboard action. Addresses and raw bytes remain Agent-local; only counts and `BirdDog P200 (A4/A5)` reach the control plane
-- BirdDog verification: 361 Agent tests, 7 API tests, 24 platform tests, 2 contract tests, and 18 Flutter tests pass; Flutter analysis passes; Agent and API Release builds pass with 0 warnings and 0 errors; EF Core reports no pending model changes; `git diff --check` passes; and the official API URL returned HTTP 200
-- Protocol 1.17 adds separately authorized Panasonic AW-UE150A and AW-UE100 identification against at most 32 responders retained by one exact completed discovery. The Agent sends only Panasonic's official read-only `GET /cgi-bin/aw_cam?cmd=QID&res=1` on TCP 80, uses a 100-500 ms timeout, caps headers and the 64-byte body, disables proxies and redirects, and accepts only exact `OID:AW-UE150A` or `OID:AW-UE100` with an optional terminal LF/CRLF
-- Panasonic camera state has independent tenant-scoped pending/completed/failed persistence, exact command/discovery correlation, migration `20260809212601_AddPanasonicCameraIdentificationResults`, an owner-authorized API endpoint, and a native dashboard action. Addresses and raw bytes remain Agent-local; only counts and the exact allowlisted product names reach the control plane
-- Panasonic verification: 16 focused protocol fixtures, 377 Agent tests, 7 API tests, 25 platform tests, 2 contract tests, and 19 Flutter tests pass; Flutter analysis and repository-wide Agent formatting pass; Agent and API Release builds pass with 0 warnings and 0 errors; EF Core reports no pending model changes; `git diff --check` passes; and all three cited official Panasonic URLs returned HTTP 200
-- The first Panasonic fixture run exposed an encoded `%3F` in the request target; URI construction was corrected to send the exact documented query, after which all focused and full suites passed
-- One parallel API Release build encountered a transient shared contracts-DLL file lock while the Agent Release build was using the same output; the API Release build passed immediately when rerun serially with 0 warnings and 0 errors
-- Protocol 1.18 adds separately authorized Sony BRC-X400/X401, SRG-X400/X402/201M2/X120/HD1M2, and SRG-A40/A12 identification against at most 32 responders retained by one exact completed discovery. The Agent sends only Sony's official read-only `GET /command/inquiry.cgi?inq=system` on TCP 80 with the documented same-host `Referer`, uses a 100-500 ms timeout, caps headers and the privacy-bearing grouped response at 16,384 bytes, disables proxies and redirects, and accepts exactly one case-sensitive allowlisted `ModelName`
-- Sony camera state has independent tenant-scoped pending/completed/failed persistence, exact command/discovery/Agent correlation, migration `20260809213408_AddSonyCameraIdentificationResults`, an owner-authorized API endpoint, and a native dashboard action. Addresses and raw responses remain Agent-local; only bounded counts and exact allowlisted product names reach the control plane
-- Sony verification: 21 focused protocol fixtures, 398 Agent tests, 7 API tests, 26 platform tests, 2 contract tests, and 20 Flutter tests pass; Flutter analysis and repository-wide Agent/API formatting pass; Agent and API Release builds pass with 0 warnings and 0 errors; EF Core reports no pending model changes; and `git diff --check` passes
-- Both official Sony CGI manual URLs returned HTTP 403 to command-line HEAD requests while remaining readable through Sony's indexed web documents. The implementation uses only the exact read-only system inquiry and published literals; it never sends credentials or retries a 401, and synthetic HTTP fixtures only were used
-- Protocol 1.19 adds separately authorized Allen & Heath Qu-16, Qu-24, Qu-32, Qu-Pac, and Qu-SB identification against at most 32 responders retained by one exact completed discovery. The Agent sends one official read-only MIDI-over-TCP Get System State SysEx request on TCP 51325 with the Qu-Pad flag unset, uses a 100-500 ms timeout, reads at most 64 bytes, tolerates Active Sensing, and requires the complete vendor/product/version-shaped reply plus an exact allowlisted `BoxID`
-- Allen & Heath Qu state has independent tenant-scoped pending/completed/failed persistence, exact Agent/proposal/discovery/identification correlation, migration `20260809220458_AddAllenHeathQuIdentificationResults`, an owner-authorized API endpoint, and a native dashboard action. Addresses and raw bytes remain Agent-local; only bounded counts and exact allowlisted product names reach the control plane
-- Allen & Heath verification: 14 focused protocol fixtures, 412 Agent tests, 7 API tests, 27 platform tests, 2 contract tests, and 21 Flutter tests pass; Flutter analysis and repository-wide touched-project formatting pass; Agent and API Release builds pass with 0 warnings and 0 errors; EF Core reports no pending model changes; `git diff --check` passes; and the official protocol PDF returned HTTP 200
-- The Get System State request can cause a Qu mixer to begin transmitting current parameter state. ShowVault closes immediately after the identity reply, caps the total read at 64 bytes, discards all raw response data, and never sends configuration/control messages. One initial parallel test run hit the known shared contracts-DLL lock; serial suites passed. A test assertion was also corrected for System.Text.Json's normal ampersand escaping before the full Agent suite passed
-- DiGiCo research inspected the official current SD/Quantum reference, S-Series guide, legacy iPad technical note, and 4REA4 controller guide. SD/Quantum and S-Series remote-control interfaces must be explicitly enabled and use operator-configured addresses, send/receive ports, and console-specific or user-defined command sets; 4REA4 discovery belongs to software that can alter live configuration and update firmware. None publishes a fixed, bounded read-only request with an exact literal model response
-- All three cited current DiGiCo PDF URLs returned HTTP 200 as `application/pdf`; the relevant SD/Quantum and legacy iPad-note pages were rendered and visually inspected, while the S-Series and 4REA4 guides were checked through their complete searchable primary-source text. `git diff --check` passed, and the privacy/bounded-behavior audit found no executable, test, contract, persistence, API, UI, migration, scanner, credential, broadcast/multicast, real-device, raw-response, or network-path change. Runtime tests were not rerun because only documentation changed
-- Avid research inspected current official ECx, Function Pad, On-Stage, S6L Live Recording, VENUE 8.2 OSC, and EuControl surface guides. ECx is authenticated VNC control and Avid warns that connecting it directly to a larger LAN can destabilize VENUE or disrupt component discovery. VENUE mobile apps and EuControl enumerate compatible devices but publish no discovery wire contract or exact model literals; their displayed device names are editable and EuControl exposes only UI type icons
-- VENUE Link must be enabled and uses an editable E6L name plus matching operator-selectable TCP/UDP ports. VENUE 8.2 OSC connections, names, endpoints, broadcasts, paths, values, triggers, and actions are configurable and control-capable. None of the reviewed interfaces publishes a fixed, bounded read-only exact model exchange
-- All six cited Avid PDF URLs returned HTTP 200 as `application/pdf`; the relevant discovery, network-warning, authentication, control, VENUE Link, OSC, and EuControl pages were rendered and visually inspected. `git diff --check` passed, all temporary PDFs and renders were removed, and the privacy/bounded-behavior audit found no executable, test, contract, persistence, API, UI, migration, scanner, credential, broadcast/multicast, real-device, raw-response, or network-path change. Runtime tests were not rerun because only documentation changed
-- SSL research inspected official Live Remote Surfaces/SOLSA, System Menu, Dante setup, External Control, Network I/O stagebox, Network I/O SDI, Network Options, ipMIDI, and current product/support material. Live discovery publishes no wire contract or exact model literals, requires password plus main-console authorization to connect, and exposes an editable console name. Dante Device Name and the name-derived Network I/O Control ID are also editable
-- SSL Network I/O Controller discovers exact device types but its discovery exchange is undocumented and inseparable in the published software from Dante adapter selection, DDM credentials, device/channel ownership, gain, mute, phantom power, input type, sample-rate conversion, operating level, resets, routing, and firmware workflows. Generic OSC and ipMIDI are control paths, not exact SSL identity contracts; System T likewise relies on generic Dante/NMOS discovery and control
-- All five cited SSL source URLs returned HTTP 200, including the stagebox guide as `application/pdf`. Relevant pages from both official Network I/O manuals were rendered and visually inspected, temporary PDFs and renders were moved to Trash, and `git diff --check` passed. The privacy/bounded-behavior audit found no executable, test, contract, persistence, API, UI, migration, scanner, credential, broadcast/multicast, real-device, raw-response, or network-path change. Runtime tests were not rerun because only documentation changed
-- Protocol 1.20 adds separately authorized standard Behringer WING identification against at most 32 responders retained by one exact completed discovery. The Agent sends only the official five-byte UDP `WING?` information request on port 2222, uses a 100-500 ms timeout, reads at most 257 bytes to enforce a 256-byte reply cap, and requires exactly six printable ASCII fields with fixed `WING`, valid IPv4, non-empty name/serial/firmware, and exact model `ngc-full`
-- Behringer WING state has independent tenant-scoped pending/completed/failed persistence, exact Agent/proposal/discovery/identification correlation, migration `20260809225048_AddBehringerWingIdentificationResults`, an owner-authorized API endpoint, and a native dashboard action. Returned addresses, editable console names, serials, firmware, and raw datagrams remain Agent-local; only bounded counts and exact product name `Behringer WING` reach the control plane
-- Behringer verification: 13 focused UDP fixtures, 425 Agent tests, 7 API tests, 28 platform tests, 2 contract tests, and 22 Flutter tests pass; Flutter analysis and repository-wide touched-project formatting pass; Agent and API Release builds pass with 0 warnings and 0 errors; EF Core reports no pending model changes; and `git diff --check` passes. The current official WING Remote Protocols 3.1 PDF returned HTTP 200 and pages 16, 20, 39, and 141 were rendered and visually inspected. An initial parallel .NET test run hit the known shared contracts-DLL lock; all serial suites passed
-- WING COMPACT/RACK and `wing-bk` remain safe false negatives because the official UDP reply section publishes only `ngc-full` for the standard console; separate read-only system-setting tables were not used to infer the UDP reply mapping. X32/X AIR/FLOW, generic OSC/UDP/AES50/Dante behavior, discovery, broadcasts, port reachability, configuration, control, and recovery support remain unsupported by this network slice. Synthetic fixtures only were used and no real mixer or venue network was contacted
-- Digital Projection was a documentation-only research decision: `git diff --check` passed and both official source links resolved; runtime tests were not rerun because no implementation, test, contract, migration, or build input changed
+- Branch: `codex/personal-catalog-scan-beta`
+- Feature commit: `3ed4bdc feat: scan computers directly without agent enrollment`
+- Expected worktree after the handoff commit: clean except intentionally untracked `NEXT_CONVERSATION.md`
+- Sequential catalog expansion remains paused while prototype readiness advances.
 
-## Current discovery position
+## Completed outcome
 
-- Local application discovery is catalog-driven and checks candidate existence only.
-- Resolved paths remain Agent-local. The control plane receives opaque candidate IDs and bounded product/type/evidence metadata.
-- Installed, recoverable-data, approved, validated, protected, verified, and restored states remain distinct.
-- Existing local catalog coverage includes Resolume, supported DJ applications, disguise Designer, WATCHOUT, Hippotizer, PIXERA, Christie Pandoras Box, TouchDesigner, MadMapper 6, Isadora 4, and bounded Engine OS removable roots.
-- HeavyM, Millumin, and Ventuz automatic detection are deferred because official primary sources do not publish dependable standard application/project roots. Ventana is separately deferred because the catalog label does not resolve to a unique professional playback product.
-- Real venue hardware, installed applications, projects, and removable media remain uninspected unless the Product Owner explicitly authorizes testing.
-- Protocol 1.13 adds a manager-authorized generic projector endpoint and bounded protocol probes. It identifies exact official Christie LX41/LW41, Panasonic PT-DZ770/PT-VW431DEA/PT-RZ470/PT-RW430, Epson QB1000B/QB1000W, and NEC NP-PH3501QL/NP-PH2601QL/NP-PX2000UL/NP-PX2201UL signatures; addresses and raw responses remain Agent-local. Historical PJLink-named Agent storage remains in use for all projector families, and projector-specific completion persistence plus a dashboard action remain unimplemented.
-- Barco PJLink identification is deferred because official documentation does not publish literal manufacturer/model response strings and advises against disabling authentication; generic PJLink support is not treated as Barco identity.
-- Epson's official QB1000 PJLink documentation publishes exact manufacturer response `EPSON` and model responses `EPSON QB1000B` or `EPSON QB1000W`. Only those two case-sensitive pairs are allowlisted; other Epson models and guessed casing remain safe false negatives.
-- Digital Projection identification is deferred. Its official E-Vision 8000i/10000i control workbook gives only `<string>` for the read-only `model.name ?` response, while its UDP discovery example broadcasts privacy-bearing fields and names an unrelated `HIGHLite 660`; neither establishes a target-bounded exact signature for the covered models.
-- NEC identification extends the same manager-authorized projector operation with the fixed read-only Base Model Type request on TCP 7142. Exact checksummed signatures identify only NP-PH3501QL, NP-PH2601QL, NP-PX2000UL, or NP-PX2201UL. The NEC and PJLink probes run concurrently within the existing 100–500 ms per-host timeout against the same maximum 32 authorized responders; no broadcast or separate discovery path is added.
-- Sony projector model identification is deferred. Sony's official common protocol manual fixes the normal PJLink `INF1` response as `SONY`, leaves `INF2` as an unspecified model name, and enables PJLink authentication by default. Its alternative SDAP identity service periodically broadcasts product name, serial number, location, community, and power status. No arbitrary model acceptance, authentication weakening, broadcast listener, scanner change, real-device contact, or support credit was added.
-- Protocol 1.14 adds separately authorized Blackmagic Smart Videohub 16x16 identification against the responders retained by one exact completed discovery. The Agent connects to TCP 9990, sends zero bytes, reads at most 4,096 bytes with a 100-500 ms per-host timeout, and requires the official version 2.3 preamble plus exact model and 16x16 capacity fields. At most 32 hosts are attempted. Addresses remain Agent-local; only counts and `Blackmagic Smart Videohub 16x16` reach the control plane.
-- Blackmagic Videohub state has independent tenant-scoped pending/completed/failed persistence, exact command/discovery correlation, an owner-authorized API endpoint, and a native dashboard action. Other Videohub models, HyperDeck, ATEM hardware, generic port reachability, control, configuration, backup, verification, and restore remain unsupported.
-- The pre-existing `showvault.blackmagic-atem` plugin still validates only ATEM XML state beneath operator-configured local roots and is not network identity evidence.
-- Sony broadcast-device automatic identification is deferred. The official LMD-1951MD SDCP transport exposes target-bounded monitor status/control but no exact model query and literal response; SDAP broadcasts product name with serial, location, community, power, and network fields. Official XVS-9000 material identifies NMOS and optional SNMP support without publishing an exact bounded identity exchange. Projector and PTZ/camera evidence is not reused, and no generic-protocol inference, broadcast listener, scanner, implementation, real-hardware contact, or support credit was added.
-- Protocol 1.15 adds separately authorized NewTek TriCaster TC1 identification against the at most 32 responders retained by one exact completed discovery. The Agent sends only `GET /version` on TCP 80, caps headers and the 16,384-byte XML body, disables proxies and redirects, prohibits DTD processing, and requires HTTP 200 with exactly one `TC1` model and `TriCaster TC1` name. Authentication challenges and other/malformed responses are safe false negatives; documented default credentials are never used and operators are not asked to weaken protection. Addresses and privacy-bearing product/session response fields remain Agent-local; only counts and `NewTek TriCaster TC1` reach the control plane.
-- NewTek TriCaster state has independent tenant-scoped pending/completed/failed persistence, exact command/discovery correlation, an owner-authorized API endpoint, and a native dashboard action. Other models, generic NDI/HTTP reachability, configuration, control, backup, verification, and restore remain unsupported.
-- AJA Video Systems automatic broadcast-device identification is deferred. The official generic REST API documents bounded read-only GET mechanics but says product parameters and descriptors vary and publishes no exact model-identity parameter/literal response for the covered products. Official AJA IP-converter discovery relies on SSDP or mDNS and also references NMOS; no multicast listener, generic-framework inference, credentials, scanner, implementation, real-device contact, or support credit was added.
-- OBS Studio uses `showvault.obs-studio`. Catalog detection checks only `/Applications/OBS.app`, native Windows `Program Files/obs-studio/bin/64bit/obs64.exe`, and each user's standard OBS `basic/profiles` and `basic/scenes` directories. Portable/custom/Steam locations are safe false negatives. Candidate contents, credentials, recordings, media, plugins, and logs are not read; validation, protection, backup, verification, and restore remain unsupported.
-- QLab automatic local detection is deferred. Figure 53 documents the standard Applications location, but workspace/project folders are operator-selected and automatic backups live beside the selected workspace. No `.qlab5` or backup-file search, catalog entry, workstation inspection, or installation/recovery support credit was added.
-- SCS automatic local detection is deferred. Official guidance publishes the native SCS 11 executable but not a fixed cue-file or portable-production root. No `.scs11` search, broad Documents candidate, device-map inference, catalog entry, workstation inspection, or installation/recovery support credit was added.
-- PlaybackPro automatic local detection is deferred. DT Videolabs publishes a general Applications-folder instruction but no exact supported bundle identity or bounded show/playlist/media root. No bundle/file-extension guess, home scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
-- Mitti automatic local detection is deferred. Imimot identifies the bundle but publishes neither a dependable standard installation location nor a bounded project/media root. No Applications-path inference, `.mitti2` search, home/media scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
-- ProPresenter uses `showvault.propresenter`. Catalog detection checks only the official standard macOS Applications bundle, native Windows Renewed Vision Program Files directory, and each user's default `Documents/ProPresenter` recovery-data root. Candidate contents, registration data, preferences, logs, cloud/custom paths, and external media are not read; validation, protection, backup, verification, and restore remain unsupported.
-- PVP automatic local detection is deferred. Renewed Vision documents the Applications folder but no exact fixed bundle path or bounded Show/media root. No bundle or Show-file-extension guess, home/media scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
-- Pandora's Box Manager current V8 installation is already covered by `showvault.christie-pandoras-box`; no duplicate plugin or candidate was added. Activation, enabled capability, legacy Manager editions, project data, validation, protection, backup, verification, and restore remain unsupported.
-- CuePilot automatic local detection is deferred. Official guidance publishes no dependable Windows installed path or bounded local project/media root. No application/cache/path inference, cloud access, export scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
-- TinkerList automatic local detection is deferred. The current product is Cuez by TinkerList; official sources establish a cloud-based project workflow but no stable installed application path or bounded local media root. No executable/service/cache inference, account/cloud access, user-defined media-path scan, catalog entry, workstation inspection, or installation/recovery support credit was added.
-- PTZOptics automatic network identification is deferred. Official VISCA inquiries expose state but no identity, and the authenticated HTTP device-info example does not establish a stable exact model mapping. No credentials, authentication weakening, editable-name/internal-code inference, generic-protocol inference, mDNS/Fleet Manager discovery, privacy-bearing collection, scanner, real-camera contact, or support credit was added.
-- Protocol 1.16 identifies only BirdDog P200 A4/A5 from the exact official REST hardware identifier. Other BirdDog models/revisions, generic NDI/VISCA/ONVIF/HTTP behavior, hostname/serial/firmware collection, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported.
-- Protocol 1.17 identifies only Panasonic AW-UE150A and AW-UE100 from the exact official AW-over-IP `QID` responses. Panasonic projector PJLink evidence remains separate. UE160, UE80/UE50/UE40, and every other model are safe false negatives because their current model examples are inconsistent or no exact literal was allowlisted. Generic AW/HTTP/VISCA/ONVIF/NDI behavior, camera titles, versions, credentials, authentication weakening, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported.
-- Protocol 1.18 identifies only Sony BRC-X400/X401, SRG-X400/X402/201M2/X120/HD1M2, and SRG-A40/A12 from exact official CGI `ModelName` values. The grouped system response is capped and discarded after parsing; addresses and matches persist only in Agent-local SQLite. Credentials are never sent and 401 responses are safe false negatives. Other models, duplicate/conflicting fields, generic CGI/VISCA/ONVIF/NDI/HTTP behavior, projector/broadcast evidence, camera names, serials, versions, authentication weakening, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported.
-- Protocol 1.19 identifies only Allen & Heath Qu-16, Qu-24, Qu-32, Qu-Pac, and Qu-SB from the exact official MIDI-over-TCP Get System State reply and allowlisted `BoxID`. SQ/SQ+, CQ, AHM, Avantis, dLive, iLive, GLD, generic MIDI/TCP behavior, device-discovery broadcasts, Dante/AES67/mDNS evidence, configuration, control, validation, backup, verification, and restore remain unsupported by this network slice. The existing exact-root SQ show recovery capability remains separate and is not network identity evidence.
-- DiGiCo automatic network identification is deferred because the official control paths are operator-enabled/configured and no fixed, read-only exact model exchange is published. Generic TCP/OSC/MIDI, Dante, Optocore, controller discovery, broadcasts, default addresses, ports, and reachability are not identity evidence. Existing exact-root SD/Quantum `.ses` recovery remains separate; no DiGiCo network support is credited.
-- Avid automatic network identification is deferred because official VENUE and EUCON discovery is undocumented at the wire level and the published interfaces expose control-capable workflows, editable names, UI type icons, configurable endpoints, optional broadcasts, and credentials without a fixed read-only exact model response. Generic EUCON, VENUE Link, VNC, OSC, AVB, Dante, discovery, names, icons, broadcasts, ports, and reachability are not identity evidence. Existing VENUE recovery remains a separate deferral; no Avid network support is credited.
-- SSL automatic network identification is deferred because official Live/SOLSA and Network I/O discovery are undocumented at the wire level and lead into authenticated or ownership-bearing control workflows. Editable console/Dante names, derived Control IDs, device-list labels, generic TCP/UDP, OSC, MIDI, Dante, MADI, System T/NMOS, discovery, default ports, and reachability are not identity evidence. Existing exact-root SSL Live `.show` recovery remains separate; no SSL network support is credited.
-- Protocol 1.20 identifies only the standard Behringer WING console from the exact official five-byte UDP `WING?` request on port 2222 and exact `ngc-full` reply field. The privacy-bearing IP/name/serial/firmware fields and raw datagram remain Agent-local. WING COMPACT/RACK, `wing-bk`, X32/X AIR/FLOW, altered fields, generic OSC/UDP/AES50/Dante behavior, broadcast/multicast discovery, configuration, control, validation, backup, verification, and restore remain unsupported by this network slice. Existing exact-root WING `.show` folder recovery remains separate.
-- Soundcraft automatic network identification is deferred. Official ViSi Remote material documents automatic HiQnet discovery but not its wire exchange or exact literal online model replies, and selecting a result opens live mixer control. Generic HARMAN HiQnet discovery uses UDP broadcast, omits Soundcraft-specific device details, and exposes configurable fields; the Ui24R web server is the full control application with credential-protected configuration, not a bounded identity endpoint. No scanner, contract, persistence, API, UI, migration, tests, credentials, access-control changes, broadcast listener, real-hardware contact, or network support credit were added. Existing exact-root Vi showfolder recovery remains separate.
-- Tascam automatic network identification is deferred. Official Sonicview Control and TASCAM IO CONTROL use UPnP multicasting for discovery, show editable names, and proceed into administrator login plus live control/configuration without publishing exact discovery replies. The fixed read-only TELNET `INFORMATION REQUEST` is shared by the DA-6400/DA-6400dp and SS-CDR250N/SS-R250N families and returns only four software-version digits, not a manufacturer or model literal. No scanner, contract, persistence, API, UI, migration, tests, TELNET session, credentials, blank/default-password reliance, multicast listener, real-hardware contact, or network support credit were added. Existing exact-root Model-series `MTR` song recovery remains separate.
-- Crest Audio automatic network identification is deferred. Official PCX material shows a refresh-driven IP device list inside software that uploads/downloads presets and controls device settings and live DSP, but publishes no discovery exchange or exact literal model reply. Official Ci/NexSys material exposes operator-editable IP addresses and amplifier IDs with full amplifier control/monitoring, again without a fixed read-only product-identity response. No scanner, contract, persistence, API, UI, migration, tests, credentials, control session, broadcast listener, real-hardware contact, or network support credit were added. Existing exact-root Peavey MediaMatrix NWare `.npa` recovery and Crest's separate local-configuration deferral remain unchanged.
-- Sequential catalog expansion is paused. Prototype readiness is venue-neutral: LIV nightclub is the intended first venue deployment, not a pilot, test environment, or source of build-time assumptions. All readiness validation stays on personal or otherwise controlled equipment until the six readiness gates pass.
-- The macOS operator application now has a reproducible personal-test packaging script at `apps/showvault_app/packaging/macos/build-app.sh`. It creates `ShowVault.app`, a transfer ZIP, and `SHA256SUMS`; it permits HTTPS or loopback HTTP only and embeds no venue data or client secret. The generated app is deliberately ad hoc signed and unnotarized, so it is not authorized for venue installation.
-- Protocol 1.21 adds **Scan this computer** to native onboarding. The API accepts only a manager-authorized command for one active Agent, and the Agent executes `CollectCatalogApplications`, which checks only the approved registry. Exact paths remain Agent-local; the control plane receives opaque IDs plus bounded product/type/evidence metadata. This command does not collect machine identity, disks, network interfaces, subnet proposals, unrelated applications, or file contents.
-- The authorized personal-Mac check found `/Applications/Resolume Arena/Arena.app`, the standard Resolume Arena user-data root, `/Applications/Serato DJ Pro.app`, and the standard `_Serato_` library. The previous direct `/Applications/Resolume Arena.app` rule did not match the installed current layout, so the macOS registry and cross-platform fixtures now use the exact nested Arena/Avenue bundle structure. No unrelated application list was collected.
-- `docs/INTEGRATION_CATALOG.md` is the authoritative first-prototype testing matrix.
+- The native app now has a single uncluttered customer screen: **This computer**, **Cloud connected**, **Scan this computer**, detected systems, and sign out.
+- The visible Agent installation, one-time enrollment, Venue Agent selector, recovery workflow controls, placeholder navigation, search, and notification controls are removed.
+- macOS and Windows Auth0 sessions are held in application memory only. ShowVault does not write its operator session to the macOS login Keychain; relaunch requires sign-in.
+- `LocalCatalogScanner` checks only exact catalog-defined candidates. It does not enumerate installed applications, directories, disks, networks, machine identity, or file contents.
+- The current direct beta registry checks Resolume Arena and Serato DJ Pro application/user-data candidates on macOS and Windows.
+- The app submits only opaque candidate keys to the authenticated manager-only `POST /api/v1/organizations/{organizationId}/venues/{venueId}/computer-scans` endpoint.
+- The server independently allowlists every accepted key and maps it to bounded product/type/evidence metadata. Unknown keys, paths, and oversized requests are rejected.
+- Direct scan headers and candidates are stored in the cloud database. An empty newer scan correctly supersedes older results.
+- Direct detections appear as **Detected** and cannot enter the legacy Agent approval/backup controls.
+- Legacy Agent protocol 1.21 remains in the repository only as compatibility infrastructure; it is not part of the customer desktop onboarding flow.
+- Product documentation now states that the future backup path must stream source bytes directly to cloud storage without a local backup package or local scan database.
 
-## Next bounded objective
+## Installed personal-Mac evidence
 
-Run the first installed protocol 1.21 catalog-only beta scan on the Product Owner's current Mac using the updated operator-app and Agent artifacts. First determine whether the existing local control-plane database and enrolled personal Agent from the earlier recovery-loop proof are reusable. If they are, launch the updated components, authorize **Scan this computer**, and verify that path-free results show Resolume Arena and Serato DJ Pro candidates. If they are not reusable, implement the smallest missing venue-neutral enrollment/onboarding step needed for this personal Mac before scanning. Do not use venue equipment or data.
+- Final app artifact: `/tmp/showvault-macos-direct-scan-beta-20260809-v5/ShowVault.app`
+- Transfer ZIP: `/tmp/showvault-macos-direct-scan-beta-20260809-v5/ShowVault-macos.zip`
+- ZIP SHA-256: `dd7fbb4acca83b54170d62add17e0bc23ce0c5fefaa3145270fea7ed5e2ef716`
+- App version/build: `0.1.0 (1)`
+- Bundle ID: `com.showvault.app`
+- Architecture: universal `x86_64` + `arm64`
+- Signing: ad hoc, not notarized; personal attended testing only
+- Test Mac: macOS 26.3 build 25D125
+- Control plane: local Production-mode API at `http://127.0.0.1:5000` backed by local PostgreSQL
+- Final verified scan ID: `bfa3b857-9a7e-46fb-9bbb-a800599c268a`
+- Scan result: completed with three candidates—Resolume Arena installed application, Serato DJ Pro installed application, and Serato DJ Pro user-data root
+- Database privacy check: candidate count 3; no `/` separator in any stored candidate key or evidence field
+- No Keychain, filesystem permission, or security prompt appeared during the final direct scan.
 
-Required boundaries:
+Do not copy exact local source paths into control-plane evidence or future documentation. The test above intentionally records only path-free product/type results.
 
-- Keep the test bundle, configuration, evidence, and instructions venue-neutral; no LIV nightclub name, credentials, paths, addresses, topology, or equipment data may appear.
-- Use the updated loopback personal-test app artifact at `/tmp/showvault-macos-catalog-scan-beta-20260809` and Agent package at `/tmp/showvault-agent-catalog-scan-beta-20260809`; verify the app ZIP against SHA-256 `ae4c235f797e41093f607306e63e140d920ffd3daec0802308e09ce449238fa9` before use.
-- The scan must execute `CollectCatalogApplications`, not the broader legacy `CollectSystemInventory`; do not collect disks, machine identity, network interfaces, subnet proposals, unrelated applications, or file contents.
-- Confirm that only catalog product/type/evidence metadata reaches the control plane and UI, while exact paths remain Agent-local.
-- Record the exact app/Agent versions, bundle/architecture, macOS version, control-plane environment, command ID, completion status, and detected catalog products without recording credentials or local paths in control-plane evidence.
-- Use only a controlled personal-test account and control plane. Never embed or record Auth0 credentials, tokens, enrollment codes, or client secrets.
-- Treat Gatekeeper rejection as expected for this explicitly personal-test artifact. Do not weaken system-wide security; use a narrow attended open only on this authorized personal Mac.
-- Do not claim signing, notarization, clean-machine installation, venue readiness, or full prototype readiness until the corresponding evidence exists.
+## Verification baseline
+
+- Flutter analysis: no issues
+- Flutter tests: 26 passed
+- Contracts tests: 2 passed
+- Agent tests: 426 passed
+- Platform tests: 28 passed
+- API tests: 8 passed
+- EF Core migrations `20260810003349_AddDesktopCatalogScanCandidates` and `20260810003907_AddDesktopCatalogScans` are applied to the local database
+- EF Core pending-model check: no pending changes
+- macOS release build: 49.0 MB universal app
+- ZIP checksum matches `SHA256SUMS`
+- `git diff --check`: passes
+
+## Safety boundaries
+
+- Never request or approve access to the user's personal login Keychain for ShowVault.
+- Never store Auth0 credentials, tokens, enrollment codes, client secrets, exact source paths, scan databases, or backup packages on the customer computer.
+- Never enumerate unrelated installed applications, arbitrary directories, disks, networks, or machine identity.
+- Detection is not backup, verification, restore, or recovery readiness. Preserve those states separately.
+- Do not weaken Gatekeeper or system-wide security for the ad hoc personal-test build.
+- Do not claim notarization, clean-machine installation, Windows runtime readiness, venue readiness, or complete recovery readiness without direct evidence.
+- Do not use venue equipment, networks, credentials, paths, topology, or data without new explicit authorization.
+
+## Exact next bounded objective
+
+Implement the smallest direct-to-cloud backup vertical slice for a detected **UserDataRoot** candidate, beginning with Serato DJ Pro on the controlled personal Mac.
+
+The design must satisfy all of these acceptance boundaries:
+
+1. The desktop app resolves the exact catalog path only in memory after the user explicitly starts backup.
+2. The API authorizes the tenant, venue, candidate, and backup attempt and issues only short-lived, least-privilege upload capability; do not add an Agent/enrollment dependency.
+3. The app streams files directly from the exact allowlisted root to cloud object storage. It must not create a local archive, staging directory, scan database, resume database, or plaintext manifest.
+4. Cloud metadata must use normalized relative logical names, hashes, sizes, and bounded status—not absolute local paths.
+5. Apply strict containment, symlink, file-count, per-file-size, total-byte, timeout, cancellation, and mutation/error rules before reading contents.
+6. Do not read file contents during detection. Content reads begin only after the explicit backup action and authorization.
+7. The first slice must remain venue-neutral and use only synthetic fixtures plus the Product Owner's explicitly authorized personal Serato data when runtime testing is reached.
+8. Add tests for tenant authorization, key allowlisting, containment, path privacy, no local artifacts, interrupted uploads, and an empty/changed source.
+9. Do not claim verification or restore until independently implemented and proven.
+
+Before implementation, inspect existing backup/object-storage contracts and ADRs, then choose the smallest compatible upload design. If the existing storage layer cannot safely support direct streaming, document the precise gap and implement only the prerequisite bounded contract rather than inventing credentials or local staging.
 
 ## Required workflow
 
-1. Inspect Git status, recent commits, and task-relevant code, tests, contracts, migrations, and documentation.
-2. Preserve unrelated changes and untracked files.
-3. Announce one bounded outcome before changing files.
-4. Research official primary sources autonomously; use Chrome only when the Product Owner or current task explicitly requires Chrome.
-5. Create a new `codex/` branch for the slice.
-6. Implement the smallest safe vertical slice or document the evidence-backed deferral.
-7. Run focused verification and the relevant regression baseline. Avoid noisy output when a quiet equivalent is sufficient.
-8. Review the final diff for privacy, bounded behavior, tenant isolation, and accidental file-content or network access.
-9. Commit the feature or research decision separately.
-10. Update this file with current branch, commits, verification, limitations, and the exact next task; commit that handoff separately.
+1. Read this file and inspect Git status and recent commits.
+2. Preserve unrelated changes and keep `NEXT_CONVERSATION.md` untracked.
+3. State one bounded outcome before material changes.
+4. Inspect only task-relevant code, tests, contracts, migrations, ADRs, and documentation.
+5. Continue on the current branch for this handoff; create a new `codex/` branch for a genuinely new slice.
+6. Prefer the smallest safe venue-neutral vertical slice.
+7. Use synthetic fixtures by default and personal equipment only when explicitly authorized.
+8. Run focused checks, then the relevant full regression, build, migration-model, checksum, and diff checks.
+9. Audit privacy, tenant isolation, authorization, path containment, accidental local persistence, and content/network behavior.
+10. Commit implementation and handoff documentation separately.
+11. Refresh this file after completing the bounded task and keep `NEXT_CONVERSATION.md` copy/paste-ready but untracked.
 
-## Communication and context policy
+## Preferences
 
-- Give concise progress updates only at meaningful milestones, each with an explicit next step.
-- Exact context-window usage is unavailable. Do not invent escalating percentages or end a healthy chat solely because of an estimate.
-- In the final response, state that context is unmeasured and recommend a new chat only when the platform signals pressure, automatic compaction has materially degraded working state, or the thread has become demonstrably unwieldy.
-- Let automatic compaction preserve continuity when it occurs. Refresh this handoff once per completed bounded task, not repeatedly at guessed thresholds.
-- Final responses must report outcome, safety boundaries, exact verification, feature/research and handoff commits, limitations, next task, and intentionally untouched files.
+- Always call the intended first venue LIV nightclub, never Live Nightclub.
+- Keep the customer experience plain and obvious; avoid exposing infrastructure concepts.
+- Keep macOS and Windows as product requirements even when current runtime evidence is macOS-only.
+- Act autonomously on safe, in-scope work and make evidence-backed assumptions.
+- Use official primary sources for protocol/product claims.
+- Communicate concise outcome-first progress updates at meaningful milestones.
+- Exact conversation-context usage is unavailable; do not invent percentages.
 
 ## Reference map
 
-Consult these only as needed:
-
-- `README.md` — long-form product architecture, completed milestones, and historical branch ledger.
-- `docs/AUTOMATIC_DISCOVERY.md` — detailed discovery design, protocol behavior, and official-source decisions.
-- `docs/INTEGRATION_CATALOG.md` — authoritative prototype product/testing matrix.
-- `docs/adr/` — approved architectural decisions.
-- `services/contracts/` — Agent/control-plane protocol authority.
-- Relevant implementation, tests, migrations, and Git history — most specific behavioral authority.
+- `docs/PROTOTYPE_READINESS.md` — venue-neutral readiness gates and direct desktop boundary
+- `docs/SYSTEM_INVENTORY_PLUGIN.md` — direct app scan versus legacy Agent compatibility
+- `docs/AUTOMATIC_DISCOVERY.md` — discovery and identification safety decisions
+- `docs/INTEGRATION_CATALOG.md` — authoritative catalog/testing matrix
+- `docs/adr/` — architecture decisions
+- `services/contracts/`, `services/api/`, `services/platform/` — control-plane authority
+- `apps/showvault_app/` — customer desktop implementation
