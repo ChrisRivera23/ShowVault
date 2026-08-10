@@ -230,7 +230,9 @@ class LocalRestoreService {
       throw const LocalRestoreException('A restore target is required.');
     }
     final absolute = Directory(requestedPath).absolute.path;
-    final name = absolute.split(Platform.pathSeparator).last;
+    final name = Platform.isWindows
+        ? WindowsLocalPathPolicy.finalSegment(absolute)
+        : absolute.split(Platform.pathSeparator).last;
     if (name.isEmpty || name == '.' || name == '..') {
       throw const LocalRestoreException('The restore target name is unsafe.');
     }
@@ -501,7 +503,10 @@ class LocalRestoreService {
     var count = 0;
     await for (final entry in Directory(path).list(followLinks: false)) {
       count++;
-      if (count > 1 || entry.path != expectedChild) return false;
+      final matchesExpected = Platform.isWindows
+          ? WindowsLocalPathPolicy.sameCanonicalPath(entry.path, expectedChild)
+          : entry.path == expectedChild;
+      if (count > 1 || !matchesExpected) return false;
       if (await FileSystemEntity.type(entry.path, followLinks: false) !=
           FileSystemEntityType.directory) {
         return false;

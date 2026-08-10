@@ -53,6 +53,19 @@ void main() {
       );
     });
 
+    test('extracts the final segment from either Windows separator', () {
+      expect(
+        WindowsLocalPathPolicy.finalSegment(
+          r'C:\Users\runneradmin/AppData/Local/Temp/restored',
+        ),
+        'restored',
+      );
+      expect(
+        WindowsLocalPathPolicy.finalSegment(r'D:/Vault\empty-target'),
+        'empty-target',
+      );
+    });
+
     test('contains only exact path segments on the same drive', () {
       expect(
         WindowsLocalPathPolicy.isWithin(

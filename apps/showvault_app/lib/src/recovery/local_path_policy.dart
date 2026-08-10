@@ -30,6 +30,9 @@ class WindowsLocalPathPolicy {
   static bool sameCanonicalPath(String left, String right) =>
       _normalize(left) == _normalize(right);
 
+  static String finalSegment(String value) =>
+      value.replaceAll('/', r'\').split(r'\').last;
+
   static bool isWithin(String candidate, String root) {
     final normalizedCandidate = _normalize(candidate);
     final normalizedRoot = _normalize(root);
