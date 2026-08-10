@@ -114,4 +114,3 @@ Before a milestone is proposed for integration:
 6. Keep synthetic fixtures and local execution as the default. Remote branches,
    PRs, workflow dispatch, and controlled equipment remain separately
    authorized actions.
-
