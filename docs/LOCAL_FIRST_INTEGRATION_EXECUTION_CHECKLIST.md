@@ -67,6 +67,8 @@ This stage is remote and is not currently authorized by this checklist.
 
 - [ ] Read `PR_3_24_LOCAL_DEPENDENCY_LEDGER.md` and reproduce its 22-branch,
       32-commit, 237-file local topology.
+- [ ] `dart run tool/verify_pr_dependency_ledger.dart` returns its bounded
+      verified result before any live-state authorization is requested.
 - [ ] Obtain approval to review and integrate PRs #3–#24.
 - [ ] Refresh the actual default branch and PR state only after that approval.
 - [ ] Process PRs #3–#24 in dependency order.

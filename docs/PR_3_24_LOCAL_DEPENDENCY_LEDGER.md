@@ -18,7 +18,7 @@ actual repository before acting.
 - Final documented stack ref: `origin/codex/yamaha-dme5-dme3` at `254cbbf`
 - Branches: 22
 - Commits ahead of local `origin/main`: 32
-- Combined net diff: 237 files, 16,079 insertions, 106 deletions
+- Combined net diff: 237 files, 16,079 insertions, 106 deletions, and 31 binary paths
 - Ancestry: every row's head contains the immediately preceding row's head
 
 The chain is linear locally. That does not make the accumulated stack a safe
@@ -124,7 +124,17 @@ or venue topology.
 
 The topology can be checked without network access by walking the 22 existing
 `origin/codex/*` refs in table order and requiring each previous ref to be an
-ancestor of the next. The final checks are:
+ancestor of the next. Run the bounded verifier from `apps/showvault_app`:
+
+```bash
+dart run tool/verify_pr_dependency_ledger.dart
+```
+
+It validates every recorded head, adjacent ancestry edge, per-row commit/file,
+text-line, and binary-path counts, plus the combined totals. Its JSON output
+contains no ref names or paths and explicitly reports that it read no external
+state and performed no repository mutation. The equivalent final manual checks
+are:
 
 ```bash
 git merge-base --is-ancestor origin/main origin/codex/auth-tenancy-foundation
