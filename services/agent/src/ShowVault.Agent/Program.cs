@@ -176,6 +176,10 @@ builder.Services
                 options.NetworkDiscoveryTargets.Count,
         "Network discovery requires at most 128 unique host:port targets.")
     .Validate(
+        options => string.IsNullOrWhiteSpace(options.VaultDirectory) ||
+            Path.IsPathFullyQualified(options.VaultDirectory),
+        "The vault directory must be an absolute path when configured.")
+    .Validate(
         options => string.IsNullOrWhiteSpace(options.PackageDirectory) ||
             Path.IsPathFullyQualified(options.PackageDirectory),
         "The package directory must be an absolute path when configured.")
@@ -298,6 +302,7 @@ builder.Services.AddSingleton<IProjectorProtocolProbe>(services => new Projector
     [services.GetRequiredService<PjLinkProjectorProbe>(), services.GetRequiredService<NecProjectorProbe>()]));
 builder.Services.AddSingleton<PjLinkNetworkIdentification>();
 builder.Services.AddSingleton<ApprovedSubnetDiscovery>();
+builder.Services.AddSingleton<LocalVaultLayout>();
 builder.Services.AddSingleton<RecoveryPackageWriter>();
 builder.Services.AddSingleton<RecoveryPackageVerifier>();
 builder.Services.AddSingleton<RecoveryPackageRestorer>();

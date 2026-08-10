@@ -742,6 +742,11 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Equal(package.PackageId, verification.PackageId);
         Assert.Equal(64, verification.EvidenceSha256.Length);
         Assert.Contains("\"passed\":true", verification.ResultJson, StringComparison.Ordinal);
+        var uploadJob = Assert.Single(await store.GetCloudUploadJobsAsync(CancellationToken.None));
+        Assert.Equal(package.PackageId, uploadJob.PackageId);
+        Assert.Equal(package.PackagePath, uploadJob.PackagePath);
+        Assert.Equal("queued", uploadJob.Status);
+        Assert.Equal(0, uploadJob.AttemptCount);
         Assert.Single((await store.GetCommandsAsync(
             LocalAgentCommandStatus.Completed,
             CancellationToken.None)), candidate => candidate.CommandId == verifyCommand.CommandId);

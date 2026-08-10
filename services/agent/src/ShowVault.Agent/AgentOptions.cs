@@ -19,6 +19,8 @@ public sealed class AgentOptions
 
     public string? DataDirectory { get; init; }
 
+    public string? VaultDirectory { get; init; }
+
     public string? PackageDirectory { get; init; }
 
     public string? MacOsKeychainPath { get; init; }

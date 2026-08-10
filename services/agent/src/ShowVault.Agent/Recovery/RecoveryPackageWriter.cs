@@ -9,7 +9,8 @@ namespace ShowVault.Agent.Recovery;
 public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private readonly string _packageDirectory = ResolvePackageDirectory(options.Value);
+    private readonly string? _legacyPackageDirectory = ResolveLegacyPackageDirectory(options.Value);
+    private readonly LocalVaultLayout _vault = new(options);
 
     public async Task<CreatedRecoveryPackage> CreateAsync(
         Guid agentId,
@@ -51,9 +52,16 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
             VerificationRecords: []);
         var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions);
         var packageId = Convert.ToHexStringLower(SHA256.HashData(manifestBytes));
-        var packagePath = Path.Combine(_packageDirectory, packageId);
+        if (_legacyPackageDirectory is null)
+        {
+            _vault.EnsureInitialized();
+        }
+        var packagePath = _legacyPackageDirectory is not null
+            ? Path.Combine(_legacyPackageDirectory, packageId)
+            : _vault.GetRecoveryPointPath(discovery.PluginId, createdAt, packageId);
+        var packageDirectory = Path.GetDirectoryName(packagePath)!;
 
-        Directory.CreateDirectory(_packageDirectory);
+        Directory.CreateDirectory(packageDirectory);
         if (Directory.Exists(packagePath))
         {
             await EnsureExistingManifestMatchesAsync(
@@ -63,7 +71,7 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
             return new CreatedRecoveryPackage(packageId, packagePath, manifest);
         }
 
-        var stagingPath = Path.Combine(_packageDirectory, $".staging-{Guid.NewGuid():N}");
+        var stagingPath = Path.Combine(packageDirectory, $".staging-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(
             stagingPath,
             RecoveryPackageFormat.ContentDirectoryName));
@@ -244,19 +252,13 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
         Directory.Delete(stagingPath, recursive: true);
     }
 
-    private static string ResolvePackageDirectory(AgentOptions options)
+    private static string? ResolveLegacyPackageDirectory(AgentOptions options)
     {
         if (!string.IsNullOrWhiteSpace(options.PackageDirectory))
         {
             return Path.GetFullPath(options.PackageDirectory);
         }
 
-        var dataDirectory = string.IsNullOrWhiteSpace(options.DataDirectory)
-            ? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                "ShowVault",
-                "Agent")
-            : Path.GetFullPath(options.DataDirectory);
-        return Path.Combine(dataDirectory, "packages");
+        return null;
     }
 }

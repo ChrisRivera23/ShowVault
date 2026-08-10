@@ -3,6 +3,7 @@ using ShowVault.Agent.Identity;
 using ShowVault.Agent.Communication;
 using ShowVault.Agent.Execution;
 using ShowVault.Agent.Queue;
+using ShowVault.Agent.Recovery;
 using ShowVault.AgentContracts;
 
 namespace ShowVault.Agent;
@@ -15,11 +16,13 @@ public sealed class AgentWorker(
     AgentEventDispatcher eventDispatcher,
     AgentCommandPoller commandPoller,
     AgentCommandExecutor commandExecutor,
+    LocalVaultLayout localVault,
     TimeProvider timeProvider,
     IHostApplicationLifetime applicationLifetime) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        localVault.EnsureInitialized();
         var identity = await identityBootstrapper.GetOrEnrollAsync(stoppingToken);
         if (options.Value.EnrollOnly)
         {

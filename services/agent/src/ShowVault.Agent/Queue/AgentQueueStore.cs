@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
 using ShowVault.Agent.Plugins;
+using ShowVault.Agent.Recovery;
 using ShowVault.AgentContracts;
 
 namespace ShowVault.Agent.Queue;
@@ -10,7 +11,7 @@ namespace ShowVault.Agent.Queue;
 public sealed class AgentQueueStore(IOptions<AgentOptions> options) : IApprovedRecoveryScopeProvider
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private readonly string _connectionString = BuildConnectionString(options.Value.DataDirectory);
+    private readonly string _connectionString = BuildConnectionString(options);
 
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
@@ -60,6 +61,17 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options) : IApprovedR
                 verified_at TEXT NOT NULL,
                 FOREIGN KEY(command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS cloud_upload_jobs (
+                package_id TEXT PRIMARY KEY,
+                package_path TEXT NOT NULL,
+                status TEXT NOT NULL,
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_error TEXT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_cloud_upload_jobs_status
+                ON cloud_upload_jobs(status, created_at);
             CREATE TABLE IF NOT EXISTS recovery_restorations (
                 command_id TEXT PRIMARY KEY,
                 package_id TEXT NOT NULL,
@@ -1112,6 +1124,63 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options) : IApprovedR
             : null;
     }
 
+    public async Task EnqueueVerifiedUploadAsync(
+        string packageId,
+        string packagePath,
+        DateTimeOffset createdAt,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(packagePath);
+        if (packageId.Length != 64 || !packageId.All(Uri.IsHexDigit))
+        {
+            throw new ArgumentException(
+                "A package ID must be a SHA-256 hexadecimal value.",
+                nameof(packageId));
+        }
+
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT OR IGNORE INTO cloud_upload_jobs
+                (package_id, package_path, status, attempt_count, created_at, updated_at)
+            VALUES ($packageId, $packagePath, 'queued', 0, $createdAt, $createdAt);
+            """;
+        command.Parameters.AddWithValue("$packageId", packageId.ToLowerInvariant());
+        command.Parameters.AddWithValue("$packagePath", Path.GetFullPath(packagePath));
+        command.Parameters.AddWithValue("$createdAt", Format(createdAt));
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<StoredCloudUploadJob>> GetCloudUploadJobsAsync(
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT package_id, package_path, status, attempt_count, created_at, updated_at, last_error
+            FROM cloud_upload_jobs
+            ORDER BY created_at, package_id;
+            """;
+        var jobs = new List<StoredCloudUploadJob>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            jobs.Add(new StoredCloudUploadJob(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetInt32(3),
+                DateTimeOffset.Parse(reader.GetString(4), CultureInfo.InvariantCulture),
+                DateTimeOffset.Parse(reader.GetString(5), CultureInfo.InvariantCulture),
+                reader.IsDBNull(6) ? null : reader.GetString(6)));
+        }
+
+        return jobs;
+    }
+
     public async Task StoreRecoveryRestorationAsync(
         Guid commandId,
         string packageId,
@@ -1215,14 +1284,11 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options) : IApprovedR
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    private static string BuildConnectionString(string? configuredDirectory)
+    private static string BuildConnectionString(IOptions<AgentOptions> options)
     {
-        var directory = string.IsNullOrWhiteSpace(configuredDirectory)
-            ? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                "ShowVault",
-                "Agent")
-            : Path.GetFullPath(configuredDirectory);
+        var directory = string.IsNullOrWhiteSpace(options.Value.DataDirectory)
+            ? new LocalVaultLayout(options).UploadQueuePath
+            : Path.GetFullPath(options.Value.DataDirectory);
         Directory.CreateDirectory(directory);
         return new SqliteConnectionStringBuilder
         {
@@ -1263,6 +1329,15 @@ public sealed record StoredPackageVerification(
     string PackageId,
     string ResultJson,
     string EvidenceSha256);
+
+public sealed record StoredCloudUploadJob(
+    string PackageId,
+    string PackagePath,
+    string Status,
+    int AttemptCount,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    string? LastError);
 
 public sealed record StoredRecoveryRestoration(
     string PackageId,

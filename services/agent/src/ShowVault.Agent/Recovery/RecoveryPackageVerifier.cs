@@ -31,10 +31,9 @@ public sealed class RecoveryPackageVerifier
                 structuralIssues.Add("Package directory cannot be a filesystem link.");
             }
 
-            if (!string.Equals(
-                Path.GetFileName(Path.TrimEndingDirectorySeparator(packagePath)),
-                expectedPackageId,
-                StringComparison.Ordinal))
+            var directoryName = Path.GetFileName(Path.TrimEndingDirectorySeparator(packagePath));
+            if (!string.Equals(directoryName, expectedPackageId, StringComparison.Ordinal) &&
+                !directoryName.EndsWith($"__{expectedPackageId}", StringComparison.Ordinal))
             {
                 structuralIssues.Add("Package directory name does not match the expected package ID.");
             }

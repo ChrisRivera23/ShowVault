@@ -887,6 +887,15 @@ public sealed class AgentCommandExecutor(
             }
         }
 
+        if (result.Passed)
+        {
+            await queueStore.EnqueueVerifiedUploadAsync(
+                package.PackageId,
+                package.PackagePath,
+                command.IssuedAt,
+                cancellationToken);
+        }
+
         await RecordOutcomeAsync(
             identity,
             command,
