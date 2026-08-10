@@ -79,6 +79,8 @@ Host reboot, Authenticode trust/distribution signing, commercial Auth0 session e
 
 ## Manual Windows-native CI bridge
 
+The safe default-branch strategy is specified in `docs/WINDOWS_EVIDENCE_INTEGRATION_PLAN.md`.
+
 `.github/workflows/windows-evidence.yml` provides a manually dispatched `windows-2025` bridge when a physical controlled Windows build machine is unavailable. It grants only `contents: read`, uses pinned checkout/Flutter/upload action revisions and Flutter 3.44.8 x64, contains no secret references, has no push or pull-request trigger, and retains the synthetic artifact for 14 days.
 
 The workflow verifies the Windows toolchain and Inno Setup presence, runs analysis and the complete Flutter suite (including the NTFS-junction test), builds the normal current-user package, executes the silent installed replacement proof, independently checks both `SHA256SUMS` files, requires callback-registration and owned-fixture cleanup, and uploads only checksummed package/evidence files.

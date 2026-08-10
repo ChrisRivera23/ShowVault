@@ -260,6 +260,7 @@ The next slice must satisfy these boundaries:
 - `docs/INSTALLED_RESILIENCE_MATRIX.md` — installed release command-mode gates, scenario matrix, path-free evidence, and limitations
 - `docs/UPGRADE_AND_SUPPORT_DIAGNOSTICS.md` — diagnostic schema/boundary, upgrade/removal semantics, installed replacement evidence, and limitations
 - `docs/WINDOWS_PACKAGING_AND_EXECUTION.md` — Windows package boundary, local-path rules, installed-proof procedure, current blocker, and claim limits
+- `docs/WINDOWS_EVIDENCE_INTEGRATION_PLAN.md` — one-file default-branch evidence bridge and separate accumulated product-integration path
 - `docs/LOCAL_ATTENDED_RESTORE.md` — offline attended restore, staging, verification, cleanup, evidence, and limitations
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` — customer identity, licensing, subscription, portal, and Admin-console structure
 - `docs/SYSTEM_INVENTORY_PLUGIN.md` — direct app scan versus legacy Agent compatibility
