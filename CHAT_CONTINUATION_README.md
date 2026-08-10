@@ -24,6 +24,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Branch: `codex/local-first-vault`
 - Local-first vault foundation commit: `bc53f4b feat: establish local-first vault foundation`
 - Offline desktop Save commit: `85b3e92 feat: save desktop recovery points offline`
+- Desktop permission/rehydration commit: `07e6e62 feat: authorize and rehydrate local vaults`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
 - Navigation/no-login beta commit: `eea1d45 feat: restore navigation and add guarded no-login beta`
 - Expected worktree after the handoff commit: clean except intentionally untracked `NEXT_CONVERSATION.md`
@@ -48,6 +49,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - A passing local structural/cryptographic verification creates exactly one idempotent queued cloud-upload job. Failed or unverified packages are not queued; synchronization execution is not implemented yet.
 - The Flutter dashboard keeps Scan and Save usable while signed out or the API is unavailable. Cloud submission is best-effort and cannot erase local findings.
 - An explicit desktop Save resolves only an opaque allowlisted `UserDataRoot` key after confirmation, rejects links and unsafe entries, enforces count/size/timeout/cancellation/mutation rules, streams and independently verifies SHA-256 content, publishes atomically, and writes a JSON upload-queue job only after verification.
+- Native macOS and Windows directory selectors now sit behind one Dart access contract. Source authorization requires an exact canonical match to the catalog root; vault authorization is configurable and session-scoped.
+- **Open local vault** performs a bounded inspection of ShowVault-owned manifests, package manifests, and queue records, verifies manifest identity and equality, and restores independent local/cloud status without rescanning a source.
 - The API returns the already stored opaque candidate key to the authorized desktop; tests prove the key and evidence remain path-free.
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` records the recommended commercial structure: desktop app, customer web portal, and private ShowVault Admin web console; branded ShowVault authentication backed by Auth0; Stripe one-time license plus recurring tiers; and no staff access to customer passwords.
 
@@ -69,17 +72,26 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 
 Do not copy exact local source paths into control-plane evidence or future documentation. The test above intentionally records only path-free product/type results.
 
+## Installed synthetic permission/restart evidence
+
+- A release-mode macOS build used the compile-time `SHOWVAULT_SYNTHETIC_FIXTURE_HOME` isolation seam. Synthetic mode redirects catalog user-data roots and suppresses real installed-application candidates; normal builds omit the define.
+- The native picker selected the exact synthetic Serato-shaped source and a separate synthetic vault. Save produced two copied fixture files, matching package/independent manifests, and one queued JSON record.
+- The independent manifest filename matched its SHA-256 digest.
+- After terminating and relaunching the app, **Open local vault** restored `1 verified • 1 cloud queued` without running Scan.
+- The final normal release build was rebuilt without the synthetic define. It is a 49.9 MB universal app, and its signed entitlements include `com.apple.security.files.user-selected.read-write`.
+- No real `Documents/ShowVault Pro` vault was created and no personal source permission was granted. A preliminary shell-`HOME` isolation attempt was canceled when macOS retained the real home context; no Save occurred. This is why installed drills must use the compile-time synthetic fixture seam rather than shell environment redirection.
+
 ## Verification baseline
 
 - Flutter analysis: no issues
-- Flutter tests: 36 passed
+- Flutter tests: 44 passed
 - Contracts tests: 2 passed
 - Agent tests: 429 passed
 - Platform tests: 28 passed
 - API tests: 15 passed, including exact beta-token and Development/configuration/loopback guard coverage
 - EF Core migrations `20260810003349_AddDesktopCatalogScanCandidates` and `20260810003907_AddDesktopCatalogScans` are applied to the local database
 - EF Core pending-model check: no pending changes
-- macOS release build: 49.6 MB universal `x86_64` + `arm64` app; ad hoc signed
+- macOS release build: 49.9 MB universal `x86_64` + `arm64` app; ad hoc signed with sandbox user-selected read/write access
 - ZIP checksum matches `SHA256SUMS`
 - `git diff --check`: passes
 
@@ -97,21 +109,21 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-Implement explicit macOS and Windows permission onboarding for the exact source and configurable vault, then rehydrate local recovery/queue status after app restart. Use synthetic fixtures and folders only.
+Implement the first resumable, checksum-verified cloud synchronization executor for verified local JSON queue records. Use synthetic packages and a controlled object-store substitute only.
 
 The design must satisfy all of these acceptance boundaries:
 
-1. Explain source and vault access before invoking a native operating-system permission surface.
-2. Accept only a selected source whose canonical identity matches the exact catalog-approved `UserDataRoot`; reject substitutions, aliases, and links.
-3. Let the operator confirm the default Documents vault or choose a configurable vault without exposing infrastructure concepts.
-4. Retain only the minimum platform permission/bookmark state required for later authorized access; never place credentials or secrets in the vault.
-5. Read no source contents before explicit Save confirmation and successful permission validation.
-6. On restart, inspect only ShowVault-owned manifests and queue records, then rehydrate local verification and cloud-queue status without rescanning source contents.
-7. Keep macOS and Windows behavior behind one tested Dart contract with platform-specific permission adapters.
-8. Prove the installed macOS flow using an explicitly authorized synthetic source and vault only; do not touch personal application data.
-9. Do not claim cloud synchronization, dependency closure, Recovery Confidence, Windows runtime readiness, or personal-data readiness until separately proven.
+1. Consume only durable queue records whose package and independent manifest identities have been reverified locally.
+2. Keep local verification independent from cloud state; a sync failure must never downgrade or delete the local recovery point.
+3. Make upload attempts idempotent and resumable with bounded retry/backoff and durable attempt/error state across process restart.
+4. Use a controlled object-store substitute and synthetic packages; verify remote bytes/checksums before marking cloud synchronization complete.
+5. Preserve offline behavior and never block Scan, Save, vault reopening, or local restore on network availability.
+6. Send no source paths, credentials, private file contents, or unrestricted manifest metadata to control-plane logs or discovery evidence.
+7. Reject missing, linked, mutated, oversized, or identity-mismatched packages before upload.
+8. Add focused restart/interruption/tamper/idempotency tests and keep macOS/Windows behavior behind one packaged desktop contract.
+9. Do not claim production cloud synchronization, Recovery Confidence, Windows runtime readiness, or personal-data readiness until separately proven.
 
-The installed desktop Save action is now connected in code and proven with synthetic tests. It creates `Backups/<product>/<UTC timestamp>__<immutable ID>`, a local manifest and summary, an independent manifest copy, and an atomic verified-only JSON queue record. The UI shows local verification separately from cloud queue state and remains usable without cloud connectivity. The next slice must add operating-system permission onboarding and restart rehydration before any installed personal-data Save drill. Cloud synchronization execution remains unimplemented.
+Permission onboarding and restart rehydration are complete in code, tests, and an installed synthetic macOS drill. The app deliberately stores no persistent bookmark: the operator reopens a vault after restart. Cloud synchronization execution remains unimplemented and is the next bounded slice.
 
 ## Required workflow
 

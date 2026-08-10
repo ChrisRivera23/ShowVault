@@ -7,9 +7,12 @@ The Flutter desktop application implements the first bounded local-first Save pa
 1. **Scan this computer** checks only exact catalog locations and reads no file contents.
 2. Findings remain available in app memory even when cloud authentication or the API is unavailable.
 3. A `UserDataRoot` finding displays **Save**.
-4. Save confirmation explains that ShowVault will read that exact root, create a new immutable local recovery point, verify it, and queue it for later cloud synchronization.
-5. Only after confirmation does the app resolve the opaque catalog key to its local path and read source contents.
-6. The interface reports **Verified locally** separately from **Cloud queued** or **Queue attention**.
+4. Save confirmation explains the source and vault access before any native picker opens.
+5. The native directory picker must return the exact canonical catalog-approved source. A substitution, missing directory, alias, or filesystem link is rejected.
+6. The operator selects the configurable local vault in a second native picker. The app retains no persistent bookmark or broad filesystem grant; the vault is selected again after restart.
+7. Only after confirmation and both permission checks does the app read source contents.
+8. The interface reports **Verified locally** separately from **Cloud queued** or **Queue attention**.
+9. After restart, **Open local vault** reads only ShowVault-owned manifests, package manifests, and queue records to restore those statuses. It does not rescan source contents.
 
 Installed-application findings remain detection-only and cannot be saved as user data.
 
@@ -40,6 +43,8 @@ The Save engine enforces:
 - atomic immutable publication without overwriting prior recovery points;
 - verified-only durable upload-queue creation.
 
+Vault reopening additionally bounds manifest count and record sizes, verifies each independent manifest's SHA-256 identity, requires an identical package manifest, validates package and queue identity, and treats a missing queue record as **Queue attention** without weakening local verification.
+
 An empty root, unsupported filesystem entry, mutation, failed verification, cancellation, or limit violation publishes no recovery point and no upload job.
 
 ## Privacy boundary
@@ -49,8 +54,10 @@ The control plane stores and returns only the opaque allowlisted candidate key a
 ## Current limitations
 
 - Tests use synthetic fixtures only. No personal Serato or Resolume file content was read.
-- The release macOS app builds, but installed-app access to the source and default Documents vault has not been proven through the macOS sandbox permission flow. Permission onboarding must be implemented and tested before a personal-data drill.
-- Durable recovery points and queue records survive restart, but the UI does not yet rehydrate their status after app restart.
+- A compile-time `SHOWVAULT_SYNTHETIC_FIXTURE_HOME` build option isolates attended installed-app drills from personal catalog locations and suppresses installed-application candidates. It is absent from normal builds.
+- The installed macOS app completed a synthetic native-picker Save and restored one verified/queued recovery point after process restart. The normal release includes the macOS sandbox user-selected read/write entitlement.
+- Windows uses the same tested Dart permission contract and native directory selector, but Windows packaging and installed runtime behavior remain unproven.
+- No persistent security-scoped bookmark is stored. Operators explicitly reopen a vault after each process restart; background access across launches is not claimed.
 - The cloud synchronization executor, retry/backoff, resumability, remote checksum verification, and conflict handling are not implemented.
 - The manifest records empty dependency and compatibility collections for this first slice. Dependency closure and Recovery Confidence are not claimed.
 - The legacy .NET Agent keeps its SQLite queue for compatibility; the customer desktop currently uses atomic JSON queue records. These must be consolidated behind one packaged local-engine contract before production.
