@@ -6,6 +6,8 @@ The current architecture is local-first. The authoritative direction is [docs/LO
 
 The first Flutter desktop Save slice is documented in [docs/LOCAL_DESKTOP_SAVE.md](docs/LOCAL_DESKTOP_SAVE.md). Local Scan and Save remain available without cloud connectivity; an explicit Save creates and verifies an immutable local recovery point and records verified-only cloud queue intent.
 
+Controlled macOS application replacement now preserves and source-freely rehydrates the external local vault, independent manifests, durable queue journal, and restore evidence. An explicitly requested local support diagnostic reports only bounded path-free workflow metadata. See [docs/UPGRADE_AND_SUPPORT_DIAGNOSTICS.md](docs/UPGRADE_AND_SUPPORT_DIAGNOSTICS.md).
+
 The first product promise is intentionally focused:
 
 > ShowVault can tell a venue what is installed, what is protected, whether its backup is usable, and exactly how to recover it.

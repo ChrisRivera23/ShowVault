@@ -32,7 +32,7 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 | Control plane | A pinned multi-stage API image, PostgreSQL service, one-shot migration job, fail-closed object-storage configuration, and liveness/readiness endpoints support the authenticated workflow. | Provider provisioning, workload identity, external TLS/ingress, monitoring, backup, and deployed-environment evidence remain operator work. |
 | Onboarding | The intended customer path is install and scan, then authenticate when the first paid cloud operation is requested. No Agent or enrollment control appears in the app. | Clean-machine execution still requires recorded evidence; the installed personal-Mac direct scan is proven. |
 | Platform coverage | Direct exact-location scan definitions include macOS and Windows candidates for the current beta products. | Windows packaging and installed execution remain unproven. |
-| Operational resilience | Unit and integration tests cover restart-resume, idempotency, offline backoff, retry exhaustion, local/remote tamper, links, malformed state, privacy-filtered remote manifests, immutable object chunks, concurrent commits, and unavailable storage. The installed macOS matrix executes API and storage loss/recovery plus seven safe failure cases against disposable S3-compatible infrastructure and emits path-free checksummed evidence. | Host reboot, selected-provider deployment/outage, quota exhaustion, expired commercial sessions, upgrade/reinstall, and personal-data recovery remain unproven. |
+| Operational resilience | Unit and integration tests cover restart-resume, idempotency, offline backoff, retry exhaustion, local/remote tamper, links, malformed state, privacy-filtered remote manifests, immutable object chunks, concurrent commits, and unavailable storage. The installed macOS matrix executes API and storage loss/recovery plus seven safe failure cases. Two distinct installed macOS artifacts also prove application replacement preserves and source-freely rehydrates the external vault, manifest, queue journal, and restore evidence; an explicit local diagnostic emits bounded path-free metadata. | Host reboot, rollback, clean-machine reinstall, selected-provider deployment/outage, quota exhaustion, expired commercial sessions, Windows execution, and personal-data recovery remain unproven. |
 | Integration breadth | Recovery and exact-identity capabilities cover representative production products, with explicit deferrals where evidence is unsafe. | Sufficient to pause catalog expansion; breadth does not substitute for installability and recovery proof. |
 
 ## Required readiness gates
@@ -71,6 +71,8 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 - A bounded local diagnostic bundle can be produced for support without including credentials, package contents, or unrestricted filesystem/network inventories.
 - Installation, validation, recovery, rollback, and attended removal instructions are versioned with the artifacts.
 
+Controlled forward application replacement and bounded local diagnostics now pass on macOS synthetic data. The vault is retained by default during app removal, and destructive local-data removal remains a separate attended action. Clean-machine reinstall, rollback execution, distribution signing/notarization, and Windows behavior remain open.
+
 ### Gate 6 — Venue-installation release decision
 
 - Every preceding gate has recorded evidence from personal or controlled equipment.
@@ -90,4 +92,4 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 
 ## Immediate bounded task
 
-Add and validate upgrade/reinstall preservation plus a bounded support diagnostic bundle for the local vault and queue. The diagnostic must exclude credentials, package contents, exact local paths, and unrestricted host inventory. Keep host reboot, production-provider failures, Windows execution, and personal-data recovery as separately attended gates.
+Add reproducible Windows packaging and controlled installed execution for the same local-first gates: exact catalog scan, offline Save, restart rehydration, durable queue status, attended Restore, and explicit bounded diagnostic generation. Preserve the external vault across application replacement. Do not claim Windows readiness until the packaged artifact is executed on explicitly authorized controlled Windows equipment; keep host reboot, production-provider failures, expired commercial sessions, quota exhaustion, signing, and venue use separate.

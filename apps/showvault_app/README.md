@@ -76,7 +76,7 @@ customer or production build.
 
 Every other non-HTTPS endpoint is rejected. The endpoint is build configuration, not a venue identity: organizations and venues come from the authenticated control plane in normal builds or the explicitly selected existing test identity in the loopback personal beta. No venue name, address, equipment, path, credential, or other private data is packaged. Native Auth0 clients use the repository's public client ID with Authorization Code + PKCE; no client secret is accepted or embedded.
 
-These artifacts are intentionally for personal-equipment testing. They are not signed or notarized and must not be installed at a venue. Signing, notarization, upgrade semantics, and clean-machine validation remain required by [`../../docs/PROTOTYPE_READINESS.md`](../../docs/PROTOTYPE_READINESS.md).
+These artifacts are intentionally for personal-equipment testing. They are not distribution-signed or notarized and must not be installed at a venue. Controlled application replacement now preserves and rehydrates the external local vault; clean-machine installation, rollback, distribution signing, and notarization remain required by [`../../docs/PROTOTYPE_READINESS.md`](../../docs/PROTOTYPE_READINESS.md).
 
 ## Run the installed synthetic resilience matrix
 
@@ -87,3 +87,14 @@ The repository-owned matrix builds a separately gated release app and executes s
 ```
 
 This special artifact is loopback-only test scaffolding and must not be distributed. The runner emits a path-free evidence report and removes its synthetic sandbox workspace and disposable volumes. See [`../../docs/INSTALLED_RESILIENCE_MATRIX.md`](../../docs/INSTALLED_RESILIENCE_MATRIX.md).
+
+## Run the installed upgrade and diagnostic proof
+
+The upgrade runner builds two distinct release apps, replaces the installed synthetic app between them, removes the synthetic source, and verifies that the external vault, manifest, queue journal, and restore evidence rehydrate intact. It also exercises the path-free local support diagnostic:
+
+```bash
+./tool/run-upgrade-diagnostic-proof.sh \
+  /private/tmp/showvault-upgrade-diagnostic-proof
+```
+
+The output directory must be absolute and absent. This command is synthetic macOS test scaffolding, not an installer, notarization, Windows, or rollback claim. See [`../../docs/UPGRADE_AND_SUPPORT_DIAGNOSTICS.md`](../../docs/UPGRADE_AND_SUPPORT_DIAGNOSTICS.md).
