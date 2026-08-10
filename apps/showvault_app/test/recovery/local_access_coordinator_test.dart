@@ -113,4 +113,36 @@ void main() {
     );
     expect(calls, 1);
   });
+
+  test('restore permission accepts only an empty selected directory', () async {
+    final target = await Directory('${testRoot.path}/restore-target').create();
+    final coordinator = LocalAccessCoordinator(
+      directoryPicker:
+          ({initialDirectory, confirmButtonText, canCreateDirectories}) async {
+            expect(confirmButtonText, 'Use empty restore folder');
+            expect(canCreateDirectories, isTrue);
+            return target.path;
+          },
+    );
+
+    expect(
+      await coordinator.authorizeEmptyRestoreTarget(),
+      await target.resolveSymbolicLinks(),
+    );
+  });
+
+  test('restore permission rejects a non-empty directory', () async {
+    final target = await Directory('${testRoot.path}/restore-target').create();
+    await File('${target.path}/existing').writeAsString('occupied');
+    final coordinator = LocalAccessCoordinator(
+      directoryPicker:
+          ({initialDirectory, confirmButtonText, canCreateDirectories}) async =>
+              target.path,
+    );
+
+    await expectLater(
+      coordinator.authorizeEmptyRestoreTarget(),
+      throwsA(isA<LocalRecoveryException>()),
+    );
+  });
 }

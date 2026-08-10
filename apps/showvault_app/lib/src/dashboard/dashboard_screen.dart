@@ -6,6 +6,7 @@ import 'package:showvault_app/src/config/app_config.dart';
 import 'package:showvault_app/src/recovery/local_access_coordinator.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
 import 'package:showvault_app/src/recovery/local_recovery_service.dart';
+import 'package:showvault_app/src/recovery/local_restore_service.dart';
 import 'package:showvault_app/src/recovery/local_sync_service.dart';
 import 'package:showvault_app/src/recovery/recovery_run.dart';
 import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
@@ -1333,6 +1334,7 @@ class _LocalSaveButton extends ConsumerStatefulWidget {
 
 class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
   bool _saving = false;
+  bool _restoring = false;
   LocalBackupResult? _result;
 
   Future<void> _save() async {
@@ -1407,6 +1409,65 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
     }
   }
 
+  Future<void> _restore(LocalRecoveryRecord record) async {
+    final snapshot = ref.read(localVaultSnapshotProvider);
+    if (snapshot == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Restore ${record.productName}?'),
+        content: const Text(
+          'Choose a new or empty folder. ShowVault will ask your operating '
+          'system for access, reverify the recovery point, copy through a '
+          'private staging folder, and verify every restored file. Existing '
+          'content will never be overwritten.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Choose restore folder'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _restoring = true);
+    try {
+      final target = await ref
+          .read(localAccessCoordinatorProvider)
+          .authorizeEmptyRestoreTarget();
+      final result = await ref
+          .read(localRestoreServiceProvider)
+          .restore(
+            authorizedVaultRoot: snapshot.vaultRoot,
+            recoveryPointId: record.recoveryPointId,
+            targetPath: target,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Restore verified • ${result.restoredFileCount} files • '
+            '${result.restoredBytes} bytes.',
+          ),
+        ),
+      );
+    } on LocalAccessCancelledException {
+      // The native picker is an explicit, non-error Cancel path.
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Local restore failed: $error')));
+    } finally {
+      if (mounted) setState(() => _restoring = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final result = _result;
@@ -1446,7 +1507,7 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
       LocalCloudSyncStatus.queueFailed => Icons.cloud_off_outlined,
     };
     return SizedBox(
-      width: 238,
+      width: 340,
       child: Wrap(
         alignment: WrapAlignment.end,
         spacing: 6,
@@ -1457,6 +1518,16 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
             label: Text('Verified locally'),
           ),
           Chip(avatar: Icon(cloudIcon, size: 17), label: Text(cloudLabel)),
+          OutlinedButton.icon(
+            onPressed: _restoring ? null : () => _restore(rehydrated!),
+            icon: _restoring
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.restore_outlined),
+            label: Text(_restoring ? 'Restoring' : 'Restore'),
+          ),
         ],
       ),
     );

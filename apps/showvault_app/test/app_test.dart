@@ -9,6 +9,7 @@ import 'package:showvault_app/src/auth/auth_session.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
 import 'package:showvault_app/src/recovery/local_access_coordinator.dart';
 import 'package:showvault_app/src/recovery/local_recovery_service.dart';
+import 'package:showvault_app/src/recovery/local_restore_service.dart';
 import 'package:showvault_app/src/recovery/local_sync_object_store.dart';
 import 'package:showvault_app/src/recovery/local_sync_service.dart';
 import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
@@ -179,6 +180,7 @@ class _UnusedObjectStore implements LocalSyncObjectStore {
 class _FakeLocalAccessCoordinator extends LocalAccessCoordinator {
   bool sourceAuthorized = false;
   bool vaultAuthorized = false;
+  bool restoreTargetAuthorized = false;
 
   @override
   Future<LocalBackupSource> authorizeSource(LocalBackupSource expected) async {
@@ -190,6 +192,36 @@ class _FakeLocalAccessCoordinator extends LocalAccessCoordinator {
   Future<String> authorizeVault() async {
     vaultAuthorized = true;
     return '/synthetic/vault';
+  }
+
+  @override
+  Future<String> authorizeEmptyRestoreTarget({String? initialDirectory}) async {
+    restoreTargetAuthorized = true;
+    return '/synthetic/restore-target';
+  }
+}
+
+class _FakeLocalRestoreService extends LocalRestoreService {
+  bool restored = false;
+
+  @override
+  Future<LocalRestoreResult> restore({
+    required String authorizedVaultRoot,
+    required String recoveryPointId,
+    required String targetPath,
+    LocalRestoreCancellation? cancellation,
+  }) async {
+    restored = true;
+    expect(authorizedVaultRoot, '/synthetic/vault');
+    expect(recoveryPointId, 'recovery-point-id');
+    expect(targetPath, '/synthetic/restore-target');
+    return LocalRestoreResult(
+      recoveryPointId: recoveryPointId,
+      restoredFileCount: 2,
+      restoredBytes: 12,
+      completedAt: DateTime.utc(2026, 8, 10),
+      evidencePath: '/synthetic/vault/Reports/restore.json',
+    );
   }
 }
 
@@ -409,5 +441,51 @@ void main() {
       find.text('1 verified • 1 cloud synchronized • 0 pending'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('verified local recovery point restores without cloud', (
+    tester,
+  ) async {
+    final recovery = _FakeLocalRecoveryService();
+    final restore = _FakeLocalRestoreService();
+    final access = _FakeLocalAccessCoordinator();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(_SignedOutAuthService()),
+          localAccessCoordinatorProvider.overrideWithValue(access),
+          localRecoveryServiceProvider.overrideWithValue(recovery),
+          localRestoreServiceProvider.overrideWithValue(restore),
+          localCatalogFindingsProvider.overrideWith(
+            (ref) => const [
+              LocalCatalogFinding(
+                candidateKey: 'macos.serato-dj-pro.user-data',
+                pluginId: 'showvault.serato-dj-pro',
+                productName: 'Serato DJ Pro',
+                candidateType: 'UserDataRoot',
+              ),
+            ],
+          ),
+        ],
+        child: const ShowVaultApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open local vault'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Choose vault'));
+    await tester.pumpAndSettle();
+    final restoreButton = find.widgetWithText(OutlinedButton, 'Restore');
+    tester.widget<OutlinedButton>(restoreButton).onPressed!.call();
+    await tester.pumpAndSettle();
+    expect(find.text('Restore Serato DJ Pro?'), findsOneWidget);
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Choose restore folder'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(access.restoreTargetAuthorized, isTrue);
+    expect(restore.restored, isTrue);
   });
 }

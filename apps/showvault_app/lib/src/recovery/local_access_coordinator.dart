@@ -86,6 +86,27 @@ class LocalAccessCoordinator {
     );
   }
 
+  Future<String> authorizeEmptyRestoreTarget({String? initialDirectory}) async {
+    final selected = await _directoryPicker(
+      initialDirectory: initialDirectory ?? defaultVaultInitialDirectory,
+      confirmButtonText: 'Use empty restore folder',
+      canCreateDirectories: true,
+    );
+    if (selected == null) {
+      throw const LocalAccessCancelledException();
+    }
+    final canonical = await _canonicalDirectory(
+      selected,
+      'The selected restore target is missing or is a filesystem link.',
+    );
+    await for (final _ in Directory(canonical).list(followLinks: false)) {
+      throw const LocalRecoveryException(
+        'The selected restore target must be empty.',
+      );
+    }
+    return canonical;
+  }
+
   String? get defaultVaultInitialDirectory {
     final home = _windows ? _environment['USERPROFILE'] : _environment['HOME'];
     if (home == null || home.trim().isEmpty) return null;
