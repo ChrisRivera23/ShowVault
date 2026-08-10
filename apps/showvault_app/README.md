@@ -77,3 +77,13 @@ customer or production build.
 Every other non-HTTPS endpoint is rejected. The endpoint is build configuration, not a venue identity: organizations and venues come from the authenticated control plane in normal builds or the explicitly selected existing test identity in the loopback personal beta. No venue name, address, equipment, path, credential, or other private data is packaged. Native Auth0 clients use the repository's public client ID with Authorization Code + PKCE; no client secret is accepted or embedded.
 
 These artifacts are intentionally for personal-equipment testing. They are not signed or notarized and must not be installed at a venue. Signing, notarization, upgrade semantics, and clean-machine validation remain required by [`../../docs/PROTOTYPE_READINESS.md`](../../docs/PROTOTYPE_READINESS.md).
+
+## Run the installed synthetic resilience matrix
+
+The repository-owned matrix builds a separately gated release app and executes safe API/storage outage, restart/resume, tamper, incomplete-object, conflicting-chunk, and restore-failure scenarios against disposable infrastructure:
+
+```bash
+./tool/run-resilience-matrix.sh /private/tmp/showvault-resilience-matrix
+```
+
+This special artifact is loopback-only test scaffolding and must not be distributed. The runner emits a path-free evidence report and removes its synthetic sandbox workspace and disposable volumes. See [`../../docs/INSTALLED_RESILIENCE_MATRIX.md`](../../docs/INSTALLED_RESILIENCE_MATRIX.md).
