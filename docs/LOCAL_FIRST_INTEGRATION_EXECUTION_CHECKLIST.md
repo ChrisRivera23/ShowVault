@@ -50,6 +50,8 @@ When authorization is ambiguous, stop before the action and preserve local work.
       manifests have been read completely.
 - [ ] The consistency audit reproduces 52 selected commits, a 136-path union,
       and exactly 29 legacy-overlap paths.
+- [ ] `dart run tool/verify_local_first_integration_preflight.dart` returns the
+      bounded verified result with no external read or repository mutation.
 - [ ] The four excluded interleaved commits are exactly `626e88d`, `0c174ba`,
       `a1c3c83`, and `65c50be`.
 - [ ] The source references still exist and have not been rewritten.

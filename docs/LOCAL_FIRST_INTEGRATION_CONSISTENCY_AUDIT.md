@@ -143,6 +143,18 @@ The 56-commit contiguous span minus the four named exclusions equals the 52
 selected commits. Temporary accounting files may be discarded through normal
 temporary-file cleanup; do not broaden cleanup beyond those exact files.
 
+The cross-platform read-only verifier performs the same checks directly against
+local Git objects and emits only bounded counts/status:
+
+```bash
+cd apps/showvault_app
+dart run tool/verify_local_first_integration_preflight.dart
+```
+
+It runs no network command, writes no repository file, and reports no local path
+or commit-file inventory. Any boundary, count, overlap, selected source, or
+excluded-commit mismatch fails closed.
+
 ## Conclusion
 
 The manifest set is internally consistent and ready to serve as an integration
