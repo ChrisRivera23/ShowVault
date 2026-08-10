@@ -69,21 +69,29 @@ Successful evidence must show:
 - exact artifact SHA-256 values; and
 - removal of the synthetic fixture, installed application, callback registration, and owned workspace.
 
-## Independent downloaded-artifact verification
+## Independent workflow-run and artifact verification
 
-After downloading and extracting `showvault-controlled-windows-evidence`, verify it from `apps/showvault_app`:
+For a completed hosted run, use an authenticated GitHub CLI from `apps/showvault_app` and provide an absent output directory:
+
+```bash
+dart run tool/verify_windows_run.dart <workflow-run-id> /path/to/absent/output-directory
+```
+
+The run verifier reads the actual GitHub run metadata, requires a completed successful manual run of `Controlled Windows evidence`, fetches the workflow file at that run's exact head SHA, confirms its manual/read-only/provenance boundary and single immutable source pin, downloads only the named artifact, and invokes the artifact verifier. It then requires the checksummed artifact provenance to match the GitHub run ID, run attempt, and workflow source pin. A failed verification preserves the downloaded directory for bounded diagnosis.
+
+For an artifact that was already downloaded through a separately trusted process, the lower-level verifier remains available:
 
 ```bash
 dart run tool/verify_windows_evidence.dart /path/to/extracted/showvault-controlled-windows-evidence
 ```
 
-The verifier requires exactly the package and installed-proof directories, refuses linked or unexpected entries, accepts the real LF or CRLF checksum encoding, verifies both exact `SHA256SUMS` domains, validates closed JSON schemas and the report-core digest, rejects embedded paths and sensitive terms, and emits a path-free JSON summary containing artifact hashes, recorded Authenticode states, preservation results, workflow provenance, and explicit claim limitations. The checksummed provenance binds the artifact to the checked-out commit, manual workflow event, run ID, run attempt, job, runner OS/architecture, and artifact name.
+The artifact verifier requires exactly the package and installed-proof directories, refuses linked or unexpected entries, accepts the real LF or CRLF checksum encoding, verifies both exact `SHA256SUMS` domains, validates closed JSON schemas and the report-core digest, rejects embedded paths and sensitive terms, and emits a path-free JSON summary containing artifact hashes, recorded Authenticode states, preservation results, workflow provenance, and explicit claim limitations. The checksummed provenance binds the artifact to the checked-out commit, manual workflow event, run ID, run attempt, job, runner OS/architecture, and artifact name. By itself, this lower-level command does not attest the GitHub run metadata or the workflow revision that produced the artifact.
 
 This is independent checksum, schema, privacy, and claim-boundary verification. It validates that the Authenticode statuses are bounded values recorded by the Windows runner; it does not cryptographically establish signer trust on macOS. Distribution-signing trust still requires a separate Windows signing-policy check.
 
 ## Current evidence and blocker
 
-As of 2026-08-10, Flutter analysis passes and 106 Flutter tests pass with one Windows-only NTFS-junction test skipped on macOS. Static packaging tests verify the current-user protocol registration, complete Flutter deployment checks, checksum production, external-vault retention rule, marker-scoped cleanup, manual workflow/provenance boundary, downloaded-evidence verification, and absence of installer-driven vault deletion.
+As of 2026-08-10, Flutter analysis passes and 112 Flutter tests pass with one Windows-only NTFS-junction test skipped on macOS. Static packaging tests verify the current-user protocol registration, complete Flutter deployment checks, checksum production, external-vault retention rule, marker-scoped cleanup, manual workflow/provenance boundary, downloaded-evidence verification, GitHub run/workflow-revision attestation, and absence of installer-driven vault deletion.
 
 The current host exposes only macOS and Chrome Flutter targets and has no Windows VM/device, PowerShell runtime, Wine environment, Windows SDK/MSVC toolchain, or Inno Setup compiler. Therefore the installer has not been compiled or executed, PowerShell/Inno syntax has not been validated by their native engines, the URL callback has not been exercised, the junction test has not run, and no Windows artifact hash or installed evidence exists. Do not claim Windows packaging or runtime readiness until the controlled command above passes on Windows.
 

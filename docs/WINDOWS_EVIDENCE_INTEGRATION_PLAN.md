@@ -6,7 +6,7 @@ Separate native Windows evidence from the accumulated product-integration review
 
 The recommended path is the one-file evidence-bridge PR [#26](https://github.com/ChrisRivera23/ShowVault/pull/26), based on `main`. The bridge places a manual-only workflow on the default branch and checks out one explicitly approved immutable source commit. It does not merge the accumulated product stack or claim that stack is ready to ship.
 
-PR #26's current published revision pins `ddfcaa6af7ccd03a1e7ae8d6de29f0865a81e97b`, which predates the checksummed workflow-provenance contract and matching independent verifier. It is no longer merge-ready. Local candidate `0644cb1` contains those protections but must be pushed and pass remote CI before it can become the approved source pin.
+PR #26's current published revision pins `ddfcaa6af7ccd03a1e7ae8d6de29f0865a81e97b`, which predates the checksummed workflow-provenance contract and matching independent verifiers. It is no longer merge-ready. Local candidate `7592fbe` contains those protections, including post-run GitHub metadata and workflow-revision attestation, but must be pushed and pass remote CI before it can become the approved source pin.
 
 Creating, merging, or dispatching this bridge requires explicit authorization. This document grants none of those permissions.
 
@@ -57,7 +57,7 @@ Only after explicit authorization for each external stage:
 4. Review the one-file diff and confirm that the checkout source is the exact explicitly approved, published, green commit containing checksummed workflow provenance and the matching independent verifier.
 5. Obtain separate approval to mark ready and merge the bridge PR.
 6. Obtain separate approval to dispatch the workflow exactly once.
-7. Wait for completion, download and extract `showvault-controlled-windows-evidence`, then run `dart run tool/verify_windows_evidence.dart <artifact-directory>` from `apps/showvault_app`. Independently review both checksum sets, path/privacy boundaries, callback removal, owned-fixture cleanup, package metadata, report-core checksum, and recorded Authenticode states. Signer trust remains a separate Windows signing-policy check.
+7. Wait for completion, then run `dart run tool/verify_windows_run.dart <workflow-run-id> <absent-output-directory>` from `apps/showvault_app`. The command must attest the successful manual GitHub run, the exact workflow revision and immutable checkout pin, the named download, both checksum sets, artifact provenance, path/privacy boundaries, package metadata, report-core checksum, and recorded Authenticode states. Independently review callback removal and owned-fixture cleanup in the bounded evidence. Signer trust remains a separate Windows signing-policy check.
 8. Record runner OS/build, architecture, workflow/run/job identities, source SHA, artifact identity, exact hashes, results, and limitations.
 9. Replace or remove the bridge through a later reviewed PR when the product stack reaches `main`; do not silently retarget it to mutable source.
 
