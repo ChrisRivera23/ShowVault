@@ -10,7 +10,7 @@ ShowVault is a recovery-first venue-resilience platform:
 
 The customer desktop experience must be simple:
 
-**Install → Sign in → Scan this computer**
+**Install → Scan this computer → Sign in for cloud service**
 
 There is no customer-facing Agent installation, enrollment code, service setup, or personal-Keychain workflow. The desktop app must not persist scan results or backup packages locally. Exact source paths may exist only transiently in memory while the app checks catalog entries or streams an authorized backup directly to cloud storage. The control plane receives path-free metadata.
 
@@ -20,15 +20,17 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
 - Branch: `codex/personal-catalog-scan-beta`
-- Feature commit: `3ed4bdc feat: scan computers directly without agent enrollment`
+- Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
+- Navigation/no-login beta commit: `eea1d45 feat: restore navigation and add guarded no-login beta`
 - Expected worktree after the handoff commit: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Sequential catalog expansion remains paused while prototype readiness advances.
 
 ## Completed outcome
 
-- The native app now has a single uncluttered customer screen: **This computer**, **Cloud connected**, **Scan this computer**, detected systems, and sign out.
-- The visible Agent installation, one-time enrollment, Venue Agent selector, recovery workflow controls, placeholder navigation, search, and notification controls are removed.
-- macOS and Windows Auth0 sessions are held in application memory only. ShowVault does not write its operator session to the macOS login Keychain; relaunch requires sign-in.
+- The full product sidebar is restored: Dashboard, Venues, Devices, Discovery, Backups, Verification, Recovery, Digital Twin, Plugins, and Settings. The Product Owner will decide later what to remove or rearrange.
+- Agent installation, one-time enrollment, Venue Agent selectors, and Agent recovery-workflow controls remain excluded from the customer dashboard.
+- The attended personal beta omits login. Its bypass requires an explicit app build flag, a loopback HTTP API, a Development server, an explicit server flag and existing test identity, and a loopback client.
+- Normal/production builds still use Auth0. macOS and Windows sessions are held in application memory only, and ShowVault does not open the macOS login Keychain.
 - `LocalCatalogScanner` checks only exact catalog-defined candidates. It does not enumerate installed applications, directories, disks, networks, machine identity, or file contents.
 - The current direct beta registry checks Resolume Arena and Serato DJ Pro application/user-data candidates on macOS and Windows.
 - The app submits only opaque candidate keys to the authenticated manager-only `POST /api/v1/organizations/{organizationId}/venues/{venueId}/computer-scans` endpoint.
@@ -37,22 +39,23 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Direct detections appear as **Detected** and cannot enter the legacy Agent approval/backup controls.
 - Legacy Agent protocol 1.21 remains in the repository only as compatibility infrastructure; it is not part of the customer desktop onboarding flow.
 - Product documentation now states that the future backup path must stream source bytes directly to cloud storage without a local backup package or local scan database.
+- `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` records the recommended commercial structure: desktop app, customer web portal, and private ShowVault Admin web console; branded ShowVault authentication backed by Auth0; Stripe one-time license plus recurring tiers; and no staff access to customer passwords.
 
 ## Installed personal-Mac evidence
 
-- Final app artifact: `/tmp/showvault-macos-direct-scan-beta-20260809-v5/ShowVault.app`
-- Transfer ZIP: `/tmp/showvault-macos-direct-scan-beta-20260809-v5/ShowVault-macos.zip`
-- ZIP SHA-256: `dd7fbb4acca83b54170d62add17e0bc23ce0c5fefaa3145270fea7ed5e2ef716`
+- Final app artifact: `/tmp/showvault-macos-personal-beta-no-login-20260810/ShowVault.app`
+- Transfer ZIP: `/tmp/showvault-macos-personal-beta-no-login-20260810/ShowVault-macos.zip`
+- ZIP SHA-256: `ed67ec092c9452d96250d9cff710330330547d5e3314c0deab407888147e61ad`
 - App version/build: `0.1.0 (1)`
 - Bundle ID: `com.showvault.app`
 - Architecture: universal `x86_64` + `arm64`
 - Signing: ad hoc, not notarized; personal attended testing only
 - Test Mac: macOS 26.3 build 25D125
-- Control plane: local Production-mode API at `http://127.0.0.1:5000` backed by local PostgreSQL
-- Final verified scan ID: `bfa3b857-9a7e-46fb-9bbb-a800599c268a`
+- Control plane: explicitly guarded local Development API at `http://127.0.0.1:5000` backed by local PostgreSQL
+- Final verified no-login scan ID: `4f016f10-9f0b-452b-8c52-94084efc9217`
 - Scan result: completed with three candidates—Resolume Arena installed application, Serato DJ Pro installed application, and Serato DJ Pro user-data root
 - Database privacy check: candidate count 3; no `/` separator in any stored candidate key or evidence field
-- No Keychain, filesystem permission, or security prompt appeared during the final direct scan.
+- No login, Keychain, filesystem permission, or security prompt appeared during the final direct scan.
 
 Do not copy exact local source paths into control-plane evidence or future documentation. The test above intentionally records only path-free product/type results.
 
@@ -63,16 +66,18 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - Contracts tests: 2 passed
 - Agent tests: 426 passed
 - Platform tests: 28 passed
-- API tests: 8 passed
+- API tests: 15 passed, including exact beta-token and Development/configuration/loopback guard coverage
 - EF Core migrations `20260810003349_AddDesktopCatalogScanCandidates` and `20260810003907_AddDesktopCatalogScans` are applied to the local database
 - EF Core pending-model check: no pending changes
-- macOS release build: 49.0 MB universal app
+- macOS release build: 49.2 MB universal app
 - ZIP checksum matches `SHA256SUMS`
 - `git diff --check`: passes
 
 ## Safety boundaries
 
 - Never request or approve access to the user's personal login Keychain for ShowVault.
+- Never enable the no-login bypass for staging, production, a non-loopback endpoint, or a distributed customer build.
+- ShowVault administrators may view account and entitlement status but must never see or retrieve customer passwords.
 - Never store Auth0 credentials, tokens, enrollment codes, client secrets, exact source paths, scan databases, or backup packages on the customer computer.
 - Never enumerate unrelated installed applications, arbitrary directories, disks, networks, or machine identity.
 - Detection is not backup, verification, restore, or recovery readiness. Preserve those states separately.
@@ -125,6 +130,7 @@ Before implementation, inspect existing backup/object-storage contracts and ADRs
 ## Reference map
 
 - `docs/PROTOTYPE_READINESS.md` — venue-neutral readiness gates and direct desktop boundary
+- `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` — customer identity, licensing, subscription, portal, and Admin-console structure
 - `docs/SYSTEM_INVENTORY_PLUGIN.md` — direct app scan versus legacy Agent compatibility
 - `docs/AUTOMATIC_DISCOVERY.md` — discovery and identification safety decisions
 - `docs/INTEGRATION_CATALOG.md` — authoritative catalog/testing matrix
