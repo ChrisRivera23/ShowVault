@@ -194,11 +194,11 @@ class _UpgradeHarness {
         'rehydratedWithoutSourceScan': true,
       },
       'scope': {
-        'macOS': true,
+        'macOS': Platform.isMacOS,
         'attendedUpgrade': true,
         'attendedUninstallDataRemoval': false,
         'hostReboot': false,
-        'windows': false,
+        'windows': Platform.isWindows,
         'notarization': false,
         'productionProvider': false,
       },

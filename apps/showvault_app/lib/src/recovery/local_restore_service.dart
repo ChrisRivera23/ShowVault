@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:showvault_app/src/recovery/local_package_verifier.dart';
+import 'package:showvault_app/src/recovery/local_path_policy.dart';
 import 'package:showvault_app/src/recovery/local_recovery_service.dart';
 
 final localRestoreServiceProvider = Provider<LocalRestoreService>(
@@ -539,10 +540,11 @@ class LocalRestoreService {
   }
 
   static bool _isWithin(String candidate, String root) {
-    final normalizedCandidate = Platform.isWindows
-        ? candidate.toLowerCase()
-        : candidate;
-    final normalizedRoot = Platform.isWindows ? root.toLowerCase() : root;
+    if (Platform.isWindows) {
+      return WindowsLocalPathPolicy.isWithin(candidate, root);
+    }
+    final normalizedCandidate = candidate;
+    final normalizedRoot = root;
     return normalizedCandidate == normalizedRoot ||
         normalizedCandidate.startsWith(
           '$normalizedRoot${Platform.pathSeparator}',

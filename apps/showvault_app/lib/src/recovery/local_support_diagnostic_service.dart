@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:showvault_app/src/recovery/local_path_policy.dart';
 import 'package:showvault_app/src/recovery/local_recovery_service.dart';
 
 final localSupportDiagnosticServiceProvider =
@@ -260,10 +261,7 @@ class LocalSupportDiagnosticService {
       return;
     }
     if (value is! String) return;
-    if (value.startsWith('/') ||
-        value.startsWith(r'\\') ||
-        RegExp(r'^[A-Za-z]:[\\/]').hasMatch(value) ||
-        value.contains('file://')) {
+    if (LocalDiagnosticPrivacy.containsLocalPath(value)) {
       throw const LocalSupportDiagnosticException(
         'The support diagnostic contains a local path.',
       );

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:showvault_app/src/config/app_config.dart';
+import 'package:showvault_app/src/recovery/local_path_policy.dart';
 import 'package:showvault_app/src/recovery/local_recovery_service.dart';
 import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
 
@@ -115,12 +116,15 @@ class LocalAccessCoordinator {
   String? get defaultVaultInitialDirectory {
     final home = _windows ? _environment['USERPROFILE'] : _environment['HOME'];
     if (home == null || home.trim().isEmpty) return null;
-    final documents = _join(home, 'Documents');
-    final defaultVault = _join(documents, 'ShowVault Pro');
+    final documents = _joinPath(home, 'Documents');
+    final defaultVault = _joinPath(documents, 'ShowVault Pro');
     return Directory(defaultVault).existsSync() ? defaultVault : documents;
   }
 
   Future<String> _canonicalDirectory(String path, String error) async {
+    if (_windows && !WindowsLocalPathPolicy.isSafeLocalAbsolute(path)) {
+      throw LocalRecoveryException(error);
+    }
     final type = await FileSystemEntity.type(path, followLinks: false);
     if (type != FileSystemEntityType.directory) {
       throw LocalRecoveryException(error);
@@ -128,11 +132,14 @@ class LocalAccessCoordinator {
     return Directory(path).resolveSymbolicLinks();
   }
 
-  bool _samePath(String left, String right) =>
-      _windows ? left.toLowerCase() == right.toLowerCase() : left == right;
+  bool _samePath(String left, String right) => _windows
+      ? WindowsLocalPathPolicy.sameCanonicalPath(left, right)
+      : left == right;
 
-  static String _join(String left, String right) =>
-      '$left${left.endsWith(Platform.pathSeparator) ? '' : Platform.pathSeparator}$right';
+  String _joinPath(String left, String right) {
+    final separator = _windows ? r'\' : Platform.pathSeparator;
+    return '$left${left.endsWith(separator) ? '' : separator}$right';
+  }
 }
 
 class LocalAccessCancelledException implements Exception {

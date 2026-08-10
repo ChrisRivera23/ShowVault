@@ -61,4 +61,51 @@ void main() {
     );
     expect(scanner.resolveBackupSource('macos.unknown.user-data'), isNull);
   });
+
+  test('Windows scan checks only exact approved catalog candidates', () async {
+    final attempted = <String>[];
+    final scanner = LocalCatalogScanner(
+      platform: DesktopPlatform.windows,
+      environment: const {
+        'ProgramFiles': r'C:\Program Files',
+        'USERPROFILE': r'C:\Users\Operator',
+      },
+      readType: (path) async {
+        attempted.add(path);
+        return path ==
+                    r'C:\Program Files\Serato\Serato DJ Pro\Serato DJ Pro.exe' ||
+                path == r'C:\Users\Operator\Music\_Serato_'
+            ? FileSystemEntityType.file
+            : FileSystemEntityType.notFound;
+      },
+    );
+
+    expect(await scanner.scan(), [
+      'windows.serato-dj-pro.application',
+      'windows.serato-dj-pro.user-data',
+    ]);
+    expect(attempted, [
+      r'C:\Program Files\Resolume Arena',
+      r'C:\Program Files\Serato\Serato DJ Pro\Serato DJ Pro.exe',
+      r'C:\Users\Operator\Documents\Resolume Arena',
+      r'C:\Users\Operator\Music\_Serato_',
+    ]);
+  });
+
+  test('Windows backup resolves only an exact local user-data key', () {
+    final scanner = LocalCatalogScanner(
+      platform: DesktopPlatform.windows,
+      environment: const {'USERPROFILE': r'C:\Users\Operator'},
+    );
+
+    final source = scanner.resolveBackupSource(
+      'windows.serato-dj-pro.user-data',
+    );
+    expect(source, isNotNull);
+    expect(source!.rootPath, r'C:\Users\Operator\Music\_Serato_');
+    expect(
+      scanner.resolveBackupSource('windows.serato-dj-pro.application'),
+      isNull,
+    );
+  });
 }

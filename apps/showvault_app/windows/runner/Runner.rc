@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.showvault" "\0"
-            VALUE "FileDescription", "showvault_app" "\0"
+            VALUE "CompanyName", "ShowVault" "\0"
+            VALUE "FileDescription", "ShowVault" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "showvault_app" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.showvault. All rights reserved." "\0"
-            VALUE "OriginalFilename", "showvault_app.exe" "\0"
-            VALUE "ProductName", "showvault_app" "\0"
+            VALUE "InternalName", "ShowVault" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 ShowVault. All rights reserved." "\0"
+            VALUE "OriginalFilename", "ShowVault.exe" "\0"
+            VALUE "ProductName", "ShowVault" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

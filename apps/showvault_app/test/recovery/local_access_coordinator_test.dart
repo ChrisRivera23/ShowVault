@@ -97,6 +97,72 @@ void main() {
     );
   });
 
+  test('Windows defaults use drive separators without touching the drive', () {
+    final coordinator = LocalAccessCoordinator(
+      directoryPicker:
+          ({initialDirectory, confirmButtonText, canCreateDirectories}) async =>
+              null,
+      environment: const {'USERPROFILE': r'C:\Users\Operator'},
+      windows: true,
+    );
+
+    expect(
+      coordinator.defaultVaultInitialDirectory,
+      r'C:\Users\Operator\Documents',
+    );
+  });
+
+  test('Windows authorization rejects UNC before filesystem access', () async {
+    final coordinator = LocalAccessCoordinator(
+      directoryPicker:
+          ({initialDirectory, confirmButtonText, canCreateDirectories}) async =>
+              r'\\server\share\ShowVault Pro',
+      environment: const {'USERPROFILE': r'C:\Users\Operator'},
+      windows: true,
+    );
+
+    await expectLater(
+      coordinator.authorizeVault(),
+      throwsA(isA<LocalRecoveryException>()),
+    );
+  });
+
+  test(
+    'Windows authorization rejects a directory junction',
+    () async {
+      final outside = await Directory(
+        '${testRoot.path}${Platform.pathSeparator}outside',
+      ).create();
+      final junction = '${testRoot.path}${Platform.pathSeparator}junction';
+      final created = await Process.run('cmd', [
+        '/c',
+        'mklink',
+        '/J',
+        junction,
+        outside.path,
+      ]);
+      expect(created.exitCode, 0, reason: '${created.stdout}${created.stderr}');
+      try {
+        final coordinator = LocalAccessCoordinator(
+          directoryPicker:
+              ({
+                initialDirectory,
+                confirmButtonText,
+                canCreateDirectories,
+              }) async => junction,
+          windows: true,
+        );
+        await expectLater(
+          coordinator.authorizeVault(),
+          throwsA(isA<LocalRecoveryException>()),
+        );
+      } finally {
+        await Process.run('cmd', ['/c', 'rmdir', junction]);
+      }
+    },
+    skip: Platform.isWindows ? false : 'Requires Windows junction support.',
+  );
+
   test('cancelled native selection reads no source', () async {
     var calls = 0;
     final coordinator = LocalAccessCoordinator(
