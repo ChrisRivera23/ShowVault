@@ -40,6 +40,8 @@ not authorize workflow dispatch or controlled-equipment use.
   disposable proof.
 
 When authorization is ambiguous, stop before the action and preserve local work.
+Use `LOCAL_AUTHORIZATION_READINESS_MATRIX.md` to map the intended operation to
+its exact prerequisite, approval class, and mandatory stop point.
 
 ## Stage 0 — freeze and verify the planning source
 

@@ -8,7 +8,7 @@ The recommended path is the one-file evidence-bridge PR [#26](https://github.com
 
 PR #26's current published revision pins `ddfcaa6af7ccd03a1e7ae8d6de29f0865a81e97b`, which predates the checksummed workflow-provenance contract and matching independent verifiers. It is no longer merge-ready. Local candidate `1ce2efc` contains those protections, including post-run GitHub metadata/workflow-revision attestation plus deterministic bridge preparation and verification, but must be pushed and pass remote CI before it can become the approved source pin.
 
-Creating, merging, or dispatching this bridge requires explicit authorization. This document grants none of those permissions.
+Creating, merging, or dispatching this bridge requires explicit authorization. This document grants none of those permissions. `LOCAL_AUTHORIZATION_READINESS_MATRIX.md` separates the source-push, bridge-mutation, bridge-merge, single-dispatch, artifact-attestation, and controlled-equipment approvals.
 
 ## Audited repository state
 
