@@ -17,10 +17,15 @@ namespace ShowVault.Api.Tests;
 public sealed class TenantApiFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
+    private readonly string _hostedSyncRoot = Path.Combine(
+        Path.GetTempPath(), $"showvault-hosted-sync-{Guid.NewGuid():N}");
+
+    public string HostedSyncRoot => _hostedSyncRoot;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         _connection.Open();
+        builder.UseSetting("HostedSync:RootPath", _hostedSyncRoot);
 
         builder.ConfigureServices(services =>
         {
@@ -51,6 +56,10 @@ public sealed class TenantApiFactory : WebApplicationFactory<Program>
         if (disposing)
         {
             _connection.Dispose();
+            if (Directory.Exists(_hostedSyncRoot))
+            {
+                Directory.Delete(_hostedSyncRoot, recursive: true);
+            }
         }
     }
 }

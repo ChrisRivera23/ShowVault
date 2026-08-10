@@ -23,6 +23,14 @@ abstract class LocalSyncObjectStore {
   );
 }
 
+abstract class LocalSyncSessionObjectStore {
+  Future<LocalSyncReceipt?> beginUpload(
+    String packageId,
+    List<int> remoteManifestBytes,
+    List<LocalSyncFileDescriptor> files,
+  );
+}
+
 class LocalFolderObjectStore implements LocalSyncObjectStore {
   LocalFolderObjectStore(this.rootPath);
 

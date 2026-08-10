@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
 using ShowVault.Api.Endpoints;
+using ShowVault.Api.HostedSync;
 using ShowVault.Api.Security;
 using ShowVault.AgentContracts;
 
@@ -23,6 +24,8 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.Configure<HostedSyncOptions>(builder.Configuration.GetSection("HostedSync"));
+builder.Services.AddSingleton<HostedSyncStore>();
 builder.Services.AddDbContext<PlatformDbContext>(options =>
     options.UseNpgsql(platformConnectionString));
 builder.Services
@@ -117,6 +120,7 @@ app.MapRecoveryHistoryEndpoints();
 app.MapRecoveryWorkflowEndpoints();
 app.MapRecoveryCandidateEndpoints();
 app.MapSubnetProposalEndpoints();
+app.MapHostedSyncEndpoints();
 
 app.Run();
 

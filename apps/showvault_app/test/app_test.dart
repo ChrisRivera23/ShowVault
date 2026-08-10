@@ -136,6 +136,7 @@ class _FakeLocalSyncService extends LocalSyncService {
   Future<LocalSyncRunResult> syncPending(
     String authorizedVaultRoot, {
     int maxJobs = 25,
+    LocalSyncCancellation? cancellation,
   }) async {
     called = true;
     recovery.synchronized = true;

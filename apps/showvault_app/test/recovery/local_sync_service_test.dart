@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:showvault_app/src/recovery/local_recovery_service.dart';
 import 'package:showvault_app/src/recovery/local_sync_object_store.dart';
@@ -267,6 +268,59 @@ void main() {
     },
   );
 
+  test('concurrent hosted completion is accepted after begin', () async {
+    final saved = await saveFixture();
+    final store = _ConcurrentCompletionStore(clock);
+
+    final run = await LocalSyncService(
+      objectStore: store,
+      now: () => clock,
+    ).syncPending(vaultRoot);
+
+    expect(run.synchronized, 1);
+    expect(store.beginCalls, 1);
+    expect(store.appendCalls, 0);
+    expect(
+      (await latestState(saved.recoveryPointId))['status'],
+      'synchronized',
+    );
+  });
+
+  test(
+    'cancellation remains queued and resumes from durable remote bytes',
+    () async {
+      final saved = await saveFixture();
+      final cancellation = LocalSyncCancellation();
+      final delegate = LocalFolderObjectStore(remoteRoot);
+      final cancelling = _CancelAfterFirstChunkStore(delegate, cancellation);
+
+      final first = await LocalSyncService(
+        objectStore: cancelling,
+        now: () => clock,
+        chunkBytes: 4,
+      ).syncPending(vaultRoot, cancellation: cancellation);
+
+      expect(first.retriedLater, 1);
+      expect(cancelling.appendCalls, 1);
+      expect((await latestState(saved.recoveryPointId))['status'], 'retry');
+      clock = clock.add(const Duration(seconds: 31));
+
+      final second = await LocalSyncService(
+        objectStore: delegate,
+        now: () => clock,
+        chunkBytes: 4,
+      ).syncPending(vaultRoot);
+
+      expect(second.synchronized, 1);
+      expect(
+        await File(
+          '$remoteRoot/packages/${saved.recoveryPointId}/content/database V2',
+        ).readAsString(),
+        'synthetic-library-content',
+      );
+    },
+  );
+
   test(
     'linked package content is rejected before upload',
     () async {
@@ -434,5 +488,68 @@ class _CorruptBeforeCommitStore extends _CountingStore {
     );
     await target.writeAsString('remote-corruption');
     return super.verifyAndCommit(packageId, remoteManifestBytes, files);
+  }
+}
+
+class _ConcurrentCompletionStore
+    implements LocalSyncObjectStore, LocalSyncSessionObjectStore {
+  _ConcurrentCompletionStore(this.completedAt);
+
+  final DateTime completedAt;
+  int beginCalls = 0;
+  int appendCalls = 0;
+
+  @override
+  Future<LocalSyncReceipt?> committedReceipt(String packageId) async => null;
+
+  @override
+  Future<LocalSyncReceipt?> beginUpload(
+    String packageId,
+    List<int> remoteManifestBytes,
+    List<LocalSyncFileDescriptor> files,
+  ) async {
+    beginCalls++;
+    return LocalSyncReceipt(
+      packageId: packageId,
+      remoteManifestSha256: sha256.convert(remoteManifestBytes).toString(),
+      completedAt: completedAt,
+    );
+  }
+
+  @override
+  Future<void> appendChunk(
+    String packageId,
+    String relativePath,
+    int offset,
+    List<int> bytes,
+  ) async {
+    appendCalls++;
+  }
+
+  @override
+  Future<int> uploadedLength(String packageId, String relativePath) async => 0;
+
+  @override
+  Future<LocalSyncReceipt> verifyAndCommit(
+    String packageId,
+    List<int> remoteManifestBytes,
+    List<LocalSyncFileDescriptor> files,
+  ) => throw StateError('Commit should not be reached.');
+}
+
+class _CancelAfterFirstChunkStore extends _CountingStore {
+  _CancelAfterFirstChunkStore(super.delegate, this.cancellation);
+
+  final LocalSyncCancellation cancellation;
+
+  @override
+  Future<void> appendChunk(
+    String packageId,
+    String relativePath,
+    int offset,
+    List<int> bytes,
+  ) async {
+    await super.appendChunk(packageId, relativePath, offset, bytes);
+    cancellation.cancel();
   }
 }

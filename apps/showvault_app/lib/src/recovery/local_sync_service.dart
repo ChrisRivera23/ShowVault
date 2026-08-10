@@ -5,16 +5,34 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:showvault_app/src/config/app_config.dart';
+import 'package:showvault_app/src/auth/auth_provider.dart';
+import 'package:showvault_app/src/recovery/hosted_sync_object_store.dart';
 import 'package:showvault_app/src/recovery/local_recovery_service.dart';
 import 'package:showvault_app/src/recovery/local_sync_object_store.dart';
+import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
 
 final localSyncServiceProvider = Provider<LocalSyncService?>((ref) {
-  if (AppConfig.syntheticFixtureHome.isEmpty ||
-      AppConfig.syntheticObjectStoreRoot.isEmpty) {
+  if (AppConfig.syntheticFixtureHome.isNotEmpty &&
+      AppConfig.syntheticObjectStoreRoot.isNotEmpty) {
+    return LocalSyncService(
+      objectStore: LocalFolderObjectStore(AppConfig.syntheticObjectStoreRoot),
+    );
+  }
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  final history = ref.watch(recoveryHistoryProvider).valueOrNull;
+  if (session == null ||
+      history == null ||
+      history.organizationId.isEmpty ||
+      history.venueId.isEmpty) {
     return null;
   }
   return LocalSyncService(
-    objectStore: LocalFolderObjectStore(AppConfig.syntheticObjectStoreRoot),
+    objectStore: HostedSyncObjectStore(
+      apiBaseUrl: AppConfig.apiBaseUrl,
+      accessToken: session.accessToken,
+      organizationId: history.organizationId,
+      venueId: history.venueId,
+    ),
   );
 });
 
@@ -51,6 +69,7 @@ class LocalSyncService {
   Future<LocalSyncRunResult> syncPending(
     String authorizedVaultRoot, {
     int maxJobs = 25,
+    LocalSyncCancellation? cancellation,
   }) async {
     if (maxJobs <= 0 || maxJobs > 100) {
       throw ArgumentError.value(maxJobs, 'maxJobs', 'Must be from 1 to 100.');
@@ -61,8 +80,14 @@ class LocalSyncService {
     var failed = 0;
     var skipped = 0;
     var considered = 0;
+    void checkActive() {
+      if (cancellation?.isCancelled ?? false) {
+        throw const LocalSyncCancelledException();
+      }
+    }
 
     for (final record in snapshot.records) {
+      checkActive();
       if (considered >= maxJobs) break;
       final state = await _loadState(snapshot.vaultRoot, record);
       if (state == null || state.status == _SyncStatus.failed) {
@@ -103,6 +128,7 @@ class LocalSyncService {
       await _appendState(snapshot.vaultRoot, current);
 
       try {
+        checkActive();
         final package = await _preparePackage(record);
         final existing = await objectStore.committedReceipt(package.packageId);
         if (existing != null) {
@@ -122,7 +148,34 @@ class LocalSyncService {
           continue;
         }
 
+        if (objectStore case final LocalSyncSessionObjectStore sessionStore) {
+          final begun = await sessionStore.beginUpload(
+            package.packageId,
+            package.remoteManifestBytes,
+            package.files
+                .map((file) => file.descriptor)
+                .toList(growable: false),
+          );
+          if (begun != null) {
+            if (begun.remoteManifestSha256 != package.remoteManifestSha256) {
+              throw const LocalObjectStoreIntegrityException(
+                'The begun remote identity does not match this package.',
+              );
+            }
+            current = current.copyWith(
+              status: _SyncStatus.synchronized,
+              updatedAt: _now().toUtc(),
+              remoteManifestSha256: begun.remoteManifestSha256,
+              completedAt: begun.completedAt,
+            );
+            await _appendState(snapshot.vaultRoot, current);
+            synchronized++;
+            continue;
+          }
+        }
+
         for (final file in package.files) {
+          checkActive();
           var offset = await objectStore.uploadedLength(
             package.packageId,
             file.descriptor.relativePath,
@@ -136,6 +189,7 @@ class LocalSyncService {
           try {
             await handle.setPosition(offset);
             while (offset < file.descriptor.size) {
+              checkActive();
               final remaining = file.descriptor.size - offset;
               final chunk = await handle.read(min(chunkBytes, remaining));
               if (chunk.isEmpty) {
@@ -150,12 +204,14 @@ class LocalSyncService {
                 chunk,
               );
               offset += chunk.length;
+              checkActive();
             }
           } finally {
             await handle.close();
           }
         }
 
+        checkActive();
         final receipt = await objectStore.verifyAndCommit(
           package.packageId,
           package.remoteManifestBytes,
@@ -194,6 +250,18 @@ class LocalSyncService {
           ),
         );
         failed++;
+      } on LocalSyncCancelledException {
+        await _appendState(
+          snapshot.vaultRoot,
+          current.copyWith(
+            status: _SyncStatus.retryScheduled,
+            updatedAt: _now().toUtc(),
+            nextAttemptAt: _now().toUtc().add(_retryDelay(attempt)),
+            lastError: 'Synchronization was cancelled and remains queued.',
+          ),
+        );
+        retriedLater++;
+        break;
       } catch (_) {
         final exhausted = attempt >= maxAttempts;
         await _appendState(
@@ -740,6 +808,16 @@ class LocalSyncRunResult {
   final int retriedLater;
   final int failed;
   final int skipped;
+}
+
+class LocalSyncCancellation {
+  bool _cancelled = false;
+  bool get isCancelled => _cancelled;
+  void cancel() => _cancelled = true;
+}
+
+class LocalSyncCancelledException implements Exception {
+  const LocalSyncCancelledException();
 }
 
 class LocalSyncPackageException implements Exception {
