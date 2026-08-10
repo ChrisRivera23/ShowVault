@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 namespace ShowVault.Api.HostedSync;
 
 public sealed class HostedSyncStore(IOptions<HostedSyncOptions> options, TimeProvider timeProvider)
+    : IHostedSyncStore
 {
     private const int MaxChunkBytes = 256 * 1024;
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new();

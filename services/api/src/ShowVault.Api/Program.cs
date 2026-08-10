@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.RateLimiting;
@@ -24,8 +25,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.Configure<HostedSyncOptions>(builder.Configuration.GetSection("HostedSync"));
-builder.Services.AddSingleton<HostedSyncStore>();
+builder.Services.AddHostedSync(builder.Configuration);
 builder.Services.AddDbContext<PlatformDbContext>(options =>
     options.UseNpgsql(platformConnectionString));
 builder.Services
@@ -76,6 +76,18 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+if (args.Contains("--smoke-hosted-sync", StringComparer.Ordinal))
+{
+    await HostedSyncSmokeCheck.RunAsync(app.Services);
+    return;
+}
+if (args.Contains("--migrate", StringComparer.Ordinal))
+{
+    await using var migrationScope = app.Services.CreateAsyncScope();
+    await migrationScope.ServiceProvider.GetRequiredService<PlatformDbContext>()
+        .Database.MigrateAsync();
+    return;
+}
 app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -86,7 +98,18 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready")
+});
 app.MapGet("/api/v1/agent-protocol", (HttpContext context) =>
     Results.Ok(ApiResponse<AgentProtocolDescription>.Success(
         AgentProtocolDescription.Current,

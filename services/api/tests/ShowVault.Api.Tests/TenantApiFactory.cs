@@ -25,6 +25,7 @@ public sealed class TenantApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         _connection.Open();
+        builder.UseSetting("HostedSync:Provider", "FileSystem");
         builder.UseSetting("HostedSync:RootPath", _hostedSyncRoot);
 
         builder.ConfigureServices(services =>

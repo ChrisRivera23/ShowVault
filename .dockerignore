@@ -1,0 +1,10 @@
+.git
+.prototype
+apps
+docs
+infra
+**/bin
+**/obj
+**/.dart_tool
+**/build
+NEXT_CONVERSATION.md

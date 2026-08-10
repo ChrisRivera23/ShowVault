@@ -1,0 +1,23 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0.302-alpine3.23 AS build
+WORKDIR /src
+
+COPY services/contracts/src/ShowVault.AgentContracts/ShowVault.AgentContracts.csproj services/contracts/src/ShowVault.AgentContracts/
+COPY services/platform/src/ShowVault.Platform/ShowVault.Platform.csproj services/platform/src/ShowVault.Platform/
+COPY services/api/src/ShowVault.Api/ShowVault.Api.csproj services/api/src/ShowVault.Api/
+RUN dotnet restore services/api/src/ShowVault.Api/ShowVault.Api.csproj
+
+COPY services/ services/
+RUN dotnet publish services/api/src/ShowVault.Api/ShowVault.Api.csproj \
+    --configuration Release \
+    --no-restore \
+    --output /app/publish \
+    /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.10-alpine3.23 AS runtime
+WORKDIR /app
+RUN apk add --no-cache krb5-libs
+COPY --from=build --chown=app:app /app/publish/ ./
+USER app
+ENV ASPNETCORE_HTTP_PORTS=8080
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "ShowVault.Api.dll"]

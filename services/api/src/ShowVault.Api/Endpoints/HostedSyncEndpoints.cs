@@ -30,7 +30,7 @@ public static class HostedSyncEndpoints
     private static async Task<IResult> GetReceiptAsync(
         Guid organizationId, Guid venueId, string packageId,
         ClaimsPrincipal user, HttpContext context, PlatformDbContext database,
-        HostedSyncStore store, CancellationToken cancellationToken)
+        IHostedSyncStore store, CancellationToken cancellationToken)
     {
         if (!await CanSynchronizeAsync(database, organizationId, venueId, user, cancellationToken))
             return Results.Forbid();
@@ -48,7 +48,7 @@ public static class HostedSyncEndpoints
     private static async Task<IResult> BeginAsync(
         Guid organizationId, Guid venueId, string packageId,
         BeginHostedSyncRequest request, ClaimsPrincipal user, HttpContext context,
-        PlatformDbContext database, HostedSyncStore store,
+        PlatformDbContext database, IHostedSyncStore store,
         CancellationToken cancellationToken)
     {
         if (!await CanSynchronizeAsync(database, organizationId, venueId, user, cancellationToken))
@@ -69,7 +69,7 @@ public static class HostedSyncEndpoints
     private static async Task<IResult> GetFileStateAsync(
         Guid organizationId, Guid venueId, string packageId,
         HostedSyncFileStateRequest request, ClaimsPrincipal user, HttpContext context,
-        PlatformDbContext database, HostedSyncStore store,
+        PlatformDbContext database, IHostedSyncStore store,
         CancellationToken cancellationToken)
     {
         if (!await CanSynchronizeAsync(database, organizationId, venueId, user, cancellationToken))
@@ -86,7 +86,7 @@ public static class HostedSyncEndpoints
     private static async Task<IResult> AppendChunkAsync(
         Guid organizationId, Guid venueId, string packageId,
         AppendHostedSyncChunkRequest request, ClaimsPrincipal user,
-        PlatformDbContext database, HostedSyncStore store,
+        PlatformDbContext database, IHostedSyncStore store,
         CancellationToken cancellationToken)
     {
         if (!await CanSynchronizeAsync(database, organizationId, venueId, user, cancellationToken))
@@ -105,7 +105,7 @@ public static class HostedSyncEndpoints
     private static async Task<IResult> CommitAsync(
         Guid organizationId, Guid venueId, string packageId,
         BeginHostedSyncRequest request, ClaimsPrincipal user, HttpContext context,
-        PlatformDbContext database, HostedSyncStore store,
+        PlatformDbContext database, IHostedSyncStore store,
         CancellationToken cancellationToken)
     {
         if (!await CanSynchronizeAsync(database, organizationId, venueId, user, cancellationToken))
