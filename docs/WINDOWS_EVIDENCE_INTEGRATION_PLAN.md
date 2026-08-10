@@ -143,6 +143,11 @@ file-by-file disposition, milestone ownership, and local reproduction commands.
 It is the required starting checklist for reconstructing any of the six
 milestones.
 
+`LOCAL_FIRST_MILESTONE_1_EXTRACTION.md` further fixes the first milestone to a
+41-file net source range, identifies 23 overlap and 18 range-only files, excludes
+two transient net-zero navigation changes, and defines its reconstruction order
+and verification gates.
+
 The 247-commit legacy catalog/Agent expansion remains a separate paused review.
 It must be evaluated by current product value and authorization boundaries, not
 merged merely because later local-first work was originally developed on top of

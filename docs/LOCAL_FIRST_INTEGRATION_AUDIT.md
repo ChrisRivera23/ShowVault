@@ -99,6 +99,10 @@ The expected counts are 247 and 40. These checks use local Git objects only.
 
 ## Extraction gates
 
+`LOCAL_FIRST_MILESTONE_1_EXTRACTION.md` is the complete source/file/test
+manifest for the first reconstruction milestone. Use it together with the
+overlap dispositions above; neither document grants external-action authority.
+
 Before a milestone is proposed for integration:
 
 1. Start from the then-current integrated `main`, never from PR #25.
