@@ -1492,7 +1492,7 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
         label: Text(_saving ? 'Saving' : 'Save'),
       );
     }
-    final cloudStatus = result?.cloudStatus ?? rehydrated!.cloudStatus;
+    final cloudStatus = rehydrated?.cloudStatus ?? result!.cloudStatus;
     final cloudLabel = switch (cloudStatus) {
       LocalCloudSyncStatus.queued => 'Cloud queued',
       LocalCloudSyncStatus.syncing => 'Cloud syncing',
