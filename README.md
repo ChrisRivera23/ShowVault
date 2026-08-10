@@ -8,6 +8,8 @@ The first Flutter desktop Save slice is documented in [docs/LOCAL_DESKTOP_SAVE.m
 
 Controlled macOS application replacement now preserves and source-freely rehydrates the external local vault, independent manifests, durable queue journal, and restore evidence. An explicitly requested local support diagnostic reports only bounded path-free workflow metadata. See [docs/UPGRADE_AND_SUPPORT_DIAGNOSTICS.md](docs/UPGRADE_AND_SUPPORT_DIAGNOSTICS.md).
 
+A current-user Windows installer definition, clean packaging script, Windows-specific local-path policy, and controlled installed-proof runner are versioned in the repository. They have static and cross-platform test coverage but have not been compiled or executed on Windows. See [docs/WINDOWS_PACKAGING_AND_EXECUTION.md](docs/WINDOWS_PACKAGING_AND_EXECUTION.md).
+
 The first product promise is intentionally focused:
 
 > ShowVault can tell a venue what is installed, what is protected, whether its backup is usable, and exactly how to recover it.

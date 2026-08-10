@@ -98,3 +98,16 @@ The upgrade runner builds two distinct release apps, replaces the installed synt
 ```
 
 The output directory must be absolute and absent. This command is synthetic macOS test scaffolding, not an installer, notarization, Windows, or rollback claim. See [`../../docs/UPGRADE_AND_SUPPORT_DIAGNOSTICS.md`](../../docs/UPGRADE_AND_SUPPORT_DIAGNOSTICS.md).
+
+## Build the Windows package
+
+On a Windows build machine with PowerShell 7, Flutter Windows support, Visual Studio C++ tooling, and Inno Setup 6:
+
+```powershell
+pwsh -File .\packaging\windows\build-app.ps1 `
+  -OutputDirectory C:\ShowVaultArtifacts\release
+```
+
+The current-user installer registers only the `showvault://` authentication callback, replaces only application files during upgrade, and retains the operator-selected external vault during upgrade or uninstall. The package includes a portable ZIP, path-free package manifest, observed signature status, and SHA-256 checksums.
+
+The controlled installed proof is ready at `tool\run-windows-installed-proof.ps1`. It must be executed on authorized Windows equipment before Windows readiness is claimed. See [`../../docs/WINDOWS_PACKAGING_AND_EXECUTION.md`](../../docs/WINDOWS_PACKAGING_AND_EXECUTION.md).
