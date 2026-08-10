@@ -54,6 +54,8 @@ its exact prerequisite, approval class, and mandatory stop point.
       and exactly 29 legacy-overlap paths.
 - [ ] `dart run tool/verify_local_first_integration_preflight.dart` returns the
       bounded verified result with no external read or repository mutation.
+- [ ] `dart run tool/verify_local_integration_plan.dart` combines that result
+      with the PR #3–#24 foundation preflight without evaluating authorization.
 - [ ] The four excluded interleaved commits are exactly `626e88d`, `0c174ba`,
       `a1c3c83`, and `65c50be`.
 - [ ] The source references still exist and have not been rewritten.
