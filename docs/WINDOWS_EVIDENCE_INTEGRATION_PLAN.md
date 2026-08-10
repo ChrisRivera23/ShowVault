@@ -175,6 +175,10 @@ provenance, attestation, and authorization gate.
 commit/file topology and is the final local consistency check before following a
 future authorized execution checklist.
 
+`LOCAL_FIRST_INTEGRATION_EXECUTION_CHECKLIST.md` is the controlling consolidated
+checklist for the dependency-ordered product path and the separately authorized
+Windows evidence/equipment paths.
+
 The 247-commit legacy catalog/Agent expansion remains a separate paused review.
 It must be evaluated by current product value and authorization boundaries, not
 merged merely because later local-first work was originally developed on top of

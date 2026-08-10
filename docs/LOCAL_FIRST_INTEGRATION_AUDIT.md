@@ -128,6 +128,11 @@ bridge preparation/verification. It also assigns `ddfcaa6` to the exact
 selected commits and a 136-path union without boundary gaps, while excluding the
 four unrelated commits interleaved in the Windows history.
 
+`LOCAL_FIRST_INTEGRATION_EXECUTION_CHECKLIST.md` is the consolidated
+dependency-ordered procedure, common test/security loop, authorization ledger,
+Windows evidence sequence, controlled-equipment sequence, and stop-condition
+record for future execution.
+
 Before a milestone is proposed for integration:
 
 1. Start from the then-current integrated `main`, never from PR #25.
