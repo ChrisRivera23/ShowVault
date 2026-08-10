@@ -124,6 +124,10 @@ packaging, installed proof, provenance-bound native evidence, and deterministic
 bridge preparation/verification. It also assigns `ddfcaa6` to the exact
 `RecoveryPackageWriter` compatibility path.
 
+`LOCAL_FIRST_INTEGRATION_CONSISTENCY_AUDIT.md` proves the six manifests cover 52
+selected commits and a 136-path union without boundary gaps, while excluding the
+four unrelated commits interleaved in the Windows history.
+
 Before a milestone is proposed for integration:
 
 1. Start from the then-current integrated `main`, never from PR #25.

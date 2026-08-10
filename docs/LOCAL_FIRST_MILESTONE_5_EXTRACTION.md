@@ -174,9 +174,9 @@ proof there.
 
 The 19 net files divide into:
 
-- 12 application source/test/tool files;
+- 13 application source/test/tool files;
 - 1 disposable infrastructure override; and
-- 6 repository/runbook files.
+- 5 repository/runbook files.
 
 Reproduce the accounting from the repository root:
 
