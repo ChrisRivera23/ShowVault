@@ -6,7 +6,7 @@ Separate native Windows evidence from the accumulated product-integration review
 
 The recommended path is the one-file evidence-bridge PR [#26](https://github.com/ChrisRivera23/ShowVault/pull/26), based on `main`. The bridge places a manual-only workflow on the default branch and checks out one explicitly approved immutable source commit. It does not merge the accumulated product stack or claim that stack is ready to ship.
 
-PR #26's current published revision pins `ddfcaa6af7ccd03a1e7ae8d6de29f0865a81e97b`, which predates the checksummed workflow-provenance contract and matching independent verifiers. It is no longer merge-ready. Local candidate `a927c20` contains those protections, including post-run GitHub metadata/workflow-revision attestation and deterministic bridge preparation, but must be pushed and pass remote CI before it can become the approved source pin.
+PR #26's current published revision pins `ddfcaa6af7ccd03a1e7ae8d6de29f0865a81e97b`, which predates the checksummed workflow-provenance contract and matching independent verifiers. It is no longer merge-ready. Local candidate `1ce2efc` contains those protections, including post-run GitHub metadata/workflow-revision attestation plus deterministic bridge preparation and verification, but must be pushed and pass remote CI before it can become the approved source pin.
 
 Creating, merging, or dispatching this bridge requires explicit authorization. This document grants none of those permissions.
 
@@ -37,6 +37,17 @@ dart run tool/prepare_windows_evidence_bridge.dart \
 
 The command accepts only a lowercase full commit SHA, a regular source workflow, an existing regular output parent, and an absent file named `windows-evidence.yml`. It validates the manual/read-only policy and the exact three approved commit-pinned actions, injects exactly one immutable checkout ref with `persist-credentials: false`, rereads the created file, and emits a bounded SHA-256 result. It refuses to overwrite an existing file.
 
+Independently verify the resulting file before review or publication:
+
+```bash
+dart run tool/verify_windows_evidence_bridge.dart \
+  <explicitly-approved-published-green-source-sha> \
+  ../../.github/workflows/windows-evidence.yml \
+  <bridge-worktree>/.github/workflows/windows-evidence.yml
+```
+
+The verifier reads regular bounded files only, regenerates the expected workflow in memory, requires byte-for-byte equality including line endings and the exact filename, and emits the verified source SHA and workflow SHA-256. Any extra content, pin change, linked input, filename substitution, or formatting drift fails verification.
+
 The resulting one-file change contains the checkout step fixed to the exact source SHA:
 
 ```yaml
@@ -63,7 +74,7 @@ The bridge PR should contain one changed file. Its description must identify the
 Only after explicit authorization for each external stage:
 
 1. Create the evidence-bridge branch from the current `origin/main` and use the deterministic preparation command to create the one pinned workflow file.
-2. Confirm the reported workflow digest, validate the YAML, and inspect the one-file diff locally.
+2. Run the independent bridge verifier, confirm that its digest matches the preparation result, validate the YAML, and inspect the one-file diff locally.
 3. Push the bridge branch and open a draft PR to `main`.
 4. Review the one-file diff and confirm that the checkout source is the exact explicitly approved, published, green commit containing checksummed workflow provenance and the matching independent verifier.
 5. Obtain separate approval to mark ready and merge the bridge PR.
