@@ -10,6 +10,10 @@ final localRecoveryServiceProvider = Provider<LocalRecoveryService>(
   (ref) => LocalRecoveryService(),
 );
 
+final localVaultSnapshotProvider = StateProvider<LocalVaultSnapshot?>(
+  (ref) => null,
+);
+
 class LocalRecoveryService {
   LocalRecoveryService({
     String? vaultRoot,
@@ -36,6 +40,7 @@ class LocalRecoveryService {
   Future<LocalBackupResult> save(
     LocalBackupSource source, {
     LocalBackupCancellation? cancellation,
+    String? authorizedVaultRoot,
   }) async {
     final startedAt = _now().toUtc();
     final deadline = startedAt.add(timeout);
@@ -108,7 +113,7 @@ class LocalRecoveryService {
       (left, right) => left.relativePath.compareTo(right.relativePath),
     );
 
-    final vaultRoot = _resolveVaultRoot();
+    final vaultRoot = _resolveVaultRoot(authorizedVaultRoot);
     final backupsRoot = _join(vaultRoot, 'Backups');
     final parentRoot = _join(backupsRoot, _safeName(source.productName));
     final stagingPath = _join(parentRoot, '.staging-${_randomHex(16)}');
@@ -235,8 +240,7 @@ class LocalRecoveryService {
         );
       } on FileSystemException catch (error) {
         cloudStatus = LocalCloudSyncStatus.queueFailed;
-        final queueWarning =
-            'Cloud queue persistence failed: ${error.message}';
+        final queueWarning = 'Cloud queue persistence failed: ${error.message}';
         warning = warning == null
             ? 'Verified locally, but $queueWarning'
             : '$warning $queueWarning';
@@ -244,6 +248,7 @@ class LocalRecoveryService {
       return LocalBackupResult(
         recoveryPointId: recoveryPointId,
         recoveryPointPath: recoveryPointPath,
+        vaultRoot: vaultRoot,
         fileCount: files.length,
         totalBytes: totalBytes,
         localStatus: LocalProtectionStatus.verified,
@@ -255,6 +260,168 @@ class LocalRecoveryService {
         await Directory(stagingPath).delete(recursive: true);
       }
     }
+  }
+
+  Future<LocalVaultSnapshot> inspectVault(String authorizedVaultRoot) async {
+    final vaultType = await FileSystemEntity.type(
+      authorizedVaultRoot,
+      followLinks: false,
+    );
+    if (vaultType != FileSystemEntityType.directory) {
+      throw const LocalRecoveryException(
+        'The authorized vault is missing or is a filesystem link.',
+      );
+    }
+    final vaultRoot = await Directory(
+      authorizedVaultRoot,
+    ).resolveSymbolicLinks();
+    final manifestsRoot = Directory(_join(vaultRoot, 'Manifests'));
+    if (!await manifestsRoot.exists()) {
+      return LocalVaultSnapshot(vaultRoot: vaultRoot, records: const []);
+    }
+    if (await FileSystemEntity.type(manifestsRoot.path, followLinks: false) !=
+        FileSystemEntityType.directory) {
+      throw const LocalRecoveryException(
+        'The vault Manifests location is not a regular directory.',
+      );
+    }
+
+    final manifestFiles = <File>[];
+    await for (final entity in manifestsRoot.list(followLinks: false)) {
+      final type = await FileSystemEntity.type(entity.path, followLinks: false);
+      if (type == FileSystemEntityType.link) {
+        throw const LocalRecoveryException(
+          'The vault contains a linked manifest entry.',
+        );
+      }
+      if (type != FileSystemEntityType.file) continue;
+      final name = _fileName(entity.path);
+      if (name.contains('.tmp-')) continue;
+      if (!_isRecordFileName(name)) {
+        throw const LocalRecoveryException(
+          'The vault contains an unrecognized manifest record.',
+        );
+      }
+      manifestFiles.add(File(entity.path));
+      if (manifestFiles.length > 10000) {
+        throw const LocalRecoveryException(
+          'The vault exceeds the manifest-count limit.',
+        );
+      }
+    }
+    manifestFiles.sort((left, right) => left.path.compareTo(right.path));
+
+    final records = <LocalRecoveryRecord>[];
+    for (final manifestFile in manifestFiles) {
+      if (await manifestFile.length() > 2 * 1024 * 1024) {
+        throw const LocalRecoveryException(
+          'A vault manifest exceeds the size limit.',
+        );
+      }
+      final bytes = await manifestFile.readAsBytes();
+      final packageId = _fileName(manifestFile.path).substring(0, 64);
+      if (sha256.convert(bytes).toString() != packageId) {
+        throw const LocalRecoveryException(
+          'A vault manifest identity does not match its SHA-256 digest.',
+        );
+      }
+      final manifest = _decodeObject(
+        bytes,
+        'A vault manifest is not valid JSON.',
+      );
+      final source = manifest['source'];
+      if (source is! Map<String, Object?>) {
+        throw const LocalRecoveryException(
+          'A vault manifest has no valid source.',
+        );
+      }
+      final candidateKey = _requiredString(source, 'candidateKey');
+      final productName = _requiredString(source, 'productName');
+      final createdAt = DateTime.tryParse(
+        _requiredString(manifest, 'createdAt'),
+      )?.toUtc();
+      final files = manifest['files'];
+      if (createdAt == null || files is! List<Object?>) {
+        throw const LocalRecoveryException('A vault manifest is incomplete.');
+      }
+      if (files.isEmpty || files.length > maxFiles) {
+        throw const LocalRecoveryException(
+          'A vault manifest has an invalid file count.',
+        );
+      }
+      var totalBytes = 0;
+      for (final file in files) {
+        if (file is! Map<String, Object?> ||
+            file['size'] is! int ||
+            (file['size']! as int) < 0 ||
+            (file['size']! as int) > maxFileBytes) {
+          throw const LocalRecoveryException(
+            'A vault manifest contains invalid file metadata.',
+          );
+        }
+        totalBytes += file['size']! as int;
+        if (totalBytes > maxTotalBytes) {
+          throw const LocalRecoveryException(
+            'A vault manifest exceeds the total size limit.',
+          );
+        }
+      }
+      final recoveryPointPath = _join(
+        _join(_join(vaultRoot, 'Backups'), _safeName(productName)),
+        '${_timestamp(createdAt)}__$packageId',
+      );
+      final packageManifest = File(_join(recoveryPointPath, 'manifest.json'));
+      if (await FileSystemEntity.type(
+                packageManifest.path,
+                followLinks: false,
+              ) !=
+              FileSystemEntityType.file ||
+          !_bytesEqual(bytes, await packageManifest.readAsBytes())) {
+        throw const LocalRecoveryException(
+          'A vault recovery point is missing or its manifest does not match.',
+        );
+      }
+
+      final queueFile = File(
+        _join(_join(vaultRoot, 'Upload Queue'), '$packageId.json'),
+      );
+      var cloudStatus = LocalCloudSyncStatus.queueFailed;
+      if (await FileSystemEntity.type(queueFile.path, followLinks: false) ==
+          FileSystemEntityType.file) {
+        if (await queueFile.length() > 64 * 1024) {
+          throw const LocalRecoveryException(
+            'A vault queue record exceeds the size limit.',
+          );
+        }
+        final queue = _decodeObject(
+          await queueFile.readAsBytes(),
+          'A vault queue record is not valid JSON.',
+        );
+        if (_requiredString(queue, 'packageId') != packageId) {
+          throw const LocalRecoveryException(
+            'A vault queue record has the wrong identity.',
+          );
+        }
+        cloudStatus = _requiredString(queue, 'status') == 'queued'
+            ? LocalCloudSyncStatus.queued
+            : LocalCloudSyncStatus.queueFailed;
+      }
+      records.add(
+        LocalRecoveryRecord(
+          recoveryPointId: packageId,
+          recoveryPointPath: recoveryPointPath,
+          candidateKey: candidateKey,
+          productName: productName,
+          createdAt: createdAt,
+          fileCount: files.length,
+          totalBytes: totalBytes,
+          localStatus: LocalProtectionStatus.verified,
+          cloudStatus: cloudStatus,
+        ),
+      );
+    }
+    records.sort((left, right) => right.createdAt.compareTo(left.createdAt));
+    return LocalVaultSnapshot(vaultRoot: vaultRoot, records: records);
   }
 
   Future<_CopiedFile> _copyAndHash(
@@ -371,7 +538,10 @@ class LocalRecoveryService {
     }
   }
 
-  String _resolveVaultRoot() {
+  String _resolveVaultRoot(String? authorizedVaultRoot) {
+    if (authorizedVaultRoot case final authorized?) {
+      return Directory(authorized).absolute.path;
+    }
     if (_configuredVaultRoot case final configured?) {
       return Directory(configured).absolute.path;
     }
@@ -417,7 +587,9 @@ class LocalRecoveryService {
     final sanitized = value
         .replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]'), '-')
         .trim();
-    return sanitized.isEmpty ? 'Unknown System' : sanitized;
+    return sanitized.isEmpty || sanitized == '.' || sanitized == '..'
+        ? 'Unknown System'
+        : sanitized;
   }
 
   static String _timestamp(DateTime value) =>
@@ -427,6 +599,42 @@ class LocalRecoveryService {
       '${value.hour.toString().padLeft(2, '0')}-'
       '${value.minute.toString().padLeft(2, '0')}-'
       '${value.second.toString().padLeft(2, '0')}Z';
+
+  static Map<String, Object?> _decodeObject(List<int> bytes, String error) {
+    try {
+      final decoded = jsonDecode(utf8.decode(bytes));
+      if (decoded is Map<String, Object?>) return decoded;
+    } on FormatException {
+      // Replaced with the bounded product error below.
+    }
+    throw LocalRecoveryException(error);
+  }
+
+  static String _requiredString(Map<String, Object?> value, String key) {
+    final candidate = value[key];
+    if (candidate is String && candidate.isNotEmpty) return candidate;
+    throw LocalRecoveryException('A vault record has no valid $key.');
+  }
+
+  static bool _isRecordFileName(String name) =>
+      name.length == 69 &&
+      name.endsWith('.json') &&
+      name.substring(0, 64).split('').every(_isHexCharacter);
+
+  static bool _isHexCharacter(String value) =>
+      (value.codeUnitAt(0) >= 48 && value.codeUnitAt(0) <= 57) ||
+      (value.codeUnitAt(0) >= 97 && value.codeUnitAt(0) <= 102);
+
+  static String _fileName(String path) =>
+      path.split(Platform.pathSeparator).last;
+
+  static bool _bytesEqual(List<int> left, List<int> right) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      if (left[index] != right[index]) return false;
+    }
+    return true;
+  }
 
   static String _randomHex(int byteCount) {
     final random = Random.secure();
@@ -447,6 +655,7 @@ class LocalBackupResult {
   const LocalBackupResult({
     required this.recoveryPointId,
     required this.recoveryPointPath,
+    required this.vaultRoot,
     required this.fileCount,
     required this.totalBytes,
     required this.localStatus,
@@ -456,11 +665,43 @@ class LocalBackupResult {
 
   final String recoveryPointId;
   final String recoveryPointPath;
+  final String vaultRoot;
   final int fileCount;
   final int totalBytes;
   final LocalProtectionStatus localStatus;
   final LocalCloudSyncStatus cloudStatus;
   final String? warning;
+}
+
+class LocalVaultSnapshot {
+  const LocalVaultSnapshot({required this.vaultRoot, required this.records});
+
+  final String vaultRoot;
+  final List<LocalRecoveryRecord> records;
+}
+
+class LocalRecoveryRecord {
+  const LocalRecoveryRecord({
+    required this.recoveryPointId,
+    required this.recoveryPointPath,
+    required this.candidateKey,
+    required this.productName,
+    required this.createdAt,
+    required this.fileCount,
+    required this.totalBytes,
+    required this.localStatus,
+    required this.cloudStatus,
+  });
+
+  final String recoveryPointId;
+  final String recoveryPointPath;
+  final String candidateKey;
+  final String productName;
+  final DateTime createdAt;
+  final int fileCount;
+  final int totalBytes;
+  final LocalProtectionStatus localStatus;
+  final LocalCloudSyncStatus cloudStatus;
 }
 
 enum LocalProtectionStatus { verified }

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:showvault_app/src/config/app_config.dart';
 
 final localCatalogScannerProvider = Provider<LocalCatalogScanner>(
   (ref) => LocalCatalogScanner(),
@@ -16,11 +17,14 @@ class LocalCatalogScanner {
     Map<String, String>? environment,
     Future<FileSystemEntityType> Function(String)? readType,
   }) : _platform = platform ?? _hostPlatform,
-       _environment = environment ?? Platform.environment,
+       _environment = environment ?? _defaultEnvironment,
+       _syntheticFixturesOnly =
+           environment == null && AppConfig.syntheticFixtureHome.isNotEmpty,
        _readType = readType ?? FileSystemEntity.type;
 
   final DesktopPlatform _platform;
   final Map<String, String> _environment;
+  final bool _syntheticFixturesOnly;
   final Future<FileSystemEntityType> Function(String) _readType;
 
   static DesktopPlatform get _hostPlatform => Platform.isMacOS
@@ -28,6 +32,15 @@ class LocalCatalogScanner {
       : Platform.isWindows
       ? DesktopPlatform.windows
       : DesktopPlatform.unsupported;
+
+  static Map<String, String> get _defaultEnvironment =>
+      AppConfig.syntheticFixtureHome.isEmpty
+      ? Platform.environment
+      : {
+          ...Platform.environment,
+          'HOME': AppConfig.syntheticFixtureHome,
+          'USERPROFILE': AppConfig.syntheticFixtureHome,
+        };
 
   Future<List<String>> scan() async {
     final findings = await scanFindings();
@@ -76,12 +89,13 @@ class LocalCatalogScanner {
     final userProfile = _environment['USERPROFILE'];
     return <_CatalogCandidate>[
       if (_platform == DesktopPlatform.macOs) ...[
-        const _CatalogCandidate(
-          key: 'macos.resolume-arena.application',
-          pluginId: 'showvault.resolume',
-          productName: 'Resolume Arena',
-          path: '/Applications/Resolume Arena/Arena.app',
-        ),
+        if (!_syntheticFixturesOnly)
+          const _CatalogCandidate(
+            key: 'macos.resolume-arena.application',
+            pluginId: 'showvault.resolume',
+            productName: 'Resolume Arena',
+            path: '/Applications/Resolume Arena/Arena.app',
+          ),
         if (home != null)
           _CatalogCandidate(
             key: 'macos.resolume-arena.user-data',
@@ -90,12 +104,13 @@ class LocalCatalogScanner {
             path: '$home/Documents/Resolume Arena',
             userDataRoot: true,
           ),
-        const _CatalogCandidate(
-          key: 'macos.serato-dj-pro.application',
-          pluginId: 'showvault.serato-dj-pro',
-          productName: 'Serato DJ Pro',
-          path: '/Applications/Serato DJ Pro.app',
-        ),
+        if (!_syntheticFixturesOnly)
+          const _CatalogCandidate(
+            key: 'macos.serato-dj-pro.application',
+            pluginId: 'showvault.serato-dj-pro',
+            productName: 'Serato DJ Pro',
+            path: '/Applications/Serato DJ Pro.app',
+          ),
         if (home != null)
           _CatalogCandidate(
             key: 'macos.serato-dj-pro.user-data',
@@ -105,7 +120,9 @@ class LocalCatalogScanner {
             userDataRoot: true,
           ),
       ],
-      if (_platform == DesktopPlatform.windows && programFiles != null) ...[
+      if (_platform == DesktopPlatform.windows &&
+          programFiles != null &&
+          !_syntheticFixturesOnly) ...[
         _CatalogCandidate(
           key: 'windows.resolume-arena.application',
           pluginId: 'showvault.resolume',

@@ -17,6 +17,9 @@ class AppConfig {
     'SHOWVAULT_API_BASE_URL',
     defaultValue: 'https://api.showvault.app',
   );
+  static const syntheticFixtureHome = String.fromEnvironment(
+    'SHOWVAULT_SYNTHETIC_FIXTURE_HOME',
+  );
   static const _personalBetaBypassRequested = bool.fromEnvironment(
     'SHOWVAULT_PERSONAL_BETA_BYPASS_AUTH',
   );

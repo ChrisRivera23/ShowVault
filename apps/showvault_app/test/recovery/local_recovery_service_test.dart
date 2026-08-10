@@ -51,6 +51,7 @@ void main() {
 
       expect(result.localStatus, LocalProtectionStatus.verified);
       expect(result.cloudStatus, LocalCloudSyncStatus.queued);
+      expect(result.vaultRoot, Directory(vaultRoot).absolute.path);
       expect(result.fileCount, 2);
       expect(result.recoveryPointPath, contains('Serato DJ Pro'));
       expect(result.recoveryPointPath, contains('2026-08-10T21-15-00Z__'));
@@ -220,5 +221,70 @@ void main() {
       ),
     );
     expect(await Directory(vaultRoot).exists(), isFalse);
+  });
+
+  test(
+    'a new service instance rehydrates status without reading the source',
+    () async {
+      await File('${sourceRoot.path}/library').writeAsString('content');
+      final now = DateTime.utc(2026, 8, 10, 21, 15);
+      final result = await LocalRecoveryService(
+        vaultRoot: vaultRoot,
+        now: () => now,
+      ).save(fixtureSource());
+      await sourceRoot.delete(recursive: true);
+
+      final snapshot = await LocalRecoveryService().inspectVault(vaultRoot);
+
+      expect(
+        snapshot.vaultRoot,
+        await Directory(vaultRoot).resolveSymbolicLinks(),
+      );
+      final record = snapshot.records.single;
+      expect(record.recoveryPointId, result.recoveryPointId);
+      expect(record.candidateKey, source.candidateKey);
+      expect(record.productName, 'Serato DJ Pro');
+      expect(record.fileCount, 1);
+      expect(record.cloudStatus, LocalCloudSyncStatus.queued);
+    },
+  );
+
+  test('rehydration rejects a tampered independent manifest', () async {
+    await File('${sourceRoot.path}/library').writeAsString('content');
+    final result = await LocalRecoveryService(
+      vaultRoot: vaultRoot,
+    ).save(fixtureSource());
+    await File(
+      '$vaultRoot/Manifests/${result.recoveryPointId}.json',
+    ).writeAsString('{}');
+
+    await expectLater(
+      LocalRecoveryService().inspectVault(vaultRoot),
+      throwsA(
+        isA<LocalRecoveryException>().having(
+          (error) => error.message,
+          'message',
+          contains('SHA-256'),
+        ),
+      ),
+    );
+  });
+
+  test('rehydration reports missing queue intent separately', () async {
+    await File('${sourceRoot.path}/library').writeAsString('content');
+    final result = await LocalRecoveryService(
+      vaultRoot: vaultRoot,
+    ).save(fixtureSource());
+    await File(
+      '$vaultRoot/Upload Queue/${result.recoveryPointId}.json',
+    ).delete();
+
+    final snapshot = await LocalRecoveryService().inspectVault(vaultRoot);
+
+    expect(
+      snapshot.records.single.cloudStatus,
+      LocalCloudSyncStatus.queueFailed,
+    );
+    expect(snapshot.records.single.localStatus, LocalProtectionStatus.verified);
   });
 }

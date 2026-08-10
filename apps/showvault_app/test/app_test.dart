@@ -7,6 +7,7 @@ import 'package:showvault_app/src/auth/auth_provider.dart';
 import 'package:showvault_app/src/auth/auth_service.dart';
 import 'package:showvault_app/src/auth/auth_session.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
+import 'package:showvault_app/src/recovery/local_access_coordinator.dart';
 import 'package:showvault_app/src/recovery/local_recovery_service.dart';
 import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
 
@@ -83,17 +84,55 @@ class _FakeLocalRecoveryService extends LocalRecoveryService {
   Future<LocalBackupResult> save(
     LocalBackupSource source, {
     LocalBackupCancellation? cancellation,
+    String? authorizedVaultRoot,
   }) async {
     saved = true;
     expect(source.rootPath, '/synthetic/serato');
     return const LocalBackupResult(
       recoveryPointId: 'recovery-point-id',
       recoveryPointPath: '/synthetic/vault/recovery-point-id',
+      vaultRoot: '/synthetic/vault',
       fileCount: 2,
       totalBytes: 12,
       localStatus: LocalProtectionStatus.verified,
       cloudStatus: LocalCloudSyncStatus.queued,
     );
+  }
+
+  @override
+  Future<LocalVaultSnapshot> inspectVault(String authorizedVaultRoot) async =>
+      LocalVaultSnapshot(
+        vaultRoot: authorizedVaultRoot,
+        records: [
+          LocalRecoveryRecord(
+            recoveryPointId: 'recovery-point-id',
+            recoveryPointPath: '$authorizedVaultRoot/recovery-point-id',
+            candidateKey: 'macos.serato-dj-pro.user-data',
+            productName: 'Serato DJ Pro',
+            createdAt: DateTime.utc(2026, 8, 10),
+            fileCount: 2,
+            totalBytes: 12,
+            localStatus: LocalProtectionStatus.verified,
+            cloudStatus: LocalCloudSyncStatus.queued,
+          ),
+        ],
+      );
+}
+
+class _FakeLocalAccessCoordinator extends LocalAccessCoordinator {
+  bool sourceAuthorized = false;
+  bool vaultAuthorized = false;
+
+  @override
+  Future<LocalBackupSource> authorizeSource(LocalBackupSource expected) async {
+    sourceAuthorized = true;
+    return expected;
+  }
+
+  @override
+  Future<String> authorizeVault() async {
+    vaultAuthorized = true;
+    return '/synthetic/vault';
   }
 }
 
@@ -113,6 +152,8 @@ void main() {
 
     expect(find.text('Scan this computer'), findsOneWidget);
     expect(find.text('Cloud not connected'), findsOneWidget);
+    await tester.drag(find.byType(ListView).last, const Offset(0, -1000));
+    await tester.pumpAndSettle();
     expect(find.text('Connect cloud service'), findsOneWidget);
     expect(find.text('Foundation preview'), findsNothing);
   });
@@ -187,6 +228,7 @@ void main() {
     'explicit Save verifies locally and shows independent cloud status',
     (tester) async {
       final recovery = _FakeLocalRecoveryService();
+      final access = _FakeLocalAccessCoordinator();
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -205,6 +247,7 @@ void main() {
               ],
             ),
             localRecoveryServiceProvider.overrideWithValue(recovery),
+            localAccessCoordinatorProvider.overrideWithValue(access),
           ],
           child: const ShowVaultApp(),
         ),
@@ -213,8 +256,10 @@ void main() {
 
       expect(find.text('Serato DJ Pro'), findsOneWidget);
       expect(find.text('Save'), findsOneWidget);
-      await tester.ensureVisible(find.text('Save'));
-      await tester.tap(find.text('Save'));
+      final saveButton = find.widgetWithText(FilledButton, 'Save');
+      await tester.ensureVisible(saveButton);
+      await tester.pumpAndSettle();
+      await tester.tap(saveButton);
       await tester.pumpAndSettle();
 
       expect(find.text('Save Serato DJ Pro?'), findsOneWidget);
@@ -223,6 +268,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(recovery.saved, isTrue);
+      expect(access.sourceAuthorized, isTrue);
+      expect(access.vaultAuthorized, isTrue);
       expect(find.text('Verified locally'), findsOneWidget);
       expect(find.text('Cloud queued'), findsOneWidget);
       expect(
@@ -231,4 +278,42 @@ void main() {
       );
     },
   );
+
+  testWidgets('opening an authorized vault rehydrates status after restart', (
+    tester,
+  ) async {
+    final recovery = _FakeLocalRecoveryService();
+    final access = _FakeLocalAccessCoordinator();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(_SignedOutAuthService()),
+          localAccessCoordinatorProvider.overrideWithValue(access),
+          localRecoveryServiceProvider.overrideWithValue(recovery),
+          localCatalogFindingsProvider.overrideWith(
+            (ref) => const [
+              LocalCatalogFinding(
+                candidateKey: 'macos.serato-dj-pro.user-data',
+                pluginId: 'showvault.serato-dj-pro',
+                productName: 'Serato DJ Pro',
+                candidateType: 'UserDataRoot',
+              ),
+            ],
+          ),
+        ],
+        child: const ShowVaultApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open local vault'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Choose vault'));
+    await tester.pumpAndSettle();
+
+    expect(access.vaultAuthorized, isTrue);
+    expect(find.text('1 verified • 1 cloud queued'), findsOneWidget);
+    expect(find.text('Verified locally'), findsOneWidget);
+    expect(find.text('Cloud queued'), findsOneWidget);
+  });
 }

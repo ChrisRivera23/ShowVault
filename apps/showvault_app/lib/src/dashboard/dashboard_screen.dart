@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:showvault_app/src/api/showvault_api.dart';
 import 'package:showvault_app/src/auth/auth_provider.dart';
 import 'package:showvault_app/src/config/app_config.dart';
+import 'package:showvault_app/src/recovery/local_access_coordinator.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
 import 'package:showvault_app/src/recovery/local_recovery_service.dart';
 import 'package:showvault_app/src/recovery/recovery_run.dart';
@@ -118,6 +119,8 @@ class _LocalFirstDashboard extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: 24),
+            const _LocalVaultPanel(),
+            const SizedBox(height: 24),
             _CandidateOnboarding(history: history),
             if (showSignIn || showSignOut || showRetry) ...[
               const SizedBox(height: 24),
@@ -145,6 +148,118 @@ class _LocalFirstDashboard extends ConsumerWidget {
                       ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LocalVaultPanel extends ConsumerStatefulWidget {
+  const _LocalVaultPanel();
+
+  @override
+  ConsumerState<_LocalVaultPanel> createState() => _LocalVaultPanelState();
+}
+
+class _LocalVaultPanelState extends ConsumerState<_LocalVaultPanel> {
+  bool _busy = false;
+
+  Future<void> _openVault() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Open local ShowVault Pro vault'),
+        content: const Text(
+          'Choose the ShowVault Pro vault you want this app to read. '
+          'ShowVault will inspect only its Manifests and Upload Queue records '
+          'to restore local protection and cloud queue status. Source files are not scanned.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Choose vault'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final vaultRoot = await ref
+          .read(localAccessCoordinatorProvider)
+          .authorizeVault();
+      final snapshot = await ref
+          .read(localRecoveryServiceProvider)
+          .inspectVault(vaultRoot);
+      ref.read(localVaultSnapshotProvider.notifier).state = snapshot;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Local vault opened • ${snapshot.records.length} recovery '
+            '${snapshot.records.length == 1 ? 'point' : 'points'} found.',
+          ),
+        ),
+      );
+    } on LocalAccessCancelledException {
+      // The native picker is an explicit, non-error Cancel path.
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open local vault: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final snapshot = ref.watch(localVaultSnapshotProvider);
+    final queued = snapshot?.records
+        .where((record) => record.cloudStatus == LocalCloudSyncStatus.queued)
+        .length;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 16,
+          runSpacing: 12,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Local vault',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  snapshot == null
+                      ? 'Open a vault to restore local status after restart.'
+                      : '${snapshot.records.length} verified • $queued cloud queued',
+                ),
+              ],
+            ),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _openVault,
+              icon: _busy
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.folder_open_outlined),
+              label: Text(
+                snapshot == null ? 'Open local vault' : 'Change vault',
+              ),
+            ),
           ],
         ),
       ),
@@ -1173,6 +1288,8 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
           'ShowVault will now read the exact catalog-approved user-data folder, '
           'create a new immutable recovery point in the local ShowVault Pro vault, '
           'verify it, and queue the verified copy for cloud synchronization. '
+          'Your operating system will ask you to approve that exact source and '
+          'choose the local vault. '
           'No existing recovery point will be overwritten.',
         ),
         actions: [
@@ -1190,10 +1307,10 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
     if (confirmed != true || !mounted) return;
 
     final key = widget.candidate.candidateKey!;
-    final source = ref
+    final expectedSource = ref
         .read(localCatalogScannerProvider)
         .resolveBackupSource(key);
-    if (source == null) {
+    if (expectedSource == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -1206,7 +1323,14 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
 
     setState(() => _saving = true);
     try {
-      final result = await ref.read(localRecoveryServiceProvider).save(source);
+      final access = ref.read(localAccessCoordinatorProvider);
+      final source = await access.authorizeSource(expectedSource);
+      final existingVault = ref.read(localVaultSnapshotProvider)?.vaultRoot;
+      final vaultRoot = existingVault ?? await access.authorizeVault();
+      final service = ref.read(localRecoveryServiceProvider);
+      final result = await service.save(source, authorizedVaultRoot: vaultRoot);
+      final snapshot = await service.inspectVault(result.vaultRoot);
+      ref.read(localVaultSnapshotProvider.notifier).state = snapshot;
       if (!mounted) return;
       setState(() => _result = result);
       final message = result.cloudStatus == LocalCloudSyncStatus.queued
@@ -1215,6 +1339,8 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
+    } on LocalAccessCancelledException {
+      // The native picker is an explicit, non-error Cancel path.
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -1228,7 +1354,15 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
   @override
   Widget build(BuildContext context) {
     final result = _result;
-    if (result == null) {
+    final records = ref.watch(localVaultSnapshotProvider)?.records ?? const [];
+    LocalRecoveryRecord? rehydrated;
+    for (final record in records) {
+      if (record.candidateKey == widget.candidate.candidateKey) {
+        rehydrated = record;
+        break;
+      }
+    }
+    if (result == null && rehydrated == null) {
       return FilledButton.icon(
         onPressed: _saving ? null : _save,
         icon: _saving
@@ -1240,6 +1374,7 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
         label: Text(_saving ? 'Saving' : 'Save'),
       );
     }
+    final cloudStatus = result?.cloudStatus ?? rehydrated!.cloudStatus;
     return SizedBox(
       width: 238,
       child: Wrap(
@@ -1253,13 +1388,13 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
           ),
           Chip(
             avatar: Icon(
-              result.cloudStatus == LocalCloudSyncStatus.queued
+              cloudStatus == LocalCloudSyncStatus.queued
                   ? Icons.cloud_upload_outlined
                   : Icons.cloud_off_outlined,
               size: 17,
             ),
             label: Text(
-              result.cloudStatus == LocalCloudSyncStatus.queued
+              cloudStatus == LocalCloudSyncStatus.queued
                   ? 'Cloud queued'
                   : 'Queue attention',
             ),
