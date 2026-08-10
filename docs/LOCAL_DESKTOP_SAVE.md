@@ -58,6 +58,6 @@ The control plane stores and returns only the opaque allowlisted candidate key a
 - The installed macOS app completed a synthetic native-picker Save and restored one verified/queued recovery point after process restart. The normal release includes the macOS sandbox user-selected read/write entitlement.
 - Windows uses the same tested Dart permission contract and native directory selector, but Windows packaging and installed runtime behavior remain unproven.
 - No persistent security-scoped bookmark is stored. Operators explicitly reopen a vault after each process restart; background access across launches is not claimed.
-- The cloud synchronization executor, retry/backoff, resumability, remote checksum verification, and conflict handling are not implemented.
+- A resumable, idempotent, checksum-verifying executor is implemented against a controlled filesystem object-store substitute. Production authenticated cloud transport, tenant binding, bandwidth policy, and conflict handling remain unimplemented.
 - The manifest records empty dependency and compatibility collections for this first slice. Dependency closure and Recovery Confidence are not claimed.
 - The legacy .NET Agent keeps its SQLite queue for compatibility; the customer desktop currently uses atomic JSON queue records. These must be consolidated behind one packaged local-engine contract before production.

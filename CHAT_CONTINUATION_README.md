@@ -21,10 +21,11 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/local-first-vault`
+- Branch: `codex/local-queue-sync`
 - Local-first vault foundation commit: `bc53f4b feat: establish local-first vault foundation`
 - Offline desktop Save commit: `85b3e92 feat: save desktop recovery points offline`
 - Desktop permission/rehydration commit: `07e6e62 feat: authorize and rehydrate local vaults`
+- Durable queue synchronization commit: `f016ad1 feat: synchronize durable local queue`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
 - Navigation/no-login beta commit: `eea1d45 feat: restore navigation and add guarded no-login beta`
 - Expected worktree after the handoff commit: clean except intentionally untracked `NEXT_CONVERSATION.md`
@@ -46,11 +47,13 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Product direction now requires a local ShowVault Pro vault, offline backup and verification, local manifests, and durable verified-only cloud synchronization state.
 - The local recovery foundation creates the configurable canonical vault folders at startup before network enrollment, and stores its durable SQLite workflow/upload queue in `Upload Queue` by default.
 - Default recovery points are immutable and named `Backups/<parent>/<UTC timestamp>__<SHA-256 recovery-point ID>`; legacy configured package directories remain compatible.
-- A passing local structural/cryptographic verification creates exactly one idempotent queued cloud-upload job. Failed or unverified packages are not queued; synchronization execution is not implemented yet.
+- A passing local structural/cryptographic verification creates exactly one idempotent queued upload job. Failed or unverified packages are not queued; the controlled substitute executor is implemented, while production authenticated cloud transport is not.
 - The Flutter dashboard keeps Scan and Save usable while signed out or the API is unavailable. Cloud submission is best-effort and cannot erase local findings.
 - An explicit desktop Save resolves only an opaque allowlisted `UserDataRoot` key after confirmation, rejects links and unsafe entries, enforces count/size/timeout/cancellation/mutation rules, streams and independently verifies SHA-256 content, publishes atomically, and writes a JSON upload-queue job only after verification.
 - Native macOS and Windows directory selectors now sit behind one Dart access contract. Source authorization requires an exact canonical match to the catalog root; vault authorization is configurable and session-scoped.
 - **Open local vault** performs a bounded inspection of ShowVault-owned manifests, package manifests, and queue records, verifies manifest identity and equality, and restores independent local/cloud status without rescanning a source.
+- The desktop synchronization executor reverifies exact package content, filters local paths from its remote manifest, resumes bounded chunks from durable remote length, uses an append-only local state journal with capped retry/backoff, remotely verifies every checksum, and publishes idempotently to a controlled filesystem object-store substitute.
+- Normal builds do not expose the substitute. **Synchronize pending** appears only when both explicit synthetic fixture-home and synthetic object-store build defines are present.
 - The API returns the already stored opaque candidate key to the authorized desktop; tests prove the key and evidence remain path-free.
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` records the recommended commercial structure: desktop app, customer web portal, and private ShowVault Admin web console; branded ShowVault authentication backed by Auth0; Stripe one-time license plus recurring tiers; and no staff access to customer passwords.
 
@@ -78,20 +81,20 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - The native picker selected the exact synthetic Serato-shaped source and a separate synthetic vault. Save produced two copied fixture files, matching package/independent manifests, and one queued JSON record.
 - The independent manifest filename matched its SHA-256 digest.
 - After terminating and relaunching the app, **Open local vault** restored `1 verified • 1 cloud queued` without running Scan.
-- The final normal release build was rebuilt without the synthetic define. It is a 49.9 MB universal app, and its signed entitlements include `com.apple.security.files.user-selected.read-write`.
+- The final normal release build was rebuilt without the synthetic define. The current build is a 50.0 MB universal app, and its signed entitlements include `com.apple.security.files.user-selected.read-write`.
 - No real `Documents/ShowVault Pro` vault was created and no personal source permission was granted. A preliminary shell-`HOME` isolation attempt was canceled when macOS retained the real home context; no Save occurred. This is why installed drills must use the compile-time synthetic fixture seam rather than shell environment redirection.
 
 ## Verification baseline
 
 - Flutter analysis: no issues
-- Flutter tests: 44 passed
+- Flutter tests: 56 passed
 - Contracts tests: 2 passed
 - Agent tests: 429 passed
 - Platform tests: 28 passed
 - API tests: 15 passed, including exact beta-token and Development/configuration/loopback guard coverage
 - EF Core migrations `20260810003349_AddDesktopCatalogScanCandidates` and `20260810003907_AddDesktopCatalogScans` are applied to the local database
 - EF Core pending-model check: no pending changes
-- macOS release build: 49.9 MB universal `x86_64` + `arm64` app; ad hoc signed with sandbox user-selected read/write access
+- macOS release build: 50.0 MB universal `x86_64` + `arm64` app; ad hoc signed with sandbox user-selected read/write access
 - ZIP checksum matches `SHA256SUMS`
 - `git diff --check`: passes
 
@@ -109,21 +112,21 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-Implement the first resumable, checksum-verified cloud synchronization executor for verified local JSON queue records. Use synthetic packages and a controlled object-store substitute only.
+Implement attended local restore from a verified recovery point into an absent or empty operator-selected synthetic target. Keep restore available offline.
 
 The design must satisfy all of these acceptance boundaries:
 
-1. Consume only durable queue records whose package and independent manifest identities have been reverified locally.
-2. Keep local verification independent from cloud state; a sync failure must never downgrade or delete the local recovery point.
-3. Make upload attempts idempotent and resumable with bounded retry/backoff and durable attempt/error state across process restart.
-4. Use a controlled object-store substitute and synthetic packages; verify remote bytes/checksums before marking cloud synchronization complete.
-5. Preserve offline behavior and never block Scan, Save, vault reopening, or local restore on network availability.
-6. Send no source paths, credentials, private file contents, or unrestricted manifest metadata to control-plane logs or discovery evidence.
-7. Reject missing, linked, mutated, oversized, or identity-mismatched packages before upload.
-8. Add focused restart/interruption/tamper/idempotency tests and keep macOS/Windows behavior behind one packaged desktop contract.
-9. Do not claim production cloud synchronization, Recovery Confidence, Windows runtime readiness, or personal-data readiness until separately proven.
+1. Restore only from a recovery point whose independent manifest, package manifest, file set, sizes, and SHA-256 values have just been reverified.
+2. Explain target access before opening the native directory picker and accept only an absent target or an existing empty regular directory selected by the operator.
+3. Reject target substitutions, links, unsafe logical paths, unsupported entries, non-empty targets, and any source-package mutation during restore.
+4. Copy through a staging location, verify every restored byte independently, and avoid exposing partially restored content as complete.
+5. Persist bounded, path-safe local restore evidence without credentials, private contents, or cloud-facing local paths.
+6. Keep restore available without login, network, or synchronized cloud status; local verification remains the authority for this slice.
+7. Make cancellation and restart behavior explicit and safe, cleaning incomplete staging without altering the immutable recovery point.
+8. Use synthetic packages and targets only, with focused empty/non-empty/link/tamper/cancel/restart tests and an installed macOS synthetic drill if safe isolation is retained.
+9. Do not claim in-place application restore, live-device loading, dependency closure, Recovery Confidence, Windows runtime readiness, or personal-data readiness.
 
-Permission onboarding and restart rehydration are complete in code, tests, and an installed synthetic macOS drill. The app deliberately stores no persistent bookmark: the operator reopens a vault after restart. Cloud synchronization execution remains unimplemented and is the next bounded slice.
+The controlled object-store synchronization executor is complete in code and automated synthetic tests. It is not a production cloud transport, and no installed synchronization drill is claimed. Attended offline restore is the next bounded slice.
 
 ## Required workflow
 
@@ -152,6 +155,7 @@ Permission onboarding and restart rehydration are complete in code, tests, and a
 ## Reference map
 
 - `docs/PROTOTYPE_READINESS.md` — venue-neutral readiness gates and direct desktop boundary
+- `docs/LOCAL_QUEUE_SYNC.md` — desktop queue journal, substitute transport, resumability, verification, and privacy boundary
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` — customer identity, licensing, subscription, portal, and Admin-console structure
 - `docs/SYSTEM_INVENTORY_PLUGIN.md` — direct app scan versus legacy Agent compatibility
 - `docs/AUTOMATIC_DISCOVERY.md` — discovery and identification safety decisions
