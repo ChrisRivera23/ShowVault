@@ -153,6 +153,10 @@ local-vault and offline-Save range, separates customer desktop behavior from
 legacy Agent compatibility, and carries forward the later CI-proven storage
 construction correction.
 
+`LOCAL_FIRST_MILESTONE_3_EXTRACTION.md` fixes durable synchronization, hosted
+authorization/protocol, and offline Restore to the complete corrected 31-file
+range, including the installed sandbox and UI reconciliation fixes.
+
 The 247-commit legacy catalog/Agent expansion remains a separate paused review.
 It must be evaluated by current product value and authorization boundaries, not
 merged merely because later local-first work was originally developed on top of

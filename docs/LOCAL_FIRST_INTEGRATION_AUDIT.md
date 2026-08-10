@@ -107,6 +107,10 @@ overlap dispositions above; neither document grants external-action authority.
 vault, offline Save/Verify, native access, and restart-rehydration boundary. It
 also requires the later `ddfcaa6` compatibility correction during reconstruction.
 
+`LOCAL_FIRST_MILESTONE_3_EXTRACTION.md` fixes the third milestone to durable
+synchronization, authenticated hosted transport, and attended Restore, including
+the installed-drill corrections for sandbox staging and immediate status refresh.
+
 Before a milestone is proposed for integration:
 
 1. Start from the then-current integrated `main`, never from PR #25.
