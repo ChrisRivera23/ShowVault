@@ -407,23 +407,27 @@ class ShowVaultApi {
     }
   }
 
-  Future<String> scanComputer({
+  Future<int> submitComputerScan({
     required String accessToken,
     required RecoveryHistory history,
-    required String agentId,
+    required List<String> candidateKeys,
   }) async {
     final response = await _client.post(
       Uri.parse(
         '${AppConfig.apiBaseUrl}/api/v1/organizations/${history.organizationId}'
-        '/venues/${history.venueId}/agents/$agentId/inventory',
+        '/venues/${history.venueId}/computer-scans',
       ),
-      headers: {'Authorization': 'Bearer $accessToken'},
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'candidateKeys': candidateKeys}),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ShowVaultApiException(response.statusCode);
     }
     final body = jsonDecode(response.body) as Map<String, Object?>;
-    return (body['payload']! as Map<String, Object?>)['commandId']! as String;
+    return (body['payload']! as Map<String, Object?>)['candidateCount']! as int;
   }
 
   Future<String> discoverSubnet({

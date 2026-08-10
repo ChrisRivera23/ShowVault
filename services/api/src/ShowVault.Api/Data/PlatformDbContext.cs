@@ -16,6 +16,9 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
     public DbSet<ReceivedAgentEvent> ReceivedAgentEvents => Set<ReceivedAgentEvent>();
     public DbSet<IssuedAgentCommand> IssuedAgentCommands => Set<IssuedAgentCommand>();
     public DbSet<RecoveryCandidate> RecoveryCandidates => Set<RecoveryCandidate>();
+    public DbSet<DesktopCatalogScanCandidate> DesktopCatalogScanCandidates =>
+        Set<DesktopCatalogScanCandidate>();
+    public DbSet<DesktopCatalogScan> DesktopCatalogScans => Set<DesktopCatalogScan>();
     public DbSet<SubnetProposal> SubnetProposals => Set<SubnetProposal>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -151,6 +154,36 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.HasOne<VenueAgent>()
                 .WithMany()
                 .HasForeignKey(candidate => candidate.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<DesktopCatalogScanCandidate>(entity =>
+        {
+            entity.ToTable("desktop_catalog_scan_candidates");
+            entity.HasKey(candidate => candidate.Id);
+            entity.Property(candidate => candidate.CandidateKey).HasMaxLength(120).IsRequired();
+            entity.Property(candidate => candidate.PluginId).HasMaxLength(200).IsRequired();
+            entity.Property(candidate => candidate.ProductName).HasMaxLength(200).IsRequired();
+            entity.Property(candidate => candidate.CandidateType).HasMaxLength(80).IsRequired();
+            entity.Property(candidate => candidate.Evidence).HasMaxLength(500).IsRequired();
+            entity.HasIndex(candidate => new { candidate.VenueId, candidate.DetectedAt });
+            entity.HasIndex(candidate => new { candidate.ScanId, candidate.CandidateKey }).IsUnique();
+            entity.HasOne<DesktopCatalogScan>()
+                .WithMany()
+                .HasForeignKey(candidate => candidate.ScanId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<ShowVault.Platform.Venues.Venue>()
+                .WithMany()
+                .HasForeignKey(candidate => candidate.VenueId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<DesktopCatalogScan>(entity =>
+        {
+            entity.ToTable("desktop_catalog_scans");
+            entity.HasKey(scan => scan.Id);
+            entity.HasIndex(scan => new { scan.VenueId, scan.CompletedAt });
+            entity.HasOne<ShowVault.Platform.Venues.Venue>()
+                .WithMany()
+                .HasForeignKey(scan => scan.VenueId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
         modelBuilder.Entity<SubnetProposal>(entity =>

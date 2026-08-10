@@ -7,8 +7,7 @@ import 'package:showvault_app/src/navigation/section_screen.dart';
 final GoRouter appRouter = GoRouter(
   routes: [
     ShellRoute(
-      builder: (context, state, child) =>
-          AppShell(currentPath: state.uri.path, child: child),
+      builder: (context, state, child) => AppShell(child: child),
       routes: [
         GoRoute(
           path: AppDestination.dashboard.path,

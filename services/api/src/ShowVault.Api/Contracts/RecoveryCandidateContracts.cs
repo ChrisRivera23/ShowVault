@@ -16,7 +16,15 @@ public sealed record RecoveryCandidateSummary(
     int? ValidationFileCount,
     bool? ValidationTruncated,
     string? ValidationMessage,
-    DateTimeOffset? ValidatedAt);
+    DateTimeOffset? ValidatedAt,
+    bool DirectDesktopScan = false);
+
+public sealed record SubmitComputerScanRequest(IReadOnlyList<string> CandidateKeys);
+
+public sealed record SubmitComputerScanResponse(
+    Guid ScanId,
+    int CandidateCount,
+    DateTimeOffset CompletedAt);
 
 public sealed record DecideRecoveryCandidateRequest(bool Approved);
 

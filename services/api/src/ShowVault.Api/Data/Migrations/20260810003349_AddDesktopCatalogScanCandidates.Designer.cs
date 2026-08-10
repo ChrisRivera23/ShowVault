@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ShowVault.Api.Data;
@@ -11,9 +12,11 @@ using ShowVault.Api.Data;
 namespace ShowVault.Api.Data.Migrations
 {
     [DbContext(typeof(PlatformDbContext))]
-    partial class PlatformDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260810003349_AddDesktopCatalogScanCandidates")]
+    partial class AddDesktopCatalogScanCandidates
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -62,25 +65,6 @@ namespace ShowVault.Api.Data.Migrations
                     b.HasIndex("VenueId");
 
                     b.ToTable("agent_enrollments", (string)null);
-                });
-
-            modelBuilder.Entity("ShowVault.Platform.Agents.DesktopCatalogScan", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("VenueId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("VenueId", "CompletedAt");
-
-                    b.ToTable("desktop_catalog_scans", (string)null);
                 });
 
             modelBuilder.Entity("ShowVault.Platform.Agents.DesktopCatalogScanCandidate", b =>
@@ -777,23 +761,8 @@ namespace ShowVault.Api.Data.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ShowVault.Platform.Agents.DesktopCatalogScan", b =>
-                {
-                    b.HasOne("ShowVault.Platform.Venues.Venue", null)
-                        .WithMany()
-                        .HasForeignKey("VenueId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("ShowVault.Platform.Agents.DesktopCatalogScanCandidate", b =>
                 {
-                    b.HasOne("ShowVault.Platform.Agents.DesktopCatalogScan", null)
-                        .WithMany()
-                        .HasForeignKey("ScanId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("ShowVault.Platform.Venues.Venue", null)
                         .WithMany()
                         .HasForeignKey("VenueId")

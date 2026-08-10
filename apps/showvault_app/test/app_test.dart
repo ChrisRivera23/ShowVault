@@ -6,6 +6,7 @@ import 'package:showvault_app/src/auth/auth_provider.dart';
 import 'package:showvault_app/src/auth/auth_service.dart';
 import 'package:showvault_app/src/auth/auth_session.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
+import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
 
 class _SignedOutAuthService extends AuthService {
   @override
@@ -36,14 +37,20 @@ class _ScanningApi extends ShowVaultApi {
       );
 
   @override
-  Future<String> scanComputer({
+  Future<int> submitComputerScan({
     required String accessToken,
     required RecoveryHistory history,
-    required String agentId,
+    required List<String> candidateKeys,
   }) async {
     scanQueued = true;
-    return 'inventory-command';
+    expect(candidateKeys, ['macos.resolume-arena.application']);
+    return 1;
   }
+}
+
+class _ScanningLocalCatalog extends LocalCatalogScanner {
+  @override
+  Future<List<String>> scan() async => ['macos.resolume-arena.application'];
 }
 
 void main() {
@@ -72,6 +79,9 @@ void main() {
         overrides: [
           authServiceProvider.overrideWithValue(_SignedInAuthService()),
           showVaultApiProvider.overrideWithValue(api),
+          localCatalogScannerProvider.overrideWithValue(
+            _ScanningLocalCatalog(),
+          ),
         ],
         child: const ShowVaultApp(),
       ),
@@ -80,16 +90,22 @@ void main() {
 
     expect(find.text('Scan this computer'), findsOneWidget);
     expect(
-      find.textContaining('Scan only catalog-defined standard locations'),
+      find.textContaining('Scan only exact catalog-defined locations'),
       findsOneWidget,
     );
+    expect(find.textContaining('Venue Agent'), findsNothing);
 
+    await tester.ensureVisible(find.text('Scan this computer'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Scan this computer'));
     await tester.pump();
 
     expect(api.scanQueued, isTrue);
-    expect(find.text('Computer scan queued for Personal Mac.'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 6));
-    await tester.pump();
+    expect(
+      find.text('Computer scan complete • 1 candidates found.'),
+      findsOneWidget,
+    );
+    expect(find.text('Install this Mac Agent'), findsNothing);
+    expect(find.textContaining('enrollment'), findsNothing);
   });
 }

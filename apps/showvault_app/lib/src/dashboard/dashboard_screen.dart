@@ -5,6 +5,7 @@ import 'package:showvault_app/src/auth/auth_provider.dart';
 import 'package:showvault_app/src/config/app_config.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
 import 'package:showvault_app/src/recovery/recovery_run.dart';
+import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -52,7 +53,7 @@ class _AuthPrompt extends ConsumerWidget {
     icon: Icons.lock_outline,
     title: 'Sign in to ShowVault',
     message: error == null
-        ? 'Use your operator identity to load live, tenant-scoped recovery history.'
+        ? 'Use your ShowVault account to connect this computer to cloud backup.'
         : 'Sign-in did not complete. $error',
     action: FilledButton.icon(
       onPressed: () => ref.read(authSessionProvider.notifier).login(),
@@ -101,7 +102,7 @@ class _LiveDashboard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Recovery overview',
+                      'This computer',
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                     const SizedBox(height: 6),
@@ -113,26 +114,12 @@ class _LiveDashboard extends ConsumerWidget {
                 ),
                 const Chip(
                   avatar: Icon(Icons.cloud_done_outlined, size: 18),
-                  label: Text('Live data'),
+                  label: Text('Cloud connected'),
                 ),
               ],
             ),
             const SizedBox(height: 24),
             _CandidateOnboarding(history: history),
-            const SizedBox(height: 24),
-            _SubnetOnboarding(history: history),
-            const SizedBox(height: 24),
-            _RecoveryControls(history: history),
-            const SizedBox(height: 24),
-            if (history.runs.isEmpty)
-              const _CenteredCard(
-                icon: Icons.history_toggle_off_outlined,
-                title: 'No recovery runs yet',
-                message:
-                    'Live tenant access is working. A completed Agent workflow will appear here.',
-              )
-            else
-              _HistoryContent(runs: history.runs),
             const SizedBox(height: 24),
             Align(
               alignment: Alignment.centerRight,
@@ -150,6 +137,8 @@ class _LiveDashboard extends ConsumerWidget {
   }
 }
 
+// Legacy Agent network workflow retained outside the simplified customer dashboard.
+// ignore: unused_element
 class _SubnetOnboarding extends ConsumerWidget {
   const _SubnetOnboarding({required this.history});
   final RecoveryHistory history;
@@ -893,27 +882,25 @@ class _CandidateOnboarding extends ConsumerWidget {
   const _CandidateOnboarding({required this.history});
   final RecoveryHistory history;
 
-  Future<void> _scanComputer(
-    BuildContext context,
-    WidgetRef ref,
-    VenueAgent agent,
-  ) async {
+  Future<void> _scanComputer(BuildContext context, WidgetRef ref) async {
     final session = ref.read(authSessionProvider).valueOrNull;
     if (session == null) return;
     try {
-      await ref
+      final candidateKeys = await ref.read(localCatalogScannerProvider).scan();
+      final count = await ref
           .read(showVaultApiProvider)
-          .scanComputer(
+          .submitComputerScan(
             accessToken: session.accessToken,
             history: history,
-            agentId: agent.id,
+            candidateKeys: candidateKeys,
           );
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Computer scan queued for ${agent.name}.')),
+        SnackBar(
+          content: Text('Computer scan complete • $count candidates found.'),
+        ),
       );
-      await Future<void>.delayed(const Duration(seconds: 6));
-      if (context.mounted) ref.invalidate(recoveryHistoryProvider);
+      ref.invalidate(recoveryHistoryProvider);
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
@@ -1024,21 +1011,16 @@ class _CandidateOnboarding extends ConsumerWidget {
                   'Detected systems',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                for (final agent in history.agents)
-                  FilledButton.icon(
-                    onPressed: () => _scanComputer(context, ref, agent),
-                    icon: const Icon(Icons.computer_rounded),
-                    label: Text(
-                      history.agents.length == 1
-                          ? 'Scan this computer'
-                          : 'Scan ${agent.name}',
-                    ),
-                  ),
+                FilledButton.icon(
+                  onPressed: () => _scanComputer(context, ref),
+                  icon: const Icon(Icons.computer_rounded),
+                  label: const Text('Scan this computer'),
+                ),
               ],
             ),
             const SizedBox(height: 6),
             const Text(
-              'Scan only catalog-defined standard locations, then review recognized systems. Unrelated applications are not inventoried, and filesystem paths stay on the Venue Agent.',
+              'Scan only exact catalog-defined locations, then review recognized systems. Unrelated applications are not inventoried, and filesystem paths remain in memory on this computer.',
             ),
             const SizedBox(height: 16),
             if (visible.isEmpty)
@@ -1054,7 +1036,9 @@ class _CandidateOnboarding extends ConsumerWidget {
                     '${candidate.evidence}${_validationDetail(candidate)}',
                   ),
                   isThreeLine: true,
-                  trailing: candidate.decision == 'approved'
+                  trailing: candidate.agentName == 'This computer'
+                      ? const Chip(label: Text('Detected'))
+                      : candidate.decision == 'approved'
                       ? candidate.candidateType == 'UserDataRoot'
                             ? candidate.validationStatus == 'pending'
                                   ? const Chip(label: Text('Validating'))
@@ -1361,6 +1345,8 @@ class _RecoveryControlsState extends ConsumerState<_RecoveryControls> {
   }
 }
 
+// Legacy Agent recovery history retained outside the simplified customer dashboard.
+// ignore: unused_element
 class _HistoryContent extends StatelessWidget {
   const _HistoryContent({required this.runs});
   final List<RecoveryRun> runs;

@@ -6,7 +6,7 @@
 
 The control plane issues `CollectSystemInventory` with an empty JSON payload. This additive command advances the Agent protocol to version 1.1. The Agent stores the complete result in its durable local SQLite result table before emitting `JobCompleted`; retries remain idempotent because the command ID is reused as the outcome event ID.
 
-Protocol 1.21 adds the narrower `CollectCatalogApplications` command behind the native **Scan this computer** manager action. It runs only the catalog location provider and does not collect system volumes, machine identity, network interfaces, or subnet proposals. Exact detected paths remain in Agent-local SQLite. The completion event contains only the catalog plugin ID, a bounded candidate count, and each candidate's opaque ID, plugin ID, product name, candidate type, and evidence.
+Protocol 1.21 added the narrower Agent `CollectCatalogApplications` compatibility command. The current installed-app path is simpler: **Scan this computer** checks exact catalog candidates directly in the app and submits only opaque allowlisted candidate keys to the manager-authorized `/computer-scans` endpoint. The API maps those keys to bounded product, type, and evidence metadata. Exact paths exist only transiently in app memory; no Agent, enrollment code, system inventory, local scan database, or file-content read is involved.
 
 ## Collected data
 
@@ -22,4 +22,4 @@ Unreadable or unready volumes remain visible with null capacity values. Applicat
 
 ## Boundary
 
-Candidate paths remain in Agent-local SQLite. Only opaque IDs and bounded product, candidate-type, and evidence fields leave the Agent. Every candidate requires an operator decision before an exact local scope can exist, and installed-application detection is distinct from recoverable data, validation, backup, verification, and protection. Serato and rekordbox currently have detection only; external/removable libraries and protection workflows remain unsupported. Current Windows rekordbox 6/7 installed-app detection is also unsupported because official primary documentation does not publish a stable executable path.
+On the current installed-app path, candidate paths are not persisted. Only opaque allowlisted keys leave the app, and the control plane stores bounded product, candidate-type, and evidence fields. Installed-application detection remains distinct from recoverable data, validation, backup, verification, and protection. The legacy Agent path continues to retain its own paths locally for compatibility, but it is not the intended customer onboarding flow. Serato and rekordbox currently have detection only; external/removable libraries and protection workflows remain unsupported. Current Windows rekordbox 6/7 installed-app detection is also unsupported because official primary documentation does not publish a stable executable path.

@@ -149,14 +149,14 @@ void main() {
     );
   });
 
-  test('queues a catalog-only computer scan for one Agent', () async {
+  test('submits path-free direct computer scan results', () async {
     late http.Request captured;
     final api = ShowVaultApi(
       client: MockClient((request) async {
         captured = request;
         return http.Response(
-          '{"payload":{"commandId":"inventory-command"}}',
-          202,
+          '{"payload":{"scanId":"scan-id","candidateCount":2}}',
+          201,
         );
       }),
     );
@@ -170,20 +170,24 @@ void main() {
       runs: [],
     );
 
-    final commandId = await api.scanComputer(
+    final count = await api.submitComputerScan(
       accessToken: 'access-token',
       history: history,
-      agentId: 'agent-id',
+      candidateKeys: const [
+        'macos.resolume-arena.application',
+        'macos.serato-dj-pro.application',
+      ],
     );
 
-    expect(commandId, 'inventory-command');
+    expect(count, 2);
     expect(captured.method, 'POST');
     expect(
       captured.url.path,
-      '/api/v1/organizations/org-id/venues/venue-id/agents/agent-id/inventory',
+      '/api/v1/organizations/org-id/venues/venue-id/computer-scans',
     );
     expect(captured.headers['Authorization'], 'Bearer access-token');
-    expect(captured.body, isEmpty);
+    expect(captured.body, contains('macos.resolume-arena.application'));
+    expect(captured.body, isNot(contains('/Applications')));
   });
 
   test('records a recovery candidate decision', () async {

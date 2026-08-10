@@ -11,6 +11,41 @@ namespace ShowVault.Api.Endpoints;
 
 public static class RecoveryCandidateEndpoints
 {
+    private sealed record CatalogCandidate(
+        string PluginId,
+        string ProductName,
+        string CandidateType,
+        string Evidence);
+
+    private static readonly IReadOnlyDictionary<string, CatalogCandidate> DirectCatalog =
+        new Dictionary<string, CatalogCandidate>(StringComparer.Ordinal)
+        {
+            ["macos.resolume-arena.application"] = new(
+                "showvault.resolume", "Resolume Arena", "InstalledApplication",
+                "Catalog standard macOS application location"),
+            ["macos.resolume-arena.user-data"] = new(
+                "showvault.resolume", "Resolume Arena", "UserDataRoot",
+                "Catalog standard Resolume user-data location"),
+            ["macos.serato-dj-pro.application"] = new(
+                "showvault.serato-dj-pro", "Serato DJ Pro", "InstalledApplication",
+                "Catalog standard macOS application location"),
+            ["macos.serato-dj-pro.user-data"] = new(
+                "showvault.serato-dj-pro", "Serato DJ Pro", "UserDataRoot",
+                "Catalog standard Serato library location"),
+            ["windows.resolume-arena.application"] = new(
+                "showvault.resolume", "Resolume Arena", "InstalledApplication",
+                "Catalog standard Windows application location"),
+            ["windows.resolume-arena.user-data"] = new(
+                "showvault.resolume", "Resolume Arena", "UserDataRoot",
+                "Catalog standard Resolume user-data location"),
+            ["windows.serato-dj-pro.application"] = new(
+                "showvault.serato-dj-pro", "Serato DJ Pro", "InstalledApplication",
+                "Catalog standard Windows application location"),
+            ["windows.serato-dj-pro.user-data"] = new(
+                "showvault.serato-dj-pro", "Serato DJ Pro", "UserDataRoot",
+                "Catalog standard Serato library location")
+        };
+
     public static IEndpointRouteBuilder MapRecoveryCandidateEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet(
@@ -29,7 +64,61 @@ public static class RecoveryCandidateEndpoints
                 "/api/v1/organizations/{organizationId:guid}/venues/{venueId:guid}/recovery-candidates/{candidateId:guid}/backup",
                 BackupAsync)
             .RequireAuthorization();
+        endpoints.MapPost(
+                "/api/v1/organizations/{organizationId:guid}/venues/{venueId:guid}/computer-scans",
+                SubmitComputerScanAsync)
+            .RequireAuthorization();
         return endpoints;
+    }
+
+    private static async Task<IResult> SubmitComputerScanAsync(
+        Guid organizationId,
+        Guid venueId,
+        SubmitComputerScanRequest request,
+        ClaimsPrincipal user,
+        HttpContext context,
+        PlatformDbContext database,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var subject = user.FindFirstValue("sub");
+        if (!await HasVenueAccessAsync(database, organizationId, venueId, subject, true, cancellationToken))
+        {
+            return Results.Forbid();
+        }
+
+        var candidateKeys = request.CandidateKeys
+            .Distinct(StringComparer.Ordinal)
+            .Take(129)
+            .ToArray();
+        if (candidateKeys.Length > 128 || candidateKeys.Any(key => !DirectCatalog.ContainsKey(key)))
+        {
+            return Results.BadRequest();
+        }
+
+        var scanId = Guid.NewGuid();
+        var now = timeProvider.GetUtcNow();
+        database.DesktopCatalogScans.Add(DesktopCatalogScan.Complete(scanId, venueId, now));
+        foreach (var candidateKey in candidateKeys)
+        {
+            var candidate = DirectCatalog[candidateKey];
+            database.DesktopCatalogScanCandidates.Add(DesktopCatalogScanCandidate.Detected(
+                scanId,
+                venueId,
+                candidateKey,
+                candidate.PluginId,
+                candidate.ProductName,
+                candidate.CandidateType,
+                candidate.Evidence,
+                now));
+        }
+
+        await database.SaveChangesAsync(cancellationToken);
+        return Results.Created(
+            $"/api/v1/organizations/{organizationId}/venues/{venueId}/computer-scans/{scanId}",
+            ApiResponse<SubmitComputerScanResponse>.Success(
+                new SubmitComputerScanResponse(scanId, candidateKeys.Length, now),
+                context.TraceIdentifier));
     }
 
     private static async Task<IResult> ValidateAsync(
@@ -169,9 +258,42 @@ public static class RecoveryCandidateEndpoints
             record.Candidate.ValidationFileCount,
             record.Candidate.ValidationTruncated,
             record.Candidate.ValidationMessage,
-            record.Candidate.ValidatedAt)).ToArray();
+            record.Candidate.ValidatedAt)).ToList();
+        var desktopScans = await database.DesktopCatalogScans
+            .Where(scan => scan.VenueId == venueId)
+            .ToListAsync(cancellationToken);
+        var latestScanId = desktopScans
+            .OrderByDescending(scan => scan.CompletedAt)
+            .Select(scan => (Guid?)scan.Id)
+            .FirstOrDefault();
+        if (latestScanId is { } scanId)
+        {
+            var desktopCandidates = await database.DesktopCatalogScanCandidates
+                .Where(candidate => candidate.VenueId == venueId && candidate.ScanId == scanId)
+                .OrderBy(candidate => candidate.ProductName)
+                .ThenBy(candidate => candidate.CandidateType)
+                .ToArrayAsync(cancellationToken);
+            candidates.AddRange(desktopCandidates.Select(candidate => new RecoveryCandidateSummary(
+                candidate.Id,
+                Guid.Empty,
+                "This computer",
+                candidate.PluginId,
+                candidate.ProductName,
+                candidate.CandidateType,
+                candidate.Evidence,
+                "detected",
+                candidate.DetectedAt,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                true)));
+        }
         return Results.Ok(ApiResponse<IReadOnlyList<RecoveryCandidateSummary>>.Success(
-            candidates,
+            candidates.OrderByDescending(candidate => candidate.DetectedAt).ToArray(),
             context.TraceIdentifier));
     }
 

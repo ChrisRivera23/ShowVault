@@ -9,11 +9,11 @@ class AuthService {
     : _auth0 = Auth0(AppConfig.auth0Domain, AppConfig.auth0ClientId);
 
   final Auth0 _auth0;
-  AuthSession? _windowsSession;
+  AuthSession? _memorySession;
 
   Future<AuthSession?> restore() async {
     if (!AppConfig.hasAuth0Client) return null;
-    if (Platform.isWindows) return _windowsSession;
+    if (Platform.isWindows || Platform.isMacOS) return _memorySession;
     if (!await _auth0.credentialsManager.hasValidCredentials()) return null;
     return _toSession(await _auth0.credentialsManager.credentials());
   }
@@ -25,13 +25,17 @@ class AuthService {
         appCustomURL: AppConfig.windowsCallbackUrl,
         audience: AppConfig.auth0Audience,
       );
-      _windowsSession = _toSession(credentials);
-      return _windowsSession!;
+      _memorySession = _toSession(credentials);
+      return _memorySession!;
     }
 
     credentials = await _auth0.webAuthentication().login(
       audience: AppConfig.auth0Audience,
     );
+    if (Platform.isMacOS) {
+      _memorySession = _toSession(credentials);
+      return _memorySession!;
+    }
     return _toSession(credentials);
   }
 
@@ -40,10 +44,11 @@ class AuthService {
       await _auth0.windowsWebAuthentication().logout(
         appCustomURL: AppConfig.windowsCallbackUrl,
       );
-      _windowsSession = null;
+      _memorySession = null;
       return;
     }
     await _auth0.webAuthentication().logout();
+    if (Platform.isMacOS) _memorySession = null;
   }
 
   AuthSession _toSession(Credentials credentials) => AuthSession(

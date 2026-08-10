@@ -17,7 +17,7 @@ com.showvault.app://dev-4m7moxkl7dikmtf7.us.auth0.com/macos/com.showvault.app/ca
 showvault://callback
 ```
 
-Windows support in the Auth0 Flutter SDK is beta and does not persist credentials. ShowVault therefore keeps the Windows session in memory. Production Windows packaging must register the `showvault` protocol handler in its installer.
+Windows support in the Auth0 Flutter SDK is beta and does not persist credentials. ShowVault therefore keeps the Windows session in memory. The personal-test macOS client also keeps its operator session in memory so it never opens the operator's login Keychain; relaunching the app requires a new Auth0 sign-in. Production Windows packaging must register the `showvault` protocol handler in its installer.
 
 ## Run
 
