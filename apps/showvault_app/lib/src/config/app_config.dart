@@ -32,6 +32,9 @@ class AppConfig {
   static const _personalBetaBypassRequested = bool.fromEnvironment(
     'SHOWVAULT_PERSONAL_BETA_BYPASS_AUTH',
   );
+  static const resilienceHarnessEnabled = bool.fromEnvironment(
+    'SHOWVAULT_RESILIENCE_HARNESS',
+  );
   static const personalBetaAccessToken = 'showvault-personal-beta-loopback';
   static const windowsCallbackUrl = 'showvault://callback';
 
@@ -50,6 +53,16 @@ class AppConfig {
 
   static bool get personalBetaBypassAuth {
     if (!_personalBetaBypassRequested) return false;
+    final uri = Uri.tryParse(apiBaseUrl);
+    return uri != null &&
+        uri.scheme == 'http' &&
+        (uri.host == 'localhost' ||
+            uri.host == '127.0.0.1' ||
+            uri.host == '::1');
+  }
+
+  static bool get canRunResilienceHarness {
+    if (!resilienceHarnessEnabled || syntheticFixtureHome.isEmpty) return false;
     final uri = Uri.tryParse(apiBaseUrl);
     return uri != null &&
         uri.scheme == 'http' &&
