@@ -148,6 +148,11 @@ milestones.
 two transient net-zero navigation changes, and defines its reconstruction order
 and verification gates.
 
+`LOCAL_FIRST_MILESTONE_2_EXTRACTION.md` fixes the next milestone to the 36-file
+local-vault and offline-Save range, separates customer desktop behavior from
+legacy Agent compatibility, and carries forward the later CI-proven storage
+construction correction.
+
 The 247-commit legacy catalog/Agent expansion remains a separate paused review.
 It must be evaluated by current product value and authorization boundaries, not
 merged merely because later local-first work was originally developed on top of
