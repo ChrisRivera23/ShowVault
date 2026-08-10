@@ -20,6 +20,9 @@ class AppConfig {
   static const syntheticFixtureHome = String.fromEnvironment(
     'SHOWVAULT_SYNTHETIC_FIXTURE_HOME',
   );
+  static const syntheticObjectStoreRoot = String.fromEnvironment(
+    'SHOWVAULT_SYNTHETIC_OBJECT_STORE_ROOT',
+  );
   static const _personalBetaBypassRequested = bool.fromEnvironment(
     'SHOWVAULT_PERSONAL_BETA_BYPASS_AUTH',
   );

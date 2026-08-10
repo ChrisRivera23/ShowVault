@@ -6,6 +6,7 @@ import 'package:showvault_app/src/config/app_config.dart';
 import 'package:showvault_app/src/recovery/local_access_coordinator.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
 import 'package:showvault_app/src/recovery/local_recovery_service.dart';
+import 'package:showvault_app/src/recovery/local_sync_service.dart';
 import 'package:showvault_app/src/recovery/recovery_run.dart';
 import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
 
@@ -165,6 +166,35 @@ class _LocalVaultPanel extends ConsumerStatefulWidget {
 class _LocalVaultPanelState extends ConsumerState<_LocalVaultPanel> {
   bool _busy = false;
 
+  Future<void> _synchronize(LocalVaultSnapshot snapshot) async {
+    final service = ref.read(localSyncServiceProvider);
+    if (service == null) return;
+    setState(() => _busy = true);
+    try {
+      final result = await service.syncPending(snapshot.vaultRoot);
+      final refreshed = await ref
+          .read(localRecoveryServiceProvider)
+          .inspectVault(snapshot.vaultRoot);
+      ref.read(localVaultSnapshotProvider.notifier).state = refreshed;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Synchronization complete • ${result.synchronized} synchronized • '
+            '${result.retriedLater} retry pending • ${result.failed} need attention.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not synchronize local vault: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _openVault() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -221,8 +251,21 @@ class _LocalVaultPanelState extends ConsumerState<_LocalVaultPanel> {
   @override
   Widget build(BuildContext context) {
     final snapshot = ref.watch(localVaultSnapshotProvider);
-    final queued = snapshot?.records
-        .where((record) => record.cloudStatus == LocalCloudSyncStatus.queued)
+    final syncService = ref.watch(localSyncServiceProvider);
+    final pending = snapshot?.records
+        .where(
+          (record) => switch (record.cloudStatus) {
+            LocalCloudSyncStatus.queued ||
+            LocalCloudSyncStatus.syncing ||
+            LocalCloudSyncStatus.retryScheduled => true,
+            _ => false,
+          },
+        )
+        .length;
+    final synchronized = snapshot?.records
+        .where(
+          (record) => record.cloudStatus == LocalCloudSyncStatus.synchronized,
+        )
         .length;
     return Card(
       child: Padding(
@@ -244,21 +287,34 @@ class _LocalVaultPanelState extends ConsumerState<_LocalVaultPanel> {
                 Text(
                   snapshot == null
                       ? 'Open a vault to restore local status after restart.'
-                      : '${snapshot.records.length} verified • $queued cloud queued',
+                      : '${snapshot.records.length} verified • '
+                            '$synchronized cloud synchronized • $pending pending',
                 ),
               ],
             ),
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _openVault,
-              icon: _busy
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.folder_open_outlined),
-              label: Text(
-                snapshot == null ? 'Open local vault' : 'Change vault',
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _openVault,
+                  icon: const Icon(Icons.folder_open_outlined),
+                  label: Text(
+                    snapshot == null ? 'Open local vault' : 'Change vault',
+                  ),
+                ),
+                if (snapshot != null && syncService != null)
+                  FilledButton.icon(
+                    onPressed: _busy ? null : () => _synchronize(snapshot),
+                    icon: _busy
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cloud_upload_outlined),
+                    label: const Text('Synchronize pending'),
+                  ),
+              ],
             ),
           ],
         ),
@@ -1375,6 +1431,20 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
       );
     }
     final cloudStatus = result?.cloudStatus ?? rehydrated!.cloudStatus;
+    final cloudLabel = switch (cloudStatus) {
+      LocalCloudSyncStatus.queued => 'Cloud queued',
+      LocalCloudSyncStatus.syncing => 'Cloud syncing',
+      LocalCloudSyncStatus.retryScheduled => 'Cloud retry pending',
+      LocalCloudSyncStatus.synchronized => 'Cloud synchronized',
+      LocalCloudSyncStatus.queueFailed => 'Queue attention',
+    };
+    final cloudIcon = switch (cloudStatus) {
+      LocalCloudSyncStatus.queued => Icons.cloud_upload_outlined,
+      LocalCloudSyncStatus.syncing => Icons.cloud_sync_outlined,
+      LocalCloudSyncStatus.retryScheduled => Icons.schedule_outlined,
+      LocalCloudSyncStatus.synchronized => Icons.cloud_done_outlined,
+      LocalCloudSyncStatus.queueFailed => Icons.cloud_off_outlined,
+    };
     return SizedBox(
       width: 238,
       child: Wrap(
@@ -1386,19 +1456,7 @@ class _LocalSaveButtonState extends ConsumerState<_LocalSaveButton> {
             avatar: Icon(Icons.verified_outlined, size: 17),
             label: Text('Verified locally'),
           ),
-          Chip(
-            avatar: Icon(
-              cloudStatus == LocalCloudSyncStatus.queued
-                  ? Icons.cloud_upload_outlined
-                  : Icons.cloud_off_outlined,
-              size: 17,
-            ),
-            label: Text(
-              cloudStatus == LocalCloudSyncStatus.queued
-                  ? 'Cloud queued'
-                  : 'Queue attention',
-            ),
-          ),
+          Chip(avatar: Icon(cloudIcon, size: 17), label: Text(cloudLabel)),
         ],
       ),
     );

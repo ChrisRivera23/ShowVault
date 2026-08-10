@@ -285,6 +285,24 @@ class LocalRecoveryService {
         'The vault Manifests location is not a regular directory.',
       );
     }
+    final backupsRoot = Directory(_join(vaultRoot, 'Backups'));
+    if (await FileSystemEntity.type(backupsRoot.path, followLinks: false) !=
+        FileSystemEntityType.directory) {
+      throw const LocalRecoveryException(
+        'The vault Backups location is not a regular directory.',
+      );
+    }
+    final queueRoot = Directory(_join(vaultRoot, 'Upload Queue'));
+    final queueRootType = await FileSystemEntity.type(
+      queueRoot.path,
+      followLinks: false,
+    );
+    if (queueRootType != FileSystemEntityType.notFound &&
+        queueRootType != FileSystemEntityType.directory) {
+      throw const LocalRecoveryException(
+        'The vault Upload Queue location is unsafe.',
+      );
+    }
 
     final manifestFiles = <File>[];
     await for (final entity in manifestsRoot.list(followLinks: false)) {
@@ -366,10 +384,23 @@ class LocalRecoveryService {
           );
         }
       }
+      final productRoot = _join(backupsRoot.path, _safeName(productName));
+      if (await FileSystemEntity.type(productRoot, followLinks: false) !=
+          FileSystemEntityType.directory) {
+        throw const LocalRecoveryException(
+          'A vault product backup location is unsafe.',
+        );
+      }
       final recoveryPointPath = _join(
-        _join(_join(vaultRoot, 'Backups'), _safeName(productName)),
+        productRoot,
         '${_timestamp(createdAt)}__$packageId',
       );
+      if (await FileSystemEntity.type(recoveryPointPath, followLinks: false) !=
+          FileSystemEntityType.directory) {
+        throw const LocalRecoveryException(
+          'A vault recovery-point location is unsafe.',
+        );
+      }
       final packageManifest = File(_join(recoveryPointPath, 'manifest.json'));
       if (await FileSystemEntity.type(
                 packageManifest.path,
@@ -388,23 +419,7 @@ class LocalRecoveryService {
       var cloudStatus = LocalCloudSyncStatus.queueFailed;
       if (await FileSystemEntity.type(queueFile.path, followLinks: false) ==
           FileSystemEntityType.file) {
-        if (await queueFile.length() > 64 * 1024) {
-          throw const LocalRecoveryException(
-            'A vault queue record exceeds the size limit.',
-          );
-        }
-        final queue = _decodeObject(
-          await queueFile.readAsBytes(),
-          'A vault queue record is not valid JSON.',
-        );
-        if (_requiredString(queue, 'packageId') != packageId) {
-          throw const LocalRecoveryException(
-            'A vault queue record has the wrong identity.',
-          );
-        }
-        cloudStatus = _requiredString(queue, 'status') == 'queued'
-            ? LocalCloudSyncStatus.queued
-            : LocalCloudSyncStatus.queueFailed;
+        cloudStatus = await _readCloudStatus(vaultRoot, packageId, queueFile);
       }
       records.add(
         LocalRecoveryRecord(
@@ -423,6 +438,103 @@ class LocalRecoveryService {
     records.sort((left, right) => right.createdAt.compareTo(left.createdAt));
     return LocalVaultSnapshot(vaultRoot: vaultRoot, records: records);
   }
+
+  Future<LocalCloudSyncStatus> _readCloudStatus(
+    String vaultRoot,
+    String packageId,
+    File queueFile,
+  ) async {
+    if (await queueFile.length() > 64 * 1024) {
+      throw const LocalRecoveryException(
+        'A vault queue record exceeds the size limit.',
+      );
+    }
+    final queue = _decodeObject(
+      await queueFile.readAsBytes(),
+      'A vault queue record is not valid JSON.',
+    );
+    if (_requiredString(queue, 'packageId') != packageId) {
+      throw const LocalRecoveryException(
+        'A vault queue record has the wrong identity.',
+      );
+    }
+    var status = _cloudStatus(_requiredString(queue, 'status'));
+    final stateParent = Directory(
+      _join(_join(vaultRoot, 'Upload Queue'), 'State'),
+    );
+    final stateParentType = await FileSystemEntity.type(
+      stateParent.path,
+      followLinks: false,
+    );
+    if (stateParentType == FileSystemEntityType.notFound) return status;
+    if (stateParentType != FileSystemEntityType.directory) {
+      throw const LocalRecoveryException(
+        'The vault queue state location is unsafe.',
+      );
+    }
+    final stateRoot = Directory(_join(stateParent.path, packageId));
+    final stateType = await FileSystemEntity.type(
+      stateRoot.path,
+      followLinks: false,
+    );
+    if (stateType == FileSystemEntityType.notFound) return status;
+    if (stateType != FileSystemEntityType.directory) {
+      throw const LocalRecoveryException(
+        'A vault queue state location is unsafe.',
+      );
+    }
+    final events = <File>[];
+    await for (final entity in stateRoot.list(followLinks: false)) {
+      if (await FileSystemEntity.type(entity.path, followLinks: false) !=
+          FileSystemEntityType.file) {
+        throw const LocalRecoveryException(
+          'A vault queue state entry is unsafe.',
+        );
+      }
+      final name = _fileName(entity.path);
+      if (!RegExp(r'^\d{8}\.json$').hasMatch(name)) {
+        throw const LocalRecoveryException(
+          'A vault queue state entry has an invalid name.',
+        );
+      }
+      events.add(File(entity.path));
+      if (events.length > 1000) {
+        throw const LocalRecoveryException(
+          'A vault queue job exceeds the state-event limit.',
+        );
+      }
+    }
+    if (events.isEmpty) return status;
+    events.sort((left, right) => left.path.compareTo(right.path));
+    final latest = events.last;
+    if (await latest.length() > 64 * 1024) {
+      throw const LocalRecoveryException(
+        'A vault queue state entry exceeds the size limit.',
+      );
+    }
+    final event = _decodeObject(
+      await latest.readAsBytes(),
+      'A vault queue state entry is not valid JSON.',
+    );
+    if (_requiredString(event, 'packageId') != packageId) {
+      throw const LocalRecoveryException(
+        'A vault queue state entry has the wrong identity.',
+      );
+    }
+    status = _cloudStatus(_requiredString(event, 'status'));
+    return status;
+  }
+
+  static LocalCloudSyncStatus _cloudStatus(String value) => switch (value) {
+    'queued' => LocalCloudSyncStatus.queued,
+    'syncing' => LocalCloudSyncStatus.syncing,
+    'retry' => LocalCloudSyncStatus.retryScheduled,
+    'synchronized' => LocalCloudSyncStatus.synchronized,
+    'failed' => LocalCloudSyncStatus.queueFailed,
+    _ => throw const LocalRecoveryException(
+      'A vault queue record has an invalid status.',
+    ),
+  };
 
   Future<_CopiedFile> _copyAndHash(
     String sourcePath,
@@ -706,7 +818,13 @@ class LocalRecoveryRecord {
 
 enum LocalProtectionStatus { verified }
 
-enum LocalCloudSyncStatus { queued, queueFailed }
+enum LocalCloudSyncStatus {
+  queued,
+  syncing,
+  retryScheduled,
+  synchronized,
+  queueFailed,
+}
 
 class LocalRecoveryException implements Exception {
   const LocalRecoveryException(this.message);

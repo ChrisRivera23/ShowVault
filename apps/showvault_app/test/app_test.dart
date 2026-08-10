@@ -9,6 +9,8 @@ import 'package:showvault_app/src/auth/auth_session.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
 import 'package:showvault_app/src/recovery/local_access_coordinator.dart';
 import 'package:showvault_app/src/recovery/local_recovery_service.dart';
+import 'package:showvault_app/src/recovery/local_sync_object_store.dart';
+import 'package:showvault_app/src/recovery/local_sync_service.dart';
 import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
 
 class _SignedOutAuthService extends AuthService {
@@ -79,6 +81,7 @@ class _SavingLocalCatalog extends LocalCatalogScanner {
 
 class _FakeLocalRecoveryService extends LocalRecoveryService {
   bool saved = false;
+  bool synchronized = false;
 
   @override
   Future<LocalBackupResult> save(
@@ -113,10 +116,64 @@ class _FakeLocalRecoveryService extends LocalRecoveryService {
             fileCount: 2,
             totalBytes: 12,
             localStatus: LocalProtectionStatus.verified,
-            cloudStatus: LocalCloudSyncStatus.queued,
+            cloudStatus: synchronized
+                ? LocalCloudSyncStatus.synchronized
+                : LocalCloudSyncStatus.queued,
           ),
         ],
       );
+}
+
+class _FakeLocalSyncService extends LocalSyncService {
+  _FakeLocalSyncService(this.recovery)
+    : super(objectStore: const _UnusedObjectStore());
+
+  final _FakeLocalRecoveryService recovery;
+  bool called = false;
+
+  @override
+  Future<LocalSyncRunResult> syncPending(
+    String authorizedVaultRoot, {
+    int maxJobs = 25,
+  }) async {
+    called = true;
+    recovery.synchronized = true;
+    return const LocalSyncRunResult(
+      synchronized: 1,
+      retriedLater: 0,
+      failed: 0,
+      skipped: 0,
+    );
+  }
+}
+
+class _UnusedObjectStore implements LocalSyncObjectStore {
+  const _UnusedObjectStore();
+
+  Never _unused() => throw UnimplementedError();
+
+  @override
+  Future<void> appendChunk(
+    String packageId,
+    String relativePath,
+    int offset,
+    List<int> bytes,
+  ) async => _unused();
+
+  @override
+  Future<LocalSyncReceipt?> committedReceipt(String packageId) async =>
+      _unused();
+
+  @override
+  Future<int> uploadedLength(String packageId, String relativePath) async =>
+      _unused();
+
+  @override
+  Future<LocalSyncReceipt> verifyAndCommit(
+    String packageId,
+    List<int> remoteManifestBytes,
+    List<LocalSyncFileDescriptor> files,
+  ) async => _unused();
 }
 
 class _FakeLocalAccessCoordinator extends LocalAccessCoordinator {
@@ -152,6 +209,7 @@ void main() {
 
     expect(find.text('Scan this computer'), findsOneWidget);
     expect(find.text('Cloud not connected'), findsOneWidget);
+    expect(find.text('Synchronize pending'), findsNothing);
     await tester.drag(find.byType(ListView).last, const Offset(0, -1000));
     await tester.pumpAndSettle();
     expect(find.text('Connect cloud service'), findsOneWidget);
@@ -312,8 +370,44 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(access.vaultAuthorized, isTrue);
-    expect(find.text('1 verified • 1 cloud queued'), findsOneWidget);
+    expect(
+      find.text('1 verified • 0 cloud synchronized • 1 pending'),
+      findsOneWidget,
+    );
     expect(find.text('Verified locally'), findsOneWidget);
     expect(find.text('Cloud queued'), findsOneWidget);
+  });
+
+  testWidgets('synthetic build can synchronize durable pending work', (
+    tester,
+  ) async {
+    final recovery = _FakeLocalRecoveryService();
+    final sync = _FakeLocalSyncService(recovery);
+    final access = _FakeLocalAccessCoordinator();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(_SignedOutAuthService()),
+          localAccessCoordinatorProvider.overrideWithValue(access),
+          localRecoveryServiceProvider.overrideWithValue(recovery),
+          localSyncServiceProvider.overrideWithValue(sync),
+        ],
+        child: const ShowVaultApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open local vault'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Choose vault'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Synchronize pending'));
+    await tester.pumpAndSettle();
+
+    expect(sync.called, isTrue);
+    expect(
+      find.text('1 verified • 1 cloud synchronized • 0 pending'),
+      findsOneWidget,
+    );
   });
 }
