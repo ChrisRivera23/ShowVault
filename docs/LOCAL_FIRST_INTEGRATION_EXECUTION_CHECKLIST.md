@@ -42,6 +42,8 @@ not authorize workflow dispatch or controlled-equipment use.
 When authorization is ambiguous, stop before the action and preserve local work.
 Use `LOCAL_AUTHORIZATION_READINESS_MATRIX.md` to map the intended operation to
 its exact prerequisite, approval class, and mandatory stop point.
+Run `dart run tool/verify_local_authorization_readiness.dart` from
+`apps/showvault_app` before relying on its current fail-closed decision.
 
 ## Stage 0 — freeze and verify the planning source
 

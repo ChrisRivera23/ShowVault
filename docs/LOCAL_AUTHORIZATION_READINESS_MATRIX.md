@@ -11,6 +11,17 @@ The default is **stop before the operation** when the exact target, scope,
 prerequisite, or approval is absent or ambiguous. Authorization for one row does
 not authorize any later row.
 
+From `apps/showvault_app`, verify the closed operation set and current local-only
+decision before relying on this matrix:
+
+```bash
+dart run tool/verify_local_authorization_readiness.dart
+```
+
+The verifier reads only this bounded regular local file and emits no operation
+details, paths, or inferred permission. It fails if an operation or approval is
+removed, reordered, weakened, or if the locally ready set expands beyond L1/L2.
+
 ## Current readiness snapshot
 
 | Track | Current state | Safe next action | Blocking gate |
