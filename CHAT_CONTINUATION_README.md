@@ -21,7 +21,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/deployable-object-storage`
+- Branch: `codex/automated-resilience-matrix`
 - Local-first vault foundation commit: `bc53f4b feat: establish local-first vault foundation`
 - Offline desktop Save commit: `85b3e92 feat: save desktop recovery points offline`
 - Desktop permission/rehydration commit: `07e6e62 feat: authorize and rehydrate local vaults`
@@ -31,6 +31,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Installed-drill starting handoff commit: `e980165 docs: hand off installed hosted sync drill`
 - Deployable object-storage implementation commit: `c965719 feat: add deployable object storage sync`
 - Prototype storage runbook commit: `69b83ab docs: document prototype storage operations`
+- Installed resilience harness commit: `d744c03 feat: automate installed resilience matrix`
+- Installed resilience evidence commit: `75a2586 docs: record installed resilience evidence`
 - Sandbox-safe selected-target restore commit: `a62649f fix: restore safely into selected sandbox folders`
 - Immediate cloud-status refresh commit: `a7eee0d fix: refresh synchronized recovery status`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
@@ -65,6 +67,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Production API startup now requires the S3-compatible provider and fails closed on missing/unsafe storage configuration. The configured server-owned filesystem provider and disabled provider are Development-only.
 - Hosted manifests and create-only chunks use server-derived tenant/package keys; logical paths are represented only by SHA-256 key segments. Commit relists and rehashes the package and conditionally creates `receipt.json` last as the sole completion marker.
 - A pinned multi-stage API image, PostgreSQL service, one-shot migration job, workload-identity-compatible configuration, liveness/readiness endpoints, disposable MinIO override, synthetic hosted-sync smoke command, and operator runbook are versioned under `infra/` and `docs/DEPLOYABLE_PROTOTYPE_STORAGE.md`.
+- A compile-time-gated macOS resilience command mode runs only with an opaque sandbox fixture identity and loopback API. Normal builds keep it disabled. The versioned runner launches the copied release executable as a new process for each phase; it does not use `flutter run` or a separate customer Agent.
+- The installed matrix now automates API/storage outage and recovery, durable partial upload and cross-process resume, idempotent completion, verified Restore, source mutation, local/remote tamper, incomplete/conflicting remote chunks, non-empty targets, and interrupted Restore. Its report is path-free and checksummed.
 - **Restore** is available from a locally verified recovery point while signed out. It reverifies independent and package manifests plus the exact content tree, accepts only an absent or operator-selected empty regular target, rejects links/substitutions/unsafe paths, copies through owned staging, verifies staged and published bytes, and writes path-free local evidence. A picker-selected existing target keeps staging inside the sandbox-authorized directory and publishes a fixed `ShowVault Restored Files` child; absent programmatic targets retain direct publication.
 - Cancellation, timeout, source mutation, target mutation, and interrupted-restart failures publish no partial completion. Cleanup removes only staging with a matching bounded ownership marker and never alters the immutable recovery point.
 - Normal builds do not expose the direct folder substitute. **Synchronize pending** is available when a signed-in hosted transport has organization/venue context; an isolated direct-substitute build requires both explicit synthetic fixture-home and synthetic object-store defines.
@@ -122,10 +126,25 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - MinIO is emulator evidence only. No production cloud bucket, IAM policy, TLS ingress, retention rule, replication, monitoring, backup, or regional failure test was configured.
 - Docker Desktop intermittently left attach/start client calls waiting while containers remained `Created`; stopping only those exact disposable client processes and issuing a fresh start completed the proof. This was local tooling behavior, not a ShowVault service failure.
 
+## Installed automated resilience evidence
+
+- Final artifact directory: `/private/tmp/showvault-resilience-matrix-final-20260810`
+- App version/build: `0.1.0 (1)`; bundle ID `com.showvault.app`; universal `x86_64` + `arm64`; ad hoc signed and strictly validated; sandbox, network-client, and user-selected read/write entitlements present.
+- Installed executable SHA-256: `c6f3f59d4b94c525d2798955887a31124e681d2cf83e72a1256b9f3a7c8a03cb`
+- ZIP SHA-256: `cd3a51917bfd4471d7c86738cf4ea1a130510279ed5038bdc8699cbc43fb6c7f`
+- Report file SHA-256: `6f7a4fb018891faee17c396cde51ce0970479fe62de50e14361e535662a7d122`
+- Report core evidence SHA-256: `18bc1c6cc2b3b15ccac4e773d35df71d61ec72da5cf9e7061e7f7756cf7bee73`
+- Seven report phases passed. Two packages contained four verified files/128 bytes. API loss preserved the first package at retry attempt 1. A deliberate first-chunk cancellation left exactly 8 durable remote bytes at attempt 2 with no receipt; a fresh installed-app process resumed and synchronized on attempt 3, accepted duplicate completion idempotently, and restored two files/64 bytes.
+- MinIO loss made readiness unavailable, preserved the second local package at retry attempt 1, and published no receipt. After MinIO restarted, the same queue synchronized on attempt 2.
+- Seven negative cases passed: source mutation published no package; local tamper, corrupt remote bytes, incomplete remote bytes, and a conflicting duplicate chunk published no receipt; the non-empty target was unchanged; interrupted Restore published nothing.
+- The report contains no source/vault/restore path, credential, token, content, or host identity. ZIP/report and report-core hashes verified. Owned sandbox state plus disposable containers, networks, and volumes were removed.
+- Three preliminary failed generated artifacts were moved recoverably to Trash while the executable-name and sandbox-root assumptions were corrected. They contain only synthetic loopback test builds; they were excluded from evidence.
+- This is process-restart evidence, not host-reboot evidence. MinIO is not a production-provider claim. Native picker behavior remains supported by the earlier attended drill, not this command-mode matrix.
+
 ## Verification baseline
 
 - Flutter analysis: no issues
-- Flutter tests: 77 passed
+- Flutter tests: 78 passed
 - Contracts tests: 2 passed
 - Agent tests: 429 passed
 - Platform tests: 28 passed
@@ -134,6 +153,10 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - Disposable S3-compatible smoke: passed with immutable write/resume/commit/idempotency behavior
 - Deployable Compose configuration validation: passed
 - API container image build: passed
+- Installed macOS resilience matrix: 7 report phases and 7 safe negative cases passed
+- Final harness ZIP/report checksums and internal evidence checksum: passed
+- Final harness strict deep code-signature validation: passed
+- Normal macOS release clean rebuild and strict deep code-signature validation: passed
 - EF Core migrations `20260810003349_AddDesktopCatalogScanCandidates` and `20260810003907_AddDesktopCatalogScans` are applied to the local database
 - EF Core pending-model check: no pending changes
 - macOS release build: 50.1 MB build report (48 MiB on disk), universal `x86_64` + `arm64` app; ad hoc signed and strictly validated with sandbox user-selected read/write access
@@ -154,19 +177,19 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-Automate the controlled installed-app success, restart/reboot, failure, and tamper evidence matrix without touching personal application data or venue equipment.
+Add upgrade/reinstall preservation evidence and a bounded customer-support diagnostic bundle for the local vault and durable queue.
 
 The next slice must satisfy these boundaries:
 
-1. Add a versioned, repeatable synthetic evidence harness that drives the installed customer app and deployable API through Save → verify → offline queue → synchronize → Restore without `flutter run` or a separate customer Agent.
-2. Automate safe cases for unavailable API/storage, interrupted upload and resume, stale or conflicting remote chunks, corrupt/incomplete remote objects, failed verification, source mutation, non-empty restore target, interrupted restore, and duplicate completion.
-3. Record path-free machine-readable outcomes, artifact versions, checksums, timings, retry attempts, health state, and cleanup results. Never record credentials, tokens, source/vault paths, file contents, or unrestricted host inventories.
-4. Preserve the immutable local recovery point and append-only queue across every cloud failure. A failed case must never publish a receipt or partial restore.
-5. Keep host reboot and real production-provider testing as separately attended gates. The harness may prepare and verify restart-safe state, but must not reboot the user's Mac or access personal data without explicit authorization.
-6. Run the harness only against synthetic fixtures and disposable controlled infrastructure first. Keep macOS and Windows parity visible, but claim only directly executed platforms.
-7. Produce a concise evidence report and update readiness/handoff documentation. Do not claim clean-machine, notarization, Windows, venue, retention, regional durability, or Recovery Confidence.
+1. Define a versioned diagnostic schema containing only path-free workflow counts/statuses, bounded error categories, package/manifest identities where necessary, app/schema versions, timestamps, and integrity results. Exclude package contents, credentials, tokens, exact paths, host identity, and unrestricted filesystem/network inventory.
+2. Generate diagnostics only after explicit operator action. Inspect only ShowVault-owned vault directories and bounded records through the existing validation logic; do not rescan recovery sources or follow links.
+3. Prove that malformed, oversized, linked, or substituted vault/queue/report entries fail safely and cannot make the diagnostic generator read outside the authorized vault.
+4. Build two controlled app artifacts representing an upgrade/reinstall boundary. Use only synthetic sandbox data. Prove that an immutable recovery point, independent manifest, queued/retry/synchronized journal state, and restore evidence survive replacement and rehydrate without source access.
+5. Define uninstall/removal behavior separately from upgrade: application replacement must not delete the selected local vault, while attended removal must identify exactly which ShowVault-owned state is retained or deleted.
+6. Produce checksummed path-free evidence from installed macOS artifacts. Keep Windows upgrade behavior, host reboot, notarization, production-provider failures, and personal-data execution as separate gates.
+7. Update readiness and support documentation without claiming clean-machine, venue, Windows, regional durability, retention compliance, or Recovery Confidence.
 
-The deployable object-storage slice is complete. Real filesystem-to-object migration remains blocked on a dedicated migration utility and actual legacy data approval; it is not part of the next automated failure-matrix slice.
+The installed synthetic resilience matrix is complete. Three scenarios remain outside it and should not be silently folded into this slice: expired commercial Auth0 sessions, provider quota exhaustion, and real production-provider outage behavior.
 
 ## Required workflow
 
@@ -197,6 +220,7 @@ The deployable object-storage slice is complete. Real filesystem-to-object migra
 - `docs/PROTOTYPE_READINESS.md` — venue-neutral readiness gates and direct desktop boundary
 - `docs/LOCAL_QUEUE_SYNC.md` — desktop queue journal, substitute transport, resumability, verification, and privacy boundary
 - `docs/DEPLOYABLE_PROTOTYPE_STORAGE.md` — container deployment, S3 key/credential boundary, smoke check, cleanup, migration, and rollback
+- `docs/INSTALLED_RESILIENCE_MATRIX.md` — installed release command-mode gates, scenario matrix, path-free evidence, and limitations
 - `docs/LOCAL_ATTENDED_RESTORE.md` — offline attended restore, staging, verification, cleanup, evidence, and limitations
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` — customer identity, licensing, subscription, portal, and Admin-console structure
 - `docs/SYSTEM_INVENTORY_PLUGIN.md` — direct app scan versus legacy Agent compatibility
