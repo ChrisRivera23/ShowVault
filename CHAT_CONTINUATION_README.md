@@ -43,6 +43,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Workflow-provenance binding commit: `0644cb1 feat: bind Windows evidence to workflow provenance`
 - GitHub run/workflow attestation commit: `7592fbe feat: attest downloaded Windows workflow runs`
 - Deterministic Windows evidence-bridge preparation commit: `a927c20 feat: prepare deterministic Windows evidence bridge`
+- Product-integration decomposition plan commit: `626e88d docs: plan local-first product integration`
 - Sandbox-safe selected-target restore commit: `a62649f fix: restore safely into selected sandbox folders`
 - Immediate cloud-status refresh commit: `a7eee0d fix: refresh synchronized recovery status`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
@@ -96,6 +97,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - The workflow adds a checksummed, path-free provenance file containing the actual checked-out commit, manual event, run ID/attempt, job, runner OS/architecture, and artifact name. Draft PR #26 currently pins the older `ddfcaa6` workflow and must not be merged or dispatched unchanged; it needs a refreshed pin after the protected source commit is explicitly published and green.
 - The post-run verifier accepts a workflow run ID and absent output directory, requires a completed successful manual run with the expected identity, fetches the workflow at its exact head SHA, verifies the manual/read-only/provenance boundary and single immutable source pin, downloads only the named artifact, invokes the independent artifact verifier, and matches artifact provenance to the actual run ID, attempt, and pin. Six focused positive/adversarial tests pass. It performs no dispatch or repository mutation.
 - The bridge preparer accepts an approved lowercase full source SHA, the audited product workflow, and an absent `windows-evidence.yml`. It requires the manual/read-only policy and exactly the three approved commit-pinned actions, injects one immutable checkout ref with persisted credentials disabled, refuses overwrite and linked input, rereads the output, and emits a bounded digest. Seven focused tests and a real local dry run pass; no bridge branch or GitHub state was changed.
+- The accumulated PR #25 history is now locally decomposed: 247 paused legacy catalog/Agent commits precede 40 product-directed desktop/local-first/storage/resilience/Windows commits. Their net patches overlap 29 files, so blind tail cherry-picking is not an accepted integration strategy. The documented recommendation keeps PR #25 as a comparison view, integrates PRs #3-#24 first, then reconstructs six reviewable local-first product milestones while keeping the legacy expansion separate.
 - **Restore** is available from a locally verified recovery point while signed out. It reverifies independent and package manifests plus the exact content tree, accepts only an absent or operator-selected empty regular target, rejects links/substitutions/unsafe paths, copies through owned staging, verifies staged and published bytes, and writes path-free local evidence. A picker-selected existing target keeps staging inside the sandbox-authorized directory and publishes a fixed `ShowVault Restored Files` child; absent programmatic targets retain direct publication.
 - Cancellation, timeout, source mutation, target mutation, and interrupted-restart failures publish no partial completion. Cleanup removes only staging with a matching bounded ownership marker and never alters the immutable recovery point.
 - Normal builds do not expose the direct folder substitute. **Synchronize pending** is available when a signed-in hosted transport has organization/venue context; an isolated direct-substitute build requires both explicit synthetic fixture-home and synthetic object-store defines.
@@ -207,6 +209,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - macOS release build: 50.2 MB build report (48 MiB on disk), universal `x86_64` + `arm64` app; ad hoc signed and strictly validated with sandbox user-selected read/write access
 - ZIP checksum matches `SHA256SUMS`
 - `git diff --check`: passes
+- Local integration decomposition: eight bounded commit ranges account for all 287 post-PR #24 commits; the final 40-commit product patch changes 123 files and overlaps the paused legacy patch in 29 files
 
 ## Safety boundaries
 
@@ -226,8 +229,8 @@ Publish and validate the provenance-protected source, refresh isolated draft PR 
 
 The next slice must satisfy these boundaries:
 
-1. The original branch push and draft PR are complete, but PR #26 predates provenance and is not merge-ready. Obtain explicit authorization before pushing the ten local `codex/windows-packaging` commits or updating PR #26. Obtain separate authorization for marking ready/merging, manual dispatch, or use of a controlled Windows 10/11 x64 computer.
-2. Treat PR #25 as an accumulated integration draft, not a Windows-only change. Review the 287-commit stack and choose a deliberate default-branch integration path; do not merge the accumulated draft merely to expose the workflow.
+1. The original branch push and draft PR are complete, but PR #26 predates provenance and is not merge-ready. Obtain explicit authorization before pushing the twelve local `codex/windows-packaging` commits (including this planning handoff) or updating PR #26. Obtain separate authorization for marking ready/merging, manual dispatch, or use of a controlled Windows 10/11 x64 computer.
+2. Treat PR #25 as an accumulated integration draft, not a Windows-only change. Follow `docs/WINDOWS_EVIDENCE_INTEGRATION_PLAN.md`: keep PR #25 as a comparison view, integrate PRs #3-#24 first, and reconstruct the six local-first milestones with a deliberate audit of the 29 overlapping files. Do not merge the accumulated draft merely to expose the workflow.
 3. Generate the refreshed one-file bridge with `dart run tool/prepare_windows_evidence_bridge.dart <approved-source-sha> ../../.github/workflows/windows-evidence.yml <bridge-worktree>/.github/workflows/windows-evidence.yml`, confirm its digest and diff, and only then follow the separately authorized review/merge sequence. After an approved manual run completes, use `dart run tool/verify_windows_run.dart <workflow-run-id> <absent-output-directory>` and review its bounded output. Treat it as native headless evidence, not attended picker/Auth0 or clean-customer-machine evidence.
 4. For a controlled computer, use PowerShell 7, Flutter Windows tooling, Visual Studio Desktop C++, and Inno Setup 6 on the build side. The installed target must not require Flutter, Git, the repository, or a separate Agent.
 5. Review `docs/WINDOWS_PACKAGING_AND_EXECUTION.md`, then run the normal package command and `tool/run-windows-installed-proof.ps1` into absent local-drive output directories.
