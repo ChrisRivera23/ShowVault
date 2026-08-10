@@ -3,16 +3,31 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 <absolute-output-directory> [api-base-url]" >&2
+  echo "Usage: $0 <absolute-output-directory> [api-base-url] [--personal-beta-no-login]" >&2
   exit 64
 }
 
-if [[ $# -lt 1 || $# -gt 2 ]]; then
+if [[ $# -lt 1 || $# -gt 3 ]]; then
   usage
 fi
 
 output_directory=$1
 api_base_url=${2:-https://api.showvault.app}
+personal_beta_option=${3:-}
+
+if [[ -n "$personal_beta_option" && "$personal_beta_option" != "--personal-beta-no-login" ]]; then
+  usage
+fi
+
+if [[ "$personal_beta_option" == "--personal-beta-no-login" ]]; then
+  case "$api_base_url" in
+    http://127.0.0.1|http://127.0.0.1:*|http://localhost|http://localhost:*|http://\[::1\]|http://\[::1\]:*) ;;
+    *)
+      echo "The no-login personal beta is restricted to a loopback API endpoint." >&2
+      exit 64
+      ;;
+  esac
+fi
 
 if [[ "$output_directory" != /* ]]; then
   echo "Output directory must be an absolute path." >&2
@@ -55,8 +70,15 @@ build_product="$app_directory/build/macos/Build/Products/Release/ShowVault.app"
 
 cd "$app_directory"
 flutter pub get
-flutter build macos --release \
+flutter_build_args=(
+  macos
+  --release
   --dart-define="SHOWVAULT_API_BASE_URL=$api_base_url"
+)
+if [[ "$personal_beta_option" == "--personal-beta-no-login" ]]; then
+  flutter_build_args+=(--dart-define="SHOWVAULT_PERSONAL_BETA_BYPASS_AUTH=true")
+fi
+flutter build "${flutter_build_args[@]}"
 
 if [[ ! -d "$build_product" ]]; then
   echo "Expected release application was not produced: $build_product" >&2
@@ -76,4 +98,7 @@ ditto -c -k --sequesterRsrc --keepParent \
 
 echo "Created personal-test release artifacts in $output_directory"
 echo "Control plane: $api_base_url"
+if [[ "$personal_beta_option" == "--personal-beta-no-login" ]]; then
+  echo "Authentication: no-login personal beta (loopback Development API only)"
+fi
 echo "These artifacts are not signed or notarized for venue installation."

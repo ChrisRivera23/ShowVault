@@ -4,7 +4,7 @@ ShowVault's prototype must be installable and testable without tailoring it to a
 
 The acceptance path remains:
 
-**Install → Sign in → Scan → Backup → Verify → Restore → Prove**
+**Install → Scan → Sign in for cloud service → Backup → Verify → Restore → Prove**
 
 Passing only the middle four recovery operations is insufficient. A prototype is ready for venue installation only when a production-like artifact can be installed, restarted, upgraded, operated, and diagnosed without repository access or a developer toolchain.
 
@@ -28,9 +28,9 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 |---|---|---|
 | Recovery semantics | The earlier API/Agent path completed a controlled filesystem recovery loop with matching SHA-256 output. | Useful implementation evidence, but the customer path is being simplified to direct app-to-cloud operation. |
 | Package safety | The earlier local package format is immutable and content-addressed. | Local backup packages are no longer the product path; equivalent cloud upload, verification, and restore evidence remains to be implemented. |
-| Native operator application | The Flutter macOS application now performs the initial catalog scan directly, with an in-memory Auth0 session and no exposed enrollment or Agent setup. | Direct scan is implemented; direct cloud backup/verify/restore remains. |
+| Native operator application | The Flutter macOS application performs the initial catalog scan directly with the full product navigation restored and no exposed enrollment or Agent setup. The attended personal-beta build omits login behind Development-plus-loopback guards. | Direct scan is implemented; commercial authentication/entitlement and direct cloud backup/verify/restore remain. |
 | Control plane | The API and PostgreSQL stack support the authenticated workflow and durable evidence. | The prototype runbook still requires Docker, the .NET SDK, repository access, migrations, and command-line startup. |
-| Onboarding | The intended customer path is install, sign in, and scan. No Agent or enrollment control appears in the app. | Clean-machine execution and first direct scan still require recorded evidence. |
+| Onboarding | The intended customer path is install and scan, then authenticate when the first paid cloud operation is requested. No Agent or enrollment control appears in the app. | Clean-machine execution still requires recorded evidence; the installed personal-Mac direct scan is proven. |
 | Platform coverage | Direct exact-location scan definitions include macOS and Windows candidates for the current beta products. | Windows packaging and installed execution remain unproven. |
 | Operational resilience | Unit and integration tests cover many restart, malformed-input, tamper, and failure boundaries. | A production-like end-to-end failure/restart drill on personal equipment is not yet recorded. |
 | Integration breadth | Recovery and exact-identity capabilities cover representative production products, with explicit deferrals where evidence is unsafe. | Sufficient to pause catalog expansion; breadth does not substitute for installability and recovery proof. |
@@ -47,7 +47,7 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 
 ### Gate 2 — Venue-neutral onboarding and preflight
 
-- An authorized operator installs ShowVault, signs in, and sees **Scan this computer** without Agent installation or enrollment controls.
+- An operator installs ShowVault and sees **Scan this computer** without login, Agent installation, or enrollment controls. Commercial builds require a ShowVault account before the first cloud operation.
 - The scan checks only exact allowlisted catalog candidates and submits only opaque candidate keys. Paths and file contents remain in memory and never enter control-plane requests or logs.
 - Preflight reports control-plane connectivity and only permissions required for the selected attended operation.
 - Failed preflight blocks recovery operations with an actionable local explanation.
@@ -57,7 +57,7 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 - Run the complete workflow from the installed app, not `dotnet run` or `flutter run`.
 - Exercise at least one generic filesystem recovery unit and representative application-export workflows available on personal equipment.
 - Stream backup data directly to cloud storage, preserve cloud object identity and verification evidence, and leave no endpoint backup package.
-- Repeat after app restart and host reboot; a new sign-in is expected while macOS sessions remain memory-only.
+- Repeat after app restart and host reboot. The controlled no-login beta remains loopback-only; commercial sessions and reauthentication behavior require separate evidence.
 
 ### Gate 4 — Failure and tamper behavior
 

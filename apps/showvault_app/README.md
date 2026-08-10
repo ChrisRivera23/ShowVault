@@ -57,6 +57,23 @@ The default artifact connects to `https://api.showvault.app`. A controlled local
   http://127.0.0.1:5000
 ```
 
-Every other non-HTTPS endpoint is rejected. The endpoint is build configuration, not a venue identity: organizations and venues still come from the authenticated control plane, and no venue name, address, equipment, path, credential, or other private data is packaged. Native Auth0 clients use the repository's public client ID with Authorization Code + PKCE; no client secret is accepted or embedded.
+For the attended personal beta only, the visible login can be omitted. This
+mode works exclusively with a loopback API running in the Development
+environment with `PersonalBeta__BypassAuthentication=true` and an explicitly
+configured `PersonalBeta__IdentitySubject`:
+
+```bash
+./packaging/macos/build-app.sh \
+  /tmp/showvault-macos-local-no-login \
+  http://127.0.0.1:5000 \
+  --personal-beta-no-login
+```
+
+The no-login switch is rejected for non-loopback endpoints. The API also
+rejects it outside Development, from non-loopback clients, or without an
+explicit identity subject. It is test scaffolding and must not be used for a
+customer or production build.
+
+Every other non-HTTPS endpoint is rejected. The endpoint is build configuration, not a venue identity: organizations and venues come from the authenticated control plane in normal builds or the explicitly selected existing test identity in the loopback personal beta. No venue name, address, equipment, path, credential, or other private data is packaged. Native Auth0 clients use the repository's public client ID with Authorization Code + PKCE; no client secret is accepted or embedded.
 
 These artifacts are intentionally for personal-equipment testing. They are not signed or notarized and must not be installed at a venue. Signing, notarization, upgrade semantics, and clean-machine validation remain required by [`../../docs/PROTOTYPE_READINESS.md`](../../docs/PROTOTYPE_READINESS.md).

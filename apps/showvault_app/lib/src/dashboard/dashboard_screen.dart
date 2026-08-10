@@ -12,7 +12,9 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!AppConfig.hasAuth0Client) return const _ConfigurationRequired();
+    if (!AppConfig.hasAuth0Client && !AppConfig.personalBetaBypassAuth) {
+      return const _ConfigurationRequired();
+    }
     return ref
         .watch(authSessionProvider)
         .when(
@@ -120,16 +122,18 @@ class _LiveDashboard extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             _CandidateOnboarding(history: history),
-            const SizedBox(height: 24),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () =>
-                    ref.read(authSessionProvider.notifier).logout(),
-                icon: const Icon(Icons.logout),
-                label: const Text('Sign out'),
+            if (!AppConfig.personalBetaBypassAuth) ...[
+              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () =>
+                      ref.read(authSessionProvider.notifier).logout(),
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Sign out'),
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),

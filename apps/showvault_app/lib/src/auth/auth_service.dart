@@ -12,6 +12,12 @@ class AuthService {
   AuthSession? _memorySession;
 
   Future<AuthSession?> restore() async {
+    if (AppConfig.personalBetaBypassAuth) {
+      return const AuthSession(
+        accessToken: AppConfig.personalBetaAccessToken,
+        displayName: 'Personal beta',
+      );
+    }
     if (!AppConfig.hasAuth0Client) return null;
     if (Platform.isWindows || Platform.isMacOS) return _memorySession;
     if (!await _auth0.credentialsManager.hasValidCredentials()) return null;
@@ -19,6 +25,12 @@ class AuthService {
   }
 
   Future<AuthSession> login() async {
+    if (AppConfig.personalBetaBypassAuth) {
+      return const AuthSession(
+        accessToken: AppConfig.personalBetaAccessToken,
+        displayName: 'Personal beta',
+      );
+    }
     final Credentials credentials;
     if (Platform.isWindows) {
       credentials = await _auth0.windowsWebAuthentication().login(
@@ -40,6 +52,7 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    if (AppConfig.personalBetaBypassAuth) return;
     if (Platform.isWindows) {
       await _auth0.windowsWebAuthentication().logout(
         appCustomURL: AppConfig.windowsCallbackUrl,

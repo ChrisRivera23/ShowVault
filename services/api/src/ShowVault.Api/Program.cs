@@ -26,8 +26,19 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<PlatformDbContext>(options =>
     options.UseNpgsql(platformConnectionString));
 builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = "ShowVault-User";
+        options.DefaultChallengeScheme = "ShowVault-User";
+    })
+    .AddPolicyScheme("ShowVault-User", "ShowVault user authentication", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+            PersonalBetaAuthenticationHandler.IsPersonalBetaRequest(context.Request)
+                ? PersonalBetaAuthenticationHandler.SchemeName
+                : JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
     {
         options.Authority = $"https://{auth0Domain.TrimEnd('/')}";
         options.Audience = auth0Audience;
@@ -37,7 +48,10 @@ builder.Services
             NameClaimType = "name",
             RoleClaimType = "roles"
         };
-    });
+    })
+    .AddScheme<AuthenticationSchemeOptions, PersonalBetaAuthenticationHandler>(
+        PersonalBetaAuthenticationHandler.SchemeName,
+        _ => { });
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, AgentAuthenticationHandler>(
         AgentAuthenticationHandler.SchemeName,
