@@ -89,9 +89,10 @@ class WindowsEvidenceBridgePreparer {
       _commitPattern.hasMatch(sourceCommitSha),
       'The source commit must be a lowercase full Git SHA.',
     );
-    _verifySourceWorkflow(sourceWorkflowText);
+    final canonicalSource = _canonicalWorkflowText(sourceWorkflowText);
+    _verifySourceWorkflow(canonicalSource);
     final matches = _checkoutLinePattern
-        .allMatches(sourceWorkflowText)
+        .allMatches(canonicalSource)
         .toList(growable: false);
     _require(
       matches.length == 1,
@@ -103,7 +104,7 @@ class WindowsEvidenceBridgePreparer {
         with:
           ref: $sourceCommitSha
           persist-credentials: false''';
-    final result = sourceWorkflowText.replaceRange(
+    final result = canonicalSource.replaceRange(
       matches.single.start,
       matches.single.end,
       replacement,
@@ -111,6 +112,15 @@ class WindowsEvidenceBridgePreparer {
     _verifyBridgeWorkflow(result, sourceCommitSha);
     return result;
   }
+}
+
+String _canonicalWorkflowText(String text) {
+  final canonical = text.replaceAll('\r\n', '\n');
+  _require(
+    !canonical.contains('\r'),
+    'The source workflow contains unsupported line endings.',
+  );
+  return canonical;
 }
 
 class WindowsEvidenceBridgePreparation {

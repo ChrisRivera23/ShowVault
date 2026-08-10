@@ -42,6 +42,12 @@ class AuthorizationReadinessPreflight {
   }
 
   static void validateContent(String content) {
+    content = content.replaceAll('\r\n', '\n');
+    if (content.contains('\r')) {
+      throw const FormatException(
+        'Authorization matrix contains unsupported line endings.',
+      );
+    }
     const tableStart = '## Operation-to-approval matrix';
     const tableEnd = '## Dependency sequence';
     final start = content.indexOf(tableStart);

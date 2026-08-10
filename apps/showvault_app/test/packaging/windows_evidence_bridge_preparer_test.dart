@@ -66,6 +66,23 @@ void main() {
     expect(second, first);
   });
 
+  test('canonicalizes a CRLF source to the reviewed LF bytes', () {
+    const preparer = WindowsEvidenceBridgePreparer();
+    final expected = preparer.render(
+      sourceWorkflowText: sourceText.replaceAll('\r\n', '\n'),
+      sourceCommitSha: _sourceCommit,
+    );
+    final fromCrlf = preparer.render(
+      sourceWorkflowText: sourceText
+          .replaceAll('\r\n', '\n')
+          .replaceAll('\n', '\r\n'),
+      sourceCommitSha: _sourceCommit,
+    );
+
+    expect(fromCrlf, expected);
+    expect(fromCrlf, isNot(contains('\r')));
+  });
+
   test('rejects a mutable or abbreviated source revision', () {
     expect(
       () => const WindowsEvidenceBridgePreparer().render(

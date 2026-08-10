@@ -28,6 +28,15 @@ void main() {
     expect(report['repositoryMutation'], isFalse);
   });
 
+  test('accepts the same fail-closed matrix with CRLF checkout bytes', () {
+    final crlf = matrix.replaceAll('\r\n', '\n').replaceAll('\n', '\r\n');
+
+    expect(
+      () => AuthorizationReadinessPreflight.validateContent(crlf),
+      returnsNormally,
+    );
+  });
+
   test('rejects a removed operation', () {
     final changed = matrix.replaceFirst('| X5 |', '| ZZ |');
 

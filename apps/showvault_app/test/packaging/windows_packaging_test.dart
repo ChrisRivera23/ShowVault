@@ -66,7 +66,7 @@ void main() {
   });
 
   test('Windows evidence workflow is manual, pinned, and synthetic', () {
-    final text = workflow.readAsStringSync();
+    final text = workflow.readAsStringSync().replaceAll('\r\n', '\n');
     expect(text, contains('workflow_dispatch:'));
     expect(text, contains('runs-on: windows-2025'));
     expect(text, contains('permissions:\n  contents: read'));
