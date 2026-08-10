@@ -127,6 +127,11 @@ model check where applicable, focused tests, full relevant regression, privacy
 and tenant-isolation audit, and a clean diff check before the next milestone is
 started.
 
+`LOCAL_FIRST_INTEGRATION_AUDIT.md` records the exact 29-file overlap,
+file-by-file disposition, milestone ownership, and local reproduction commands.
+It is the required starting checklist for reconstructing any of the six
+milestones.
+
 The 247-commit legacy catalog/Agent expansion remains a separate paused review.
 It must be evaluated by current product value and authorization boundaries, not
 merged merely because later local-first work was originally developed on top of
