@@ -21,7 +21,7 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/upgrade-diagnostics`
+- Branch: `codex/windows-packaging`
 - Local-first vault foundation commit: `bc53f4b feat: establish local-first vault foundation`
 - Offline desktop Save commit: `85b3e92 feat: save desktop recovery points offline`
 - Desktop permission/rehydration commit: `07e6e62 feat: authorize and rehydrate local vaults`
@@ -35,6 +35,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Installed resilience evidence commit: `75a2586 docs: record installed resilience evidence`
 - Upgrade preservation and support diagnostics implementation commit: `237f076 feat: preserve upgrades and generate support diagnostics`
 - Upgrade evidence and operating-boundary documentation commit: `b9f0824 docs: record upgrade diagnostic evidence`
+- Windows packaging and safety implementation commit: `58ad46a feat: package the Windows local-first client`
+- Windows package execution-gate documentation commit: `5c7ade7 docs: define Windows package execution gate`
 - Sandbox-safe selected-target restore commit: `a62649f fix: restore safely into selected sandbox folders`
 - Immediate cloud-status refresh commit: `a7eee0d fix: refresh synchronized recovery status`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
@@ -76,6 +78,11 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Linked, substituted, malformed, oversized, wrongly identified, or checksum-invalid manifest/queue/report entries fail before diagnostic publication. Linked diagnostic destinations cannot redirect a write outside the authorized vault.
 - A two-artifact installed macOS proof replaces a before app with an independently compiled after app. With the synthetic source deleted, the after app rehydrated the same immutable recovery point, independent manifest, synchronized attempt 2/four-event journal, and one restore-evidence record, then generated a second diagnostic.
 - App replacement and ordinary app removal retain the selected external vault. Full local-data removal is a distinct attended procedure and is not currently an in-app destructive control. Clean-machine reinstall and rollback execution remain unproven.
+- The Windows x64 client now builds as `ShowVault.exe`. A PowerShell 7 packaging script verifies the complete Flutter deployment, and Inno Setup produces a current-user installer, portable ZIP, bounded path-free package manifest, observed Authenticode status, and SHA-256 checksums.
+- The Windows installer registers only the `showvault://` authentication callback under the current user. Upgrade replaces only `{app}`; upgrade and uninstall retain the external ShowVault Pro vault and install no customer Agent or service.
+- Windows selected-folder policy rejects relative, drive-root, UNC/network, extended/device, traversal, alternate-stream, trailing-alias, and linked/substituted paths. Canonical comparison and containment are case-insensitive and segment-bounded. Diagnostic privacy rejects embedded drive, UNC, Unix, and `file://` paths.
+- A marker-scoped installed-proof runner is ready to compile/install before and after packages, exercise synthetic Save/retry/sync/Restore/diagnostic/source-removal, verify source-free rehydration, export checksummed path-free evidence, clean the fixture, uninstall the app, and remove only its owned workspace.
+- The current host has no Windows Flutter target/VM, PowerShell runtime, Wine, MSVC/Windows SDK, or Inno Setup. Windows scripts and installer syntax have not run in their native engines, the NTFS-junction test is skipped, and no Windows artifact or runtime evidence exists. Windows readiness remains unclaimed.
 - **Restore** is available from a locally verified recovery point while signed out. It reverifies independent and package manifests plus the exact content tree, accepts only an absent or operator-selected empty regular target, rejects links/substitutions/unsafe paths, copies through owned staging, verifies staged and published bytes, and writes path-free local evidence. A picker-selected existing target keeps staging inside the sandbox-authorized directory and publishes a fixed `ShowVault Restored Files` child; absent programmatic targets retain direct publication.
 - Cancellation, timeout, source mutation, target mutation, and interrupted-restart failures publish no partial completion. Cleanup removes only staging with a matching bounded ownership marker and never alters the immutable recovery point.
 - Normal builds do not expose the direct folder substitute. **Synchronize pending** is available when a signed-in hosted transport has organization/venue context; an isolated direct-substitute build requires both explicit synthetic fixture-home and synthetic object-store defines.
@@ -165,7 +172,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 ## Verification baseline
 
 - Flutter analysis: no issues
-- Flutter tests: 85 passed
+- Flutter tests: 98 passed; 1 Windows-only NTFS-junction test skipped on macOS
 - Contracts tests: 2 passed
 - Agent tests: 429 passed
 - Platform tests: 28 passed
@@ -176,6 +183,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - API container image build: passed
 - Installed macOS resilience matrix: 7 report phases and 7 safe negative cases passed
 - Installed macOS upgrade proof: two distinct artifacts; replacement, source-free rehydration, manifest, attempt-2/four-event queue journal, restore evidence, path-free diagnostics, checksums, and cleanup passed
+- Windows packaging: implementation and host-independent static/path-policy coverage passed; native package compilation and installed execution not run because no Windows environment is available
 - Final harness ZIP/report checksums and internal evidence checksum: passed
 - Final harness strict deep code-signature validation: passed
 - Normal macOS release clean rebuild and strict deep code-signature validation: passed
@@ -199,17 +207,18 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-Add reproducible Windows packaging and controlled installed execution for the local-first customer workflow.
+Execute the versioned Windows packaging and installed-proof runner on explicitly authorized controlled Windows equipment.
 
 The next slice must satisfy these boundaries:
 
-1. Produce a versioned Windows release packaging path that needs no Flutter, Git, repository checkout, or separate customer Agent on the target computer. Register only the required application/protocol identity and do not package credentials or venue assumptions.
-2. Preserve the operator-selected external vault across application replacement. Keep ordinary uninstall bundle-only by default and any local-data deletion explicit, attended, and exactly scoped.
-3. Exercise the packaged application on explicitly authorized controlled Windows equipment: exact allowlisted Scan, offline Save/Verify, process restart and vault rehydration, durable queue state, attended Restore to an absent or empty target, and explicit bounded support diagnostic generation.
-4. Add Windows-specific tests for path canonicalization, drive/UNC handling, junctions/reparse points, selected-folder authorization, staging containment, and diagnostics rejecting exact paths or linked/substituted entries.
-5. Emit checksummed path-free evidence from the exact installed artifact and record OS/build, architecture, signature status, execution scope, and cleanup honestly.
-6. If controlled Windows equipment is unavailable, complete the packaging and automated test seam but stop before claiming installed Windows readiness; record the execution blocker explicitly.
-7. Keep host reboot, expired commercial sessions, provider quota exhaustion, real production-provider outage, distribution signing, personal-data execution, and venue use as separate gates.
+1. Use a controlled Windows 10/11 x64 user with PowerShell 7, Flutter Windows tooling, Visual Studio Desktop C++, and Inno Setup 6 on the build side. The installed target must not require Flutter, Git, the repository, or a separate Agent.
+2. Review `docs/WINDOWS_PACKAGING_AND_EXECUTION.md`, then run the normal package command and `tool/run-windows-installed-proof.ps1` into absent local-drive output directories.
+3. Confirm native PowerShell and Inno parsing/build, complete deployment, current-user `showvault://` registration, installer launch/uninstall, package manifest, checksums, and actual Authenticode states.
+4. Run the Windows-only NTFS-junction test and the complete Flutter suite on Windows. Confirm drive/UNC/device/traversal/ADS/case/containment rules and selected-folder behavior.
+5. Execute installed exact catalog Scan, offline Save/Verify, process restart, durable queue rehydration, attended Restore to an absent or empty target, explicit bounded diagnostics, and before/after application replacement with the source removed.
+6. Verify the installer and proof runner retain the external vault, remove the synthetic fixture, uninstall application files and callback registration, remove only marker-owned temporary state, and emit no path/content/credential/host identity in support evidence.
+7. Record exact OS build, architecture, signature status, hashes, pass/fail results, and limitations. Do not claim Windows readiness if any native stage is unavailable or fails.
+8. Keep host reboot, expired commercial sessions, quota exhaustion, real production-provider outage, distribution signing, personal data, clean-machine support range, and venue use separate.
 
 ## Required workflow
 
@@ -242,6 +251,7 @@ The next slice must satisfy these boundaries:
 - `docs/DEPLOYABLE_PROTOTYPE_STORAGE.md` — container deployment, S3 key/credential boundary, smoke check, cleanup, migration, and rollback
 - `docs/INSTALLED_RESILIENCE_MATRIX.md` — installed release command-mode gates, scenario matrix, path-free evidence, and limitations
 - `docs/UPGRADE_AND_SUPPORT_DIAGNOSTICS.md` — diagnostic schema/boundary, upgrade/removal semantics, installed replacement evidence, and limitations
+- `docs/WINDOWS_PACKAGING_AND_EXECUTION.md` — Windows package boundary, local-path rules, installed-proof procedure, current blocker, and claim limits
 - `docs/LOCAL_ATTENDED_RESTORE.md` — offline attended restore, staging, verification, cleanup, evidence, and limitations
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` — customer identity, licensing, subscription, portal, and Admin-console structure
 - `docs/SYSTEM_INVENTORY_PLUGIN.md` — direct app scan versus legacy Agent compatibility
