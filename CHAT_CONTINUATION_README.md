@@ -50,6 +50,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Offline-Save integration milestone manifest commit: `e7635fa docs: manifest offline save integration milestone`
 - Sync/Restore integration milestone manifest commit: `094b7a6 docs: manifest sync restore integration milestone`
 - Object-storage integration milestone manifest commit: `b1d03f6 docs: manifest object storage integration milestone`
+- Resilience/diagnostics integration milestone manifest commit: `15a7b4f docs: manifest resilience diagnostics milestone`
+- Windows-evidence integration milestone manifest commit: `b28de57 docs: manifest Windows evidence integration milestone`
 - Sandbox-safe selected-target restore commit: `a62649f fix: restore safely into selected sandbox folders`
 - Immediate cloud-status refresh commit: `a7eee0d fix: refresh synchronized recovery status`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
@@ -110,6 +112,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - `docs/LOCAL_FIRST_MILESTONE_2_EXTRACTION.md` fixes the second reconstruction milestone to the six-commit `ce5be25..c172e49` source range and all 36 net files. It separates the opaque candidate-key Save contract, immutable offline Save engine, native permission/restart rehydration, bounded Agent vault compatibility, and product runbooks; requires the later `ddfcaa6` configured-storage correction; and records exact verification/privacy gates.
 - `docs/LOCAL_FIRST_MILESTONE_3_EXTRACTION.md` fixes the third reconstruction milestone to the complete ten-commit `c172e49..fff4434` range and all 31 net files. It includes the `a62649f` sandbox-safe selected-target Restore and `a7eee0d` immediate status-refresh corrections from the outset, separates durable queue execution, attended offline Restore, authenticated tenant storage, and UI reconciliation, and requires the filesystem backend to remain Development/test-only until the deployable provider milestone.
 - `docs/LOCAL_FIRST_MILESTONE_4_EXTRACTION.md` fixes the fourth reconstruction milestone to the two-commit `fff4434..69b83ab` range and all 28 net files. It separates provider abstraction/validation, immutable S3 object storage, readiness/smoke behavior, pinned non-root image plus migration topology, and operations/rollback; explicitly denies production filesystem fallback, runtime delete permission, embedded credentials, and unapproved real-cloud cleanup.
+- `docs/LOCAL_FIRST_MILESTONE_5_EXTRACTION.md` fixes the fifth reconstruction milestone to the seven-commit `69b83ab..3a5e715` range and all 19 net files. It separates compile-time-gated resilience commands, installed synthetic failure/restart automation, explicit bounded support diagnostics, and forward application-replacement/source-free-rehydration proof while preserving external-vault retention and strict ownership cleanup.
+- `docs/LOCAL_FIRST_MILESTONE_6_EXTRACTION.md` fixes the final milestone to 18 selected Windows commits and their 35-path union. It excludes four interleaved local-first planning commits, separates current-user packaging/path policy, marker-scoped installed proof, manual provenance workflow, artifact/run attestation, and deterministic bridge prepare/verify tooling, and keeps native/attended execution separately authorized. It also correctly assigns `ddfcaa6` to conditional `LocalVaultLayout` construction in `RecoveryPackageWriter`.
 - **Restore** is available from a locally verified recovery point while signed out. It reverifies independent and package manifests plus the exact content tree, accepts only an absent or operator-selected empty regular target, rejects links/substitutions/unsafe paths, copies through owned staging, verifies staged and published bytes, and writes path-free local evidence. A picker-selected existing target keeps staging inside the sandbox-authorized directory and publishes a fixed `ShowVault Restored Files` child; absent programmatic targets retain direct publication.
 - Cancellation, timeout, source mutation, target mutation, and interrupted-restart failures publish no partial completion. Cleanup removes only staging with a matching bounded ownership marker and never alters the immutable recovery point.
 - Normal builds do not expose the direct folder substitute. **Synchronize pending** is available when a signed-in hosted transport has organization/venue context; an isolated direct-substitute build requires both explicit synthetic fixture-home and synthetic object-store defines.
@@ -227,6 +231,8 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - Milestone 2 manifest reproduction: 6 historical commits, 36 net files, 14 legacy overlaps, 22 range-only files, 14 milestone-1 overlaps, 8 introduced files, and no transient net-zero files
 - Milestone 3 manifest reproduction: 10 historical commits, 31 net files, 4 legacy overlaps, 7 milestone-1 overlaps, 10 milestone-2 overlaps, 18 introduced files, and no transient net-zero files
 - Milestone 4 manifest reproduction: 2 historical commits, 28 net files, 17 introduced files, 3 legacy overlaps, 3 milestone-1 overlaps, 2 milestone-2 overlaps, 9 milestone-3 overlaps, and no transient net-zero files
+- Milestone 5 manifest reproduction: 7 historical commits, 19 net files, 9 introduced files, 3 legacy overlaps, 7 overlaps with each of milestones 1-3, 3 milestone-4 overlaps, and no transient net-zero files
+- Milestone 6 manifest reproduction: 18 selected commits, 35-path union, 21 paths absent at the milestone-5 base, and verified overlap counts of 2 legacy/5 milestone-1/7 milestone-2/6 milestone-3/2 milestone-4/6 milestone-5 paths
 
 ## Safety boundaries
 
@@ -246,7 +252,7 @@ Publish and validate the provenance-protected source, refresh isolated draft PR 
 
 The next slice must satisfy these boundaries:
 
-1. The original branch push and draft PR are complete, but PR #26 predates provenance and is not merge-ready. Obtain explicit authorization before pushing the twenty-four local `codex/windows-packaging` commits (including this object-storage manifest handoff) or updating PR #26. Obtain separate authorization for marking ready/merging, manual dispatch, or use of a controlled Windows 10/11 x64 computer.
+1. The original branch push and draft PR are complete, but PR #26 predates provenance and is not merge-ready. Obtain explicit authorization before pushing the twenty-seven local `codex/windows-packaging` commits (including this two-task manifest handoff) or updating PR #26. Obtain separate authorization for marking ready/merging, manual dispatch, or use of a controlled Windows 10/11 x64 computer.
 2. Treat PR #25 as an accumulated integration draft, not a Windows-only change. Follow `docs/WINDOWS_EVIDENCE_INTEGRATION_PLAN.md` and `docs/LOCAL_FIRST_INTEGRATION_AUDIT.md`: keep PR #25 as a comparison view, integrate PRs #3-#24 first, and reconstruct the six local-first milestones using the file-level dispositions for all 29 overlaps. Do not merge the accumulated draft merely to expose the workflow.
 3. Generate the refreshed one-file bridge with `dart run tool/prepare_windows_evidence_bridge.dart <approved-source-sha> ../../.github/workflows/windows-evidence.yml <bridge-worktree>/.github/workflows/windows-evidence.yml`, then run `dart run tool/verify_windows_evidence_bridge.dart` with the same three arguments, confirm matching digests and the one-file diff, and only then follow the separately authorized review/merge sequence. After an approved manual run completes, use `dart run tool/verify_windows_run.dart <workflow-run-id> <absent-output-directory>` and review its bounded output. Treat it as native headless evidence, not attended picker/Auth0 or clean-customer-machine evidence.
 4. For a controlled computer, use PowerShell 7, Flutter Windows tooling, Visual Studio Desktop C++, and Inno Setup 6 on the build side. The installed target must not require Flutter, Git, the repository, or a separate Agent.
@@ -279,6 +285,7 @@ The next slice must satisfy these boundaries:
 - Use official primary sources for protocol/product claims.
 - Communicate concise outcome-first progress updates at meaningful milestones.
 - Exact conversation-context usage is unavailable; do not invent percentages.
+- When the Product Owner says **start next task**, complete the next two safe bounded local tasks in the same turn when dependencies permit, keep their implementation commits distinct, and always state the next step at the end of the final response.
 
 ## Reference map
 
@@ -294,6 +301,8 @@ The next slice must satisfy these boundaries:
 - `docs/LOCAL_FIRST_MILESTONE_2_EXTRACTION.md` — complete local-vault/offline-Save milestone manifest, native-access boundary, compatibility correction, and verification gates
 - `docs/LOCAL_FIRST_MILESTONE_3_EXTRACTION.md` — complete durable-sync/authenticated-hosting/Restore milestone manifest and installed-drill corrections
 - `docs/LOCAL_FIRST_MILESTONE_4_EXTRACTION.md` — complete deployable object-storage milestone manifest, credential/immutability boundaries, topology, smoke, migration, and rollback gates
+- `docs/LOCAL_FIRST_MILESTONE_5_EXTRACTION.md` — complete installed-resilience/support-diagnostic/upgrade-preservation milestone manifest and synthetic execution gates
+- `docs/LOCAL_FIRST_MILESTONE_6_EXTRACTION.md` — complete Windows packaging/native-evidence milestone manifest, selected-commit accounting, provenance/attestation boundaries, and authorized native gates
 - `docs/LOCAL_ATTENDED_RESTORE.md` — offline attended restore, staging, verification, cleanup, evidence, and limitations
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` — customer identity, licensing, subscription, portal, and Admin-console structure
 - `docs/SYSTEM_INVENTORY_PLUGIN.md` — direct app scan versus legacy Agent compatibility
