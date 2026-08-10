@@ -79,7 +79,7 @@ The expected counts are 247 and 40. These checks use local Git objects only.
 | `services/agent/src/ShowVault.Agent/Plugins/LocalApplicationDetectionRegistry.cs` | Compatibility in milestone 1 | Retain only exact approved catalog candidates and the corrected nested Resolume application paths. Do not broaden enumeration. |
 | `services/agent/src/ShowVault.Agent/Plugins/SystemInventoryPlugin.cs` | Compatibility in milestone 1 | Keep the narrow catalog-only result separate from full system inventory. It is not the customer Scan implementation. |
 | `services/agent/src/ShowVault.Agent/Program.cs` | Compatibility in milestone 2 | Register and validate the local vault without making customer installation depend on an Agent service. |
-| `services/agent/src/ShowVault.Agent/Queue/AgentQueueStore.cs` | Compatibility in milestone 2 | Preserve verified-only upload jobs and the published `ddfcaa6` correction: configured legacy package storage must not force unavailable default-vault resolution. |
+| `services/agent/src/ShowVault.Agent/Queue/AgentQueueStore.cs` | Compatibility in milestone 2 | Preserve verified-only upload jobs, bounded queue state, and the default local-vault queue location. |
 | `services/agent/src/ShowVault.Agent/appsettings.json` | Compatibility in milestone 2 | Keep nullable vault configuration and no embedded venue, credential, or source data. |
 | `services/agent/tests/ShowVault.Agent.Tests/AgentCommandExecutorTests.cs` | Split | Separate catalog metadata/privacy coverage from verified-only queue coverage. |
 | `services/agent/tests/ShowVault.Agent.Tests/LocalRecoveryCandidateDiscoveryTests.cs` | Compatibility in milestone 1 | Retain exact bounded macOS/Windows candidate-path tests, including the nested Resolume layout. |
@@ -118,6 +118,11 @@ container/migration topology, and bounded disposable smoke contract.
 `LOCAL_FIRST_MILESTONE_5_EXTRACTION.md` fixes the fifth milestone to installed
 resilience automation, explicit bounded support diagnostics, and
 upgrade/reinstall vault preservation with synthetic-only proof gates.
+
+`LOCAL_FIRST_MILESTONE_6_EXTRACTION.md` fixes the final milestone to Windows
+packaging, installed proof, provenance-bound native evidence, and deterministic
+bridge preparation/verification. It also assigns `ddfcaa6` to the exact
+`RecoveryPackageWriter` compatibility path.
 
 Before a milestone is proposed for integration:
 

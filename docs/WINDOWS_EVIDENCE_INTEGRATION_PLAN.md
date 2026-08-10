@@ -166,6 +166,11 @@ explicit.
 diagnostics, and upgrade preservation to the 19-file harness/diagnostic range
 and keeps all command-mode execution synthetic, local, and separately gated.
 
+`LOCAL_FIRST_MILESTONE_6_EXTRACTION.md` fixes the final product milestone to 18
+selected Windows commits and their 35-path union, excluding unrelated local-first
+planning commits from the interleaved history and preserving every native,
+provenance, attestation, and authorization gate.
+
 The 247-commit legacy catalog/Agent expansion remains a separate paused review.
 It must be evaluated by current product value and authorization boundaries, not
 merged merely because later local-first work was originally developed on top of

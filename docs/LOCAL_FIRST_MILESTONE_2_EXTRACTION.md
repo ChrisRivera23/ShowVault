@@ -153,9 +153,10 @@ Reconstruct only the retained compatibility behavior in:
 
 The compatibility layout creates only the canonical ShowVault-owned folders and
 places the SQLite queue in `Upload Queue` by default. Legacy configured package
-directories remain supported. Apply the final `ddfcaa6` conditional construction
-behavior so explicit package-directory mode does not require a default local
-vault. A verified package queues once; failed verification does not queue.
+directories remain supported. In `RecoveryPackageWriter`, apply the final
+`ddfcaa6` conditional construction behavior so explicit package-directory mode
+does not construct `LocalVaultLayout` or require a default Documents vault. A
+verified package queues once; failed verification does not queue.
 
 This code does not authorize customer Agent installation, enrollment, service
 setup, or Keychain use. The desktop JSON queue and legacy Agent SQLite queue
