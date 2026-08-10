@@ -27,8 +27,8 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 | Area | Current evidence | Readiness status |
 |---|---|---|
 | Recovery semantics | The earlier API/Agent path completed a controlled filesystem recovery loop with matching SHA-256 output. | Useful implementation evidence, but the customer path is being simplified to direct app-to-cloud operation. |
-| Package safety | The local package format is immutable and content-addressed; the canonical local-vault layout, independent manifests, verified-only durable upload queue, append-only sync journal, resumable chunks, and remote checksum verification are implemented against a controlled filesystem object-store substitute. | Production authenticated cloud transport, retention, conflict handling, and dependency closure remain. |
-| Native operator application | The Flutter macOS application performs exact catalog scanning and an installed synthetic local Save/verify/queue through native source and vault pickers. Reopening the synthetic vault after process restart restores verified and queued status without reading the source. Attended offline restore into an empty target is implemented with package reverification, staging, final byte verification, restart-safe cleanup, and path-safe evidence. A universal release bundle builds successfully with the required user-selected read/write entitlement. | Installed synchronization and restore proof, production authenticated cloud transport, personal-data runtime proof, and Windows installed proof remain. |
+| Package safety | The local package format is immutable and content-addressed; the canonical vault, independent manifests, verified-only queue, append-only journal, resumable chunks, and remote verification now feed an authenticated API. The server independently validates the manifest and catalog identity and derives tenant-scoped storage paths. | The first server backend is controlled filesystem storage. Production object-storage retention, regional durability, distributed locking, and dependency closure remain. |
+| Native operator application | The Flutter macOS application performs exact catalog scanning and an installed synthetic local Save/verify/queue through native source and vault pickers. Reopening the synthetic vault after restart restores status. Attended offline restore and authenticated hosted synchronization are implemented, and a universal release bundle builds with user-selected read/write access. | Installed hosted synchronization and restore proof, personal-data runtime proof, and Windows installed proof remain. |
 | Control plane | The API and PostgreSQL stack support the authenticated workflow and durable evidence. | The prototype runbook still requires Docker, the .NET SDK, repository access, migrations, and command-line startup. |
 | Onboarding | The intended customer path is install and scan, then authenticate when the first paid cloud operation is requested. No Agent or enrollment control appears in the app. | Clean-machine execution still requires recorded evidence; the installed personal-Mac direct scan is proven. |
 | Platform coverage | Direct exact-location scan definitions include macOS and Windows candidates for the current beta products. | Windows packaging and installed execution remain unproven. |
@@ -56,7 +56,7 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 
 - Run the complete workflow from the installed app, not `dotnet run` or `flutter run`.
 - Exercise at least one generic filesystem recovery unit and representative application-export workflows available on personal equipment.
-- Create and verify an immutable local recovery point, then synchronize it to an object-store substitute while preserving independent local and cloud status.
+- Create and verify an immutable local recovery point, then synchronize it through the authenticated hosted API while preserving independent local and cloud status.
 - Repeat after app restart and host reboot. The controlled no-login beta remains loopback-only; commercial sessions and reauthentication behavior require separate evidence.
 
 ### Gate 4 — Failure and tamper behavior
@@ -82,12 +82,12 @@ Passing only the middle four recovery operations is insufficient. A prototype is
 
 1. Produce a reproducible macOS operator-application release artifact and a personal-equipment clean-install procedure that does not require Flutter. A release packaging script now creates a venue-neutral personal-test app/ZIP and checksum; clean-machine execution remains to be recorded.
 2. Prove the direct, path-free installed-app scan on the Product Owner's Mac without Agent enrollment, Keychain access, or local persistence.
-3. Bind the synchronization transport to authenticated, tenant-authorized hosted storage while preserving the verified local queue and path-free manifest boundary.
-4. Replace development-only control-plane startup assumptions with a versioned deployable prototype environment and migration procedure.
+3. Run an installed synthetic Save → authenticated hosted synchronization → attended Restore drill, including restart/resume and denial evidence.
+4. Replace development-only control-plane and filesystem-storage assumptions with a versioned deployable prototype environment, production object-storage adapter, and migration procedure.
 5. Automate and record the personal-equipment success, restart, reboot, failure, and tamper matrix.
 6. Add Windows packaging and execute the same gates before claiming Windows venue readiness.
 7. Resume catalog work only after these gates are substantially complete or a tested workflow exposes a specific missing integration.
 
 ## Immediate bounded task
 
-Replace the controlled filesystem object-store substitute with the first bounded authenticated hosted synchronization transport. Reuse the verified durable local queue, bind every upload to the signed-in organization and authorized venue, preserve resumability and idempotency, keep credentials outside the vault, and retain the path-free remote manifest boundary. Do not claim production retention, billing enforcement, multi-device conflict resolution, or venue readiness without separate evidence.
+Run the first installed synthetic end-to-end drill through the authenticated hosted API: Save and verify a synthetic recovery point, interrupt and resume synchronization after app restart, verify tenant-scoped server bytes and path-free evidence, then Restore into an empty synthetic target. Use only the compile-time fixture isolation seam and controlled development storage. Record authorization denial and offline behavior without using personal data or claiming production object-storage durability.

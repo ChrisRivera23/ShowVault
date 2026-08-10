@@ -21,12 +21,13 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/attended-local-restore`
+- Branch: `codex/authenticated-hosted-sync`
 - Local-first vault foundation commit: `bc53f4b feat: establish local-first vault foundation`
 - Offline desktop Save commit: `85b3e92 feat: save desktop recovery points offline`
 - Desktop permission/rehydration commit: `07e6e62 feat: authorize and rehydrate local vaults`
 - Durable queue synchronization commit: `f016ad1 feat: synchronize durable local queue`
 - Attended local restore commit: `36fcda9 feat: restore verified local recovery points`
+- Authenticated hosted synchronization commit: `5f05f44 feat: synchronize through authenticated hosted storage`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
 - Navigation/no-login beta commit: `eea1d45 feat: restore navigation and add guarded no-login beta`
 - Expected worktree after the handoff commit: clean except intentionally untracked `NEXT_CONVERSATION.md`
@@ -48,12 +49,15 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Product direction now requires a local ShowVault Pro vault, offline backup and verification, local manifests, and durable verified-only cloud synchronization state.
 - The local recovery foundation creates the configurable canonical vault folders at startup before network enrollment, and stores its durable SQLite workflow/upload queue in `Upload Queue` by default.
 - Default recovery points are immutable and named `Backups/<parent>/<UTC timestamp>__<SHA-256 recovery-point ID>`; legacy configured package directories remain compatible.
-- A passing local structural/cryptographic verification creates exactly one idempotent queued upload job. Failed or unverified packages are not queued; the controlled substitute executor is implemented, while production authenticated cloud transport is not.
+- A passing local structural/cryptographic verification creates exactly one idempotent queued upload job. Failed or unverified packages are not queued; normal signed-in builds now synchronize through the authenticated hosted API.
 - The Flutter dashboard keeps Scan and Save usable while signed out or the API is unavailable. Cloud submission is best-effort and cannot erase local findings.
 - An explicit desktop Save resolves only an opaque allowlisted `UserDataRoot` key after confirmation, rejects links and unsafe entries, enforces count/size/timeout/cancellation/mutation rules, streams and independently verifies SHA-256 content, publishes atomically, and writes a JSON upload-queue job only after verification.
 - Native macOS and Windows directory selectors now sit behind one Dart access contract. Source authorization requires an exact canonical match to the catalog root; vault authorization is configurable and session-scoped.
 - **Open local vault** performs a bounded inspection of ShowVault-owned manifests, package manifests, and queue records, verifies manifest identity and equality, and restores independent local/cloud status without rescanning a source.
-- The desktop synchronization executor reverifies exact package content, filters local paths from its remote manifest, resumes bounded chunks from durable remote length, uses an append-only local state journal with capped retry/backoff, remotely verifies every checksum, and publishes idempotently to a controlled filesystem object-store substitute.
+- The desktop synchronization executor reverifies exact package content, filters local paths from its remote manifest, resumes bounded chunks from durable remote length, uses an append-only local state journal with capped retry/backoff, remotely verifies every checksum, and publishes idempotently through either the authenticated hosted API or the explicitly synthetic folder substitute.
+- Normal signed-in builds hold the Auth0 access token only in memory and construct the hosted transport only after an organization and venue load. The server requires manager/administrator/owner membership, independently validates the exact manifest and approved catalog metadata, and derives all storage paths from authorized tenant GUIDs and bounded identities.
+- The hosted `begin` operation freezes the validated manifest before chunks are accepted. Duplicate chunks and concurrent completion are idempotent; gaps, conflicting bytes, wrong checksums, extra files, links, unsafe metadata, and cross-tenant access are rejected.
+- `HostedSync:RootPath` is empty by default. The first backend is explicitly configured server-owned filesystem storage behind the API; it proves the hosted authorization/transport boundary but not production object-storage durability or distributed locking.
 - **Restore** is available from a locally verified recovery point while signed out. It reverifies independent and package manifests plus the exact content tree, accepts only an absent or operator-selected empty regular target, rejects links/substitutions/unsafe paths, copies through owned sibling staging, verifies staged and published bytes, and writes path-free local evidence.
 - Cancellation, timeout, source mutation, target mutation, and interrupted-restart failures publish no partial completion. Cleanup removes only staging with a matching bounded ownership marker and never alters the immutable recovery point.
 - Normal builds do not expose the substitute. **Synchronize pending** appears only when both explicit synthetic fixture-home and synthetic object-store build defines are present.
@@ -93,14 +97,21 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - The complete Flutter suite passes with 70 tests. The normal macOS release bundle was rebuilt after the restore change, ad-hoc deep-signed with release entitlements, and strictly validated as a 50.1 MB build (48 MiB on disk) universal `x86_64` + `arm64` app.
 - No installed UI restore drill was run in this slice. Do not claim installed restore proof, personal-data restore readiness, in-place application/device restore, dependency closure, Windows runtime readiness, notarization, or Recovery Confidence.
 
+## Authenticated hosted synchronization evidence
+
+- Desktop transport tests prove bearer authorization on tenant-scoped endpoints, no token in request bodies, path-free bodies, expired-session retry behavior, forbidden-scope rejection, malformed-response rejection, and concurrent completion handling.
+- API tests prove missing-session, outsider, and viewer denial; owner authorization; cross-tenant isolation for the same package ID; begin-before-chunk enforcement; resumable and duplicate chunks; idempotent commit; checksum tamper rejection; unsafe/extra metadata rejection; zero-byte files; and linked server-storage rejection without following the link.
+- Cancellation after a durable remote chunk leaves the local job queued and resumes from that byte count after restart. Hosted failure does not alter the immutable local recovery point.
+- No installed hosted synchronization drill was run. The server backend is controlled development filesystem storage, not a production object store. Do not claim retention policy, regional durability, distributed multi-server concurrency, billing enforcement, bandwidth scheduling, or venue readiness.
+
 ## Verification baseline
 
 - Flutter analysis: no issues
-- Flutter tests: 70 passed
+- Flutter tests: 75 passed
 - Contracts tests: 2 passed
 - Agent tests: 429 passed
 - Platform tests: 28 passed
-- API tests: 15 passed, including exact beta-token and Development/configuration/loopback guard coverage
+- API tests: 22 passed, including hosted-sync authorization, tenant isolation, integrity, privacy, resume, and idempotency coverage
 - EF Core migrations `20260810003349_AddDesktopCatalogScanCandidates` and `20260810003907_AddDesktopCatalogScans` are applied to the local database
 - EF Core pending-model check: no pending changes
 - macOS release build: 50.1 MB build report (48 MiB on disk), universal `x86_64` + `arm64` app; ad hoc signed and strictly validated with sandbox user-selected read/write access
@@ -121,21 +132,21 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-Replace the controlled filesystem object-store substitute with the first bounded authenticated hosted synchronization transport. Preserve the local-first queue and keep authentication secrets outside the vault.
+Run the first installed synthetic end-to-end Save → authenticated hosted synchronization → attended Restore drill. Keep all source, vault, server-storage, and restore locations isolated from personal data.
 
 The design must satisfy all of these acceptance boundaries:
 
-1. Reuse the existing package reverification, privacy-filtered remote manifest, append-only queue journal, bounded chunking, retry/backoff, remote checksum verification, and idempotent completion semantics.
-2. Require a valid commercial authentication session and server authorization for the organization and venue before creating or resuming any hosted upload.
-3. Bind server-side upload state and objects to tenant-scoped opaque identifiers. Never trust organization, venue, candidate, package, offset, or completion authority supplied only by the client.
-4. Keep Auth0 tokens, storage credentials, presigned capabilities, and other secrets outside the ShowVault Pro vault and its recovery packages, manifests, evidence, logs, and queue intents.
-5. Preserve the path-free remote manifest boundary: no source path, target path, vault path, private contents, or unrestricted local metadata in control-plane records or diagnostic messages.
-6. Make restart/resume and duplicate completion safe across expired sessions, partial chunks, stale offsets, concurrent attempts, and server retries.
-7. Use bounded synthetic content and controlled development storage for tests. Add authorization, cross-tenant denial, tamper, cancellation, retry, resume, idempotency, and credential/privacy tests before any installed drill.
-8. Keep local Save, verification, vault reopening, and attended restore fully usable offline. Hosted synchronization failure must not weaken or delete local recovery evidence.
-9. Do not claim production retention, billing enforcement, bandwidth scheduling, multi-device conflict resolution, disaster-region durability, Windows installed behavior, or venue readiness without direct evidence.
+1. Use a release-mode macOS build with `SHOWVAULT_SYNTHETIC_FIXTURE_HOME` and no direct folder-substitute define, so synchronization must traverse the API.
+2. Configure a new temporary `HostedSync:RootPath` and the explicitly guarded loopback Development authentication setup. Use only new synthetic source, vault, server-storage, and restore directories.
+3. Save and locally verify a synthetic catalog recovery point, then begin hosted synchronization through the normal signed-in UI.
+4. Interrupt synchronization after at least one durable hosted chunk, terminate the app, relaunch, reopen the vault, and prove resume from the server byte count without duplicate completion.
+5. Verify the committed server manifest and receipt are path-free, the package is under the expected tenant-derived location, and every remote checksum matches.
+6. Restore the same local recovery point into an empty synthetic target and verify exact file-set, size, and SHA-256 equality.
+7. Record at least one authorization denial and one offline/retry observation while proving the immutable local recovery point remains verified and usable.
+8. Do not use shell `HOME` redirection as isolation; the prior macOS attempt proved it can retain real-home context. Use only the compile-time fixture seam and exact native-picker targets.
+9. Do not read personal application data, request Keychain access, weaken system security, or claim production object-storage durability, Windows readiness, notarization, personal-data readiness, or venue readiness.
 
-Attended offline restore is complete in code and automated synthetic tests. The controlled filesystem substitute remains test-only; authenticated hosted synchronization is the next bounded slice.
+Authenticated hosted synchronization is complete in code and automated tests. Installed end-to-end runtime proof is the next bounded slice before deployable production-like infrastructure work.
 
 ## Required workflow
 
