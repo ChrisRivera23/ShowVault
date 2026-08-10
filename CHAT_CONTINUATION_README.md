@@ -21,11 +21,12 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 ## Current repository state
 
 - Repository: `/Users/infamous/Documents/ChatGPT/showvault`
-- Branch: `codex/local-queue-sync`
+- Branch: `codex/attended-local-restore`
 - Local-first vault foundation commit: `bc53f4b feat: establish local-first vault foundation`
 - Offline desktop Save commit: `85b3e92 feat: save desktop recovery points offline`
 - Desktop permission/rehydration commit: `07e6e62 feat: authorize and rehydrate local vaults`
 - Durable queue synchronization commit: `f016ad1 feat: synchronize durable local queue`
+- Attended local restore commit: `36fcda9 feat: restore verified local recovery points`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
 - Navigation/no-login beta commit: `eea1d45 feat: restore navigation and add guarded no-login beta`
 - Expected worktree after the handoff commit: clean except intentionally untracked `NEXT_CONVERSATION.md`
@@ -53,6 +54,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Native macOS and Windows directory selectors now sit behind one Dart access contract. Source authorization requires an exact canonical match to the catalog root; vault authorization is configurable and session-scoped.
 - **Open local vault** performs a bounded inspection of ShowVault-owned manifests, package manifests, and queue records, verifies manifest identity and equality, and restores independent local/cloud status without rescanning a source.
 - The desktop synchronization executor reverifies exact package content, filters local paths from its remote manifest, resumes bounded chunks from durable remote length, uses an append-only local state journal with capped retry/backoff, remotely verifies every checksum, and publishes idempotently to a controlled filesystem object-store substitute.
+- **Restore** is available from a locally verified recovery point while signed out. It reverifies independent and package manifests plus the exact content tree, accepts only an absent or operator-selected empty regular target, rejects links/substitutions/unsafe paths, copies through owned sibling staging, verifies staged and published bytes, and writes path-free local evidence.
+- Cancellation, timeout, source mutation, target mutation, and interrupted-restart failures publish no partial completion. Cleanup removes only staging with a matching bounded ownership marker and never alters the immutable recovery point.
 - Normal builds do not expose the substitute. **Synchronize pending** appears only when both explicit synthetic fixture-home and synthetic object-store build defines are present.
 - The API returns the already stored opaque candidate key to the authorized desktop; tests prove the key and evidence remain path-free.
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` records the recommended commercial structure: desktop app, customer web portal, and private ShowVault Admin web console; branded ShowVault authentication backed by Auth0; Stripe one-time license plus recurring tiers; and no staff access to customer passwords.
@@ -84,17 +87,23 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - The final normal release build was rebuilt without the synthetic define. The current build is a 50.0 MB universal app, and its signed entitlements include `com.apple.security.files.user-selected.read-write`.
 - No real `Documents/ShowVault Pro` vault was created and no personal source permission was granted. A preliminary shell-`HOME` isolation attempt was canceled when macOS retained the real home context; no Save occurred. This is why installed drills must use the compile-time synthetic fixture seam rather than shell environment redirection.
 
+## Attended local restore evidence
+
+- Automated synthetic tests cover absent and existing-empty targets, non-empty and linked targets, target/vault containment, tampered and changing packages, cancellation cleanup, owned restart cleanup, unowned staging preservation, unsafe evidence storage, native-picker validation, and signed-out UI wiring.
+- The complete Flutter suite passes with 70 tests. The normal macOS release bundle was rebuilt after the restore change, ad-hoc deep-signed with release entitlements, and strictly validated as a 50.1 MB build (48 MiB on disk) universal `x86_64` + `arm64` app.
+- No installed UI restore drill was run in this slice. Do not claim installed restore proof, personal-data restore readiness, in-place application/device restore, dependency closure, Windows runtime readiness, notarization, or Recovery Confidence.
+
 ## Verification baseline
 
 - Flutter analysis: no issues
-- Flutter tests: 56 passed
+- Flutter tests: 70 passed
 - Contracts tests: 2 passed
 - Agent tests: 429 passed
 - Platform tests: 28 passed
 - API tests: 15 passed, including exact beta-token and Development/configuration/loopback guard coverage
 - EF Core migrations `20260810003349_AddDesktopCatalogScanCandidates` and `20260810003907_AddDesktopCatalogScans` are applied to the local database
 - EF Core pending-model check: no pending changes
-- macOS release build: 50.0 MB universal `x86_64` + `arm64` app; ad hoc signed with sandbox user-selected read/write access
+- macOS release build: 50.1 MB build report (48 MiB on disk), universal `x86_64` + `arm64` app; ad hoc signed and strictly validated with sandbox user-selected read/write access
 - ZIP checksum matches `SHA256SUMS`
 - `git diff --check`: passes
 
@@ -112,21 +121,21 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-Implement attended local restore from a verified recovery point into an absent or empty operator-selected synthetic target. Keep restore available offline.
+Replace the controlled filesystem object-store substitute with the first bounded authenticated hosted synchronization transport. Preserve the local-first queue and keep authentication secrets outside the vault.
 
 The design must satisfy all of these acceptance boundaries:
 
-1. Restore only from a recovery point whose independent manifest, package manifest, file set, sizes, and SHA-256 values have just been reverified.
-2. Explain target access before opening the native directory picker and accept only an absent target or an existing empty regular directory selected by the operator.
-3. Reject target substitutions, links, unsafe logical paths, unsupported entries, non-empty targets, and any source-package mutation during restore.
-4. Copy through a staging location, verify every restored byte independently, and avoid exposing partially restored content as complete.
-5. Persist bounded, path-safe local restore evidence without credentials, private contents, or cloud-facing local paths.
-6. Keep restore available without login, network, or synchronized cloud status; local verification remains the authority for this slice.
-7. Make cancellation and restart behavior explicit and safe, cleaning incomplete staging without altering the immutable recovery point.
-8. Use synthetic packages and targets only, with focused empty/non-empty/link/tamper/cancel/restart tests and an installed macOS synthetic drill if safe isolation is retained.
-9. Do not claim in-place application restore, live-device loading, dependency closure, Recovery Confidence, Windows runtime readiness, or personal-data readiness.
+1. Reuse the existing package reverification, privacy-filtered remote manifest, append-only queue journal, bounded chunking, retry/backoff, remote checksum verification, and idempotent completion semantics.
+2. Require a valid commercial authentication session and server authorization for the organization and venue before creating or resuming any hosted upload.
+3. Bind server-side upload state and objects to tenant-scoped opaque identifiers. Never trust organization, venue, candidate, package, offset, or completion authority supplied only by the client.
+4. Keep Auth0 tokens, storage credentials, presigned capabilities, and other secrets outside the ShowVault Pro vault and its recovery packages, manifests, evidence, logs, and queue intents.
+5. Preserve the path-free remote manifest boundary: no source path, target path, vault path, private contents, or unrestricted local metadata in control-plane records or diagnostic messages.
+6. Make restart/resume and duplicate completion safe across expired sessions, partial chunks, stale offsets, concurrent attempts, and server retries.
+7. Use bounded synthetic content and controlled development storage for tests. Add authorization, cross-tenant denial, tamper, cancellation, retry, resume, idempotency, and credential/privacy tests before any installed drill.
+8. Keep local Save, verification, vault reopening, and attended restore fully usable offline. Hosted synchronization failure must not weaken or delete local recovery evidence.
+9. Do not claim production retention, billing enforcement, bandwidth scheduling, multi-device conflict resolution, disaster-region durability, Windows installed behavior, or venue readiness without direct evidence.
 
-The controlled object-store synchronization executor is complete in code and automated synthetic tests. It is not a production cloud transport, and no installed synchronization drill is claimed. Attended offline restore is the next bounded slice.
+Attended offline restore is complete in code and automated synthetic tests. The controlled filesystem substitute remains test-only; authenticated hosted synchronization is the next bounded slice.
 
 ## Required workflow
 
@@ -156,6 +165,7 @@ The controlled object-store synchronization executor is complete in code and aut
 
 - `docs/PROTOTYPE_READINESS.md` — venue-neutral readiness gates and direct desktop boundary
 - `docs/LOCAL_QUEUE_SYNC.md` — desktop queue journal, substitute transport, resumability, verification, and privacy boundary
+- `docs/LOCAL_ATTENDED_RESTORE.md` — offline attended restore, staging, verification, cleanup, evidence, and limitations
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` — customer identity, licensing, subscription, portal, and Admin-console structure
 - `docs/SYSTEM_INVENTORY_PLUGIN.md` — direct app scan versus legacy Agent compatibility
 - `docs/AUTOMATIC_DISCOVERY.md` — discovery and identification safety decisions

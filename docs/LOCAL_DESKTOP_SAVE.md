@@ -13,6 +13,7 @@ The Flutter desktop application implements the first bounded local-first Save pa
 7. Only after confirmation and both permission checks does the app read source contents.
 8. The interface reports **Verified locally** separately from **Cloud queued** or **Queue attention**.
 9. After restart, **Open local vault** reads only ShowVault-owned manifests, package manifests, and queue records to restore those statuses. It does not rescan source contents.
+10. A locally verified recovery point displays **Restore**. The attended offline workflow reverifies the package and publishes only into an operator-selected empty target; see `docs/LOCAL_ATTENDED_RESTORE.md`.
 
 Installed-application findings remain detection-only and cannot be saved as user data.
 
@@ -53,11 +54,12 @@ The control plane stores and returns only the opaque allowlisted candidate key a
 
 ## Current limitations
 
-- Tests use synthetic fixtures only. No personal Serato or Resolume file content was read.
+- Save and restore tests use synthetic fixtures only. No personal Serato or Resolume file content was read.
 - A compile-time `SHOWVAULT_SYNTHETIC_FIXTURE_HOME` build option isolates attended installed-app drills from personal catalog locations and suppresses installed-application candidates. It is absent from normal builds.
 - The installed macOS app completed a synthetic native-picker Save and restored one verified/queued recovery point after process restart. The normal release includes the macOS sandbox user-selected read/write entitlement.
 - Windows uses the same tested Dart permission contract and native directory selector, but Windows packaging and installed runtime behavior remain unproven.
 - No persistent security-scoped bookmark is stored. Operators explicitly reopen a vault after each process restart; background access across launches is not claimed.
 - A resumable, idempotent, checksum-verifying executor is implemented against a controlled filesystem object-store substitute. Production authenticated cloud transport, tenant binding, bandwidth policy, and conflict handling remain unimplemented.
+- Attended local restore now verifies exact package and target bytes through sibling staging and records path-safe local evidence. An installed macOS restore drill and Windows runtime proof remain outstanding.
 - The manifest records empty dependency and compatibility collections for this first slice. Dependency closure and Recovery Confidence are not claimed.
 - The legacy .NET Agent keeps its SQLite queue for compatibility; the customer desktop currently uses atomic JSON queue records. These must be consolidated behind one packaged local-engine contract before production.
