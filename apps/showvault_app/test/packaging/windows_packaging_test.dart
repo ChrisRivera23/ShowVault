@@ -16,6 +16,11 @@ void main() {
     '$appRoot${Platform.pathSeparator}tool${Platform.pathSeparator}'
     'run-windows-installed-proof.ps1',
   );
+  final workflow = File(
+    '$appRoot${Platform.pathSeparator}..${Platform.pathSeparator}..'
+    '${Platform.pathSeparator}.github${Platform.pathSeparator}workflows'
+    '${Platform.pathSeparator}windows-evidence.yml',
+  );
 
   test('installer registers only the customer callback for current user', () {
     final text = installer.readAsStringSync();
@@ -58,5 +63,21 @@ void main() {
     expect(text, contains('sourcePresentDuringRehydration'));
     expect(text, contains('Get-AuthenticodeSignature'));
     expect(text, isNot(contains(r'Remove-Item -LiteralPath $env:USERPROFILE')));
+  });
+
+  test('Windows evidence workflow is manual, pinned, and synthetic', () {
+    final text = workflow.readAsStringSync();
+    expect(text, contains('workflow_dispatch:'));
+    expect(text, contains('runs-on: windows-2025'));
+    expect(text, contains('permissions:\n  contents: read'));
+    expect(text, contains('flutter-version: 3.44.8'));
+    expect(text, contains('flutter test'));
+    expect(text, contains('build-app.ps1'));
+    expect(text, contains('run-windows-installed-proof.ps1'));
+    expect(text, contains('Verify checksums and cleanup'));
+    expect(text, contains('retention-days: 14'));
+    expect(text, isNot(contains('secrets.')));
+    expect(text, isNot(contains('pull_request:')));
+    expect(text, isNot(contains('push:')));
   });
 }

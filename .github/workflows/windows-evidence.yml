@@ -1,0 +1,93 @@
+name: Controlled Windows evidence
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: controlled-windows-evidence
+  cancel-in-progress: false
+
+jobs:
+  package-and-prove:
+    runs-on: windows-2025
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: apps/showvault_app
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install pinned Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: 3.44.8
+          channel: stable
+          architecture: x64
+          cache: true
+
+      - name: Verify Windows toolchain
+        run: |
+          flutter config --enable-windows-desktop
+          flutter doctor -v
+          $inno = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path -LiteralPath $inno -PathType Leaf)) {
+            throw 'Inno Setup 6 is unavailable on the controlled runner.'
+          }
+          (Get-Item -LiteralPath $inno).VersionInfo.FileVersion
+
+      - name: Run Windows Flutter verification
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Build normal current-user package
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'showvault-windows-package'
+          pwsh -File .\packaging\windows\build-app.ps1 -OutputDirectory $output
+
+      - name: Execute installed replacement proof
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'showvault-windows-proof-evidence'
+          pwsh -File .\tool\run-windows-installed-proof.ps1 -OutputDirectory $output
+
+      - name: Verify checksums and cleanup
+        run: |
+          function Test-ChecksumFile([string]$root) {
+            foreach ($line in Get-Content -LiteralPath (Join-Path $root 'SHA256SUMS')) {
+              $parts = $line -split '\s+', 2
+              if ($parts.Count -ne 2) { throw 'A checksum line is malformed.' }
+              $actual = (Get-FileHash -LiteralPath (Join-Path $root $parts[1]) -Algorithm SHA256).Hash
+              if ($actual.ToLowerInvariant() -ne $parts[0]) {
+                throw "Checksum validation failed for $($parts[1])."
+              }
+            }
+          }
+          Test-ChecksumFile (Join-Path $env:RUNNER_TEMP 'showvault-windows-package')
+          Test-ChecksumFile (Join-Path $env:RUNNER_TEMP 'showvault-windows-proof-evidence')
+          if (Test-Path -LiteralPath 'Registry::HKEY_CURRENT_USER\Software\Classes\showvault') {
+            throw 'The callback registration survived proof cleanup.'
+          }
+          $owned = @(Get-ChildItem -LiteralPath $env:TEMP -Directory |
+            Where-Object { $_.Name -match '^showvault-(windows-proof|upgrade-windows)-' })
+          if ($owned.Count -ne 0) {
+            throw 'Owned Windows proof state survived cleanup.'
+          }
+
+      - name: Upload checksummed synthetic evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: showvault-controlled-windows-evidence
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/showvault-windows-package/*.exe
+            ${{ runner.temp }}/showvault-windows-package/*.zip
+            ${{ runner.temp }}/showvault-windows-package/*.json
+            ${{ runner.temp }}/showvault-windows-package/SHA256SUMS
+            ${{ runner.temp }}/showvault-windows-proof-evidence/*
