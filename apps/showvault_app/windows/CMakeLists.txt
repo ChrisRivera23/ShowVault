@@ -1,5 +1,23 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
+
+# auth0_flutter resolves its native Windows dependencies through vcpkg. The
+# toolchain must be selected before the first project() call so CMake can find
+# cpprestsdk, OpenSSL, and Boost while configuring the plugin.
+if(NOT DEFINED ENV{VCPKG_ROOT} OR "$ENV{VCPKG_ROOT}" STREQUAL "")
+  message(FATAL_ERROR
+    "VCPKG_ROOT is required to build ShowVault for Windows.")
+endif()
+file(TO_CMAKE_PATH "$ENV{VCPKG_ROOT}" SHOWVAULT_VCPKG_ROOT)
+set(SHOWVAULT_VCPKG_TOOLCHAIN
+  "${SHOWVAULT_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+if(NOT EXISTS "${SHOWVAULT_VCPKG_TOOLCHAIN}")
+  message(FATAL_ERROR
+    "VCPKG_ROOT does not contain scripts/buildsystems/vcpkg.cmake.")
+endif()
+set(CMAKE_TOOLCHAIN_FILE "${SHOWVAULT_VCPKG_TOOLCHAIN}"
+  CACHE FILEPATH "ShowVault vcpkg toolchain")
+
 project(showvault_app LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change

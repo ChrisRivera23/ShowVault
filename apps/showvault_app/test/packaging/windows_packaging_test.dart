@@ -16,6 +16,10 @@ void main() {
     '$appRoot${Platform.pathSeparator}tool${Platform.pathSeparator}'
     'run-windows-installed-proof.ps1',
   );
+  final windowsCmake = File(
+    '$appRoot${Platform.pathSeparator}windows${Platform.pathSeparator}'
+    'CMakeLists.txt',
+  );
   final workflow = File(
     '$appRoot${Platform.pathSeparator}..${Platform.pathSeparator}..'
     '${Platform.pathSeparator}.github${Platform.pathSeparator}workflows'
@@ -40,6 +44,26 @@ void main() {
 
   test('package includes the complete Flutter deployment and checksums', () {
     final text = builder.readAsStringSync();
+    expect(text, contains(r'$VcpkgRoot = $env:VCPKG_ROOT'));
+    expect(
+      text,
+      contains("Join-Path \$VcpkgRoot 'scripts\\buildsystems\\vcpkg.cmake'"),
+    );
+    expect(text, contains("Join-Path \$VcpkgRoot 'vcpkg.exe'"));
+    expect(
+      text,
+      contains('VCPKG_ROOT must be an absolute local Windows directory.'),
+    );
+    expect(text, contains(r"'^[A-Za-z]:[\\/][^\r\n]+$'"));
+    expect(text, contains(r'-PathType Container'));
+    expect(text, contains(r'-PathType Leaf'));
+    expect(
+      text,
+      contains(
+        'VCPKG_ROOT does not contain the required vcpkg executable and '
+        'CMake toolchain.',
+      ),
+    );
     expect(text, contains("'build',"));
     expect(text, contains("'windows',"));
     expect(text, contains(r'build\windows\x64\runner\Release'));
@@ -50,6 +74,30 @@ void main() {
     expect(text, contains('Get-AuthenticodeSignature'));
     expect(text, contains("'SHA256SUMS'"));
     expect(text, contains("externalVaultRemovalPolicy = 'retain-by-default'"));
+  });
+
+  test('Windows CMake enables validated vcpkg before the first project', () {
+    final text = windowsCmake.readAsStringSync();
+    final minimumIndex = text.indexOf('cmake_minimum_required(VERSION 3.14)');
+    final rootIndex = text.indexOf(r'ENV{VCPKG_ROOT}');
+    final toolchainIndex = text.indexOf('set(CMAKE_TOOLCHAIN_FILE');
+    final projectIndex = text.indexOf('project(showvault_app LANGUAGES CXX)');
+
+    expect(minimumIndex, greaterThanOrEqualTo(0));
+    expect(rootIndex, greaterThan(minimumIndex));
+    expect(toolchainIndex, greaterThan(rootIndex));
+    expect(projectIndex, greaterThan(toolchainIndex));
+    expect(text, contains('scripts/buildsystems/vcpkg.cmake'));
+    expect(
+      text,
+      contains('VCPKG_ROOT is required to build ShowVault for Windows.'),
+    );
+    expect(text, contains('if(NOT DEFINED ENV{VCPKG_ROOT}'));
+    expect(text, contains('if(NOT EXISTS "\${SHOWVAULT_VCPKG_TOOLCHAIN}")'));
+    expect(
+      text,
+      contains('VCPKG_ROOT does not contain scripts/buildsystems/vcpkg.cmake.'),
+    );
   });
 
   test('installed proof is marker-scoped and refuses callback collision', () {
@@ -71,6 +119,27 @@ void main() {
     expect(text, contains('runs-on: windows-2025'));
     expect(text, contains('permissions:\n  contents: read'));
     expect(text, contains('flutter-version: 3.44.8'));
+    expect(text, contains(r'$vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT'));
+    expect(text, contains(r'"VCPKG_ROOT=$vcpkgRoot"'));
+    expect(text, contains(r'$env:GITHUB_ENV'));
+    expect(text, contains(r"'^[A-Za-z]:[\\/][^\r\n]+$'"));
+    expect(text, contains("Join-Path \$vcpkgRoot 'vcpkg.exe'"));
+    expect(
+      text,
+      contains("Join-Path \$vcpkgRoot 'scripts\\buildsystems\\vcpkg.cmake'"),
+    );
+    expect(
+      text,
+      contains(
+        'The controlled runner did not provide a local '
+        'VCPKG_INSTALLATION_ROOT.',
+      ),
+    );
+    expect(
+      text,
+      contains('The controlled runner vcpkg installation is incomplete.'),
+    );
+    expect(text, contains('The controlled runner vcpkg executable failed.'));
     expect(text, contains('flutter test'));
     expect(text, contains('build-app.ps1'));
     expect(text, contains('run-windows-installed-proof.ps1'));

@@ -56,6 +56,21 @@ if ($SyntheticUpgradeGeneration) {
 }
 
 $Flutter = Get-Command flutter -ErrorAction Stop
+$VcpkgRoot = $env:VCPKG_ROOT
+if ([string]::IsNullOrWhiteSpace($VcpkgRoot) -or
+    -not [System.IO.Path]::IsPathFullyQualified($VcpkgRoot) -or
+    $VcpkgRoot -notmatch '^[A-Za-z]:[\\/][^\r\n]+$') {
+    throw 'VCPKG_ROOT must be an absolute local Windows directory.'
+}
+$VcpkgRoot = [System.IO.Path]::GetFullPath($VcpkgRoot)
+$VcpkgToolchain = Join-Path $VcpkgRoot 'scripts\buildsystems\vcpkg.cmake'
+$VcpkgExecutable = Join-Path $VcpkgRoot 'vcpkg.exe'
+if (-not (Test-Path -LiteralPath $VcpkgRoot -PathType Container) -or
+    -not (Test-Path -LiteralPath $VcpkgToolchain -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $VcpkgExecutable -PathType Leaf)) {
+    throw 'VCPKG_ROOT does not contain the required vcpkg executable and CMake toolchain.'
+}
+$env:VCPKG_ROOT = $VcpkgRoot
 if (-not $InnoSetupCompiler) {
     $InnoCandidates = @(
         (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),

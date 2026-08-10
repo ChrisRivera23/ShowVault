@@ -34,6 +34,24 @@ jobs:
         run: |
           flutter config --enable-windows-desktop
           flutter doctor -v
+          $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+          if ([string]::IsNullOrWhiteSpace($vcpkgRoot) -or
+              -not [System.IO.Path]::IsPathFullyQualified($vcpkgRoot) -or
+              $vcpkgRoot -notmatch '^[A-Za-z]:[\\/][^\r\n]+$') {
+            throw 'The controlled runner did not provide a local VCPKG_INSTALLATION_ROOT.'
+          }
+          $vcpkgRoot = [System.IO.Path]::GetFullPath($vcpkgRoot)
+          $vcpkg = Join-Path $vcpkgRoot 'vcpkg.exe'
+          $vcpkgToolchain = Join-Path $vcpkgRoot 'scripts\buildsystems\vcpkg.cmake'
+          if (-not (Test-Path -LiteralPath $vcpkg -PathType Leaf) -or
+              -not (Test-Path -LiteralPath $vcpkgToolchain -PathType Leaf)) {
+            throw 'The controlled runner vcpkg installation is incomplete.'
+          }
+          & $vcpkg version
+          if ($LASTEXITCODE -ne 0) {
+            throw 'The controlled runner vcpkg executable failed.'
+          }
+          "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $inno = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
           if (-not (Test-Path -LiteralPath $inno -PathType Leaf)) {
             throw 'Inno Setup 6 is unavailable on the controlled runner.'

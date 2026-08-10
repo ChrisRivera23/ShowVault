@@ -4,7 +4,7 @@ ShowVault now has a versioned Windows packaging path and an installed-proof runn
 
 ## Customer artifact boundary
 
-The Windows build machine requires Windows, PowerShell 7 or newer, Flutter with Windows desktop support, Visual Studio's Desktop development with C++ workload, and Inno Setup 6. The installed customer computer needs none of those developer tools and does not install a separate ShowVault Agent or Windows service.
+The Windows build machine requires Windows, PowerShell 7 or newer, Flutter with Windows desktop support, Visual Studio's Desktop development with C++ workload, vcpkg, and Inno Setup 6. Set `VCPKG_ROOT` to an absolute local Windows vcpkg installation containing `vcpkg.exe` and `scripts\buildsystems\vcpkg.cmake`. ShowVault enables that toolchain before CMake's first `project()` call so `auth0_flutter 2.6.0` can resolve cpprestsdk, OpenSSL, and Boost. Missing or incomplete vcpkg setup fails before compilation. The installed customer computer needs none of those developer tools and does not install a separate ShowVault Agent or Windows service.
 
 From `apps/showvault_app`, build a normal package into an absent local-drive directory:
 
@@ -91,9 +91,9 @@ This is independent checksum, schema, privacy, and claim-boundary verification. 
 
 ## Current evidence and blocker
 
-As of 2026-08-10, Flutter analysis passes and 125 Flutter tests pass with one Windows-only NTFS-junction test skipped on macOS. Static packaging tests verify the current-user protocol registration, complete Flutter deployment checks, checksum production, external-vault retention rule, marker-scoped cleanup, manual workflow/provenance boundary, deterministic one-file bridge preparation and exact verification, downloaded-evidence verification, GitHub run/workflow-revision attestation, and absence of installer-driven vault deletion.
+As of 2026-08-10, authorized Windows run `31441006486` passed exact-source checkout, pinned Flutter installation, toolchain verification, analysis, and the complete Windows Flutter suite with 135 tests passed and 10 skipped. The normal package build then failed before installed proof because the app had not enabled vcpkg before CMake's first `project()` call, so `auth0_flutter 2.6.0` could not resolve `cpprestsdk`. No provenance, checksum/cleanup, upload, or artifact was produced, and the run was not rerun.
 
-The current host exposes only macOS and Chrome Flutter targets and has no Windows VM/device, PowerShell runtime, Wine environment, Windows SDK/MSVC toolchain, or Inno Setup compiler. Therefore the installer has not been compiled or executed, PowerShell/Inno syntax has not been validated by their native engines, the URL callback has not been exercised, the junction test has not run, and no Windows artifact hash or installed evidence exists. Do not claim Windows packaging or runtime readiness until the controlled command above passes on Windows.
+The local correction now validates `VCPKG_ROOT`, selects its CMake toolchain before `project()`, and makes the hosted workflow normalize the runner's `VCPKG_INSTALLATION_ROOT` into `VCPKG_ROOT`. Static packaging coverage verifies ordering and missing/invalid setup failures, but this correction has not executed on Windows. The current host exposes only macOS and Chrome Flutter targets and has no Windows VM/device, PowerShell runtime, Wine environment, Windows SDK/MSVC toolchain, or Inno Setup compiler. Therefore the installer still has not been compiled or executed, the Auth0 native dependencies have not been resolved by a ShowVault Windows build, the URL callback has not been exercised, and no Windows artifact hash or installed evidence exists. Do not claim Windows packaging or runtime readiness until the controlled command above passes on Windows.
 
 Host reboot, Authenticode trust/distribution signing, commercial Auth0 session expiry, provider quota exhaustion, real production-provider outage, personal-data recovery, clean-machine support range, and venue use remain separate gates.
 
@@ -103,7 +103,7 @@ The safe default-branch strategy is specified in `docs/WINDOWS_EVIDENCE_INTEGRAT
 
 `.github/workflows/windows-evidence.yml` provides a manually dispatched `windows-2025` bridge when a physical controlled Windows build machine is unavailable. It grants only `contents: read`, uses pinned checkout/Flutter/upload action revisions and Flutter 3.44.8 x64, contains no secret references, has no push or pull-request trigger, and retains the synthetic artifact for 14 days.
 
-The workflow verifies the Windows toolchain and Inno Setup presence, runs analysis and the complete Flutter suite (including the NTFS-junction test), builds the normal current-user package, executes the silent installed replacement proof, independently checks both `SHA256SUMS` files, requires callback-registration and owned-fixture cleanup, and uploads only checksummed package/evidence files.
+The workflow verifies the Windows toolchain, the hosted image's absolute `VCPKG_INSTALLATION_ROOT`, the vcpkg executable/toolchain, and Inno Setup presence. It exports the validated location as `VCPKG_ROOT` for later build steps, runs analysis and the complete Flutter suite (including the NTFS-junction test), builds the normal current-user package, executes the silent installed replacement proof, independently checks both `SHA256SUMS` files, requires callback-registration and owned-fixture cleanup, and uploads only checksummed package/evidence files.
 
 Before checksum verification and upload, it records `windows-workflow-provenance.json` and adds that file to the installed-proof checksum set. The source commit is read from the actual checked-out Git tree rather than inferred from the workflow branch.
 
