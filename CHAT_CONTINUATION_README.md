@@ -56,6 +56,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Consolidated integration execution checklist commit: `d0b07a5 docs: consolidate integration execution checklist`
 - Local-first integration preflight verifier commit: `13afb8d feat: verify local-first integration topology`
 - PR #3–#24 local dependency ledger commit: `7e85e92 docs: record local PR dependency ledger`
+- PR dependency topology verifier commit: `1b1dfbf feat: verify local PR dependency topology`
+- Local authorization readiness matrix commit: `b2c6ddd docs: map local authorization readiness`
 - Sandbox-safe selected-target restore commit: `a62649f fix: restore safely into selected sandbox folders`
 - Immediate cloud-status refresh commit: `a7eee0d fix: refresh synchronized recovery status`
 - Direct-scan commit: `3ed4bdc feat: scan computers directly without agent enrollment`
@@ -113,6 +115,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - The accumulated PR #25 history is now locally decomposed: 247 paused legacy catalog/Agent commits precede 40 product-directed desktop/local-first/storage/resilience/Windows commits. Their net patches overlap 29 files, so blind tail cherry-picking is not an accepted integration strategy. The documented recommendation keeps PR #25 as a comparison view, integrates PRs #3-#24 first, then reconstructs six reviewable local-first product milestones while keeping the legacy expansion separate.
 - A read-only local preflight now verifies the six integration manifests directly from Git: 52 selected commits, 136 selected paths, all milestone counts and overlaps, exactly 29 legacy-overlap paths, and the four excluded interleaved commits. Its bounded JSON explicitly reports that no external state was read and no repository mutation occurred.
 - `docs/PR_3_24_LOCAL_DEPENDENCY_LEDGER.md` records the static local dependency chain for PRs #3-#24 from existing remote-tracking refs: 22 branch heads, 32 commits, and a 237-file combined net diff. Every adjacent head is locally ancestral, but live PR state must be revalidated only after explicit authorization.
+- A second read-only preflight now verifies every PR #3-#24 local head, adjacent ancestry edge, per-row commit/file/text-line/binary count, and the combined 22-ref/32-commit/237-path topology. The combined diff includes 16,079 additions, 106 deletions, and 31 binary paths; its bounded JSON reads no external state and performs no repository mutation.
+- `docs/LOCAL_AUTHORIZATION_READINESS_MATRIX.md` maps bounded local work and every fetch, push, PR mutation, merge, dispatch, artifact, installed-proof, equipment, cloud, venue/personal-data, and destructive operation to its prerequisite, explicit approval, and mandatory stop point. Only requested bounded local reads/implementation are currently ready.
 - `docs/LOCAL_FIRST_INTEGRATION_AUDIT.md` classifies all 29 shared files as carry, split, regenerate, or compatibility work; assigns each to a milestone; and records local-only reproduction and extraction gates. The overlap comprises 7 repository/documentation files, 4 desktop files, 11 Agent compatibility files, and 7 API/persistence files. Dashboard, Agent executor, API startup, combined tests, and the EF snapshot must be reconstructed or regenerated rather than replayed wholesale.
 - `docs/LOCAL_FIRST_MILESTONE_1_EXTRACTION.md` fixes the first reconstruction milestone to the nine-commit `310190c..ce5be25` source range and all 41 net files: 23 legacy overlaps plus 18 range-only files. It excludes two net-zero navigation changes and separates tenant-scoped persistence/API, exact-candidate desktop Scan, guarded beta authentication/packaging, bounded Agent compatibility, and current documentation into reviewable commits with explicit test, migration, privacy, and authorization gates.
 - `docs/LOCAL_FIRST_MILESTONE_2_EXTRACTION.md` fixes the second reconstruction milestone to the six-commit `ce5be25..c172e49` source range and all 36 net files. It separates the opaque candidate-key Save contract, immutable offline Save engine, native permission/restart rehydration, bounded Agent vault compatibility, and product runbooks; requires the later `ddfcaa6` configured-storage correction; and records exact verification/privacy gates.
@@ -211,9 +215,9 @@ Do not copy exact local source paths into control-plane evidence or future docum
 ## Verification baseline
 
 - Flutter analysis: no issues
-- Flutter tests: 129 passed; 1 Windows-only NTFS-junction test skipped on macOS
+- Flutter tests: 133 passed; 1 Windows-only NTFS-junction test skipped on macOS
 - Local-first integration preflight: 4 focused tests passed; real local Git topology passed with 52 commits, 136 paths, 29 legacy overlaps, and no external read or mutation
-- PR #3-#24 local topology: strict 22-ref ancestry, 32-commit span, and 237-file combined diff passed using existing local refs only
+- PR #3-#24 dependency preflight: 4 focused tests passed; real local Git topology passed with 22 refs, 32 commits, 237 paths, 16,079 additions, 106 deletions, 31 binary paths, and no external read or mutation
 - Contracts tests: 2 passed
 - Agent tests: 429 passed
 - Platform tests: 28 passed
@@ -263,7 +267,7 @@ Publish and validate the provenance-protected source, refresh isolated draft PR 
 
 The next slice must satisfy these boundaries:
 
-1. The original branch push and draft PR are complete, but PR #26 predates provenance and is not merge-ready. Obtain explicit authorization before pushing the thirty-three local `codex/windows-packaging` commits (including the preflight/ledger handoff) or updating PR #26. Obtain separate authorization for marking ready/merging, manual dispatch, or use of a controlled Windows 10/11 x64 computer.
+1. The original branch push and draft PR are complete, but PR #26 predates provenance and is not merge-ready. Obtain explicit authorization before pushing the thirty-six local `codex/windows-packaging` commits (including the two local preflights and authorization-matrix handoff) or updating PR #26. Obtain separate authorization for marking ready/merging, manual dispatch, or use of a controlled Windows 10/11 x64 computer.
 2. Treat PR #25 as an accumulated integration draft, not a Windows-only change. Follow `docs/WINDOWS_EVIDENCE_INTEGRATION_PLAN.md` and `docs/LOCAL_FIRST_INTEGRATION_AUDIT.md`: keep PR #25 as a comparison view, integrate PRs #3-#24 first, and reconstruct the six local-first milestones using the file-level dispositions for all 29 overlaps. Do not merge the accumulated draft merely to expose the workflow.
 3. Generate the refreshed one-file bridge with `dart run tool/prepare_windows_evidence_bridge.dart <approved-source-sha> ../../.github/workflows/windows-evidence.yml <bridge-worktree>/.github/workflows/windows-evidence.yml`, then run `dart run tool/verify_windows_evidence_bridge.dart` with the same three arguments, confirm matching digests and the one-file diff, and only then follow the separately authorized review/merge sequence. After an approved manual run completes, use `dart run tool/verify_windows_run.dart <workflow-run-id> <absent-output-directory>` and review its bounded output. Treat it as native headless evidence, not attended picker/Auth0 or clean-customer-machine evidence.
 4. For a controlled computer, use PowerShell 7, Flutter Windows tooling, Visual Studio Desktop C++, and Inno Setup 6 on the build side. The installed target must not require Flutter, Git, the repository, or a separate Agent.
@@ -318,6 +322,8 @@ The next slice must satisfy these boundaries:
 - `docs/LOCAL_FIRST_INTEGRATION_EXECUTION_CHECKLIST.md` — controlling dependency order, authorization ledger, common verification loop, Windows evidence/equipment tracks, stop conditions, and completion record
 - `docs/PR_3_24_LOCAL_DEPENDENCY_LEDGER.md` — local-only PR #3-#24 branch/head ancestry, per-row diff scope, review waves, and authorized live revalidation procedure
 - `apps/showvault_app/tool/verify_local_first_integration_preflight.dart` — bounded read-only local Git verifier for the six integration manifests
+- `apps/showvault_app/tool/verify_pr_dependency_ledger.dart` — bounded read-only local Git verifier for every PR #3-#24 ledger row and combined totals
+- `docs/LOCAL_AUTHORIZATION_READINESS_MATRIX.md` — exact prerequisites, authorization classes, dependencies, and mandatory stops for local, remote, equipment, cloud, venue, and destructive operations
 - `docs/LOCAL_ATTENDED_RESTORE.md` — offline attended restore, staging, verification, cleanup, evidence, and limitations
 - `docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md` — customer identity, licensing, subscription, portal, and Admin-console structure
 - `docs/SYSTEM_INVENTORY_PLUGIN.md` — direct app scan versus legacy Agent compatibility
