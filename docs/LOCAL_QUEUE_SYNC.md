@@ -51,8 +51,12 @@ An isolated build can still use the test substitute by defining both:
 
 Only that explicit synthetic configuration selects the direct folder substitute instead of the authenticated API.
 
+Installed resilience drills may additionally define `SHOWVAULT_SYNTHETIC_SYNC_CHUNK_BYTES` and `SHOWVAULT_SYNTHETIC_SYNC_CHUNK_DELAY_MS` together with the fixture-home seam. Those test-only values make durable partial chunks observable. Normal builds ignore them unless fixture isolation is active and retain 256 KiB chunks with no artificial delay.
+
 ## Current evidence and limitations
 
 Automated tests prove successful remote verification, restart resume, cancellation resume, idempotency, concurrent completion, duplicate chunks, expired-session retry, manager authorization, viewer/outsider denial, cross-tenant isolation, stale/conflicting data rejection, local and remote tamper, zero-byte files, package/storage links, privacy filtering, bounded request shapes, and UI state refresh.
 
-This slice does not claim production object-storage retention or regional durability, distributed multi-server locking, bandwidth scheduling, billing enforcement, installed hosted-sync execution, Windows installed execution, dependency closure, or Recovery Confidence.
+The installed release-mode macOS synthetic drill traversed the authenticated loopback API without the direct folder substitute. It captured a durable partial hosted object, terminated and relaunched the app, reopened the vault, and completed from append-only local attempt 2 without duplicate completion. The committed tenant-derived package contained only the expected content, path-free manifest, and receipt, with matching SHA-256 values. A request without authentication returned `401`. A second isolated local vault remained verified while the API was stopped, recorded a 30-second retry, and synchronized on attempt 2 after the API returned.
+
+This slice does not claim production object-storage retention or regional durability, distributed multi-server locking, bandwidth scheduling, billing enforcement, Windows installed execution, dependency closure, or Recovery Confidence.
