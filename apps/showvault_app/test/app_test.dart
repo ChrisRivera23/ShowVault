@@ -10,6 +10,7 @@ import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
 import 'package:showvault_app/src/recovery/local_access_coordinator.dart';
 import 'package:showvault_app/src/recovery/local_recovery_service.dart';
 import 'package:showvault_app/src/recovery/local_restore_service.dart';
+import 'package:showvault_app/src/recovery/local_support_diagnostic_service.dart';
 import 'package:showvault_app/src/recovery/local_sync_object_store.dart';
 import 'package:showvault_app/src/recovery/local_sync_service.dart';
 import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
@@ -123,6 +124,25 @@ class _FakeLocalRecoveryService extends LocalRecoveryService {
           ),
         ],
       );
+}
+
+class _FakeLocalSupportDiagnosticService extends LocalSupportDiagnosticService {
+  bool generated = false;
+
+  @override
+  Future<LocalSupportDiagnosticResult> generate(
+    String authorizedVaultRoot,
+  ) async {
+    generated = true;
+    return const LocalSupportDiagnosticResult(
+      diagnosticPath: '/synthetic/vault/Reports/Diagnostics/report.json',
+      checksumPath: '/synthetic/vault/Reports/Diagnostics/report.sha256',
+      evidenceSha256:
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      recoveryPointCount: 1,
+      restoreEvidenceCount: 0,
+    );
+  }
 }
 
 class _FakeLocalSyncService extends LocalSyncService {
@@ -409,6 +429,40 @@ void main() {
     );
     expect(find.text('Verified locally'), findsOneWidget);
     expect(find.text('Cloud queued'), findsOneWidget);
+    expect(find.text('Create support diagnostic'), findsOneWidget);
+  });
+
+  testWidgets('support diagnostic requires explicit operator confirmation', (
+    tester,
+  ) async {
+    final recovery = _FakeLocalRecoveryService();
+    final diagnostic = _FakeLocalSupportDiagnosticService();
+    final access = _FakeLocalAccessCoordinator();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(_SignedOutAuthService()),
+          localAccessCoordinatorProvider.overrideWithValue(access),
+          localRecoveryServiceProvider.overrideWithValue(recovery),
+          localSupportDiagnosticServiceProvider.overrideWithValue(diagnostic),
+        ],
+        child: const ShowVaultApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open local vault'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Choose vault'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Create support diagnostic'));
+    await tester.pumpAndSettle();
+    expect(find.text('Create local support diagnostic?'), findsOneWidget);
+    expect(diagnostic.generated, isFalse);
+    await tester.tap(find.widgetWithText(FilledButton, 'Create diagnostic'));
+    await tester.pumpAndSettle();
+
+    expect(diagnostic.generated, isTrue);
   });
 
   testWidgets('synthetic build can synchronize durable pending work', (

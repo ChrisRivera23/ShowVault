@@ -7,6 +7,7 @@ import 'package:showvault_app/src/recovery/local_access_coordinator.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
 import 'package:showvault_app/src/recovery/local_recovery_service.dart';
 import 'package:showvault_app/src/recovery/local_restore_service.dart';
+import 'package:showvault_app/src/recovery/local_support_diagnostic_service.dart';
 import 'package:showvault_app/src/recovery/local_sync_service.dart';
 import 'package:showvault_app/src/recovery/recovery_run.dart';
 import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
@@ -167,6 +168,59 @@ class _LocalVaultPanel extends ConsumerStatefulWidget {
 class _LocalVaultPanelState extends ConsumerState<_LocalVaultPanel> {
   bool _busy = false;
 
+  Future<void> _createSupportDiagnostic(LocalVaultSnapshot snapshot) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Create local support diagnostic?'),
+        content: const Text(
+          'ShowVault will validate bounded vault manifests, upload queue '
+          'records, and restore evidence. The diagnostic includes opaque '
+          'package IDs, counts, status categories, versions, timestamps, and '
+          'integrity results. It does not read package contents or recovery '
+          'sources, and it excludes local paths, credentials, tokens, and '
+          'computer identity.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Create diagnostic'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final result = await ref
+          .read(localSupportDiagnosticServiceProvider)
+          .generate(snapshot.vaultRoot);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Support diagnostic created locally • '
+            '${result.recoveryPointCount} recovery '
+            '${result.recoveryPointCount == 1 ? 'point' : 'points'} • '
+            '${result.restoreEvidenceCount} restore '
+            '${result.restoreEvidenceCount == 1 ? 'record' : 'records'}.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not create support diagnostic: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _synchronize(LocalVaultSnapshot snapshot) async {
     final service = ref.read(localSyncServiceProvider);
     if (service == null) return;
@@ -304,6 +358,14 @@ class _LocalVaultPanelState extends ConsumerState<_LocalVaultPanel> {
                     snapshot == null ? 'Open local vault' : 'Change vault',
                   ),
                 ),
+                if (snapshot != null)
+                  OutlinedButton.icon(
+                    onPressed: _busy
+                        ? null
+                        : () => _createSupportDiagnostic(snapshot),
+                    icon: const Icon(Icons.support_agent_outlined),
+                    label: const Text('Create support diagnostic'),
+                  ),
                 if (snapshot != null && syncService != null)
                   FilledButton.icon(
                     onPressed: _busy ? null : () => _synchronize(snapshot),

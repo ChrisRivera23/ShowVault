@@ -416,10 +416,20 @@ class LocalRecoveryService {
       final queueFile = File(
         _join(_join(vaultRoot, 'Upload Queue'), '$packageId.json'),
       );
-      var cloudStatus = LocalCloudSyncStatus.queueFailed;
-      if (await FileSystemEntity.type(queueFile.path, followLinks: false) ==
-          FileSystemEntityType.file) {
-        cloudStatus = await _readCloudStatus(vaultRoot, packageId, queueFile);
+      var cloudState = const LocalQueueState(
+        status: LocalCloudSyncStatus.queueFailed,
+        attemptCount: 0,
+        stateEventCount: 0,
+        errorCategory: LocalQueueErrorCategory.queueIntentMissing,
+      );
+      final queueType = await FileSystemEntity.type(
+        queueFile.path,
+        followLinks: false,
+      );
+      if (queueType == FileSystemEntityType.file) {
+        cloudState = await _readCloudState(vaultRoot, packageId, queueFile);
+      } else if (queueType != FileSystemEntityType.notFound) {
+        throw const LocalRecoveryException('A vault queue record is unsafe.');
       }
       records.add(
         LocalRecoveryRecord(
@@ -431,7 +441,10 @@ class LocalRecoveryService {
           fileCount: files.length,
           totalBytes: totalBytes,
           localStatus: LocalProtectionStatus.verified,
-          cloudStatus: cloudStatus,
+          cloudStatus: cloudState.status,
+          queueAttemptCount: cloudState.attemptCount,
+          queueStateEventCount: cloudState.stateEventCount,
+          queueErrorCategory: cloudState.errorCategory,
         ),
       );
     }
@@ -439,7 +452,7 @@ class LocalRecoveryService {
     return LocalVaultSnapshot(vaultRoot: vaultRoot, records: records);
   }
 
-  Future<LocalCloudSyncStatus> _readCloudStatus(
+  Future<LocalQueueState> _readCloudState(
     String vaultRoot,
     String packageId,
     File queueFile,
@@ -459,6 +472,8 @@ class LocalRecoveryService {
       );
     }
     var status = _cloudStatus(_requiredString(queue, 'status'));
+    var attemptCount = _boundedAttemptCount(queue['attemptCount']);
+    String? lastError;
     final stateParent = Directory(
       _join(_join(vaultRoot, 'Upload Queue'), 'State'),
     );
@@ -466,7 +481,14 @@ class LocalRecoveryService {
       stateParent.path,
       followLinks: false,
     );
-    if (stateParentType == FileSystemEntityType.notFound) return status;
+    if (stateParentType == FileSystemEntityType.notFound) {
+      return LocalQueueState(
+        status: status,
+        attemptCount: attemptCount,
+        stateEventCount: 0,
+        errorCategory: _errorCategory(status, lastError),
+      );
+    }
     if (stateParentType != FileSystemEntityType.directory) {
       throw const LocalRecoveryException(
         'The vault queue state location is unsafe.',
@@ -477,7 +499,14 @@ class LocalRecoveryService {
       stateRoot.path,
       followLinks: false,
     );
-    if (stateType == FileSystemEntityType.notFound) return status;
+    if (stateType == FileSystemEntityType.notFound) {
+      return LocalQueueState(
+        status: status,
+        attemptCount: attemptCount,
+        stateEventCount: 0,
+        errorCategory: _errorCategory(status, lastError),
+      );
+    }
     if (stateType != FileSystemEntityType.directory) {
       throw const LocalRecoveryException(
         'A vault queue state location is unsafe.',
@@ -504,25 +533,76 @@ class LocalRecoveryService {
         );
       }
     }
-    if (events.isEmpty) return status;
+    if (events.isEmpty) {
+      return LocalQueueState(
+        status: status,
+        attemptCount: attemptCount,
+        stateEventCount: 0,
+        errorCategory: _errorCategory(status, lastError),
+      );
+    }
     events.sort((left, right) => left.path.compareTo(right.path));
-    final latest = events.last;
-    if (await latest.length() > 64 * 1024) {
-      throw const LocalRecoveryException(
-        'A vault queue state entry exceeds the size limit.',
+    for (final eventFile in events) {
+      if (await eventFile.length() > 64 * 1024) {
+        throw const LocalRecoveryException(
+          'A vault queue state entry exceeds the size limit.',
+        );
+      }
+      final event = _decodeObject(
+        await eventFile.readAsBytes(),
+        'A vault queue state entry is not valid JSON.',
       );
+      if (_requiredString(event, 'packageId') != packageId) {
+        throw const LocalRecoveryException(
+          'A vault queue state entry has the wrong identity.',
+        );
+      }
+      status = _cloudStatus(_requiredString(event, 'status'));
+      attemptCount = _boundedAttemptCount(event['attemptCount']);
+      lastError = _boundedOptionalString(event['lastError'], 512);
     }
-    final event = _decodeObject(
-      await latest.readAsBytes(),
-      'A vault queue state entry is not valid JSON.',
+    return LocalQueueState(
+      status: status,
+      attemptCount: attemptCount,
+      stateEventCount: events.length,
+      errorCategory: _errorCategory(status, lastError),
     );
-    if (_requiredString(event, 'packageId') != packageId) {
-      throw const LocalRecoveryException(
-        'A vault queue state entry has the wrong identity.',
-      );
+  }
+
+  static int _boundedAttemptCount(Object? value) {
+    if (value is int && value >= 0 && value <= 1000000) return value;
+    throw const LocalRecoveryException(
+      'A vault queue record has an invalid attempt count.',
+    );
+  }
+
+  static String? _boundedOptionalString(Object? value, int maximumLength) {
+    if (value == null) return null;
+    if (value is String && value.length <= maximumLength) return value;
+    throw const LocalRecoveryException(
+      'A vault queue record contains an oversized field.',
+    );
+  }
+
+  static LocalQueueErrorCategory _errorCategory(
+    LocalCloudSyncStatus status,
+    String? lastError,
+  ) {
+    if (lastError == null || lastError.isEmpty) {
+      return LocalQueueErrorCategory.none;
     }
-    status = _cloudStatus(_requiredString(event, 'status'));
-    return status;
+    if (lastError == 'Synchronization was cancelled and remains queued.') {
+      return LocalQueueErrorCategory.cancelled;
+    }
+    if (lastError == 'Synchronization is unavailable and will retry.') {
+      return LocalQueueErrorCategory.transientUnavailable;
+    }
+    if (lastError == 'Synchronization stopped after the retry limit.') {
+      return LocalQueueErrorCategory.retryExhausted;
+    }
+    return status == LocalCloudSyncStatus.queueFailed
+        ? LocalQueueErrorCategory.integrityFailure
+        : LocalQueueErrorCategory.workflowFailure;
   }
 
   static LocalCloudSyncStatus _cloudStatus(String value) => switch (value) {
@@ -803,6 +883,9 @@ class LocalRecoveryRecord {
     required this.totalBytes,
     required this.localStatus,
     required this.cloudStatus,
+    this.queueAttemptCount = 0,
+    this.queueStateEventCount = 0,
+    this.queueErrorCategory = LocalQueueErrorCategory.none,
   });
 
   final String recoveryPointId;
@@ -814,6 +897,33 @@ class LocalRecoveryRecord {
   final int totalBytes;
   final LocalProtectionStatus localStatus;
   final LocalCloudSyncStatus cloudStatus;
+  final int queueAttemptCount;
+  final int queueStateEventCount;
+  final LocalQueueErrorCategory queueErrorCategory;
+}
+
+class LocalQueueState {
+  const LocalQueueState({
+    required this.status,
+    required this.attemptCount,
+    required this.stateEventCount,
+    required this.errorCategory,
+  });
+
+  final LocalCloudSyncStatus status;
+  final int attemptCount;
+  final int stateEventCount;
+  final LocalQueueErrorCategory errorCategory;
+}
+
+enum LocalQueueErrorCategory {
+  none,
+  queueIntentMissing,
+  cancelled,
+  transientUnavailable,
+  retryExhausted,
+  integrityFailure,
+  workflowFailure,
 }
 
 enum LocalProtectionStatus { verified }

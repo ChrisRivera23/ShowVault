@@ -35,6 +35,12 @@ class AppConfig {
   static const resilienceHarnessEnabled = bool.fromEnvironment(
     'SHOWVAULT_RESILIENCE_HARNESS',
   );
+  static const upgradeHarnessEnabled = bool.fromEnvironment(
+    'SHOWVAULT_UPGRADE_HARNESS',
+  );
+  static const upgradeGeneration = String.fromEnvironment(
+    'SHOWVAULT_UPGRADE_GENERATION',
+  );
   static const personalBetaAccessToken = 'showvault-personal-beta-loopback';
   static const windowsCallbackUrl = 'showvault://callback';
 
@@ -70,4 +76,11 @@ class AppConfig {
             uri.host == '127.0.0.1' ||
             uri.host == '::1');
   }
+
+  static bool get canRunUpgradeHarness =>
+      upgradeHarnessEnabled &&
+      RegExp(
+        r'^showvault-upgrade-[a-z0-9-]{1,80}$',
+      ).hasMatch(syntheticFixtureHome) &&
+      (upgradeGeneration == 'before' || upgradeGeneration == 'after');
 }
