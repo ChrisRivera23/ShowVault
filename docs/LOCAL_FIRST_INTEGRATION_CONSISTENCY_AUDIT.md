@@ -162,3 +162,7 @@ planning baseline. It is not approval to execute the integration or any external
 stage. If the source branch changes before authorized reconstruction begins,
 rerun this audit and review every changed count, boundary, and overlap before
 using the checklist.
+
+`PR_3_24_LOCAL_DEPENDENCY_LEDGER.md` supplies the preceding 22-branch local
+foundation chain. Its PR-number mapping and remote status remain a static local
+snapshot until explicitly authorized live revalidation.

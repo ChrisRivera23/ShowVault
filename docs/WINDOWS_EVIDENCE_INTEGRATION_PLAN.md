@@ -179,6 +179,10 @@ future authorized execution checklist.
 checklist for the dependency-ordered product path and the separately authorized
 Windows evidence/equipment paths.
 
+`PR_3_24_LOCAL_DEPENDENCY_LEDGER.md` records the existing local 22-branch
+foundation chain from `origin/main` through the documented PR #24 head. It is not
+live GitHub status and must be revalidated only after remote-review authorization.
+
 The 247-commit legacy catalog/Agent expansion remains a separate paused review.
 It must be evaluated by current product value and authorization boundaries, not
 merged merely because later local-first work was originally developed on top of
