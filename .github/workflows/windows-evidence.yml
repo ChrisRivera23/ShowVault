@@ -56,6 +56,29 @@ jobs:
           $output = Join-Path $env:RUNNER_TEMP 'showvault-windows-proof-evidence'
           pwsh -File .\tool\run-windows-installed-proof.ps1 -OutputDirectory $output
 
+      - name: Record workflow provenance
+        run: |
+          $proofRoot = Join-Path $env:RUNNER_TEMP 'showvault-windows-proof-evidence'
+          $sourceCommitSha = (& git rev-parse HEAD).Trim().ToLowerInvariant()
+          if ($sourceCommitSha -notmatch '^[0-9a-f]{40}$') {
+            throw 'The checked-out source commit is invalid.'
+          }
+          $provenance = [ordered]@{
+            formatVersion = 'showvault.windows-workflow-provenance.v1'
+            sourceCommitSha = $sourceCommitSha
+            workflowRunId = $env:GITHUB_RUN_ID
+            workflowRunAttempt = [int]$env:GITHUB_RUN_ATTEMPT
+            workflowEvent = $env:GITHUB_EVENT_NAME
+            workflowJob = $env:GITHUB_JOB
+            runnerOs = $env:RUNNER_OS
+            runnerArchitecture = $env:RUNNER_ARCH
+            artifactName = 'showvault-controlled-windows-evidence'
+          }
+          $provenancePath = Join-Path $proofRoot 'windows-workflow-provenance.json'
+          $provenance | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $provenancePath -Encoding utf8NoBOM
+          $provenanceHash = (Get-FileHash -LiteralPath $provenancePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          Add-Content -LiteralPath (Join-Path $proofRoot 'SHA256SUMS') -Value "$provenanceHash  windows-workflow-provenance.json" -Encoding ascii
+
       - name: Verify checksums and cleanup
         run: |
           function Test-ChecksumFile([string]$root) {

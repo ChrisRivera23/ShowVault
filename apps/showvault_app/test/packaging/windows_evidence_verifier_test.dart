@@ -27,6 +27,9 @@ void main() {
     expect(result.package.deploymentFileCount, 17);
     expect(result.proof.operatingSystemVersion, '10.0.26100.0');
     expect(result.proof.architecture, 'AMD64');
+    expect(result.provenance.sourceCommitSha, 'a' * 40);
+    expect(result.provenance.workflowRunId, '31423727118');
+    expect(result.provenance.workflowRunAttempt, 1);
     expect(
       result.toJson()['limitations'],
       contains('headless-runner-evidence-only'),
@@ -99,6 +102,26 @@ void main() {
     );
   });
 
+  test('rejects provenance from a non-manual workflow event', () async {
+    final fixture = await _EvidenceFixture.create(testRoot);
+    final provenance =
+        jsonDecode(await fixture.provenance.readAsString()) as Map;
+    provenance['workflowEvent'] = 'push';
+    await fixture.provenance.writeAsString(jsonEncode(provenance));
+    await fixture.rewriteProofChecksums();
+
+    await expectLater(
+      const WindowsEvidenceVerifier().verify(fixture.root),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          contains('workflow provenance'),
+        ),
+      ),
+    );
+  });
+
   test(
     'rejects a linked evidence file without following it',
     () async {
@@ -127,6 +150,7 @@ class _EvidenceFixture {
     required this.packageInstaller,
     required this.metadata,
     required this.report,
+    required this.provenance,
   });
 
   final Directory root;
@@ -135,6 +159,7 @@ class _EvidenceFixture {
   final File packageInstaller;
   final File metadata;
   final File report;
+  final File provenance;
 
   static Future<_EvidenceFixture> create(Directory parent) async {
     final root = Directory(_join(parent.path, 'artifact'));
@@ -248,6 +273,22 @@ class _EvidenceFixture {
         'personalData': false,
       }),
     );
+    final provenance = File(
+      _join(proofDirectory.path, 'windows-workflow-provenance.json'),
+    );
+    await provenance.writeAsString(
+      jsonEncode({
+        'formatVersion': 'showvault.windows-workflow-provenance.v1',
+        'sourceCommitSha': 'a' * 40,
+        'workflowRunId': '31423727118',
+        'workflowRunAttempt': 1,
+        'workflowEvent': 'workflow_dispatch',
+        'workflowJob': 'package-and-prove',
+        'runnerOs': 'Windows',
+        'runnerArchitecture': 'X64',
+        'artifactName': 'showvault-controlled-windows-evidence',
+      }),
+    );
     final fixture = _EvidenceFixture(
       root: root,
       packageDirectory: packageDirectory,
@@ -255,6 +296,7 @@ class _EvidenceFixture {
       packageInstaller: packageInstaller,
       metadata: metadata,
       report: report,
+      provenance: provenance,
     );
     await fixture.rewriteProofChecksums();
     return fixture;
@@ -265,6 +307,7 @@ class _EvidenceFixture {
     'ShowVault-after-windows-x64-setup.exe',
     'windows-upgrade-diagnostic-report.json',
     'windows-execution-metadata.json',
+    'windows-workflow-provenance.json',
   });
 }
 
@@ -277,7 +320,7 @@ Future<void> _writeChecksums(Directory directory, Set<String> names) async {
   }
   await File(
     _join(directory.path, 'SHA256SUMS'),
-  ).writeAsString('${lines.join('\n')}\n');
+  ).writeAsString('${lines.join('\r\n')}\r\n');
 }
 
 String _join(String left, String right) =>

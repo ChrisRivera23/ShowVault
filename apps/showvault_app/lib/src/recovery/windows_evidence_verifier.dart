@@ -9,10 +9,13 @@ const _checksumFileName = 'SHA256SUMS';
 const _packageManifestName = 'windows-package-manifest.json';
 const _proofReportName = 'windows-upgrade-diagnostic-report.json';
 const _proofMetadataName = 'windows-execution-metadata.json';
+const _proofProvenanceName = 'windows-workflow-provenance.json';
 const _maxJsonBytes = 256 * 1024;
 const _maxChecksumBytes = 16 * 1024;
 
 final _sha256Pattern = RegExp(r'^[0-9a-f]{64}$');
+final _gitCommitPattern = RegExp(r'^[0-9a-f]{40}$');
+final _runIdPattern = RegExp(r'^[1-9][0-9]{0,19}$');
 final _safeFileNamePattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$');
 final _packageNamePattern = RegExp(
   r'^ShowVault-[0-9A-Za-z.-]{1,80}-windows-x64-setup\.exe$',
@@ -83,9 +86,14 @@ class WindowsEvidenceVerifier {
       File(_join(proofDirectory.path, _proofReportName)),
       _maxJsonBytes,
     );
+    final provenanceText = await _readBoundedUtf8(
+      File(_join(proofDirectory.path, _proofProvenanceName)),
+      _maxJsonBytes,
+    );
     _require(
       !_prohibitedTextPattern.hasMatch(proofMetadataText) &&
-          !_prohibitedTextPattern.hasMatch(reportText),
+          !_prohibitedTextPattern.hasMatch(reportText) &&
+          !_prohibitedTextPattern.hasMatch(provenanceText),
       'The installed evidence contains a prohibited path or sensitive value.',
     );
     final proof = _verifyInstalledProof(
@@ -93,8 +101,16 @@ class WindowsEvidenceVerifier {
       reportText,
       proofChecksums,
     );
+    final provenance = _verifyWorkflowProvenance(
+      _decodeObject(provenanceText),
+      proofChecksums,
+    );
 
-    return WindowsEvidenceVerification(package: package, proof: proof);
+    return WindowsEvidenceVerification(
+      package: package,
+      proof: proof,
+      provenance: provenance,
+    );
   }
 
   Future<Map<String, String>> _verifyChecksumDomain(Directory directory) async {
@@ -113,11 +129,16 @@ class WindowsEvidenceVerifier {
       _maxChecksumBytes,
     );
     _require(
-      !checksumText.contains('\r') && checksumText.endsWith('\n'),
-      'SHA256SUMS must use bounded LF-terminated ASCII lines.',
+      checksumText.endsWith('\n'),
+      'SHA256SUMS must be line-terminated.',
+    );
+    final normalizedChecksumText = checksumText.replaceAll('\r\n', '\n');
+    _require(
+      !normalizedChecksumText.contains('\r'),
+      'SHA256SUMS contains an invalid carriage return.',
     );
     final checksums = <String, String>{};
-    for (final line in checksumText.trimRight().split('\n')) {
+    for (final line in normalizedChecksumText.trimRight().split('\n')) {
       final match = RegExp(
         r'^([0-9a-f]{64})  ([A-Za-z0-9][A-Za-z0-9._-]{0,199})$',
       ).firstMatch(line);
@@ -225,6 +246,7 @@ class WindowsEvidenceVerifier {
       'ShowVault-after-windows-x64-setup.exe',
       _proofReportName,
       _proofMetadataName,
+      _proofProvenanceName,
     };
     _require(
       checksums.keys.toSet().containsAll(expectedNames) &&
@@ -382,22 +404,69 @@ class WindowsEvidenceVerifier {
       installedExecutableAuthenticodeStatus: executableStatus as String,
     );
   }
+
+  WindowsWorkflowProvenance _verifyWorkflowProvenance(
+    Map<String, Object?> provenance,
+    Map<String, String> checksums,
+  ) {
+    _requireExactKeys(provenance, {
+      'formatVersion',
+      'sourceCommitSha',
+      'workflowRunId',
+      'workflowRunAttempt',
+      'workflowEvent',
+      'workflowJob',
+      'runnerOs',
+      'runnerArchitecture',
+      'artifactName',
+    });
+    final sourceCommitSha = provenance['sourceCommitSha'];
+    final workflowRunId = provenance['workflowRunId'];
+    final workflowRunAttempt = provenance['workflowRunAttempt'];
+    _require(
+      provenance['formatVersion'] ==
+              'showvault.windows-workflow-provenance.v1' &&
+          sourceCommitSha is String &&
+          _gitCommitPattern.hasMatch(sourceCommitSha) &&
+          workflowRunId is String &&
+          _runIdPattern.hasMatch(workflowRunId) &&
+          workflowRunAttempt is int &&
+          workflowRunAttempt > 0 &&
+          workflowRunAttempt <= 100 &&
+          provenance['workflowEvent'] == 'workflow_dispatch' &&
+          provenance['workflowJob'] == 'package-and-prove' &&
+          provenance['runnerOs'] == 'Windows' &&
+          provenance['runnerArchitecture'] == 'X64' &&
+          provenance['artifactName'] ==
+              'showvault-controlled-windows-evidence' &&
+          checksums.containsKey(_proofProvenanceName),
+      'The Windows workflow provenance is incomplete or unsafe.',
+    );
+    return WindowsWorkflowProvenance(
+      sourceCommitSha: sourceCommitSha as String,
+      workflowRunId: workflowRunId as String,
+      workflowRunAttempt: workflowRunAttempt as int,
+    );
+  }
 }
 
 class WindowsEvidenceVerification {
   const WindowsEvidenceVerification({
     required this.package,
     required this.proof,
+    required this.provenance,
   });
 
   final WindowsPackageEvidence package;
   final WindowsInstalledProofEvidence proof;
+  final WindowsWorkflowProvenance provenance;
 
   Map<String, Object?> toJson() => {
     'formatVersion': 'showvault.windows-evidence-verification.v1',
     'verified': true,
     'package': package.toJson(),
     'installedProof': proof.toJson(),
+    'workflowProvenance': provenance.toJson(),
     'limitations': [
       'headless-runner-evidence-only',
       'no-attended-picker-or-auth-callback',
@@ -407,6 +476,29 @@ class WindowsEvidenceVerification {
       'no-personal-data',
       'no-venue-readiness-claim',
     ],
+  };
+}
+
+class WindowsWorkflowProvenance {
+  const WindowsWorkflowProvenance({
+    required this.sourceCommitSha,
+    required this.workflowRunId,
+    required this.workflowRunAttempt,
+  });
+
+  final String sourceCommitSha;
+  final String workflowRunId;
+  final int workflowRunAttempt;
+
+  Map<String, Object?> toJson() => {
+    'sourceCommitSha': sourceCommitSha,
+    'workflowRunId': workflowRunId,
+    'workflowRunAttempt': workflowRunAttempt,
+    'workflowEvent': 'workflow_dispatch',
+    'workflowJob': 'package-and-prove',
+    'runnerOs': 'Windows',
+    'runnerArchitecture': 'X64',
+    'artifactName': 'showvault-controlled-windows-evidence',
   };
 }
 

@@ -74,6 +74,11 @@ void main() {
     expect(text, contains('flutter test'));
     expect(text, contains('build-app.ps1'));
     expect(text, contains('run-windows-installed-proof.ps1'));
+    expect(text, contains('Record workflow provenance'));
+    expect(text, contains('windows-workflow-provenance.json'));
+    expect(text, contains(r'git rev-parse HEAD'));
+    expect(text, contains(r'$env:GITHUB_RUN_ID'));
+    expect(text, contains(r'$env:GITHUB_RUN_ATTEMPT'));
     expect(text, contains('Verify checksums and cleanup'));
     expect(text, contains('retention-days: 14'));
     expect(text, isNot(contains('secrets.')));
