@@ -113,6 +113,8 @@ Thirty-three focused Windows packaging, harness, evidence, run-attestation, and 
 
 Exact correction source `2058b5eec11ec3e755d1906d205e57fcfb879c93` is now published as a leased fast-forward on `codex/windows-packaging`. Push CI run `31455319415` passed API job `93667779201` and Flutter job `93667779236`; pull-request CI run `31455321837` passed API job `93667786448` and Flutter job `93667786482`. This publication did not mutate the PR, refresh the evidence bridge, dispatch a workflow, retrieve an artifact, or access Windows equipment. Native execution and Windows readiness therefore remain unclaimed.
 
+Fresh local bridge worktree `/private/tmp/showvault-windows-evidence-bridge-2058b5e.xid49L` is on branch `codex/windows-evidence-bridge-prepare-2058b5e` directly from exact `main` `c039d5055799efe2995ab15463db19db8fa0079e`. Deterministic preparation and independent pre/post-commit verification produced local commit `72ce24071784af03096574ede1f1eb2d0a8cfe7d`, pinning exact source `2058b5eec11ec3e755d1906d205e57fcfb879c93` with workflow SHA-256 `652c86b4f4abaca6b5b5dda57d59e00e4d6bbbd618510a2216f6dbbeae74a042`. The bridge changes exactly one file with one insertion and one deletion, and all 33 focused tests plus the diff check pass. No bridge push, PR mutation, merge, workflow dispatch/rerun, artifact retrieval, or equipment access occurred during local preparation.
+
 Host reboot, Authenticode trust/distribution signing, commercial Auth0 session expiry, provider quota exhaustion, real production-provider outage, personal-data recovery, clean-machine support range, and venue use remain separate gates.
 
 ## Manual Windows-native CI bridge

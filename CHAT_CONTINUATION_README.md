@@ -98,6 +98,9 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Waited installed-harness process correction: `2058b5e fix: await Windows upgrade harness phases`
 - Published green prepare-correction product source: `2058b5eec11ec3e755d1906d205e57fcfb879c93 fix: await Windows upgrade harness phases`
 - Green prepare-correction product CI: push run `31455319415` and pull-request run `31455321837`
+- Local prepare-correction bridge commit: `72ce24071784af03096574ede1f1eb2d0a8cfe7d ci: refresh Windows evidence source pin`
+- Local prepare-correction bridge worktree: `codex/windows-evidence-bridge-prepare-2058b5e` at `/private/tmp/showvault-windows-evidence-bridge-2058b5e.xid49L`
+- Verified prepare-correction bridge digest: `652c86b4f4abaca6b5b5dda57d59e00e4d6bbbd618510a2216f6dbbeae74a042`
 - Expected worktree after the handoff commit: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Sequential catalog expansion remains paused while prototype readiness advances.
 
@@ -201,6 +204,9 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Local commit `2058b5e` replaces the installed GUI call-operator boundary with `Start-Process -Wait -PassThru` plus owned stdout/stderr captures for prepare, verify, cleanup, and fallback cleanup. This corrects the ambiguous process-observation boundary; it does not guess which internal category occurred in the prior run.
 - Exact implementation head `2058b5eec11ec3e755d1906d205e57fcfb879c93` was pushed with the verified old-head lease from `cf76d62a867c3c3918cfb0200d429d84e9c9503a` to `codex/windows-packaging`. Push run `31455319415` passed API job `93667779201` and Flutter job `93667779236`; pull-request run `31455321837` passed API job `93667786448` and Flutter job `93667786482`.
 - PR #25 remains the accumulated draft comparison view. No PR mutation, bridge change, merge, Windows dispatch/rerun, artifact retrieval, or equipment access occurred during product publication.
+- Live read-only bridge-preparation revalidation found exact `main` `c039d5055799efe2995ab15463db19db8fa0079e`, published source `2058b5eec11ec3e755d1906d205e57fcfb879c93`, and remote bridge `35b5d68b6a3bb5e25a3a240186b173a6582fba13`.
+- Fresh local bridge commit `72ce24071784af03096574ede1f1eb2d0a8cfe7d` starts directly at exact `main`, changes only `.github/workflows/windows-evidence.yml` with one insertion and one deletion, and pins exact green source `2058b5e`. Deterministic preparation and independent pre/post-commit verification match digest `652c86b4f4abaca6b5b5dda57d59e00e4d6bbbd618510a2216f6dbbeae74a042`; 33 focused tests and the diff check pass.
+- No bridge push, PR mutation, merge, Windows workflow dispatch/rerun, artifact retrieval, or equipment access occurred during local bridge preparation.
 - Workflow provenance, independent checksum/cleanup verification, and artifact upload were skipped. GitHub reports zero artifacts. The proof runner's `finally` block is designed to attempt synthetic cleanup, uninstall, and marker-scoped workspace removal, and the ephemeral runner ended, but cleanup was not independently attested. The run was not rerun and no artifact was retrieved.
 - The native failures had two local causes. GitHub's Windows checkout used CRLF while several policy checks assumed LF-only workflow text. Restore target validation also extracted a final component using only `Platform.pathSeparator`, so mixed Windows separators could leave the full absolute path as the target name; containment comparison likewise needed Windows separator/case canonicalization.
 - Commit `2ebfe45` canonicalizes trusted workflow/policy input to LF while continuing to reject residual carriage returns and candidate substitutions. Commit `05ed93d` extracts Windows target leaf names across both separators and uses canonical Windows comparison for directory membership. These fixes are published in product source `6d6f47ac3b32041e56238060b8b2cd8e13485a2d` but have not yet been executed on Windows.
@@ -382,7 +388,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-The corrected product source is published and green at exact head `2058b5eec11ec3e755d1906d205e57fcfb879c93`. After explicit authorization for the isolated bridge-preparation gate, create a fresh `codex/` bridge branch/worktree directly from exact current `main` `c039d5055799efe2995ab15463db19db8fa0079e`, revalidate that source and the existing remote bridge head `35b5d68b6a3bb5e25a3a240186b173a6582fba13`, deterministically prepare and independently verify the one-file workflow pinning `2058b5e`, confirm matching digests, focused tests, one-file diff, and commit locally. Stop before bridge push, PR mutation, merge, dispatch/rerun, artifact retrieval, or equipment access.
+The isolated local bridge is ready at exact commit `72ce24071784af03096574ede1f1eb2d0a8cfe7d`. After explicit bridge-publication authorization naming that commit, remote branch `codex/windows-evidence-bridge`, and old head `35b5d68b6a3bb5e25a3a240186b173a6582fba13`, revalidate the live refs/digest/one-file diff, push only that exact bridge commit with the old-head lease, open a new draft bridge PR targeting exact `main`, and wait for current push/PR CI. Stop before marking ready, merging, dispatching/rerunning any workflow, retrieving artifacts, or accessing equipment.
 
 The next slice must satisfy these boundaries:
 
