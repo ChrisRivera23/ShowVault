@@ -14,4 +14,6 @@ public sealed class AgentOptions
     public required string Name { get; init; }
 
     public string? EnrollmentCode { get; init; }
+
+    public string? DataDirectory { get; init; }
 }
