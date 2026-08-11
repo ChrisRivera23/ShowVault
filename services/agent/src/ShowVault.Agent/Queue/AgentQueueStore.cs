@@ -24,7 +24,9 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
                 occurred_at TEXT NOT NULL,
                 attempt_count INTEGER NOT NULL DEFAULT 0,
                 next_attempt_at TEXT NOT NULL,
-                delivered_at TEXT NULL
+                delivered_at TEXT NULL,
+                rejected_at TEXT NULL,
+                delivery_status TEXT NOT NULL DEFAULT 'pending'
             );
             CREATE INDEX IF NOT EXISTS ix_event_outbox_pending
                 ON event_outbox(delivered_at, next_attempt_at, occurred_at);
@@ -39,12 +41,27 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
                 ON command_queue(status, issued_at);
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
+        await EnsureEventOutboxColumnAsync(
+            connection,
+            "rejected_at",
+            "rejected_at TEXT NULL",
+            cancellationToken);
+        await EnsureEventOutboxColumnAsync(
+            connection,
+            "delivery_status",
+            "delivery_status TEXT NOT NULL DEFAULT 'pending'",
+            cancellationToken);
     }
 
     public async Task EnqueueEventAsync(
         AgentEventEnvelope envelope,
         CancellationToken cancellationToken)
     {
+        if (!AgentEventValidation.TryValidate(envelope, out var validationError))
+        {
+            throw new ArgumentException(validationError, nameof(envelope));
+        }
+
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
@@ -71,7 +88,7 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
         command.CommandText = """
             SELECT envelope_json, attempt_count
             FROM event_outbox
-            WHERE delivered_at IS NULL AND next_attempt_at <= $now
+            WHERE delivery_status = 'pending' AND next_attempt_at <= $now
             ORDER BY occurred_at
             LIMIT $limit;
             """;
@@ -95,9 +112,27 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
         DateTimeOffset deliveredAt,
         CancellationToken cancellationToken) =>
         UpdateEventAsync(
-            "UPDATE event_outbox SET delivered_at = $value WHERE event_id = $eventId;",
+            """
+            UPDATE event_outbox
+            SET delivered_at = $value, delivery_status = 'delivered'
+            WHERE event_id = $eventId AND delivery_status = 'pending';
+            """,
             eventId,
             deliveredAt,
+            cancellationToken);
+
+    public Task MarkEventPermanentlyRejectedAsync(
+        Guid eventId,
+        DateTimeOffset rejectedAt,
+        CancellationToken cancellationToken) =>
+        UpdateEventAsync(
+            """
+            UPDATE event_outbox
+            SET rejected_at = $value, delivery_status = 'rejected'
+            WHERE event_id = $eventId AND delivery_status = 'pending';
+            """,
+            eventId,
+            rejectedAt,
             cancellationToken);
 
     public async Task RecordEventFailureAsync(
@@ -111,7 +146,7 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
         command.CommandText = """
             UPDATE event_outbox
             SET attempt_count = attempt_count + 1, next_attempt_at = $value
-            WHERE event_id = $eventId AND delivered_at IS NULL;
+            WHERE event_id = $eventId AND delivery_status = 'pending';
             """;
         command.Parameters.AddWithValue("$eventId", eventId.ToString());
         command.Parameters.AddWithValue("$value", Format(nextAttemptAt));
@@ -172,6 +207,37 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
         command.Parameters.AddWithValue("$eventId", eventId.ToString());
         command.Parameters.AddWithValue("$value", Format(value));
         await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task EnsureEventOutboxColumnAsync(
+        SqliteConnection connection,
+        string columnName,
+        string columnDefinition,
+        CancellationToken cancellationToken)
+    {
+        await using var inspect = connection.CreateCommand();
+        inspect.CommandText = "PRAGMA table_info(event_outbox);";
+        var exists = false;
+        await using (var reader = await inspect.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                if (string.Equals(reader.GetString(1), columnName, StringComparison.Ordinal))
+                {
+                    exists = true;
+                    break;
+                }
+            }
+        }
+
+        if (exists)
+        {
+            return;
+        }
+
+        await using var migrate = connection.CreateCommand();
+        migrate.CommandText = $"ALTER TABLE event_outbox ADD COLUMN {columnDefinition};";
+        await migrate.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static string BuildConnectionString(string? configuredDirectory)

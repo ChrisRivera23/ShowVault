@@ -23,7 +23,7 @@ public sealed record AgentEventEnvelope(
 
         ArgumentException.ThrowIfNullOrWhiteSpace(correlationId);
         ArgumentNullException.ThrowIfNull(payload);
-        return new AgentEventEnvelope(
+        var envelope = new AgentEventEnvelope(
             Guid.NewGuid(),
             agentId,
             type,
@@ -31,5 +31,11 @@ public sealed record AgentEventEnvelope(
             occurredAt,
             correlationId,
             payload);
+        if (!AgentEventValidation.TryValidate(envelope, out var error))
+        {
+            throw new ArgumentException(error);
+        }
+
+        return envelope;
     }
 }

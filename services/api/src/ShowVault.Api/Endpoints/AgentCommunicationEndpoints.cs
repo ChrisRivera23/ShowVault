@@ -34,9 +34,12 @@ public static class AgentCommunicationEndpoints
             return Results.Forbid();
         }
 
-        if (envelope.ProtocolVersion != AgentProtocol.Version || envelope.EventId == Guid.Empty)
+        if (!AgentEventValidation.TryValidate(envelope, out var validationError))
         {
-            return Results.BadRequest();
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["event"] = [validationError]
+            });
         }
 
         if (await database.ReceivedAgentEvents.AnyAsync(

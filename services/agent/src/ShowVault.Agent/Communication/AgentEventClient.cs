@@ -7,7 +7,7 @@ namespace ShowVault.Agent.Communication;
 
 public sealed class AgentEventClient(HttpClient client)
 {
-    public async Task SendAsync(
+    public async Task<AgentEventDeliveryResult> SendAsync(
         StoredAgentIdentity identity,
         AgentEventEnvelope envelope,
         CancellationToken cancellationToken)
@@ -20,6 +20,26 @@ public sealed class AgentEventClient(HttpClient client)
             "ShowVault-Agent",
             identity.Credential);
         using var response = await client.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (response.IsSuccessStatusCode)
+        {
+            return AgentEventDeliveryResult.Delivered;
+        }
+
+        var statusCode = (int)response.StatusCode;
+        return response.StatusCode is System.Net.HttpStatusCode.Unauthorized or
+                System.Net.HttpStatusCode.Forbidden or
+                System.Net.HttpStatusCode.RequestTimeout or
+                System.Net.HttpStatusCode.TooManyRequests ||
+            statusCode == 425 ||
+            statusCode >= 500
+            ? AgentEventDeliveryResult.RetryableFailure
+            : AgentEventDeliveryResult.PermanentFailure;
     }
+}
+
+public enum AgentEventDeliveryResult
+{
+    Delivered,
+    RetryableFailure,
+    PermanentFailure
 }

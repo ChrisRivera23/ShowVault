@@ -99,6 +99,26 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
             mismatchedEvent);
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenEvent.StatusCode);
 
+        var invalidCorrelation = await agentClient.PostAsJsonAsync(
+            "/api/v1/agent-events",
+            agentEvent with
+            {
+                EventId = Guid.NewGuid(),
+                CorrelationId = new string(
+                    'a',
+                    AgentEventValidation.MaxCorrelationIdLength + 1)
+            });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidCorrelation.StatusCode);
+
+        var invalidPayload = await agentClient.PostAsJsonAsync(
+            "/api/v1/agent-events",
+            agentEvent with
+            {
+                EventId = Guid.NewGuid(),
+                Payload = "not-json"
+            });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidPayload.StatusCode);
+
         using var invalidAgentClient = CreateAgentClient(
             $"{enrolledAgent.Payload.AgentId}.sva_invalid");
         var invalidIdentity = await invalidAgentClient.GetAsync("/api/v1/agent-identity");
