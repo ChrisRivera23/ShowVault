@@ -103,6 +103,8 @@ Because `cpprestsdk` is archived and deindexed, this compatibility pin carries a
 
 Exact correction source `cf76d62a867c3c3918cfb0200d429d84e9c9503a` is published on `codex/windows-packaging`. Push run `31449739175` and pull-request run `31449738769` passed all API and Flutter checks for that SHA. These Linux CI checks validate repository regression and policy coverage; they do not execute the pinned Windows vcpkg bootstrap/install path or change the Windows readiness boundary above.
 
+A fresh bridge branch from exact `main` `b6d5aff28a310f3ccc3d7a6e1b38c2589170d5fa` now contains local commit `35b5d68b6a3bb5e25a3a240186b173a6582fba13`. It changes only `.github/workflows/windows-evidence.yml`, pins exact source `cf76d62a867c3c3918cfb0200d429d84e9c9503a`, and independently verifies at SHA-256 `d2dc4893d11baba531e4e9aada3dbe295db47801495f7c7d177959ebfb383bc9`. All 32 focused packaging/bridge/evidence tests and the diff check pass. This bridge remains local; no bridge PR, merge, new dispatch, or artifact exists from this correction.
+
 Host reboot, Authenticode trust/distribution signing, commercial Auth0 session expiry, provider quota exhaustion, real production-provider outage, personal-data recovery, clean-machine support range, and venue use remain separate gates.
 
 ## Manual Windows-native CI bridge
