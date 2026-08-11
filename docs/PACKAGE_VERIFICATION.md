@@ -16,10 +16,10 @@ The ID references a completed local `CreateBackup` command. Arbitrary remote fil
 
 Structural verification checks:
 
-- package directory exists, is not a link, and is named with the expected package ID;
+- package path is the exact package-ID child of the configured package store, and neither root is a link;
 - `manifest.json` and `content/` exist and are not links;
 - manifest format and Agent identity are supported;
-- all required manifest collections are present;
+- discovery identity, creation time, source identity/plugin metadata, and all required manifest collections and nested values are present;
 - file paths are safe, unique, and ordinally sorted;
 - file sizes and SHA-256 values are well formed;
 - the package has no missing, unexpected, or linked content.
@@ -34,6 +34,6 @@ The verifier never follows package links. If structure is unsafe, content hashin
 
 ## Durable result
 
-A verification that successfully detects corruption completes with `passed: false`; it is not treated as an executor failure. The full result is serialized, hashed with SHA-256, and inserted once into SQLite under the verification command ID. Retries reuse that immutable evidence. The completion event contains only the package ID, overall result, per-level pass/fail status, and evidence digest.
+A verification that successfully detects corruption completes with `passed: false`; it is not treated as an executor failure. The first execution records its actual verification time. The full result is serialized, hashed with SHA-256, and inserted once into SQLite under the verification command ID. Retries reuse that immutable evidence and its original timestamp. The completion event contains only the package ID, overall result, per-level pass/fail status, and evidence digest.
 
 The evidence digest detects accidental alteration of the stored result but is not a digital signature. Package authenticity, key management, and signed verification attestations remain future security work. Format 1.0 currently proves structural and content integrity, not who created the package.

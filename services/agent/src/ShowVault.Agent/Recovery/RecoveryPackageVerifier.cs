@@ -1,11 +1,17 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 
 namespace ShowVault.Agent.Recovery;
 
-public sealed class RecoveryPackageVerifier
+public sealed class RecoveryPackageVerifier(IOptions<AgentOptions> options)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly StringComparer FileSystemPathComparer = OperatingSystem.IsWindows()
+        ? StringComparer.OrdinalIgnoreCase
+        : StringComparer.Ordinal;
+    private readonly string _packageDirectory = RecoveryPackageWriter.ResolvePackageDirectory(
+        options.Value);
 
     public async Task<RecoveryPackageVerificationResult> VerifyAsync(
         Guid verificationId,
@@ -19,28 +25,47 @@ public sealed class RecoveryPackageVerifier
         var cryptographicIssues = new List<string>();
         RecoveryPackageManifest? manifest = null;
         byte[]? manifestBytes = null;
+        var resolvedPackagePath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(packagePath));
+        var expectedPackagePath = Path.TrimEndingDirectorySeparator(Path.Combine(
+            _packageDirectory,
+            expectedPackageId));
 
-        if (!Directory.Exists(packagePath))
+        var packagePathIsAuthorized = FileSystemPathComparer.Equals(
+            resolvedPackagePath,
+            expectedPackagePath);
+        if (!packagePathIsAuthorized)
+        {
+            structuralIssues.Add("Package directory is outside the configured package store.");
+        }
+        else if (Directory.Exists(_packageDirectory) && IsLink(_packageDirectory))
+        {
+            structuralIssues.Add("Configured package directory cannot be a filesystem link.");
+        }
+        else if (!Directory.Exists(resolvedPackagePath))
         {
             structuralIssues.Add("Package directory is missing.");
         }
+        else if (IsLink(resolvedPackagePath))
+        {
+            structuralIssues.Add("Package directory cannot be a filesystem link.");
+        }
         else
         {
-            if (IsLink(packagePath))
-            {
-                structuralIssues.Add("Package directory cannot be a filesystem link.");
-            }
 
             if (!string.Equals(
-                Path.GetFileName(Path.TrimEndingDirectorySeparator(packagePath)),
+                Path.GetFileName(resolvedPackagePath),
                 expectedPackageId,
                 StringComparison.Ordinal))
             {
                 structuralIssues.Add("Package directory name does not match the expected package ID.");
             }
 
-            var manifestPath = Path.Combine(packagePath, RecoveryPackageFormat.ManifestFileName);
-            if (!File.Exists(manifestPath) || IsLink(manifestPath))
+            var manifestPath = Path.Combine(
+                resolvedPackagePath,
+                RecoveryPackageFormat.ManifestFileName);
+            if (!File.Exists(manifestPath) ||
+                IsLink(manifestPath) ||
+                (File.GetAttributes(manifestPath) & FileAttributes.Device) != 0)
             {
                 structuralIssues.Add("A regular manifest.json file is required.");
             }
@@ -70,7 +95,7 @@ public sealed class RecoveryPackageVerifier
             ValidateManifest(expectedAgentId, manifest, structuralIssues);
             if (structuralIssues.Count == 0)
             {
-                ValidateLayout(packagePath, manifest, structuralIssues);
+                ValidateLayout(resolvedPackagePath, manifest, structuralIssues);
             }
         }
 
@@ -93,7 +118,7 @@ public sealed class RecoveryPackageVerifier
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var contentPath = Path.Combine(
-                    packagePath,
+                    resolvedPackagePath,
                     RecoveryPackageFormat.ContentDirectoryName,
                     file.RelativePath.Replace('/', Path.DirectorySeparatorChar));
                 var info = new FileInfo(contentPath);
@@ -154,6 +179,11 @@ public sealed class RecoveryPackageVerifier
             issues.Add("Manifest Agent ID does not match the verifying Agent.");
         }
 
+        if (manifest.DiscoveryCommandId == Guid.Empty || manifest.CreatedAt == default)
+        {
+            issues.Add("Manifest discovery identity and creation time are required.");
+        }
+
         if (manifest.Source is null || manifest.Files is null ||
             manifest.Dependencies is null || manifest.Relationships is null ||
             manifest.RestorePrerequisites is null || manifest.CompatibilityRules is null ||
@@ -162,6 +192,16 @@ public sealed class RecoveryPackageVerifier
             issues.Add("Manifest is missing required fields.");
             return;
         }
+
+        ValidateSource(manifest.Source, issues);
+        ValidateDependencies(manifest.Dependencies, issues);
+        ValidateRelationships(manifest.Relationships, issues);
+        ValidateRequiredStrings(
+            manifest.RestorePrerequisites,
+            "restore prerequisite",
+            issues);
+        ValidateCompatibilityRules(manifest.CompatibilityRules, issues);
+        ValidateVerificationRecords(manifest.VerificationRecords, issues);
 
         var paths = new HashSet<string>(StringComparer.Ordinal);
         foreach (var file in manifest.Files)
@@ -199,6 +239,90 @@ public sealed class RecoveryPackageVerifier
         }
     }
 
+    private static void ValidateSource(RecoveryPackageSource source, List<string> issues)
+    {
+        if (IsMissing(source.Identity) ||
+            IsMissing(source.PluginId) ||
+            IsMissing(source.PluginVersion) ||
+            IsPresentButEmpty(source.ProductVersion) ||
+            IsPresentButEmpty(source.FirmwareVersion))
+        {
+            issues.Add("Manifest source metadata is incomplete.");
+        }
+    }
+
+    private static void ValidateDependencies(
+        IReadOnlyList<RecoveryPackageDependency> dependencies,
+        List<string> issues)
+    {
+        foreach (var dependency in dependencies)
+        {
+            if (dependency is null ||
+                IsMissing(dependency.Kind) ||
+                IsMissing(dependency.Identity) ||
+                IsPresentButEmpty(dependency.Version))
+            {
+                issues.Add("Manifest contains invalid dependency metadata.");
+            }
+        }
+    }
+
+    private static void ValidateRelationships(
+        IReadOnlyList<RecoveryPackageRelationship> relationships,
+        List<string> issues)
+    {
+        foreach (var relationship in relationships)
+        {
+            if (relationship is null ||
+                IsMissing(relationship.SourceIdentity) ||
+                IsMissing(relationship.Relationship) ||
+                IsMissing(relationship.TargetIdentity))
+            {
+                issues.Add("Manifest contains invalid relationship metadata.");
+            }
+        }
+    }
+
+    private static void ValidateRequiredStrings(
+        IReadOnlyList<string> values,
+        string field,
+        List<string> issues)
+    {
+        if (values.Any(IsMissing))
+        {
+            issues.Add($"Manifest contains an invalid {field}.");
+        }
+    }
+
+    private static void ValidateCompatibilityRules(
+        IReadOnlyList<RecoveryPackageCompatibilityRule> rules,
+        List<string> issues)
+    {
+        foreach (var rule in rules)
+        {
+            if (rule is null || IsMissing(rule.Kind) || IsMissing(rule.Requirement))
+            {
+                issues.Add("Manifest contains invalid compatibility metadata.");
+            }
+        }
+    }
+
+    private static void ValidateVerificationRecords(
+        IReadOnlyList<RecoveryPackageVerificationRecord> records,
+        List<string> issues)
+    {
+        foreach (var record in records)
+        {
+            if (record is null ||
+                IsMissing(record.Level) ||
+                record.VerifiedAt == default ||
+                IsMissing(record.Evidence))
+            {
+                issues.Add("Manifest contains invalid verification metadata.");
+            }
+        }
+    }
+
     private static void ValidateLayout(
         string packagePath,
         RecoveryPackageManifest manifest,
@@ -227,11 +351,16 @@ public sealed class RecoveryPackageVerifier
             {
                 var relativePath = Path.GetRelativePath(contentPath, path)
                     .Replace(Path.DirectorySeparatorChar, '/');
-                if (IsLink(path))
+                var attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
                 {
                     issues.Add($"Package content cannot contain links: {relativePath}");
                 }
-                else if (Directory.Exists(path))
+                else if ((attributes & FileAttributes.Device) != 0)
+                {
+                    issues.Add($"Package content must be regular: {relativePath}");
+                }
+                else if ((attributes & FileAttributes.Directory) != 0)
                 {
                     if (!expectedDirectories.Contains(relativePath))
                     {
@@ -274,9 +403,10 @@ public sealed class RecoveryPackageVerifier
             return false;
         }
 
-        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var segments = path.Split('/');
         return segments.Length > 0 &&
-            segments.All(segment => segment is not "." and not "..");
+            segments.All(segment =>
+                !string.IsNullOrEmpty(segment) && segment is not "." and not "..");
     }
 
     private static IEnumerable<string> GetParentPaths(string relativePath)
@@ -291,6 +421,11 @@ public sealed class RecoveryPackageVerifier
 
     private static bool IsSha256(string? value) =>
         value is { Length: 64 } && value.All(Uri.IsHexDigit);
+
+    private static bool IsMissing(string? value) => string.IsNullOrWhiteSpace(value);
+
+    private static bool IsPresentButEmpty(string? value) =>
+        value is not null && string.IsNullOrWhiteSpace(value);
 
     private static bool IsLink(string path) =>
         (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;

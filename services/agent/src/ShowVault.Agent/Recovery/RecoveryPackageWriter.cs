@@ -393,7 +393,7 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
         Directory.Delete(stagingPath, recursive: true);
     }
 
-    private static string ResolvePackageDirectory(AgentOptions options)
+    internal static string ResolvePackageDirectory(AgentOptions options)
     {
         if (!string.IsNullOrWhiteSpace(options.PackageDirectory))
         {

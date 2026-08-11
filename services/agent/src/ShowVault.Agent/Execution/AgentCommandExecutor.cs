@@ -222,12 +222,13 @@ public sealed class AgentCommandExecutor(
         string evidenceSha256;
         if (storedVerification is null)
         {
+            var verifiedAt = timeProvider.GetUtcNow();
             result = await packageVerifier.VerifyAsync(
                 command.CommandId,
                 identity.AgentId,
                 package.PackageId,
                 package.PackagePath,
-                command.IssuedAt,
+                verifiedAt,
                 cancellationToken);
             resultJson = RecoveryPackageVerifier.Serialize(result);
             evidenceSha256 = Convert.ToHexStringLower(
@@ -237,7 +238,7 @@ public sealed class AgentCommandExecutor(
                 package.PackageId,
                 resultJson,
                 evidenceSha256,
-                command.IssuedAt,
+                verifiedAt,
                 cancellationToken);
         }
         else
@@ -274,6 +275,7 @@ public sealed class AgentCommandExecutor(
             identity,
             command,
             AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Running,
             LocalAgentCommandStatus.Completed,
             JsonSerializer.Serialize(
                 new

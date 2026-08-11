@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
+using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using ShowVault.Agent.Plugins;
 using ShowVault.Agent.Recovery;
@@ -25,7 +27,7 @@ public sealed class RecoveryPackageVerifierTests : IAsyncLifetime
     {
         var package = await CreatePackageAsync();
 
-        var result = await new RecoveryPackageVerifier().VerifyAsync(
+        var result = await CreateVerifier().VerifyAsync(
             Guid.NewGuid(),
             package.Manifest.AgentId,
             package.PackageId,
@@ -51,7 +53,7 @@ public sealed class RecoveryPackageVerifierTests : IAsyncLifetime
         File.SetAttributes(contentPath, FileAttributes.Normal);
         await File.WriteAllTextAsync(contentPath, "tampered-content");
 
-        var result = await new RecoveryPackageVerifier().VerifyAsync(
+        var result = await CreateVerifier().VerifyAsync(
             Guid.NewGuid(),
             package.Manifest.AgentId,
             package.PackageId,
@@ -77,7 +79,7 @@ public sealed class RecoveryPackageVerifierTests : IAsyncLifetime
             RecoveryPackageFormat.ContentDirectoryName,
             "unexpected.txt"), "unexpected");
 
-        var result = await new RecoveryPackageVerifier().VerifyAsync(
+        var result = await CreateVerifier().VerifyAsync(
             Guid.NewGuid(),
             package.Manifest.AgentId,
             package.PackageId,
@@ -103,7 +105,7 @@ public sealed class RecoveryPackageVerifierTests : IAsyncLifetime
         File.SetAttributes(manifestPath, FileAttributes.Normal);
         await File.WriteAllTextAsync(manifestPath, "{}");
 
-        var result = await new RecoveryPackageVerifier().VerifyAsync(
+        var result = await CreateVerifier().VerifyAsync(
             Guid.NewGuid(),
             package.Manifest.AgentId,
             package.PackageId,
@@ -114,6 +116,168 @@ public sealed class RecoveryPackageVerifierTests : IAsyncLifetime
         Assert.False(result.Passed);
         Assert.False(result.Levels.Single(level => level.Level == "structural").Passed);
         Assert.False(result.Levels.Single(level => level.Level == "cryptographic").Passed);
+    }
+
+    [Fact]
+    public async Task Manifest_missing_required_source_metadata_fails_verification()
+    {
+        var package = await CreatePackageAsync();
+        var incompleteManifest = package.Manifest with
+        {
+            Source = new RecoveryPackageSource(null!, null!, null!, null, null)
+        };
+        package = await RewriteManifestAsync(package, incompleteManifest);
+
+        var result = await CreateVerifier().VerifyAsync(
+            Guid.NewGuid(),
+            package.Manifest.AgentId,
+            package.PackageId,
+            package.PackagePath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains(
+            result.Levels.Single(level => level.Level == "structural").Evidence,
+            evidence => evidence.Contains("source metadata", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Package_outside_configured_store_fails_verification()
+    {
+        var package = await CreatePackageAsync();
+        var outsideRoot = Path.Combine(_testRoot, "outside-package-store");
+        Directory.CreateDirectory(outsideRoot);
+        var outsidePath = Path.Combine(outsideRoot, package.PackageId);
+        Directory.Move(package.PackagePath, outsidePath);
+
+        var result = await CreateVerifier().VerifyAsync(
+            Guid.NewGuid(),
+            package.Manifest.AgentId,
+            package.PackageId,
+            outsidePath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains(
+            result.Levels.Single(level => level.Level == "structural").Evidence,
+            evidence => evidence.Contains("configured package store", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Linked_package_directory_fails_without_inspecting_its_target()
+    {
+        var package = await CreatePackageAsync();
+        var outsideRoot = Path.Combine(_testRoot, "linked-package-target");
+        Directory.CreateDirectory(outsideRoot);
+        var targetPath = Path.Combine(outsideRoot, package.PackageId);
+        Directory.Move(package.PackagePath, targetPath);
+        Directory.CreateSymbolicLink(package.PackagePath, targetPath);
+
+        var result = await CreateVerifier().VerifyAsync(
+            Guid.NewGuid(),
+            package.Manifest.AgentId,
+            package.PackageId,
+            package.PackagePath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Equal(
+            ["Package directory cannot be a filesystem link."],
+            result.Levels.Single(level => level.Level == "structural").Evidence);
+        Assert.Contains(
+            "could not be evaluated",
+            result.Levels.Single(level => level.Level == "cryptographic").Evidence[0],
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Missing_content_fails_exact_layout_verification()
+    {
+        var package = await CreatePackageAsync();
+        var contentPath = Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "main.show");
+        File.SetAttributes(contentPath, FileAttributes.Normal);
+        File.Delete(contentPath);
+
+        var result = await CreateVerifier().VerifyAsync(
+            Guid.NewGuid(),
+            package.Manifest.AgentId,
+            package.PackageId,
+            package.PackagePath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains(
+            result.Levels.Single(level => level.Level == "structural").Evidence,
+            evidence => evidence.Contains("Missing package file", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Linked_content_fails_without_hashing_its_target()
+    {
+        var package = await CreatePackageAsync();
+        var contentPath = Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "main.show");
+        var externalPath = Path.Combine(_testRoot, "external.show");
+        File.SetAttributes(contentPath, FileAttributes.Normal);
+        File.Move(contentPath, externalPath);
+        File.CreateSymbolicLink(contentPath, externalPath);
+
+        var result = await CreateVerifier().VerifyAsync(
+            Guid.NewGuid(),
+            package.Manifest.AgentId,
+            package.PackageId,
+            package.PackagePath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains(
+            result.Levels.Single(level => level.Level == "structural").Evidence,
+            evidence => evidence.Contains("cannot contain links", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Non_regular_content_fails_verification()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var package = await CreatePackageAsync();
+        var socketPath = Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "local.sock");
+        var boundSocketPath = Path.Combine("/tmp", $"sv-{Guid.NewGuid():N}.sock");
+        using var socket = new Socket(
+            AddressFamily.Unix,
+            SocketType.Stream,
+            ProtocolType.Unspecified);
+        socket.Bind(new UnixDomainSocketEndPoint(boundSocketPath));
+        File.Move(boundSocketPath, socketPath);
+
+        var result = await CreateVerifier().VerifyAsync(
+            Guid.NewGuid(),
+            package.Manifest.AgentId,
+            package.PackageId,
+            package.PackagePath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        Assert.False(result.Passed);
+        Assert.Contains(
+            result.Levels.Single(level => level.Level == "structural").Evidence,
+            evidence => evidence.Contains("local.sock", StringComparison.Ordinal));
     }
 
     public Task DisposeAsync()
@@ -165,5 +329,30 @@ public sealed class RecoveryPackageVerifierTests : IAsyncLifetime
             discovery,
             DateTimeOffset.UtcNow,
             CancellationToken.None);
+    }
+
+    private RecoveryPackageVerifier CreateVerifier() => new(Options.Create(new AgentOptions
+    {
+        ControlPlaneUri = new Uri("https://control.test"),
+        Name = "Test Agent",
+        PackageDirectory = Path.Combine(_testRoot, "packages")
+    }));
+
+    private static async Task<CreatedRecoveryPackage> RewriteManifestAsync(
+        CreatedRecoveryPackage package,
+        RecoveryPackageManifest manifest)
+    {
+        var manifestPath = Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ManifestFileName);
+        File.SetAttributes(manifestPath, FileAttributes.Normal);
+        var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(
+            manifest,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        await File.WriteAllBytesAsync(manifestPath, manifestBytes);
+        var packageId = Convert.ToHexStringLower(SHA256.HashData(manifestBytes));
+        var packagePath = Path.Combine(Path.GetDirectoryName(package.PackagePath)!, packageId);
+        Directory.Move(package.PackagePath, packagePath);
+        return new CreatedRecoveryPackage(packageId, packagePath, manifest);
     }
 }
