@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ShowVault.Api.Contracts;
@@ -13,6 +12,9 @@ namespace ShowVault.Api.Endpoints;
 
 public static class AgentCommunicationEndpoints
 {
+    private const int MaxCommandsPerPoll = 25;
+    private const int MaxCommandCandidatesPerPoll = 50;
+
     public static IEndpointRouteBuilder MapAgentCommunicationEndpoints(
         this IEndpointRouteBuilder endpoints)
     {
@@ -127,34 +129,33 @@ public static class AgentCommunicationEndpoints
             return Results.Forbid();
         }
 
-        if (request.ValidForSeconds is < 1 or > 3600 || request.Payload.Length > 262_144)
+        if (request.ValidForSeconds is < 1 or > 3600)
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
                 [nameof(request.ValidForSeconds)] =
-                    ["Command validity must be between 1 and 3600 seconds and payloads at most 256 KiB."]
+                    ["Command validity must be between 1 and 3600 seconds."]
             });
         }
 
-        try
-        {
-            using var _ = JsonDocument.Parse(request.Payload);
-        }
-        catch (JsonException)
+        var issuedAt = timeProvider.GetUtcNow();
+        var envelope = new AgentCommandEnvelope(
+            Guid.NewGuid(),
+            agentId,
+            request.Type,
+            AgentProtocol.Version,
+            issuedAt,
+            issuedAt.AddSeconds(request.ValidForSeconds),
+            context.TraceIdentifier,
+            request.Payload);
+        if (!AgentCommandValidation.TryValidate(envelope, out var validationError))
         {
             return Results.ValidationProblem(new Dictionary<string, string[]>
             {
-                [nameof(request.Payload)] = ["Command payload must be valid JSON."]
+                ["command"] = [validationError]
             });
         }
 
-        var envelope = AgentCommandEnvelope.Create(
-            agentId,
-            request.Type,
-            context.TraceIdentifier,
-            request.Payload,
-            timeProvider.GetUtcNow(),
-            TimeSpan.FromSeconds(request.ValidForSeconds));
         database.IssuedAgentCommands.Add(IssuedAgentCommand.FromEnvelope(envelope));
         await database.SaveChangesAsync(cancellationToken);
         return Results.Accepted(
@@ -175,9 +176,37 @@ public static class AgentCommunicationEndpoints
         }
 
         var now = timeProvider.GetUtcNow();
-        var pendingCommands = await database.IssuedAgentCommands
+        var candidates = await database.IssuedAgentCommands
             .Where(command => command.AgentId == agentId &&
                 command.Status == IssuedAgentCommandStatus.Pending)
+            .OrderBy(command => command.CommandId)
+            .Take(MaxCommandCandidatesPerPoll)
+            .ToListAsync(cancellationToken);
+        var expiredCommands = candidates
+            .Where(command => command.ExpiresAt <= now)
+            .ToList();
+        foreach (var expiredCommand in expiredCommands)
+        {
+            expiredCommand.Expire();
+        }
+
+        if (expiredCommands.Count > 0)
+        {
+            try
+            {
+                await database.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                database.ChangeTracker.Clear();
+            }
+        }
+
+        var commands = candidates
+            .Where(command => command.Status == IssuedAgentCommandStatus.Pending &&
+                command.ExpiresAt > now)
+            .OrderBy(command => command.IssuedAt)
+            .Take(MaxCommandsPerPoll)
             .Select(command => new AgentCommandEnvelope(
                 command.CommandId,
                 command.AgentId,
@@ -187,11 +216,6 @@ public static class AgentCommunicationEndpoints
                 command.ExpiresAt,
                 command.CorrelationId,
                 command.Payload))
-            .ToListAsync(cancellationToken);
-        var commands = pendingCommands
-            .Where(command => command.ExpiresAt > now)
-            .OrderBy(command => command.IssuedAt)
-            .Take(25)
             .ToList();
         return Results.Ok(ApiResponse<IReadOnlyList<AgentCommandEnvelope>>.Success(
             commands,
@@ -218,7 +242,10 @@ public static class AgentCommunicationEndpoints
             return Results.NotFound();
         }
 
-        command.Acknowledge(timeProvider.GetUtcNow());
+        if (!command.Acknowledge(timeProvider.GetUtcNow()))
+        {
+            return Results.Conflict();
+        }
         try
         {
             await database.SaveChangesAsync(cancellationToken);

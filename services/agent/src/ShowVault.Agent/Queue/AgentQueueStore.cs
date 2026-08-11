@@ -158,6 +158,11 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
+        if (!AgentCommandValidation.TryValidate(envelope, out var validationError))
+        {
+            throw new ArgumentException(validationError, nameof(envelope));
+        }
+
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();

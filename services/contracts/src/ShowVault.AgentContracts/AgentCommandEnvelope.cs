@@ -26,22 +26,7 @@ public sealed record AgentCommandEnvelope(
         DateTimeOffset issuedAt,
         TimeSpan validity)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(correlationId);
-        ArgumentNullException.ThrowIfNull(payload);
-
-        if (agentId == Guid.Empty)
-        {
-            throw new ArgumentException("Agent ID must not be empty.", nameof(agentId));
-        }
-
-        if (validity <= TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(validity),
-                "Command validity must be positive.");
-        }
-
-        return new AgentCommandEnvelope(
+        var envelope = new AgentCommandEnvelope(
             Guid.NewGuid(),
             agentId,
             type,
@@ -50,5 +35,11 @@ public sealed record AgentCommandEnvelope(
             issuedAt.Add(validity),
             correlationId,
             payload);
+        if (!AgentCommandValidation.TryValidate(envelope, out var error))
+        {
+            throw new ArgumentException(error);
+        }
+
+        return envelope;
     }
 }

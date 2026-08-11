@@ -17,12 +17,13 @@ The SQLite database contains operational queue data only. Agent credentials rema
 ## Current command flow
 
 1. An authorized organization owner, administrator, or manager issues a typed command for an active Agent in one of that organization's venues.
-2. The control plane validates the JSON payload and validity window, then persists the versioned envelope in PostgreSQL.
-3. The authenticated Agent polls up to 25 pending, unexpired commands.
-4. The Agent rejects envelopes with a different Agent ID, unsupported protocol version, or expired validity window.
+2. Shared validation bounds command identity, type, protocol, validity, correlation ID, JSON depth, and UTF-8 payload size before PostgreSQL persistence.
+3. The authenticated Agent reads a database-bounded candidate window, marks expired commands durably, and returns at most 25 pending, unexpired commands.
+4. The Agent repeats shared validation and rejects envelopes with a different Agent ID or an already expired validity window.
 5. Each valid envelope is inserted idempotently into local SQLite before the Agent acknowledges it.
 6. The control plane records acknowledgement idempotently and omits acknowledged commands from later polls.
 7. Local command transitions use conditional updates. The allowed transitions are `pending` to `running` or `cancelled`, and `running` to `completed`, `failed`, or `cancelled`.
+8. Transport, non-shutdown timeout, and malformed-success-response failures are logged only as bounded categories and retried on a later polling cycle.
 
 This provides at-least-once delivery with local deduplication: a lost acknowledgement can cause another poll, but it cannot create a second local command.
 

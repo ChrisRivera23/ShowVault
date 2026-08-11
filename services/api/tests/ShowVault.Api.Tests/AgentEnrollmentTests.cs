@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
 using ShowVault.AgentContracts;
+using ShowVault.Platform.Agents;
 using Xunit;
 
 namespace ShowVault.Api.Tests;
@@ -124,6 +125,25 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
             new IssueAgentCommandRequest(AgentCommandType.StartDiscovery, "{}"));
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenCommand.StatusCode);
 
+        var undefinedCommand = await ownerClient.PostAsJsonAsync(
+            $"/api/v1/organizations/{organizationId}/venues/{venueId}/agents/{enrolledAgent.Payload.AgentId}/commands",
+            new IssueAgentCommandRequest((AgentCommandType)999, "{}"));
+        var nullPayloadCommand = await ownerClient.PostAsJsonAsync(
+            $"/api/v1/organizations/{organizationId}/venues/{venueId}/agents/{enrolledAgent.Payload.AgentId}/commands",
+            new IssueAgentCommandRequest(AgentCommandType.StartDiscovery, null!));
+        var oversizedUtf8Command = await ownerClient.PostAsJsonAsync(
+            $"/api/v1/organizations/{organizationId}/venues/{venueId}/agents/{enrolledAgent.Payload.AgentId}/commands",
+            new IssueAgentCommandRequest(
+                AgentCommandType.StartDiscovery,
+                $"\"{new string('é', AgentCommandValidation.MaxPayloadUtf8Bytes / 2)}\""));
+        var invalidJsonCommand = await ownerClient.PostAsJsonAsync(
+            $"/api/v1/organizations/{organizationId}/venues/{venueId}/agents/{enrolledAgent.Payload.AgentId}/commands",
+            new IssueAgentCommandRequest(AgentCommandType.StartDiscovery, "not-json"));
+        Assert.Equal(HttpStatusCode.BadRequest, undefinedCommand.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, nullPayloadCommand.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, oversizedUtf8Command.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidJsonCommand.StatusCode);
+
         var issueCommand = await ownerClient.PostAsJsonAsync(
             $"/api/v1/organizations/{organizationId}/venues/{venueId}/agents/{enrolledAgent.Payload.AgentId}/commands",
             new IssueAgentCommandRequest(AgentCommandType.StartDiscovery, "{\"scope\":\"local\"}"));
@@ -132,11 +152,45 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
             ApiResponse<AgentCommandEnvelope>>();
         Assert.NotNull(issuedCommand);
 
+        var expiredIssuedAt = DateTimeOffset.UtcNow.AddMinutes(-2);
+        var expiredCommand = new AgentCommandEnvelope(
+            Guid.NewGuid(),
+            enrolledAgent.Payload.AgentId,
+            AgentCommandType.StartDiscovery,
+            AgentProtocol.Version,
+            expiredIssuedAt,
+            expiredIssuedAt.AddMinutes(1),
+            "expired-command",
+            "{}");
+        using (var scope = factory.Services.CreateScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            database.IssuedAgentCommands.Add(IssuedAgentCommand.FromEnvelope(expiredCommand));
+            await database.SaveChangesAsync();
+        }
+
         var poll = await agentClient.GetFromJsonAsync<
             ApiResponse<IReadOnlyList<AgentCommandEnvelope>>>("/api/v1/agent-commands");
         Assert.NotNull(poll);
         Assert.Contains(poll.Payload, command =>
             command.CommandId == issuedCommand.Payload.CommandId);
+        Assert.DoesNotContain(poll.Payload, command =>
+            command.CommandId == expiredCommand.CommandId);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            Assert.Equal(
+                IssuedAgentCommandStatus.Expired,
+                await database.IssuedAgentCommands
+                    .Where(command => command.CommandId == expiredCommand.CommandId)
+                    .Select(command => command.Status)
+                    .SingleAsync());
+        }
+
+        var expiredAcknowledgement = await agentClient.PostAsync(
+            $"/api/v1/agent-commands/{expiredCommand.CommandId}/acknowledge",
+            null);
+        Assert.Equal(HttpStatusCode.Conflict, expiredAcknowledgement.StatusCode);
 
         var firstAcknowledgement = await agentClient.PostAsync(
             $"/api/v1/agent-commands/{issuedCommand.Payload.CommandId}/acknowledge",

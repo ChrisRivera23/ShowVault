@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ShowVault.Agent.Identity;
 using ShowVault.Agent.Queue;
 using ShowVault.AgentContracts;
@@ -21,11 +22,11 @@ public sealed class AgentCommandPoller(
             {
                 var now = timeProvider.GetUtcNow();
                 if (command.AgentId != identity.AgentId ||
-                    command.ProtocolVersion != AgentProtocol.Version ||
+                    !AgentCommandValidation.TryValidate(command, out _) ||
                     command.ExpiresAt <= now)
                 {
                     logger.LogWarning(
-                        "Rejected command {CommandId} with invalid identity, protocol, or expiry",
+                        "Rejected command {CommandId} with invalid envelope, identity, or expiry",
                         command.CommandId);
                     continue;
                 }
@@ -37,9 +38,20 @@ public sealed class AgentCommandPoller(
                     cancellationToken);
             }
         }
-        catch (HttpRequestException exception)
+        catch (HttpRequestException)
         {
-            logger.LogWarning(exception, "Agent command polling failed; the next cycle will retry");
+            logger.LogWarning(
+                "Agent command polling failed with transport-response; the next cycle will retry");
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(
+                "Agent command polling failed with timeout; the next cycle will retry");
+        }
+        catch (Exception exception) when (exception is JsonException or NotSupportedException)
+        {
+            logger.LogWarning(
+                "Agent command polling failed with malformed-response; the next cycle will retry");
         }
     }
 }

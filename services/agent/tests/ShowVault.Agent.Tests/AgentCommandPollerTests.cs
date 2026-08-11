@@ -51,6 +51,10 @@ public sealed class AgentCommandPollerTests : IAsyncLifetime
     [InlineData("wrong-agent")]
     [InlineData("wrong-protocol")]
     [InlineData("expired")]
+    [InlineData("unknown-type")]
+    [InlineData("invalid-json")]
+    [InlineData("oversized-payload")]
+    [InlineData("excessive-validity")]
     public async Task Invalid_command_is_not_persisted_or_acknowledged(string invalidCase)
     {
         var now = DateTimeOffset.UtcNow;
@@ -68,6 +72,13 @@ public sealed class AgentCommandPollerTests : IAsyncLifetime
             "wrong-agent" => command with { AgentId = Guid.NewGuid() },
             "wrong-protocol" => command with { ProtocolVersion = "999" },
             "expired" => command with { ExpiresAt = now },
+            "unknown-type" => command with { Type = (AgentCommandType)999 },
+            "invalid-json" => command with { Payload = "not-json" },
+            "oversized-payload" => command with
+            {
+                Payload = $"\"{new string('é', AgentCommandValidation.MaxPayloadUtf8Bytes / 2)}\""
+            },
+            "excessive-validity" => command with { ExpiresAt = now.AddHours(2) },
             _ => command
         };
         var store = CreateStore();
@@ -78,6 +89,50 @@ public sealed class AgentCommandPollerTests : IAsyncLifetime
 
         Assert.Empty(await store.GetPendingCommandsAsync(CancellationToken.None));
         Assert.Equal(0, handler.AcknowledgementCount);
+    }
+
+    [Fact]
+    public async Task Malformed_success_response_is_contained_for_next_cycle()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var identity = new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential");
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+
+        await CreatePoller(store, new MalformedPollHandler(), now)
+            .PollOnceAsync(identity, CancellationToken.None);
+
+        Assert.Empty(await store.GetPendingCommandsAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Non_shutdown_timeout_is_contained_for_next_cycle()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var identity = new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential");
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+
+        await CreatePoller(store, new TimeoutPollHandler(), now)
+            .PollOnceAsync(identity, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Shutdown_cancellation_is_not_swallowed()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var identity = new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential");
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            CreatePoller(store, new TimeoutPollHandler(), now)
+                .PollOnceAsync(identity, cancellation.Token));
     }
 
     public Task DisposeAsync()
@@ -139,5 +194,24 @@ public sealed class AgentCommandPollerTests : IAsyncLifetime
             await onAcknowledge();
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         }
+    }
+
+    private sealed class MalformedPollHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{", Encoding.UTF8, "application/json")
+            });
+    }
+
+    private sealed class TimeoutPollHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken) =>
+            throw new TaskCanceledException();
     }
 }

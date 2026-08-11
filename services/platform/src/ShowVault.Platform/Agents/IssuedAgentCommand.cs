@@ -5,7 +5,8 @@ namespace ShowVault.Platform.Agents;
 public enum IssuedAgentCommandStatus
 {
     Pending,
-    Acknowledged
+    Acknowledged,
+    Expired
 }
 
 public sealed class IssuedAgentCommand
@@ -42,8 +43,14 @@ public sealed class IssuedAgentCommand
     public IssuedAgentCommandStatus Status { get; private set; }
     public DateTimeOffset? AcknowledgedAt { get; private set; }
 
-    public static IssuedAgentCommand FromEnvelope(AgentCommandEnvelope envelope) =>
-        new(
+    public static IssuedAgentCommand FromEnvelope(AgentCommandEnvelope envelope)
+    {
+        if (!AgentCommandValidation.TryValidate(envelope, out var validationError))
+        {
+            throw new ArgumentException(validationError, nameof(envelope));
+        }
+
+        return new(
             envelope.CommandId,
             envelope.AgentId,
             envelope.Type,
@@ -52,6 +59,7 @@ public sealed class IssuedAgentCommand
             envelope.ExpiresAt,
             envelope.CorrelationId,
             envelope.Payload);
+    }
 
     public AgentCommandEnvelope ToEnvelope() =>
         new(
@@ -64,14 +72,31 @@ public sealed class IssuedAgentCommand
             CorrelationId,
             Payload);
 
-    public void Acknowledge(DateTimeOffset acknowledgedAt)
+    public bool Acknowledge(DateTimeOffset acknowledgedAt)
     {
         if (Status == IssuedAgentCommandStatus.Acknowledged)
         {
-            return;
+            return true;
+        }
+
+        if (Status != IssuedAgentCommandStatus.Pending)
+        {
+            return false;
         }
 
         Status = IssuedAgentCommandStatus.Acknowledged;
         AcknowledgedAt = acknowledgedAt;
+        return true;
+    }
+
+    public bool Expire()
+    {
+        if (Status != IssuedAgentCommandStatus.Pending)
+        {
+            return false;
+        }
+
+        Status = IssuedAgentCommandStatus.Expired;
+        return true;
     }
 }

@@ -73,6 +73,30 @@ public sealed class AgentQueueStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Invalid_command_is_rejected_before_queue_persistence()
+    {
+        var command = AgentCommandEnvelope.Create(
+            Guid.NewGuid(),
+            AgentCommandType.StartDiscovery,
+            "correlation-invalid-command",
+            "{}",
+            TimeSpan.FromMinutes(5)) with
+        {
+            Type = (AgentCommandType)999
+        };
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            store.EnqueueCommandAsync(
+                command,
+                DateTimeOffset.UtcNow,
+                CancellationToken.None));
+
+        Assert.Empty(await store.GetPendingCommandsAsync(CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Command_state_transitions_are_conditional_and_survive_restart()
     {
         var command = AgentCommandEnvelope.Create(
