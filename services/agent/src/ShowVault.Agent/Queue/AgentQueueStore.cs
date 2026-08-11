@@ -237,6 +237,27 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
         return await command.ExecuteNonQueryAsync(cancellationToken) == 1;
     }
 
+    public async Task<bool> TryStartCommandAsync(
+        Guid commandId,
+        DateTimeOffset expiresAt,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE command_queue SET status = 'running', updated_at = $now
+            WHERE command_id = $commandId
+                AND status = 'pending'
+                AND $expiresAt > $now;
+            """;
+        command.Parameters.AddWithValue("$commandId", commandId.ToString());
+        command.Parameters.AddWithValue("$expiresAt", Format(expiresAt));
+        command.Parameters.AddWithValue("$now", Format(now));
+        return await command.ExecuteNonQueryAsync(cancellationToken) == 1;
+    }
+
     public async Task StoreDiscoveryResultAsync(
         Guid commandId,
         string resultJson,
@@ -350,9 +371,11 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
         {
             (LocalAgentCommandStatus.Pending, LocalAgentCommandStatus.Running) => true,
             (LocalAgentCommandStatus.Pending, LocalAgentCommandStatus.Cancelled) => true,
+            (LocalAgentCommandStatus.Pending, LocalAgentCommandStatus.Expired) => true,
             (LocalAgentCommandStatus.Running, LocalAgentCommandStatus.Completed) => true,
             (LocalAgentCommandStatus.Running, LocalAgentCommandStatus.Failed) => true,
             (LocalAgentCommandStatus.Running, LocalAgentCommandStatus.Cancelled) => true,
+            (LocalAgentCommandStatus.Running, LocalAgentCommandStatus.Expired) => true,
             _ => false
         };
 }
@@ -365,5 +388,6 @@ public enum LocalAgentCommandStatus
     Running,
     Completed,
     Failed,
-    Cancelled
+    Cancelled,
+    Expired
 }

@@ -136,6 +136,32 @@ public sealed class AgentQueueStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Command_start_transition_atomically_rejects_expiry_boundary()
+    {
+        var issuedAt = DateTimeOffset.UtcNow;
+        var command = AgentCommandEnvelope.Create(
+            Guid.NewGuid(),
+            AgentCommandType.StartDiscovery,
+            "correlation-expiry-boundary",
+            "{}",
+            issuedAt,
+            TimeSpan.FromSeconds(1));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, issuedAt, CancellationToken.None);
+
+        Assert.False(await store.TryStartCommandAsync(
+            command.CommandId,
+            command.ExpiresAt,
+            command.ExpiresAt,
+            CancellationToken.None));
+        Assert.Single(await store.GetPendingCommandsAsync(CancellationToken.None));
+        Assert.Empty(await store.GetCommandsAsync(
+            LocalAgentCommandStatus.Running,
+            CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Failed_delivery_remains_durable_until_retry_succeeds()
     {
         var now = DateTimeOffset.UtcNow;

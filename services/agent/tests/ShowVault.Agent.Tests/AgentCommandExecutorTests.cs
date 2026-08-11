@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using ShowVault.Agent.Execution;
@@ -65,10 +66,12 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.Equal(AgentEventType.JobCompleted, outcome.Type);
         Assert.Equal(command.CorrelationId, outcome.CorrelationId);
         Assert.Contains("fileCount", outcome.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain(discoveryRoot, outcome.Payload, StringComparison.Ordinal);
         var resultJson = await store.GetDiscoveryResultJsonAsync(
             command.CommandId,
             CancellationToken.None);
         Assert.Contains("console.show", resultJson, StringComparison.Ordinal);
+        Assert.Contains(discoveryRoot, resultJson, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -98,7 +101,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             CancellationToken.None));
 
         var restartedStore = CreateStore();
-        await CreateExecutor(restartedStore, now).ExecutePendingOnceAsync(
+        var logger = new CapturingLogger();
+        await CreateExecutor(restartedStore, now, logger).ExecutePendingOnceAsync(
             new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
             CancellationToken.None);
 
@@ -109,7 +113,145 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             now.AddMinutes(1),
             10,
             CancellationToken.None);
-        Assert.Equal(AgentEventType.JobFailed, Assert.Single(events).Envelope.Type);
+        var outcome = Assert.Single(events).Envelope;
+        Assert.Equal(AgentEventType.JobFailed, outcome.Type);
+        Assert.Equal("{\"error\":\"discovery-root-unavailable\"}", outcome.Payload);
+        Assert.DoesNotContain(_testRoot, outcome.Payload, StringComparison.Ordinal);
+        Assert.All(
+            logger.Messages,
+            message => Assert.DoesNotContain(_testRoot, message, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Expired_pending_command_is_terminal_without_plugin_execution()
+    {
+        var issuedAt = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var command = CreateDiscoveryCommand(agentId, issuedAt, TimeSpan.FromSeconds(1));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, issuedAt, CancellationToken.None);
+
+        await CreateExecutor(store, issuedAt.AddMinutes(1)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+        await CreateExecutor(store, issuedAt.AddMinutes(2)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+
+        Assert.Single(await store.GetCommandsAsync(
+            LocalAgentCommandStatus.Expired,
+            CancellationToken.None));
+        Assert.Null(await store.GetDiscoveryResultJsonAsync(command.CommandId, CancellationToken.None));
+        var outcome = Assert.Single(await store.GetPendingEventsAsync(
+            issuedAt.AddMinutes(2),
+            10,
+            CancellationToken.None)).Envelope;
+        Assert.Equal(AgentEventType.JobFailed, outcome.Type);
+        Assert.Equal("{\"error\":\"command-expired\"}", outcome.Payload);
+    }
+
+    [Fact]
+    public async Task Expired_running_command_is_terminal_after_restart_without_resuming_plugin()
+    {
+        var issuedAt = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var command = CreateDiscoveryCommand(agentId, issuedAt, TimeSpan.FromSeconds(1));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, issuedAt, CancellationToken.None);
+        Assert.True(await store.TryStartCommandAsync(
+            command.CommandId,
+            command.ExpiresAt,
+            issuedAt,
+            CancellationToken.None));
+
+        var restartedStore = CreateStore();
+        await CreateExecutor(restartedStore, issuedAt.AddMinutes(1)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+        await CreateExecutor(restartedStore, issuedAt.AddMinutes(2)).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+
+        Assert.Single(await restartedStore.GetCommandsAsync(
+            LocalAgentCommandStatus.Expired,
+            CancellationToken.None));
+        Assert.Null(await restartedStore.GetDiscoveryResultJsonAsync(
+            command.CommandId,
+            CancellationToken.None));
+        Assert.Single(await restartedStore.GetPendingEventsAsync(
+            issuedAt.AddMinutes(3),
+            10,
+            CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData("unauthorized", "discovery-not-authorized")]
+    [InlineData("missing-root", "discovery-root-unavailable")]
+    [InlineData("malformed", "invalid-command-payload")]
+    [InlineData("unknown-plugin", "command-not-executable")]
+    public async Task Failure_outcomes_and_logs_use_bounded_path_free_categories(
+        string scenario,
+        string expectedCategory)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var sensitivePath = scenario == "unauthorized"
+            ? Path.Combine(
+                Path.GetDirectoryName(_testRoot)!,
+                $"sensitive-outside-{Guid.NewGuid():N}")
+            : Path.Combine(_testRoot, "sensitive-local-path");
+        var payload = scenario switch
+        {
+            "unauthorized" => JsonSerializer.Serialize(new
+            {
+                pluginId = FileSystemDiscoveryPlugin.PluginId,
+                rootPath = sensitivePath
+            }),
+            "missing-root" => JsonSerializer.Serialize(new
+            {
+                pluginId = FileSystemDiscoveryPlugin.PluginId,
+                rootPath = sensitivePath
+            }),
+            "malformed" => JsonSerializer.Serialize(new
+            {
+                pluginId = FileSystemDiscoveryPlugin.PluginId,
+                rootPath = (string?)null,
+                marker = sensitivePath
+            }),
+            "unknown-plugin" => JsonSerializer.Serialize(new
+            {
+                pluginId = sensitivePath,
+                rootPath = _testRoot
+            }),
+            _ => throw new InvalidOperationException("Unknown test scenario.")
+        };
+        var command = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartDiscovery,
+            $"failure-{scenario}",
+            payload,
+            now,
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, now, CancellationToken.None);
+        var logger = new CapturingLogger();
+
+        await CreateExecutor(store, now, logger).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+
+        var outcome = Assert.Single(await store.GetPendingEventsAsync(
+            now.AddMinutes(1),
+            10,
+            CancellationToken.None)).Envelope;
+        Assert.Equal(JsonSerializer.Serialize(new { error = expectedCategory }), outcome.Payload);
+        Assert.DoesNotContain(sensitivePath, outcome.Payload, StringComparison.Ordinal);
+        Assert.All(
+            logger.Messages,
+            message => Assert.DoesNotContain(sensitivePath, message, StringComparison.Ordinal));
     }
 
     public Task DisposeAsync()
@@ -122,7 +264,10 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    private AgentCommandExecutor CreateExecutor(AgentQueueStore store, DateTimeOffset now)
+    private AgentCommandExecutor CreateExecutor(
+        AgentQueueStore store,
+        DateTimeOffset now,
+        ILogger<AgentCommandExecutor>? logger = null)
     {
         var timeProvider = new FixedTimeProvider(now);
         var plugin = new FileSystemDiscoveryPlugin(
@@ -137,8 +282,25 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             store,
             new DiscoveryPluginRegistry([plugin]),
             timeProvider,
-            NullLogger<AgentCommandExecutor>.Instance);
+            logger ?? NullLogger<AgentCommandExecutor>.Instance);
     }
+
+    private AgentCommandEnvelope CreateDiscoveryCommand(
+        Guid agentId,
+        DateTimeOffset issuedAt,
+        TimeSpan validity) =>
+        AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartDiscovery,
+            "expiry-correlation",
+            JsonSerializer.Serialize(new
+            {
+                pluginId = FileSystemDiscoveryPlugin.PluginId,
+                rootPath = _testRoot,
+                maxFiles = 10
+            }),
+            issuedAt,
+            validity);
 
     private AgentQueueStore CreateStore() => new(Options.Create(new AgentOptions
     {
@@ -150,5 +312,22 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private sealed class CapturingLogger : ILogger<AgentCommandExecutor>
+    {
+        public List<string> Messages { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter) =>
+            Messages.Add(formatter(state, exception));
     }
 }

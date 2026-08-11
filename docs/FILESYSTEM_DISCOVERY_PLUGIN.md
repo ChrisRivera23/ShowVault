@@ -16,7 +16,7 @@ The Agent operator must explicitly allow local roots in configuration. Remote co
 }
 ```
 
-Use absolute paths. On Windows, use values such as `D:\\ProductionData`. An empty list disables filesystem discovery. The plugin does not follow filesystem reparse points or symbolic links, and inaccessible files fail the command rather than silently producing an incomplete inventory.
+Use absolute paths. On Windows, use values such as `D:\\ProductionData`. An empty list disables filesystem discovery. Configured and requested roots must be real directories rather than filesystem links. The plugin rejects symbolic links, reparse points, and device entries encountered during traversal; inaccessible or linked content fails the command rather than silently producing an incomplete inventory.
 
 ## StartDiscovery payload
 
@@ -39,7 +39,9 @@ The plugin returns a bounded inventory with a root path, completion time, trunca
 - last-modified timestamp;
 - lowercase SHA-256 content hash.
 
-The executor stores the full result durably in local SQLite, keyed by command ID, before completing the command. It emits a compact `JobCompleted` summary containing the plugin, root, file count, and truncation flag. Invalid configuration, inaccessible content, unknown plugins, and malformed commands produce a durable `JobFailed` event. The command ID is reused as the outcome event ID so retries remain idempotent.
+The executor stores the full result, including its absolute root, durably in local SQLite keyed by command ID before completing the command. Cloud-bound outcomes are path-free: `JobCompleted` contains only the plugin, file count, and truncation flag, while `JobFailed` contains a bounded stable category rather than exception text. The command ID is reused as the outcome event ID so retries remain idempotent.
+
+Expiry is an execution-time authorization boundary as well as an ingress check. A command is atomically refused at the pending-to-running transition when its expiry is reached, and restart-resumed running work is checked again before plugin execution. Expired work records one durable path-free terminal outcome and does not create a discovery result.
 
 ## Current limits
 

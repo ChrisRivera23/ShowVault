@@ -41,7 +41,7 @@ Completed:
 - Venue Agent events and typed commands are durably queued in local SQLite.
 - Authenticated event delivery retries with stable event IDs and PostgreSQL deduplication.
 - Authorized venue managers can issue typed, expiring commands to a specific Agent.
-- Agents poll with their separate credential, validate protocol/identity/expiry, persist commands to SQLite, and only then acknowledge receipt.
+- Agents poll with their separate credential, validate protocol/identity/expiry, persist commands to SQLite, and only then acknowledge receipt. Expiry is rechecked atomically before execution and again before restart-resumed work.
 - Control-plane acknowledgements are idempotent, and local command state transitions are conditional and restart-safe.
 - The first-party filesystem discovery plugin inventories and SHA-256 hashes files only within locally allowed roots.
 - `StartDiscovery` commands execute from the durable queue, resume after restart, and emit idempotent completion or failure events.

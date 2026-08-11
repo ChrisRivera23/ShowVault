@@ -28,11 +28,24 @@ public sealed class AgentCommandExecutor(
                 continue;
             }
 
-            await queueStore.TryTransitionCommandAsync(
+            var now = timeProvider.GetUtcNow();
+            if (command.ExpiresAt <= now)
+            {
+                await RecordOutcomeAsync(
+                    identity,
+                    command,
+                    AgentEventType.JobFailed,
+                    LocalAgentCommandStatus.Pending,
+                    LocalAgentCommandStatus.Expired,
+                    JsonSerializer.Serialize(new { error = "command-expired" }, JsonOptions),
+                    cancellationToken);
+                continue;
+            }
+
+            await queueStore.TryStartCommandAsync(
                 command.CommandId,
-                LocalAgentCommandStatus.Pending,
-                LocalAgentCommandStatus.Running,
-                timeProvider.GetUtcNow(),
+                command.ExpiresAt,
+                now,
                 cancellationToken);
         }
 
@@ -43,7 +56,21 @@ public sealed class AgentCommandExecutor(
         {
             if (command.AgentId == identity.AgentId)
             {
-                await ExecuteRunningAsync(identity, command, cancellationToken);
+                if (command.ExpiresAt <= timeProvider.GetUtcNow())
+                {
+                    await RecordOutcomeAsync(
+                        identity,
+                        command,
+                        AgentEventType.JobFailed,
+                        LocalAgentCommandStatus.Running,
+                        LocalAgentCommandStatus.Expired,
+                        JsonSerializer.Serialize(new { error = "command-expired" }, JsonOptions),
+                        cancellationToken);
+                }
+                else
+                {
+                    await ExecuteRunningAsync(identity, command, cancellationToken);
+                }
             }
         }
     }
@@ -76,12 +103,12 @@ public sealed class AgentCommandExecutor(
                 identity,
                 command,
                 AgentEventType.JobCompleted,
+                LocalAgentCommandStatus.Running,
                 LocalAgentCommandStatus.Completed,
                 JsonSerializer.Serialize(
                     new
                     {
                         result.PluginId,
-                        result.RootPath,
                         fileCount = result.Files.Count,
                         result.Truncated
                     },
@@ -94,13 +121,18 @@ public sealed class AgentCommandExecutor(
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Agent command {CommandId} failed", command.CommandId);
+            var failureCategory = ClassifyFailure(exception);
+            logger.LogError(
+                "Agent command {CommandId} failed with category {FailureCategory}",
+                command.CommandId,
+                failureCategory);
             await RecordOutcomeAsync(
                 identity,
                 command,
                 AgentEventType.JobFailed,
+                LocalAgentCommandStatus.Running,
                 LocalAgentCommandStatus.Failed,
-                JsonSerializer.Serialize(new { error = exception.Message }, JsonOptions),
+                JsonSerializer.Serialize(new { error = failureCategory }, JsonOptions),
                 cancellationToken);
         }
     }
@@ -109,6 +141,7 @@ public sealed class AgentCommandExecutor(
         StoredAgentIdentity identity,
         AgentCommandEnvelope command,
         AgentEventType eventType,
+        LocalAgentCommandStatus expectedStatus,
         LocalAgentCommandStatus finalStatus,
         string payload,
         CancellationToken cancellationToken)
@@ -126,11 +159,22 @@ public sealed class AgentCommandExecutor(
             cancellationToken);
         await queueStore.TryTransitionCommandAsync(
             command.CommandId,
-            LocalAgentCommandStatus.Running,
+            expectedStatus,
             finalStatus,
             now,
             cancellationToken);
     }
+
+    private static string ClassifyFailure(Exception exception) =>
+        exception switch
+        {
+            UnauthorizedAccessException => "discovery-not-authorized",
+            DirectoryNotFoundException => "discovery-root-unavailable",
+            FileNotFoundException or IOException => "discovery-content-unavailable",
+            JsonException or ArgumentException => "invalid-command-payload",
+            InvalidOperationException => "command-not-executable",
+            _ => "command-execution-failed"
+        };
 
     private sealed record StartDiscoveryPayload(
         string PluginId,
