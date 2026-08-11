@@ -104,6 +104,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Published prepare-correction bridge head: `72ce24071784af03096574ede1f1eb2d0a8cfe7d ci: refresh Windows evidence source pin`
 - Draft prepare-correction bridge PR: `#31` (`https://github.com/ChrisRivera23/ShowVault/pull/31`), exact head `72ce24071784af03096574ede1f1eb2d0a8cfe7d`, targeting `main`
 - Green prepare-correction bridge CI: push run `31460402209` and pull-request run `31460424579`
+- Prepare-correction bridge merge commit on `main`: `efc7be24aab35312672c55a6f316f3bf18038a0f Merge pull request #31 from ChrisRivera23/codex/windows-evidence-bridge`
+- Green prepare-correction merge CI: main run `31462158741`
 - Expected worktree after the handoff commit: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Sequential catalog expansion remains paused while prototype readiness advances.
 
@@ -213,6 +215,10 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Exact bridge commit `72ce24071784af03096574ede1f1eb2d0a8cfe7d` was pushed with the verified old-head lease from `35b5d68b6a3bb5e25a3a240186b173a6582fba13` to remote `codex/windows-evidence-bridge`.
 - Draft PR #31 targets exact `main` `c039d5055799efe2995ab15463db19db8fa0079e`, changes only `.github/workflows/windows-evidence.yml` with one insertion and one deletion, and records the source/digest/validation plus separate later gates. GitHub reports it open, draft, clean, and mergeable at exact head `72ce240`.
 - Push run `31460402209` passed API job `93682611976` and Flutter job `93682612004`; pull-request run `31460424579` passed API job `93682671866` and Flutter job `93682671898`. No ready transition, merge, workflow dispatch/rerun, artifact retrieval, or equipment access occurred.
+- After exact head/base, one-file diff, source pin, digest, four-check, review-policy, and mergeability revalidation, PR #31 was marked ready and merged with the expected-head guard at exact reviewed head `72ce24071784af03096574ede1f1eb2d0a8cfe7d`.
+- Current `main` is merge commit `efc7be24aab35312672c55a6f316f3bf18038a0f`. Its parents are prior `main` `c039d5055799efe2995ab15463db19db8fa0079e` and exact bridge head `72ce24071784af03096574ede1f1eb2d0a8cfe7d`.
+- Main's workflow is byte-identical to the reviewed bridge, pins exact source `2058b5eec11ec3e755d1906d205e57fcfb879c93`, and retains SHA-256 `652c86b4f4abaca6b5b5dda57d59e00e4d6bbbd618510a2216f6dbbeae74a042`.
+- Automatic main CI run `31462158741` passed API job `93687694533` and Flutter job `93687694495`. No Windows workflow dispatch/rerun, artifact retrieval, or equipment access occurred during the merge gate.
 - Workflow provenance, independent checksum/cleanup verification, and artifact upload were skipped. GitHub reports zero artifacts. The proof runner's `finally` block is designed to attempt synthetic cleanup, uninstall, and marker-scoped workspace removal, and the ephemeral runner ended, but cleanup was not independently attested. The run was not rerun and no artifact was retrieved.
 - The native failures had two local causes. GitHub's Windows checkout used CRLF while several policy checks assumed LF-only workflow text. Restore target validation also extracted a final component using only `Platform.pathSeparator`, so mixed Windows separators could leave the full absolute path as the target name; containment comparison likewise needed Windows separator/case canonicalization.
 - Commit `2ebfe45` canonicalizes trusted workflow/policy input to LF while continuing to reject residual carriage returns and candidate substitutions. Commit `05ed93d` extracts Windows target leaf names across both separators and uses canonical Windows comparison for directory membership. These fixes are published in product source `6d6f47ac3b32041e56238060b8b2cd8e13485a2d` but have not yet been executed on Windows.
@@ -394,7 +400,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-Draft bridge PR #31 is green, cleanly mergeable, and fixed at exact reviewed head `72ce24071784af03096574ede1f1eb2d0a8cfe7d`. After explicit X4 authorization naming PR #31 and that exact head, revalidate its live head/base, one-file diff, source pin, deterministic digest, four green checks, approvals, and mergeability; mark it ready and merge only with the expected-head guard. Record the resulting `main` SHA and automatic main CI, then stop before any Windows workflow dispatch/rerun, artifact retrieval, or equipment access.
+The corrected bridge is merged and green on exact `main` `efc7be24aab35312672c55a6f316f3bf18038a0f`. After explicit X5 authorization for exactly one new manual Windows evidence run, revalidate that `main` still contains the exact reviewed workflow pin/digest, confirm no newer dispatch already exists, dispatch `Controlled Windows evidence` exactly once, record the run/attempt/job identities, and wait for completion. Never rerun a failure. Stop after recording the bounded result; artifact retrieval/attestation and equipment access remain separate gates.
 
 The next slice must satisfy these boundaries:
 
