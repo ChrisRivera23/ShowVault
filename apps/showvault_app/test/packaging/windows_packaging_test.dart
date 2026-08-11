@@ -106,6 +106,8 @@ void main() {
     expect(text, contains("'showvault.windows-proof.v1'"));
     expect(text, contains('showvault-windows-proof-[0-9a-f]{32}'));
     expect(text, contains("'--showvault-upgrade-phase', \$Phase"));
+    expect(text, contains("'--showvault-upgrade-result-file'"));
+    expect(text, contains("'showvault-upgrade-result-'"));
     expect(text, contains("[ValidateSet('prepare', 'verify', 'cleanup')]"));
     expect(text, contains("-Phase 'prepare'"));
     expect(text, contains("-Phase 'verify'"));
@@ -114,6 +116,9 @@ void main() {
     expect(text, contains('-RedirectStandardOutput \$StandardOutput'));
     expect(text, contains('-RedirectStandardError \$StandardError'));
     expect(text, contains('-Wait -PassThru'));
+    expect(text, contains('ResultLines = \$ResultLines'));
+    expect(text, contains('\$Result.ResultLines | Where-Object'));
+    expect(text, contains('\$VerifyResult.ResultLines | Where-Object'));
     expect(text, isNot(contains('@(& \$InstalledExecutable')));
     expect(text, contains('unavailable-configuration'));
     expect(text, contains('command-exit'));

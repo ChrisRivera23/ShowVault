@@ -14,13 +14,17 @@ class UpgradeDiagnosticHarness {
   const UpgradeDiagnosticHarness._();
 
   static const _command = '--showvault-upgrade-phase';
+  static const _resultFileCommand = '--showvault-upgrade-result-file';
   static const _statusPrefix = 'SHOWVAULT_UPGRADE_STATUS:';
 
   static Future<bool> tryRun(List<String> arguments) async {
     if (!arguments.contains(_command)) return false;
-    if (!AppConfig.canRunUpgradeHarness || arguments.length != 2) {
+    final result = await _ResultChannel.tryOpen(arguments);
+    if (!AppConfig.canRunUpgradeHarness || result == null) {
       stderr.writeln('ShowVault upgrade harness is unavailable.');
-      stderr.writeln('${_statusPrefix}unavailable-configuration');
+      if (result != null) {
+        await result.write('${_statusPrefix}unavailable-configuration');
+      }
       exitCode = 64;
       return true;
     }
@@ -28,7 +32,7 @@ class UpgradeDiagnosticHarness {
     final phase = commandIndex == 0 ? arguments[1] : arguments[0];
     if (!const {'prepare', 'verify', 'cleanup'}.contains(phase)) {
       stderr.writeln('ShowVault upgrade phase is unsupported.');
-      stderr.writeln('${_statusPrefix}unsupported-phase');
+      await result.write('${_statusPrefix}unsupported-phase');
       exitCode = 64;
       return true;
     }
@@ -42,20 +46,65 @@ class UpgradeDiagnosticHarness {
           AppConfig.upgradeGeneration == 'before') {
         await harness.prepare();
       } else if (phase == 'verify' && AppConfig.upgradeGeneration == 'after') {
-        stdout.writeln(
-          'SHOWVAULT_UPGRADE_REPORT:${await harness.verifyAndEncode()}',
-        );
+        final report =
+            'SHOWVAULT_UPGRADE_REPORT:${await harness.verifyAndEncode()}';
+        stdout.writeln(report);
+        await result.write(report);
       } else {
         throw const FormatException();
       }
       stdout.writeln('ShowVault upgrade phase passed: $phase');
-      stdout.writeln('$_statusPrefix$phase-passed');
+      await result.write('$_statusPrefix$phase-passed');
     } catch (_) {
       stderr.writeln('ShowVault upgrade phase failed: $phase');
-      stderr.writeln('$_statusPrefix$phase-harness-failed');
+      await result.write('$_statusPrefix$phase-harness-failed');
       exitCode = 1;
     }
     return true;
+  }
+}
+
+class _ResultChannel {
+  const _ResultChannel(this.file);
+
+  final File file;
+
+  static Future<_ResultChannel?> tryOpen(List<String> arguments) async {
+    if (arguments.length != 4) return null;
+    final commandIndex = arguments.indexOf(
+      UpgradeDiagnosticHarness._resultFileCommand,
+    );
+    if (commandIndex < 0 || commandIndex == arguments.length - 1) return null;
+    final file = File(arguments[commandIndex + 1]);
+    final parent = file.parent;
+    final parentName = parent.path.split(Platform.pathSeparator).last;
+    final fileName = file.path.split(Platform.pathSeparator).last;
+    if (!file.isAbsolute ||
+        !RegExp(
+          r'^showvault-windows-proof-[0-9a-f]{32}$',
+        ).hasMatch(parentName) ||
+        !RegExp(
+          r'^showvault-upgrade-result-[0-9a-f]{32}\.txt$',
+        ).hasMatch(fileName) ||
+        await FileSystemEntity.type(file.path, followLinks: false) !=
+            FileSystemEntityType.notFound ||
+        await FileSystemEntity.type(parent.path, followLinks: false) !=
+            FileSystemEntityType.directory) {
+      return null;
+    }
+    final marker = File(
+      '${parent.path}${Platform.pathSeparator}.showvault-windows-proof-owned',
+    );
+    if (await FileSystemEntity.type(marker.path, followLinks: false) !=
+            FileSystemEntityType.file ||
+        (await marker.readAsString()).trim() != 'showvault.windows-proof.v1') {
+      return null;
+    }
+    return _ResultChannel(file);
+  }
+
+  Future<void> write(String line) async {
+    await file.writeAsString('$line\n', mode: FileMode.append, flush: true);
   }
 }
 

@@ -28,6 +28,22 @@ void main() {
     expect(text, isNot(contains('stderr.writeln(exception')));
   });
 
+  test(
+    'upgrade harness writes machine results only to an owned proof file',
+    () {
+      final text = harness.readAsStringSync();
+
+      expect(text, contains("'--showvault-upgrade-result-file'"));
+      expect(text, contains(r'^showvault-windows-proof-[0-9a-f]{32}$'));
+      expect(text, contains(r'^showvault-upgrade-result-[0-9a-f]{32}\.txt$'));
+      expect(text, contains('.showvault-windows-proof-owned'));
+      expect(text, contains("'showvault.windows-proof.v1'"));
+      expect(text, contains('followLinks: false'));
+      expect(text, contains('mode: FileMode.append, flush: true'));
+      expect(text, isNot(contains('writeAsString(error')));
+    },
+  );
+
   test('harness termination flushes bounded output before process exit', () {
     final text = entrypoint.readAsStringSync();
     final helperStart = text.indexOf('Future<Never> _flushAndExit() async {');

@@ -63,11 +63,17 @@ function Invoke-UpgradePhase {
     )
     $StandardOutput = Join-Path $CaptureDirectory "$Phase.stdout"
     $StandardError = Join-Path $CaptureDirectory "$Phase.stderr"
-    if ((Test-Path -LiteralPath $StandardOutput) -or (Test-Path -LiteralPath $StandardError)) {
+    $ResultFile = Join-Path $CaptureDirectory (
+        'showvault-upgrade-result-' + [guid]::NewGuid().ToString('N') + '.txt'
+    )
+    if ((Test-Path -LiteralPath $StandardOutput) -or
+        (Test-Path -LiteralPath $StandardError) -or
+        (Test-Path -LiteralPath $ResultFile)) {
         throw 'The upgrade phase capture destination is invalid.'
     }
     $Process = Start-Process -FilePath $FilePath -ArgumentList @(
-        '--showvault-upgrade-phase', $Phase
+        '--showvault-upgrade-phase', $Phase,
+        '--showvault-upgrade-result-file', ('"' + $ResultFile + '"')
     ) -RedirectStandardOutput $StandardOutput -RedirectStandardError $StandardError -Wait -PassThru
     $OutputLines = @()
     if (Test-Path -LiteralPath $StandardOutput -PathType Leaf) {
@@ -76,15 +82,20 @@ function Invoke-UpgradePhase {
     if (Test-Path -LiteralPath $StandardError -PathType Leaf) {
         $OutputLines += @(Get-Content -LiteralPath $StandardError -Encoding utf8)
     }
+    $ResultLines = @()
+    if (Test-Path -LiteralPath $ResultFile -PathType Leaf) {
+        $ResultLines = @(Get-Content -LiteralPath $ResultFile -Encoding utf8)
+    }
     return [pscustomobject]@{
         ExitCode = $Process.ExitCode
         OutputLines = $OutputLines
+        ResultLines = $ResultLines
     }
 }
 
 function Assert-PreparePhasePassed {
     param([Parameter(Mandatory = $true)]$Result)
-    $Statuses = @($Result.OutputLines | Where-Object {
+    $Statuses = @($Result.ResultLines | Where-Object {
         $_ -match '^SHOWVAULT_UPGRADE_STATUS:[a-z-]+$'
     })
     if ($Statuses -contains 'SHOWVAULT_UPGRADE_STATUS:unavailable-configuration') {
@@ -145,7 +156,7 @@ try {
     if ($VerifyResult.ExitCode -ne 0) {
         throw 'The installed after application did not verify the preserved vault.'
     }
-    $EncodedLines = @($VerifyResult.OutputLines | Where-Object { $_ -like 'SHOWVAULT_UPGRADE_REPORT:*' })
+    $EncodedLines = @($VerifyResult.ResultLines | Where-Object { $_ -like 'SHOWVAULT_UPGRADE_REPORT:*' })
     if ($EncodedLines.Count -ne 1) { throw 'The installed proof report export is invalid.' }
     $EncodedLine = $EncodedLines[0]
     $EncodedReport = $EncodedLine.Substring('SHOWVAULT_UPGRADE_REPORT:'.Length)
