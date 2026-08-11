@@ -55,6 +55,33 @@ function Invoke-CheckedProcess {
     }
 }
 
+function Invoke-UpgradePhase {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)][ValidateSet('prepare', 'verify', 'cleanup')][string]$Phase,
+        [Parameter(Mandatory = $true)][string]$CaptureDirectory
+    )
+    $StandardOutput = Join-Path $CaptureDirectory "$Phase.stdout"
+    $StandardError = Join-Path $CaptureDirectory "$Phase.stderr"
+    if ((Test-Path -LiteralPath $StandardOutput) -or (Test-Path -LiteralPath $StandardError)) {
+        throw 'The upgrade phase capture destination is invalid.'
+    }
+    $Process = Start-Process -FilePath $FilePath -ArgumentList @(
+        '--showvault-upgrade-phase', $Phase
+    ) -RedirectStandardOutput $StandardOutput -RedirectStandardError $StandardError -Wait -PassThru
+    $OutputLines = @()
+    if (Test-Path -LiteralPath $StandardOutput -PathType Leaf) {
+        $OutputLines += @(Get-Content -LiteralPath $StandardOutput -Encoding utf8)
+    }
+    if (Test-Path -LiteralPath $StandardError -PathType Leaf) {
+        $OutputLines += @(Get-Content -LiteralPath $StandardError -Encoding utf8)
+    }
+    return [pscustomobject]@{
+        ExitCode = $Process.ExitCode
+        OutputLines = $OutputLines
+    }
+}
+
 function Assert-PreparePhasePassed {
     param([Parameter(Mandatory = $true)]$Result)
     $Statuses = @($Result.OutputLines | Where-Object {
@@ -97,11 +124,7 @@ try {
         throw 'The before application was not installed.'
     }
     $CleanupExecutable = $InstalledExecutable
-    $PrepareOutput = @(& $InstalledExecutable --showvault-upgrade-phase prepare 2>&1)
-    $PrepareResult = [pscustomobject]@{
-        ExitCode = $LASTEXITCODE
-        OutputLines = $PrepareOutput
-    }
+    $PrepareResult = Invoke-UpgradePhase -FilePath $InstalledExecutable -Phase 'prepare' -CaptureDirectory $WorkRoot
     Assert-PreparePhasePassed -Result $PrepareResult
 
     $AfterBuild = @{
@@ -118,11 +141,11 @@ try {
     Invoke-CheckedProcess -FilePath $AfterInstaller.FullName -ArgumentList @(
         '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
     )
-    $VerifyOutput = @(& $InstalledExecutable --showvault-upgrade-phase verify 2>&1)
-    if ($LASTEXITCODE -ne 0) {
+    $VerifyResult = Invoke-UpgradePhase -FilePath $InstalledExecutable -Phase 'verify' -CaptureDirectory $WorkRoot
+    if ($VerifyResult.ExitCode -ne 0) {
         throw 'The installed after application did not verify the preserved vault.'
     }
-    $EncodedLines = @($VerifyOutput | Where-Object { $_ -like 'SHOWVAULT_UPGRADE_REPORT:*' })
+    $EncodedLines = @($VerifyResult.OutputLines | Where-Object { $_ -like 'SHOWVAULT_UPGRADE_REPORT:*' })
     if ($EncodedLines.Count -ne 1) { throw 'The installed proof report export is invalid.' }
     $EncodedLine = $EncodedLines[0]
     $EncodedReport = $EncodedLine.Substring('SHOWVAULT_UPGRADE_REPORT:'.Length)
@@ -193,8 +216,8 @@ try {
     }
     $ChecksumLines | Set-Content -LiteralPath (Join-Path $OutputDirectory 'SHA256SUMS') -Encoding ascii
 
-    & $InstalledExecutable --showvault-upgrade-phase cleanup | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw 'The synthetic vault cleanup failed.' }
+    $CleanupResult = Invoke-UpgradePhase -FilePath $InstalledExecutable -Phase 'cleanup' -CaptureDirectory $WorkRoot
+    if ($CleanupResult.ExitCode -ne 0) { throw 'The synthetic vault cleanup failed.' }
     $CleanupExecutable = $null
 
     Write-Host "Created controlled installed Windows evidence in $OutputDirectory"
@@ -202,7 +225,9 @@ try {
     Write-Host 'Host reboot, production provider, signing readiness, and personal data: not executed'
 } finally {
     if ($CleanupExecutable -and (Test-Path -LiteralPath $CleanupExecutable)) {
-        & $CleanupExecutable --showvault-upgrade-phase cleanup | Out-Null
+        $FallbackCleanupRoot = Join-Path $WorkRoot ('cleanup-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $FallbackCleanupRoot | Out-Null
+        Invoke-UpgradePhase -FilePath $CleanupExecutable -Phase 'cleanup' -CaptureDirectory $FallbackCleanupRoot | Out-Null
     }
     $Uninstaller = Join-Path $InstallDirectory 'unins000.exe'
     if (Test-Path -LiteralPath $Uninstaller -PathType Leaf) {
