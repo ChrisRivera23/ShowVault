@@ -140,6 +140,55 @@ void main() {
       contains('The controlled runner vcpkg installation is incomplete.'),
     );
     expect(text, contains('The controlled runner vcpkg executable failed.'));
+    expect(
+      text,
+      contains('VCPKG_ROOT was redirected after toolchain validation.'),
+    );
+    final nativePackages = RegExp(
+      r"'([a-z0-9-]+:x64-windows)'",
+    ).allMatches(text).map((match) => match.group(1)).toList();
+    expect(
+      nativePackages,
+      equals(<String>[
+        'cpprestsdk:x64-windows',
+        'openssl:x64-windows',
+        'boost-system:x64-windows',
+        'boost-date-time:x64-windows',
+        'boost-regex:x64-windows',
+      ]),
+    );
+    final nativeInstallIndex = text.indexOf(
+      r'& $vcpkg install @requiredNativePackages',
+    );
+    final nativeListIndex = text.indexOf(
+      r'$installedNativePackages = @(& $vcpkg list)',
+    );
+    final flutterVerificationIndex = text.indexOf(
+      '- name: Run Windows Flutter verification',
+    );
+    final packageBuildIndex = text.indexOf(
+      '- name: Build normal current-user package',
+    );
+    expect(
+      nativeInstallIndex,
+      greaterThan(
+        text.indexOf('- name: Install pinned Windows native dependencies'),
+      ),
+    );
+    expect(nativeListIndex, greaterThan(nativeInstallIndex));
+    expect(flutterVerificationIndex, greaterThan(nativeListIndex));
+    expect(packageBuildIndex, greaterThan(flutterVerificationIndex));
+    expect(
+      text,
+      contains(
+        'The controlled runner failed to install the pinned Windows native '
+        'dependencies.',
+      ),
+    );
+    expect(
+      text,
+      contains('The controlled runner did not install required package'),
+    );
     expect(text, contains('flutter test'));
     expect(text, contains('build-app.ps1'));
     expect(text, contains('run-windows-installed-proof.ps1'));
