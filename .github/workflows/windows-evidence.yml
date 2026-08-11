@@ -22,7 +22,7 @@ jobs:
       - name: Check out exact source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: 4c2f58b638cd2c3fd6dd10dfa047b0e8c4538e02
+          ref: f317330e79dc665c11dc764d193b19e1246526f2
           persist-credentials: false
 
       - name: Install pinned Flutter
