@@ -68,6 +68,8 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.Property(enrollment => enrollment.ExpiresAt).IsRequired();
             entity.Property(enrollment => enrollment.ConsumedAt).IsConcurrencyToken();
             entity.Property(enrollment => enrollment.RevokedAt);
+            entity.Property(enrollment => enrollment.ActivationRequestId);
+            entity.Property(enrollment => enrollment.IssuedAgentId);
             entity.HasIndex(enrollment => enrollment.SecretHash).IsUnique();
             entity.HasIndex(enrollment => enrollment.VenueId);
             entity.HasOne<Venue>()
@@ -88,6 +90,7 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.Property(agent => agent.CreatedAt).IsRequired();
             entity.Property(agent => agent.CredentialRotatedAt).IsRequired();
             entity.Property(agent => agent.RevokedAt);
+            entity.Property(agent => agent.LastCredentialRotationRequestId);
             entity.HasIndex(agent => agent.VenueId);
             entity.HasOne<Venue>()
                 .WithMany()

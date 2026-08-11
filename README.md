@@ -37,6 +37,7 @@ Completed:
 - Venue Agent first-run bootstrap exchanges a one-time code and reuses its stored identity on restart.
 - Agent credentials are stored in Windows Credential Manager or the macOS Keychain, never appsettings or SQLite.
 - Agent credential rotation replaces the stored credential and invalidates the prior credential immediately.
+- Pending enrollment and rotation state makes server activation recoverable after response loss, local credential-store failure, or process restart.
 
 Current development branch:
 

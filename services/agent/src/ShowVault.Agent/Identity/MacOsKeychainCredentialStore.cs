@@ -12,7 +12,7 @@ public sealed partial class MacOsKeychainCredentialStore : IAgentCredentialStore
     private static readonly byte[] Service = Encoding.UTF8.GetBytes("com.showvault.venue-agent");
     private static readonly byte[] Account = Encoding.UTF8.GetBytes("identity");
 
-    public ValueTask<StoredAgentIdentity?> LoadAsync(CancellationToken cancellationToken)
+    public ValueTask<StoredAgentState?> LoadAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var status = SecKeychainFindGenericPassword(
@@ -26,7 +26,7 @@ public sealed partial class MacOsKeychainCredentialStore : IAgentCredentialStore
             out var item);
         if (status == ItemNotFound)
         {
-            return ValueTask.FromResult<StoredAgentIdentity?>(null);
+            return ValueTask.FromResult<StoredAgentState?>(null);
         }
 
         ThrowIfFailed(status, "read");
@@ -34,7 +34,7 @@ public sealed partial class MacOsKeychainCredentialStore : IAgentCredentialStore
         {
             var bytes = new byte[passwordLength];
             Marshal.Copy(passwordData, bytes, 0, bytes.Length);
-            return ValueTask.FromResult<StoredAgentIdentity?>(
+            return ValueTask.FromResult<StoredAgentState?>(
                 AgentCredentialSerialization.Deserialize(Encoding.UTF8.GetString(bytes)));
         }
         finally
@@ -48,11 +48,11 @@ public sealed partial class MacOsKeychainCredentialStore : IAgentCredentialStore
     }
 
     public ValueTask SaveAsync(
-        StoredAgentIdentity identity,
+        StoredAgentState state,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var secret = Encoding.UTF8.GetBytes(AgentCredentialSerialization.Serialize(identity));
+        var secret = Encoding.UTF8.GetBytes(AgentCredentialSerialization.Serialize(state));
         var findStatus = SecKeychainFindGenericPassword(
             IntPtr.Zero,
             (uint)Service.Length,

@@ -26,6 +26,8 @@ public sealed class AgentEnrollment
     public DateTimeOffset ExpiresAt { get; }
     public DateTimeOffset? ConsumedAt { get; private set; }
     public DateTimeOffset? RevokedAt { get; private set; }
+    public Guid? ActivationRequestId { get; private set; }
+    public Guid? IssuedAgentId { get; private set; }
 
     public static AgentEnrollment Create(
         Guid venueId,
@@ -63,15 +65,33 @@ public sealed class AgentEnrollment
     public bool CanBeConsumed(DateTimeOffset now) =>
         ConsumedAt is null && RevokedAt is null && now < ExpiresAt;
 
-    public void Consume(DateTimeOffset now)
+    public void Consume(DateTimeOffset now, Guid requestId, Guid agentId)
     {
         if (!CanBeConsumed(now))
         {
             throw new InvalidOperationException("Enrollment is no longer valid.");
         }
 
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request ID must not be empty.", nameof(requestId));
+        }
+
+        if (agentId == Guid.Empty)
+        {
+            throw new ArgumentException("Agent ID must not be empty.", nameof(agentId));
+        }
+
         ConsumedAt = now;
+        ActivationRequestId = requestId;
+        IssuedAgentId = agentId;
     }
+
+    public bool CanResume(Guid requestId) =>
+        ConsumedAt is not null &&
+        RevokedAt is null &&
+        ActivationRequestId == requestId &&
+        IssuedAgentId is not null;
 
     public void Revoke(DateTimeOffset now)
     {

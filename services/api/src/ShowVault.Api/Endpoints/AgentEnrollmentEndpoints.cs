@@ -100,24 +100,44 @@ public static class AgentEnrollmentEndpoints
             });
         }
 
+        if (request.RequestId == Guid.Empty ||
+            !AgentSecrets.IsWellFormedCredentialSecret(request.CredentialSecret))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["credential"] = ["A valid request ID and credential secret are required."]
+            });
+        }
+
         var codeHash = AgentSecrets.Hash(request.EnrollmentCode);
         var enrollment = await database.AgentEnrollments.SingleOrDefaultAsync(
             candidate => candidate.SecretHash.SequenceEqual(codeHash),
             cancellationToken);
         var now = timeProvider.GetUtcNow();
-        if (enrollment is null || !enrollment.CanBeConsumed(now))
+        if (enrollment is null)
         {
             return Results.Unauthorized();
         }
 
+        var credentialHash = AgentSecrets.Hash(request.CredentialSecret);
+        if (!enrollment.CanBeConsumed(now))
+        {
+            return await ResumeEnrollmentAsync(
+                enrollment,
+                request,
+                credentialHash,
+                context,
+                database,
+                cancellationToken);
+        }
+
         VenueAgent agent;
-        var secret = AgentSecrets.Generate("sva_");
         try
         {
             agent = VenueAgent.Create(
                 enrollment.VenueId,
                 request.Name,
-                AgentSecrets.Hash(secret),
+                credentialHash,
                 now);
         }
         catch (ArgumentException exception)
@@ -128,7 +148,7 @@ public static class AgentEnrollmentEndpoints
             });
         }
 
-        enrollment.Consume(now);
+        enrollment.Consume(now, request.RequestId, agent.Id);
         database.VenueAgents.Add(agent);
         try
         {
@@ -139,7 +159,7 @@ public static class AgentEnrollmentEndpoints
             return Results.Unauthorized();
         }
 
-        var credential = $"{agent.Id}.{secret}";
+        var credential = $"{agent.Id}.{request.CredentialSecret}";
         context.Response.Headers.CacheControl = "no-store";
         return Results.Ok(ApiResponse<EnrollAgentResponse>.Success(
             new EnrollAgentResponse(agent.Id, agent.VenueId, credential),
@@ -160,6 +180,7 @@ public static class AgentEnrollmentEndpoints
     }
 
     private static async Task<IResult> RotateCredentialAsync(
+        RotateAgentCredentialRequest request,
         ClaimsPrincipal user,
         HttpContext context,
         PlatformDbContext database,
@@ -179,9 +200,33 @@ public static class AgentEnrollmentEndpoints
             return Results.Unauthorized();
         }
 
-        var secret = AgentSecrets.Generate("sva_");
+        if (request.RequestId == Guid.Empty ||
+            !AgentSecrets.IsWellFormedCredentialSecret(request.CredentialSecret))
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["credential"] = ["A valid request ID and credential secret are required."]
+            });
+        }
+
+        var credentialHash = AgentSecrets.Hash(request.CredentialSecret);
+        if (agent.IsCompletedRotation(request.RequestId, credentialHash))
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            return Results.Ok(ApiResponse<RotateAgentCredentialResponse>.Success(
+                new RotateAgentCredentialResponse(
+                    $"{agent.Id}.{request.CredentialSecret}",
+                    agent.CredentialRotatedAt),
+                context.TraceIdentifier));
+        }
+
+        if (agent.LastCredentialRotationRequestId == request.RequestId)
+        {
+            return Results.Conflict();
+        }
+
         var rotatedAt = timeProvider.GetUtcNow();
-        agent.RotateCredential(AgentSecrets.Hash(secret), rotatedAt);
+        agent.RotateCredential(credentialHash, request.RequestId, rotatedAt);
         try
         {
             await database.SaveChangesAsync(cancellationToken);
@@ -193,7 +238,42 @@ public static class AgentEnrollmentEndpoints
 
         context.Response.Headers.CacheControl = "no-store";
         return Results.Ok(ApiResponse<RotateAgentCredentialResponse>.Success(
-            new RotateAgentCredentialResponse($"{agent.Id}.{secret}", rotatedAt),
+            new RotateAgentCredentialResponse(
+                $"{agent.Id}.{request.CredentialSecret}",
+                rotatedAt),
+            context.TraceIdentifier));
+    }
+
+    private static async Task<IResult> ResumeEnrollmentAsync(
+        AgentEnrollment enrollment,
+        EnrollAgentRequest request,
+        byte[] credentialHash,
+        HttpContext context,
+        PlatformDbContext database,
+        CancellationToken cancellationToken)
+    {
+        if (!enrollment.CanResume(request.RequestId) ||
+            enrollment.IssuedAgentId is not { } agentId)
+        {
+            return Results.Unauthorized();
+        }
+
+        var agent = await database.VenueAgents.AsNoTracking().SingleOrDefaultAsync(
+            candidate => candidate.Id == agentId && candidate.VenueId == enrollment.VenueId,
+            cancellationToken);
+        if (agent is null ||
+            agent.RevokedAt is not null ||
+            !agent.CredentialHash.SequenceEqual(credentialHash))
+        {
+            return Results.Unauthorized();
+        }
+
+        context.Response.Headers.CacheControl = "no-store";
+        return Results.Ok(ApiResponse<EnrollAgentResponse>.Success(
+            new EnrollAgentResponse(
+                agent.Id,
+                agent.VenueId,
+                $"{agent.Id}.{request.CredentialSecret}"),
             context.TraceIdentifier));
     }
 

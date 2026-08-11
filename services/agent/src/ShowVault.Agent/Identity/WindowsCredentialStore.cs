@@ -9,7 +9,7 @@ public sealed class WindowsCredentialStore : IAgentCredentialStore
     private const string Target = "ShowVault/VenueAgent";
     private const string UserName = "VenueAgent";
 
-    public ValueTask<StoredAgentIdentity?> LoadAsync(CancellationToken cancellationToken)
+    public ValueTask<StoredAgentState?> LoadAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var credential = CredentialManager.ReadCredential(Target);
@@ -19,14 +19,14 @@ public sealed class WindowsCredentialStore : IAgentCredentialStore
     }
 
     public ValueTask SaveAsync(
-        StoredAgentIdentity identity,
+        StoredAgentState state,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         CredentialManager.WriteCredential(
             Target,
             UserName,
-            AgentCredentialSerialization.Serialize(identity),
+            AgentCredentialSerialization.Serialize(state),
             CredentialPersistence.LocalMachine);
         return ValueTask.CompletedTask;
     }

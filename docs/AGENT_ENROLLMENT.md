@@ -4,28 +4,29 @@
 
 Human operators authenticate with Auth0. Venue Agents use a separate ShowVault Agent scheme and never receive or reuse human access tokens.
 
-Enrollment and credential secrets are generated from 256 bits of cryptographically secure randomness. The control plane returns each secret only once, sends `Cache-Control: no-store`, and persists only its SHA-256 digest. Secret verification uses fixed-time comparison. Secrets must never be logged.
+Enrollment and credential secrets are generated from 256 bits of cryptographically secure randomness. The control plane generates enrollment codes; the Agent generates its credential secret before activation and protects the pending transition in the OS credential store. The control plane sends secret-bearing responses with `Cache-Control: no-store` and persists only SHA-256 digests. Secret verification uses fixed-time comparison. Secrets must never be logged.
 
 ## Enrollment flow
 
 1. A Manager, Administrator, or Owner requests an enrollment code for a venue.
 2. The control plane creates a venue-scoped code that expires after 15 minutes.
-3. The Agent exchanges the code through the rate-limited public enrollment endpoint.
-4. The code is consumed exactly once using optimistic concurrency protection.
-5. The control plane returns an Agent ID and durable credential once.
-6. The Agent authenticates with `Authorization: ShowVault-Agent {agentId}.{secret}`.
-7. An authorized venue manager can revoke the Agent immediately.
+3. Before network access, the Agent generates a request ID and credential secret and durably stores a pending enrollment in Credential Manager or Keychain Services.
+4. The Agent exchanges the code, request ID, and credential secret through the rate-limited public enrollment endpoint.
+5. The code is consumed exactly once using optimistic concurrency protection. The request ID and issued Agent ID make an identical retry idempotent without persisting plaintext server-side.
+6. After the server response, the Agent atomically replaces the pending state with its active identity. If that save fails or the process stops, restart retries the same pending enrollment and receives the same identity.
+7. The Agent authenticates with `Authorization: ShowVault-Agent {agentId}.{secret}`.
+8. An authorized venue manager can revoke the Agent immediately.
 
-On first start, set `Agent__EnrollmentCode` for that process invocation. After a successful exchange, remove it from the environment. The Agent never writes the enrollment code to appsettings, SQLite, or the credential store.
+On first start, set `Agent__EnrollmentCode` for that process invocation. Before contacting the server, the Agent temporarily places the code only in its protected pending credential-store record so a crash before or after the exchange is recoverable. Successful activation replaces that record with the durable Agent identity. The Agent never writes the enrollment code to appsettings, SQLite, logs, or server-side plaintext storage.
 
 The durable identity is stored in Windows Credential Manager on Windows or Keychain Services on macOS. Subsequent starts load it without calling the enrollment endpoint. Unsupported operating systems fail closed.
 
-Credential rotation requires the current Agent credential, returns the replacement once with `Cache-Control: no-store`, updates the OS credential store only after server success, and invalidates the prior credential immediately.
+Credential rotation first persists a pending record containing the old identity, a request ID, and the Agent-generated replacement secret. The server applies a request ID once and treats an exact replay as success. If the response or final local save is lost, restart tries the old credential and then the pending new credential, reconciles the same rotation, and replaces pending state with the active identity. A reused request ID with a different secret is rejected.
 
 ## Persisted metadata
 
-- Enrollment ID, venue, SHA-256 digest, creator subject, creation time, expiry, consumption time, and revocation time.
-- Agent ID, venue, display name, credential digest, creation time, and revocation time.
+- Enrollment ID, venue, SHA-256 digest, creator subject, creation time, expiry, consumption time, revocation time, activation request ID, and issued Agent ID.
+- Agent ID, venue, display name, credential digest, creation time, rotation time/request ID, and revocation time.
 
 ## Deployment caveat
 

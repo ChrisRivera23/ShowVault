@@ -5,7 +5,11 @@ public sealed record CreateAgentEnrollmentResponse(
     string EnrollmentCode,
     DateTimeOffset ExpiresAt);
 
-public sealed record EnrollAgentRequest(string EnrollmentCode, string Name);
+public sealed record EnrollAgentRequest(
+    string EnrollmentCode,
+    string Name,
+    Guid RequestId,
+    string CredentialSecret);
 
 public sealed record EnrollAgentResponse(
     Guid AgentId,
@@ -13,5 +17,7 @@ public sealed record EnrollAgentResponse(
     string Credential);
 
 public sealed record AgentIdentityResponse(Guid AgentId, Guid VenueId);
+
+public sealed record RotateAgentCredentialRequest(Guid RequestId, string CredentialSecret);
 
 public sealed record RotateAgentCredentialResponse(string Credential, DateTimeOffset RotatedAt);

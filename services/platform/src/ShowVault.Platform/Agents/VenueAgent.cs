@@ -24,6 +24,7 @@ public sealed class VenueAgent
     public DateTimeOffset CreatedAt { get; }
     public DateTimeOffset CredentialRotatedAt { get; private set; }
     public DateTimeOffset? RevokedAt { get; private set; }
+    public Guid? LastCredentialRotationRequestId { get; private set; }
 
     public static VenueAgent Create(
         Guid venueId,
@@ -59,7 +60,15 @@ public sealed class VenueAgent
 
     public void Revoke(DateTimeOffset now) => RevokedAt ??= now;
 
-    public void RotateCredential(byte[] credentialHash, DateTimeOffset now)
+    public bool IsCompletedRotation(Guid requestId, byte[] credentialHash)
+    {
+        ArgumentNullException.ThrowIfNull(credentialHash);
+        return requestId != Guid.Empty &&
+            LastCredentialRotationRequestId == requestId &&
+            CredentialHash.SequenceEqual(credentialHash);
+    }
+
+    public void RotateCredential(byte[] credentialHash, Guid requestId, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(credentialHash);
         if (credentialHash.Length != 32)
@@ -72,7 +81,13 @@ public sealed class VenueAgent
             throw new InvalidOperationException("A revoked Agent credential cannot be rotated.");
         }
 
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request ID must not be empty.", nameof(requestId));
+        }
+
         CredentialHash = credentialHash.ToArray();
         CredentialRotatedAt = now;
+        LastCredentialRotationRequestId = requestId;
     }
 }

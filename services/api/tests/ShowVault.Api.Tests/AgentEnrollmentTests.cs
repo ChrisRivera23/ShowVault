@@ -33,9 +33,14 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.NotNull(enrollment);
         Assert.StartsWith("sve_", enrollment.Payload.EnrollmentCode);
 
+        var enrollmentRequest = new EnrollAgentRequest(
+            enrollment.Payload.EnrollmentCode,
+            "Main Control Agent",
+            Guid.NewGuid(),
+            CredentialSecret('a'));
         var enrollResponse = await factory.CreateClient().PostAsJsonAsync(
             "/api/v1/agents/enroll",
-            new EnrollAgentRequest(enrollment.Payload.EnrollmentCode, "Main Control Agent"));
+            enrollmentRequest);
         Assert.Equal(HttpStatusCode.OK, enrollResponse.StatusCode);
         Assert.Equal("no-store", enrollResponse.Headers.CacheControl?.ToString());
         var enrolledAgent = await enrollResponse.Content.ReadFromJsonAsync<
@@ -43,9 +48,18 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         Assert.NotNull(enrolledAgent);
         Assert.Equal(venueId, enrolledAgent.Payload.VenueId);
 
+        var resumedEnrollment = await factory.CreateClient().PostAsJsonAsync(
+            "/api/v1/agents/enroll",
+            enrollmentRequest);
+        Assert.Equal(HttpStatusCode.OK, resumedEnrollment.StatusCode);
+        var resumedAgent = await resumedEnrollment.Content.ReadFromJsonAsync<
+            ApiResponse<EnrollAgentResponse>>();
+        Assert.NotNull(resumedAgent);
+        Assert.Equal(enrolledAgent.Payload, resumedAgent.Payload);
+
         var reusedEnrollment = await factory.CreateClient().PostAsJsonAsync(
             "/api/v1/agents/enroll",
-            new EnrollAgentRequest(enrollment.Payload.EnrollmentCode, "Replay Agent"));
+            enrollmentRequest with { RequestId = Guid.NewGuid() });
         Assert.Equal(HttpStatusCode.Unauthorized, reusedEnrollment.StatusCode);
 
         using var agentClient = CreateAgentClient(enrolledAgent.Payload.Credential);
@@ -60,9 +74,12 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         var invalidIdentity = await invalidAgentClient.GetAsync("/api/v1/agent-identity");
         Assert.Equal(HttpStatusCode.Unauthorized, invalidIdentity.StatusCode);
 
-        var rotationResponse = await agentClient.PostAsync(
+        var rotationRequest = new RotateAgentCredentialRequest(
+            Guid.NewGuid(),
+            CredentialSecret('b'));
+        var rotationResponse = await agentClient.PostAsJsonAsync(
             "/api/v1/agents/rotate-credential",
-            null);
+            rotationRequest);
         Assert.Equal(HttpStatusCode.OK, rotationResponse.StatusCode);
         Assert.Equal("no-store", rotationResponse.Headers.CacheControl?.ToString());
         var rotation = await rotationResponse.Content.ReadFromJsonAsync<
@@ -75,6 +92,20 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         using var rotatedAgentClient = CreateAgentClient(rotation.Payload.Credential);
         var rotatedIdentity = await rotatedAgentClient.GetAsync("/api/v1/agent-identity");
         Assert.Equal(HttpStatusCode.OK, rotatedIdentity.StatusCode);
+
+        var resumedRotation = await rotatedAgentClient.PostAsJsonAsync(
+            "/api/v1/agents/rotate-credential",
+            rotationRequest);
+        Assert.Equal(HttpStatusCode.OK, resumedRotation.StatusCode);
+        var resumedCredential = await resumedRotation.Content.ReadFromJsonAsync<
+            ApiResponse<RotateAgentCredentialResponse>>();
+        Assert.NotNull(resumedCredential);
+        Assert.Equal(rotation.Payload.Credential, resumedCredential.Payload.Credential);
+
+        var conflictingReplay = await rotatedAgentClient.PostAsJsonAsync(
+            "/api/v1/agents/rotate-credential",
+            rotationRequest with { CredentialSecret = CredentialSecret('c') });
+        Assert.Equal(HttpStatusCode.Conflict, conflictingReplay.StatusCode);
 
         var revokeResponse = await ownerClient.DeleteAsync(
             $"/api/v1/organizations/{organizationId}/venues/{venueId}/agents/{enrolledAgent.Payload.AgentId}");
@@ -90,6 +121,8 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
         client.DefaultRequestHeaders.Add("X-Test-Subject", subject);
         return client;
     }
+
+    private static string CredentialSecret(char value) => $"sva_{new string(value, 64)}";
 
     private HttpClient CreateAgentClient(string credential)
     {

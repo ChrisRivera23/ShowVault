@@ -20,9 +20,14 @@ public sealed class AgentIdentityTests
         Assert.True(enrollment.CanBeConsumed(now.AddMinutes(14)));
         Assert.False(enrollment.CanBeConsumed(now.AddMinutes(15)));
 
-        enrollment.Consume(now.AddMinutes(1));
+        var requestId = Guid.NewGuid();
+        var agentId = Guid.NewGuid();
+        enrollment.Consume(now.AddMinutes(1), requestId, agentId);
         Assert.False(enrollment.CanBeConsumed(now.AddMinutes(2)));
-        Assert.Throws<InvalidOperationException>(() => enrollment.Consume(now.AddMinutes(2)));
+        Assert.True(enrollment.CanResume(requestId));
+        Assert.Equal(agentId, enrollment.IssuedAgentId);
+        Assert.Throws<InvalidOperationException>(() =>
+            enrollment.Consume(now.AddMinutes(2), requestId, agentId));
     }
 
     [Fact]
@@ -51,9 +56,11 @@ public sealed class AgentIdentityTests
         var agent = VenueAgent.Create(Guid.NewGuid(), "Agent", originalHash, createdAt);
         var rotatedAt = createdAt.AddDays(30);
 
-        agent.RotateCredential(replacementHash, rotatedAt);
+        var requestId = Guid.NewGuid();
+        agent.RotateCredential(replacementHash, requestId, rotatedAt);
 
         Assert.Equal(replacementHash, agent.CredentialHash);
         Assert.Equal(rotatedAt, agent.CredentialRotatedAt);
+        Assert.True(agent.IsCompletedRotation(requestId, replacementHash));
     }
 }

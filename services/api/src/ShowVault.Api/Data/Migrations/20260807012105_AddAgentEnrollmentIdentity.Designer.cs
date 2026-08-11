@@ -31,6 +31,9 @@ namespace ShowVault.Api.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ActivationRequestId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset?>("ConsumedAt")
                         .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone");
@@ -45,6 +48,9 @@ namespace ShowVault.Api.Data.Migrations
 
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("IssuedAgentId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset?>("RevokedAt")
                         .HasColumnType("timestamp with time zone");
@@ -84,6 +90,9 @@ namespace ShowVault.Api.Data.Migrations
 
                     b.Property<DateTimeOffset>("CredentialRotatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("LastCredentialRotationRequestId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Name")
                         .IsRequired()

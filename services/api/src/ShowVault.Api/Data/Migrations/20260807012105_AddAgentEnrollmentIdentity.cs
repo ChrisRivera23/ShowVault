@@ -22,7 +22,9 @@ namespace ShowVault.Api.Data.Migrations
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     ExpiresAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     ConsumedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    RevokedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                    RevokedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    ActivationRequestId = table.Column<Guid>(type: "uuid", nullable: true),
+                    IssuedAgentId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -45,7 +47,8 @@ namespace ShowVault.Api.Data.Migrations
                     CredentialHash = table.Column<byte[]>(type: "bytea", maxLength: 32, nullable: false),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     CredentialRotatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    RevokedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                    RevokedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    LastCredentialRotationRequestId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {
