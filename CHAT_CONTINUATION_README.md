@@ -94,6 +94,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Immutable-vcpkg bridge merge commit on `main`: `c039d5055799efe2995ab15463db19db8fa0079e Merge pull request #30 from ChrisRivera23/codex/windows-evidence-bridge`
 - Green immutable-vcpkg merge CI: main run `31452046878`
 - Fifth Windows evidence run: `31452427593`, attempt 1, job `93659301883`, failed during installed before-app vault preparation after pinned dependencies, full Windows verification, and the normal package build passed; zero artifacts and no rerun
+- Bounded Windows prepare-diagnostic commit: `388466e feat: categorize Windows prepare failures`
+- Waited installed-harness process correction: `2058b5e fix: await Windows upgrade harness phases`
 - Expected worktree after the handoff commit: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Sequential catalog expansion remains paused while prototype readiness advances.
 
@@ -193,6 +195,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Exactly one subsequently authorized manual run was dispatched: run `31452427593`, attempt 1, job `93659301883`, event `workflow_dispatch`, on exact merged `main` `c039d5055799efe2995ab15463db19db8fa0079e`, checking out immutable source `cf76d62a867c3c3918cfb0200d429d84e9c9503a`.
 - Checkout, pinned Flutter 3.44.8 installation, Windows/vcpkg/Inno Setup verification, the exact pinned-vcpkg checkout/bootstrap/five-package install, full Flutter analysis/tests, and the normal current-user installer/portable package build all passed. The installed proof then rebuilt and installed its synthetic before package but stopped at `tool/run-windows-installed-proof.ps1:84`: `The installed before application did not prepare the vault.`
 - The evidence distinguishes only a prepare-phase nonzero exit or missing success marker. `UpgradeDiagnosticHarness` catches the internal exception and emits a generic bounded failure, while the PowerShell runner captures that output and replaces it with its own generic error, so the deeper cause is not present in the hosted log and must not be guessed.
+- Local commit `388466e` adds fixed path-free harness status tokens and distinguishes unavailable/configuration, explicit harness prepare failure, nonzero command exit, and missing success marker without exposing raw exceptions or captured output.
+- Local commit `2058b5e` replaces the installed GUI call-operator boundary with `Start-Process -Wait -PassThru` plus owned stdout/stderr captures for prepare, verify, cleanup, and fallback cleanup. This corrects the ambiguous process-observation boundary; it does not guess which internal category occurred in the prior run.
 - Workflow provenance, independent checksum/cleanup verification, and artifact upload were skipped. GitHub reports zero artifacts. The proof runner's `finally` block is designed to attempt synthetic cleanup, uninstall, and marker-scoped workspace removal, and the ephemeral runner ended, but cleanup was not independently attested. The run was not rerun and no artifact was retrieved.
 - The native failures had two local causes. GitHub's Windows checkout used CRLF while several policy checks assumed LF-only workflow text. Restore target validation also extracted a final component using only `Platform.pathSeparator`, so mixed Windows separators could leave the full absolute path as the target name; containment comparison likewise needed Windows separator/case canonicalization.
 - Commit `2ebfe45` canonicalizes trusted workflow/policy input to LF while continuing to reject residual carriage returns and candidate substitutions. Commit `05ed93d` extracts Windows target leaf names across both separators and uses canonical Windows comparison for directory membership. These fixes are published in product source `6d6f47ac3b32041e56238060b8b2cd8e13485a2d` but have not yet been executed on Windows.
@@ -305,6 +309,9 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 - Flutter analysis: no issues
 - Flutter tests: 145 passed; 1 Windows-only NTFS-junction test skipped on macOS
+- Current Flutter tests after the Windows prepare diagnostic/process correction: 146 passed; 1 Windows-only NTFS-junction test skipped on macOS
+- Current focused Windows packaging/harness/evidence/bridge suite: 33 passed
+- Current deterministic bridge round trip: exact implementation `2058b5eec11ec3e755d1906d205e57fcfb879c93`, matching prepare/verify SHA-256 `652c86b4f4abaca6b5b5dda57d59e00e4d6bbbd618510a2216f6dbbeae74a042`
 - Local-first integration preflight: 4 focused tests passed; real local Git topology passed with 52 commits, 136 paths, 29 legacy overlaps, and no external read or mutation
 - PR #3-#24 dependency preflight: 4 focused tests passed; real local Git topology passed with 22 refs, 32 commits, 237 paths, 16,079 additions, 106 deletions, 31 binary paths, and no external read or mutation
 - Combined local integration-plan preflight: 4 focused tests and real local execution passed; authorization is explicitly not evaluated
@@ -371,7 +378,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-After explicit authorization for local diagnosis/correction, trace the installed before-app prepare path using exact run `31452427593` and source `cf76d62a867c3c3918cfb0200d429d84e9c9503a`. Add the smallest path-free, bounded diagnostic that preserves the prepare command's safe failure category/output and distinguishes configuration/unavailable, command exit, missing marker, and harness prepare failure without leaking paths, contents, credentials, or raw exceptions. Implement a correction only when supported by evidence, add focused positive/adversarial Windows packaging/harness coverage, run the relevant focused suite, full Flutter regression, analysis, authorization/diff checks, and commit locally. Stop before any product push, bridge mutation, workflow dispatch/rerun, artifact retrieval, or equipment access.
+The local diagnosis/correction gate is complete at exact implementation head `2058b5eec11ec3e755d1906d205e57fcfb879c93`. After explicit X2 authorization naming that exact head and branch, publish it as a leased fast-forward to `codex/windows-packaging`, wait for and record current push/PR CI, then stop. Bridge refresh/publication, merge, a new single dispatch, artifact retrieval, and equipment access remain separate later gates and are not authorized by this handoff.
 
 The next slice must satisfy these boundaries:
 
