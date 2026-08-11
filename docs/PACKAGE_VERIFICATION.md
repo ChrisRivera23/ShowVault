@@ -17,12 +17,12 @@ The ID references a completed local `CreateBackup` command. Arbitrary remote fil
 Structural verification checks:
 
 - package path is the exact package-ID child of the configured package store, and neither root is a link;
-- `manifest.json` and `content/` exist and are not links;
+- `manifest.json` is a regular file no larger than 16 MiB, and `content/` is a directory; neither may be a link;
 - manifest format and Agent identity are supported;
 - discovery identity, creation time, source identity/plugin metadata, and all required manifest collections and nested values are present;
 - file paths are safe, unique, and ordinally sorted;
 - file sizes and SHA-256 values are well formed;
-- the package has no missing, unexpected, or linked content.
+- the package has no missing, unexpected, linked, or non-regular content.
 
 Cryptographic verification checks:
 
@@ -30,7 +30,7 @@ Cryptographic verification checks:
 - every content file has the manifest-recorded byte size;
 - independently recomputed SHA-256 content hashes match the manifest.
 
-The verifier never follows package links. If structure is unsafe, content hashing is not attempted through that structure.
+The verifier never follows package links. On Unix, it opens manifest and content files with no-follow and nonblocking flags, rejects non-seekable entries such as sockets and FIFOs, and hashes the same handle it inspected. This prevents a declared special file from blocking verification and narrows path-swap races. If structure is unsafe, content hashing is not attempted through that structure.
 
 ## Durable result
 

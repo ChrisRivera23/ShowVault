@@ -1,5 +1,6 @@
-using System.Security.Cryptography;
+using System.Diagnostics;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
@@ -258,7 +259,7 @@ public sealed class RecoveryPackageVerifierTests : IAsyncLifetime
             package.PackagePath,
             RecoveryPackageFormat.ContentDirectoryName,
             "local.sock");
-        var boundSocketPath = Path.Combine("/tmp", $"sv-{Guid.NewGuid():N}.sock");
+        var boundSocketPath = Path.Combine(Path.GetTempPath(), $"sv-{Guid.NewGuid():N}.sock");
         using var socket = new Socket(
             AddressFamily.Unix,
             SocketType.Stream,
@@ -278,6 +279,76 @@ public sealed class RecoveryPackageVerifierTests : IAsyncLifetime
         Assert.Contains(
             result.Levels.Single(level => level.Level == "structural").Evidence,
             evidence => evidence.Contains("local.sock", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Manifest_declared_unix_socket_returns_failed_evidence()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var package = await CreatePackageAsync();
+        var socketPath = Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "local.sock");
+        var boundSocketPath = Path.Combine("/tmp", $"sv-{Guid.NewGuid():N}.sock");
+        using var socket = new Socket(
+            AddressFamily.Unix,
+            SocketType.Stream,
+            ProtocolType.Unspecified);
+        socket.Bind(new UnixDomainSocketEndPoint(boundSocketPath));
+        File.Move(boundSocketPath, socketPath);
+        package = await DeclareEmptyEntryAsync(package, "local.sock");
+
+        var result = await CreateVerifier().VerifyAsync(
+            Guid.NewGuid(),
+            package.Manifest.AgentId,
+            package.PackageId,
+            package.PackagePath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        AssertNonRegularFailure(result, "local.sock");
+    }
+
+    [Fact]
+    public async Task Manifest_declared_fifo_returns_failed_evidence_without_blocking()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var package = await CreatePackageAsync();
+        var fifoPath = Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "local.fifo");
+        using var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = "mkfifo",
+            UseShellExecute = false,
+            ArgumentList = { fifoPath }
+        });
+        Assert.NotNull(process);
+        await process.WaitForExitAsync();
+        Assert.Equal(0, process.ExitCode);
+        package = await DeclareEmptyEntryAsync(package, "local.fifo");
+
+        var verification = CreateVerifier().VerifyAsync(
+            Guid.NewGuid(),
+            package.Manifest.AgentId,
+            package.PackageId,
+            package.PackagePath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+        var completed = await Task.WhenAny(verification, Task.Delay(TimeSpan.FromSeconds(5)));
+
+        Assert.Same(verification, completed);
+        AssertNonRegularFailure(await verification, "local.fifo");
     }
 
     public Task DisposeAsync()
@@ -354,5 +425,34 @@ public sealed class RecoveryPackageVerifierTests : IAsyncLifetime
         var packagePath = Path.Combine(Path.GetDirectoryName(package.PackagePath)!, packageId);
         Directory.Move(package.PackagePath, packagePath);
         return new CreatedRecoveryPackage(packageId, packagePath, manifest);
+    }
+
+    private static Task<CreatedRecoveryPackage> DeclareEmptyEntryAsync(
+        CreatedRecoveryPackage package,
+        string relativePath) =>
+        RewriteManifestAsync(
+            package,
+            package.Manifest with
+            {
+                Files = package.Manifest.Files
+                    .Append(new RecoveryPackageFile(
+                        relativePath,
+                        0,
+                        Convert.ToHexStringLower(SHA256.HashData([]))))
+                    .OrderBy(file => file.RelativePath, StringComparer.Ordinal)
+                    .ToList()
+            });
+
+    private static void AssertNonRegularFailure(
+        RecoveryPackageVerificationResult result,
+        string relativePath)
+    {
+        Assert.False(result.Passed);
+        Assert.Contains(
+            result.Levels.Single(level => level.Level == "structural").Evidence,
+            evidence => evidence.Contains(relativePath, StringComparison.Ordinal));
+        Assert.Contains(
+            result.Levels.Single(level => level.Level == "cryptographic").Evidence,
+            evidence => evidence.Contains("could not be evaluated", StringComparison.Ordinal));
     }
 }

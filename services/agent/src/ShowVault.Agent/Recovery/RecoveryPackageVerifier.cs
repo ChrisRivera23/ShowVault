@@ -1,11 +1,17 @@
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
+using Microsoft.Win32.SafeHandles;
 using Microsoft.Extensions.Options;
 
 namespace ShowVault.Agent.Recovery;
 
 public sealed class RecoveryPackageVerifier(IOptions<AgentOptions> options)
 {
+    private const long MaximumManifestBytes = 16 * 1024 * 1024;
+    private const int LinuxOpenFlags = 0x0008_0000 | 0x0002_0000 | 0x0000_0800;
+    private const int MacOsOpenFlags = 0x0100_0000 | 0x0000_0100 | 0x0000_0004;
+    private const int SeekCurrent = 1;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly StringComparer FileSystemPathComparer = OperatingSystem.IsWindows()
         ? StringComparer.OrdinalIgnoreCase
@@ -71,21 +77,30 @@ public sealed class RecoveryPackageVerifier(IOptions<AgentOptions> options)
             }
             else
             {
-                manifestBytes = await File.ReadAllBytesAsync(manifestPath, cancellationToken);
-                try
+                await using var manifestStream = TryOpenRegularFile(manifestPath);
+                if (manifestStream is null || manifestStream.Length > MaximumManifestBytes)
                 {
-                    manifest = JsonSerializer.Deserialize<RecoveryPackageManifest>(
-                        manifestBytes,
-                        JsonOptions);
+                    structuralIssues.Add("A bounded regular manifest.json file is required.");
                 }
-                catch (JsonException)
+                else
                 {
-                    structuralIssues.Add("The manifest is not valid recovery-package JSON.");
-                }
+                    manifestBytes = new byte[checked((int)manifestStream.Length)];
+                    await manifestStream.ReadExactlyAsync(manifestBytes, cancellationToken);
+                    try
+                    {
+                        manifest = JsonSerializer.Deserialize<RecoveryPackageManifest>(
+                            manifestBytes,
+                            JsonOptions);
+                    }
+                    catch (JsonException)
+                    {
+                        structuralIssues.Add("The manifest is not valid recovery-package JSON.");
+                    }
 
-                if (manifest is null)
-                {
-                    structuralIssues.Add("The manifest is empty or incomplete.");
+                    if (manifest is null)
+                    {
+                        structuralIssues.Add("The manifest is empty or incomplete.");
+                    }
                 }
             }
         }
@@ -121,20 +136,20 @@ public sealed class RecoveryPackageVerifier(IOptions<AgentOptions> options)
                     resolvedPackagePath,
                     RecoveryPackageFormat.ContentDirectoryName,
                     file.RelativePath.Replace('/', Path.DirectorySeparatorChar));
-                var info = new FileInfo(contentPath);
-                if (info.Length != file.Size)
+                await using var stream = TryOpenRegularFile(contentPath);
+                if (stream is null)
+                {
+                    structuralIssues.Add($"Package content must be regular: {file.RelativePath}");
+                    cryptographicIssues.Add($"File digest could not be evaluated: {file.RelativePath}");
+                    continue;
+                }
+
+                if (stream.Length != file.Size)
                 {
                     cryptographicIssues.Add($"File size mismatch: {file.RelativePath}");
                     continue;
                 }
 
-                await using var stream = new FileStream(
-                    contentPath,
-                    FileMode.Open,
-                    FileAccess.Read,
-                    FileShare.Read,
-                    65_536,
-                    FileOptions.Asynchronous | FileOptions.SequentialScan);
                 var hash = Convert.ToHexStringLower(
                     await SHA256.HashDataAsync(stream, cancellationToken));
                 if (!string.Equals(hash, file.Sha256, StringComparison.OrdinalIgnoreCase))
@@ -429,6 +444,61 @@ public sealed class RecoveryPackageVerifier(IOptions<AgentOptions> options)
 
     private static bool IsLink(string path) =>
         (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+
+    private static FileStream? TryOpenRegularFile(string path)
+    {
+        try
+        {
+            if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
+            {
+                return new FileStream(
+                    path,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read,
+                    65_536,
+                    FileOptions.Asynchronous | FileOptions.SequentialScan);
+            }
+
+            var flags = OperatingSystem.IsLinux() ? LinuxOpenFlags : MacOsOpenFlags;
+            var descriptor = Open(path, flags);
+            if (descriptor < 0)
+            {
+                return null;
+            }
+
+            var handle = new SafeFileHandle((IntPtr)descriptor, ownsHandle: true);
+            if (Seek(descriptor, 0, SeekCurrent) < 0)
+            {
+                handle.Dispose();
+                return null;
+            }
+
+            try
+            {
+                return new FileStream(handle, FileAccess.Read, 65_536, isAsync: false);
+            }
+            catch
+            {
+                handle.Dispose();
+                throw;
+            }
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    [DllImport("libc", EntryPoint = "open", SetLastError = true)]
+    private static extern int Open(string path, int flags);
+
+    [DllImport("libc", EntryPoint = "lseek", SetLastError = true)]
+    private static extern long Seek(int descriptor, long offset, int origin);
 
     private static RecoveryPackageVerificationLevel CreateLevel(
         string level,
