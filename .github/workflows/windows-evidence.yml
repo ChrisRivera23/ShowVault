@@ -22,7 +22,7 @@ jobs:
       - name: Check out exact source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ddde50cf96bf5cd86bc3aa578b893a720b4f2840
+          ref: a85c7e2f4be5fef263039d8da33c30719ba5c672
           persist-credentials: false
 
       - name: Install pinned Flutter
@@ -60,6 +60,36 @@ jobs:
             throw 'Inno Setup 6 is unavailable on the controlled runner.'
           }
           (Get-Item -LiteralPath $inno).VersionInfo.FileVersion
+
+      - name: Install pinned Windows native dependencies
+        run: |
+          $vcpkgRoot = [System.IO.Path]::GetFullPath($env:VCPKG_ROOT)
+          $runnerVcpkgRoot = [System.IO.Path]::GetFullPath($env:VCPKG_INSTALLATION_ROOT)
+          if (-not [string]::Equals(
+              $vcpkgRoot,
+              $runnerVcpkgRoot,
+              [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw 'VCPKG_ROOT was redirected after toolchain validation.'
+          }
+          $vcpkg = Join-Path $vcpkgRoot 'vcpkg.exe'
+          $requiredNativePackages = @(
+            'cpprestsdk:x64-windows',
+            'openssl:x64-windows',
+            'boost-system:x64-windows',
+            'boost-date-time:x64-windows',
+            'boost-regex:x64-windows'
+          )
+          & $vcpkg install @requiredNativePackages
+          if ($LASTEXITCODE -ne 0) {
+            throw 'The controlled runner failed to install the pinned Windows native dependencies.'
+          }
+          $installedNativePackages = @(& $vcpkg list)
+          foreach ($package in $requiredNativePackages) {
+            $packagePattern = '^' + [regex]::Escape($package) + '\s'
+            if (-not ($installedNativePackages -match $packagePattern)) {
+              throw "The controlled runner did not install required package $package."
+            }
+          }
 
       - name: Run Windows Flutter verification
         run: |
