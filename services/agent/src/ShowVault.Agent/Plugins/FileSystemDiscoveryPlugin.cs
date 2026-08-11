@@ -109,6 +109,7 @@ public sealed class FileSystemDiscoveryPlugin(
 
         return new DiscoveryResult(
             Manifest.Id,
+            Manifest.Version,
             rootPath,
             timeProvider.GetUtcNow(),
             truncated,

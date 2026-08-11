@@ -27,6 +27,7 @@ public sealed record DiscoveryFile(
 
 public sealed record DiscoveryResult(
     string PluginId,
+    string PluginVersion,
     string RootPath,
     DateTimeOffset CompletedAt,
     bool Truncated,

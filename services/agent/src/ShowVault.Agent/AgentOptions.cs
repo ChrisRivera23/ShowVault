@@ -17,5 +17,7 @@ public sealed class AgentOptions
 
     public string? DataDirectory { get; init; }
 
+    public string? PackageDirectory { get; init; }
+
     public IReadOnlyList<string> DiscoveryRoots { get; init; } = [];
 }

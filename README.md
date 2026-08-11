@@ -45,12 +45,14 @@ Completed:
 - Control-plane acknowledgements are idempotent, and local command state transitions are conditional and restart-safe.
 - The first-party filesystem discovery plugin inventories and SHA-256 hashes files only within locally allowed roots.
 - `StartDiscovery` commands execute from the durable queue, resume after restart, and emit idempotent completion or failure events.
+- `CreateBackup` writes an atomic, immutable, content-addressed local recovery package from a completed discovery inventory.
+- Recovery package manifests use format 1.0 and record source/plugin identity, hashes, dependencies, relationships, restore prerequisites, compatibility rules, and verification evidence.
 
 Current development branch:
 
-- `codex/file-discovery-plugin` — first file-oriented plugin and durable discovery execution.
+- `codex/immutable-recovery-package` — immutable local recovery-package format and creation flow.
 
-Client sign-in, membership administration, user-requested command cancellation, recovery packages, backup, verification, and restore functionality have not been implemented yet.
+Client sign-in, membership administration, user-requested command cancellation, independent package verification, restore, NAS/cloud storage, and control-plane package metadata have not been implemented yet.
 
 ## Approved product direction
 
@@ -253,8 +255,8 @@ Universal object abstractions will be considered only after real plugin implemen
 5. Implement secure Venue Agent enrollment and identity. — Initial end-to-end slice complete
 6. Implement outbound Agent communication and durable local jobs. — Initial event, command, and discovery execution loop complete
 7. Implement the first file-oriented discovery plugin. — Complete (generic locally allowlisted filesystem integration)
-8. Define and create the immutable recovery-package format. — Next
-9. Implement cryptographic verification.
+8. Define and create the immutable recovery-package format. — Complete (local format 1.0)
+9. Implement cryptographic verification. — Next
 10. Implement a controlled local restore.
 11. Display the complete recovery loop in Flutter.
 12. Add the network-device and system-inventory plugins.
@@ -265,10 +267,10 @@ Universal object abstractions will be considered only after real plugin implemen
 
 This section is maintained so a new Codex task can resume without relying on the previous chat transcript.
 
-- Completed draft PR stack: PR #3 `codex/auth-tenancy-foundation`, PR #4 `codex/agent-enrollment-identity`, PR #5 `codex/agent-outbound-queue`, and PR #6 `codex/agent-command-delivery`.
-- Active work: `codex/file-discovery-plugin`, stacked on PR #6.
-- This slice adds a minimal manifest/capability/permission boundary, locally allowlisted filesystem discovery, bounded SHA-256 inventories, restart-safe `StartDiscovery` execution, and stable completion/failure event IDs.
-- The next implementation task is the immutable recovery-package format, using the real filesystem inventory to drive its manifest rather than designing it in isolation.
+- Completed draft PR stack: PR #3 `codex/auth-tenancy-foundation`, PR #4 `codex/agent-enrollment-identity`, PR #5 `codex/agent-outbound-queue`, PR #6 `codex/agent-command-delivery`, and PR #7 `codex/file-discovery-plugin`.
+- Active work: `codex/immutable-recovery-package`, stacked on PR #7.
+- This slice adds recovery package format 1.0, atomic staging/publication, content-addressed manifest identity, source re-hashing, traversal/link protection, read-only publication, durable package records, and resumable `CreateBackup` execution.
+- The next implementation task is independent structural and cryptographic verification of a published recovery package, with immutable verification evidence.
 - Auth0 is configured for human identity. Agent authentication intentionally remains a separate credential scheme.
 - Exact Codex context-window percentages are not exposed to the assistant. A context compaction occurred while building this slice; this README is the durable source of truth for a new task.
 
@@ -347,4 +349,4 @@ dotnet test tests/ShowVault.Agent.Tests/ShowVault.Agent.Tests.csproj
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-Draft PRs #3 through #6 establish Auth0 tenancy, secure Agent identity, durable event delivery, and durable command receipt. The active filesystem-discovery slice adds the first real plugin boundary and executes `StartDiscovery` from SQLite through an allowlisted, bounded file inventory with SHA-256 hashes and durable outcome events. The next vertical slice should define and write an immutable recovery-package manifest from this inventory. macOS LaunchDaemon keychain access remains an installer-validation requirement. Keep this README current and continue through focused, validated draft pull requests.
+Draft PRs #3 through #7 establish Auth0 tenancy, secure Agent identity, durable communication, and the first allowlisted filesystem discovery plugin. The active package slice executes `CreateBackup` from SQLite, revalidates discovered source content, and atomically publishes recovery package format 1.0 under its manifest SHA-256 ID. The next vertical slice should independently verify package structure and content and record immutable evidence. macOS LaunchDaemon keychain access remains an installer-validation requirement. Keep this README current and continue through focused, validated draft pull requests.
