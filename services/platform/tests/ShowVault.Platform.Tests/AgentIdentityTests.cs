@@ -1,0 +1,66 @@
+using System.Security.Cryptography;
+using ShowVault.Platform.Agents;
+using Xunit;
+
+namespace ShowVault.Platform.Tests;
+
+public sealed class AgentIdentityTests
+{
+    [Fact]
+    public void Enrollment_is_single_use_and_expires()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var enrollment = AgentEnrollment.Create(
+            Guid.NewGuid(),
+            RandomNumberGenerator.GetBytes(32),
+            "auth0|owner",
+            now,
+            TimeSpan.FromMinutes(15));
+
+        Assert.True(enrollment.CanBeConsumed(now.AddMinutes(14)));
+        Assert.False(enrollment.CanBeConsumed(now.AddMinutes(15)));
+
+        var requestId = Guid.NewGuid();
+        var agentId = Guid.NewGuid();
+        enrollment.Consume(now.AddMinutes(1), requestId, agentId);
+        Assert.False(enrollment.CanBeConsumed(now.AddMinutes(2)));
+        Assert.True(enrollment.CanResume(requestId));
+        Assert.Equal(agentId, enrollment.IssuedAgentId);
+        Assert.Throws<InvalidOperationException>(() =>
+            enrollment.Consume(now.AddMinutes(2), requestId, agentId));
+    }
+
+    [Fact]
+    public void Revoked_agent_records_revocation_once()
+    {
+        var createdAt = DateTimeOffset.UtcNow;
+        var agent = VenueAgent.Create(
+            Guid.NewGuid(),
+            "Main Control Agent",
+            RandomNumberGenerator.GetBytes(32),
+            createdAt);
+        var revokedAt = createdAt.AddMinutes(1);
+
+        agent.Revoke(revokedAt);
+        agent.Revoke(revokedAt.AddMinutes(1));
+
+        Assert.Equal(revokedAt, agent.RevokedAt);
+    }
+
+    [Fact]
+    public void Credential_rotation_replaces_hash_and_records_time()
+    {
+        var createdAt = DateTimeOffset.UtcNow;
+        var originalHash = RandomNumberGenerator.GetBytes(32);
+        var replacementHash = RandomNumberGenerator.GetBytes(32);
+        var agent = VenueAgent.Create(Guid.NewGuid(), "Agent", originalHash, createdAt);
+        var rotatedAt = createdAt.AddDays(30);
+
+        var requestId = Guid.NewGuid();
+        agent.RotateCredential(replacementHash, requestId, rotatedAt);
+
+        Assert.Equal(replacementHash, agent.CredentialHash);
+        Assert.Equal(rotatedAt, agent.CredentialRotatedAt);
+        Assert.True(agent.IsCompletedRotation(requestId, replacementHash));
+    }
+}

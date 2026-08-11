@@ -1,10 +1,14 @@
 using System.Security.Claims;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.RateLimiting;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
 using ShowVault.Api.Endpoints;
+using ShowVault.Api.Security;
 using ShowVault.AgentContracts;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +22,7 @@ var platformConnectionString = builder.Configuration.GetConnectionString("Platfo
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<PlatformDbContext>(options =>
     options.UseNpgsql(platformConnectionString));
 builder.Services
@@ -33,12 +38,31 @@ builder.Services
             RoleClaimType = "roles"
         };
     });
+builder.Services.AddAuthentication()
+    .AddScheme<AuthenticationSchemeOptions, AgentAuthenticationHandler>(
+        AgentAuthenticationHandler.SchemeName,
+        _ => { });
 builder.Services.AddAuthorization();
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("agent-enrollment", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
 
 var app = builder.Build();
 app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment())
 {
@@ -73,6 +97,7 @@ app.MapGet("/api/v1/identity", (ClaimsPrincipal user, HttpContext context) =>
 }).RequireAuthorization();
 
 app.MapTenantEndpoints();
+app.MapAgentEnrollmentEndpoints();
 
 app.Run();
 
