@@ -22,7 +22,7 @@ jobs:
       - name: Check out exact source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: a85c7e2f4be5fef263039d8da33c30719ba5c672
+          ref: cf76d62a867c3c3918cfb0200d429d84e9c9503a
           persist-credentials: false
 
       - name: Install pinned Flutter
@@ -54,7 +54,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw 'The controlled runner vcpkg executable failed.'
           }
-          "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SHOWVAULT_RUNNER_VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $inno = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
           if (-not (Test-Path -LiteralPath $inno -PathType Leaf)) {
             throw 'Inno Setup 6 is unavailable on the controlled runner.'
@@ -63,15 +63,79 @@ jobs:
 
       - name: Install pinned Windows native dependencies
         run: |
-          $vcpkgRoot = [System.IO.Path]::GetFullPath($env:VCPKG_ROOT)
           $runnerVcpkgRoot = [System.IO.Path]::GetFullPath($env:VCPKG_INSTALLATION_ROOT)
+          $validatedRunnerVcpkgRoot = [System.IO.Path]::GetFullPath(
+            $env:SHOWVAULT_RUNNER_VCPKG_ROOT)
           if (-not [string]::Equals(
-              $vcpkgRoot,
               $runnerVcpkgRoot,
+              $validatedRunnerVcpkgRoot,
               [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw 'VCPKG_ROOT was redirected after toolchain validation.'
+            throw 'VCPKG_INSTALLATION_ROOT was redirected after toolchain validation.'
           }
+
+          $pinnedVcpkgCommit = 'fa9a5b330aed997a68310ed56418617b87a3b83d'
+          $pinnedVcpkgRoot = Join-Path $env:RUNNER_TEMP (
+            "showvault-vcpkg-$($pinnedVcpkgCommit.Substring(0, 12))")
+          if (Test-Path -LiteralPath $pinnedVcpkgRoot) {
+            throw 'The pinned vcpkg destination already exists.'
+          }
+          New-Item -ItemType Directory -Path $pinnedVcpkgRoot | Out-Null
+
+          & git -C $pinnedVcpkgRoot init --quiet
+          if ($LASTEXITCODE -ne 0) {
+            throw 'The pinned vcpkg repository could not be initialized.'
+          }
+          & git -C $pinnedVcpkgRoot remote add origin https://github.com/microsoft/vcpkg.git
+          if ($LASTEXITCODE -ne 0) {
+            throw 'The pinned vcpkg origin could not be configured.'
+          }
+          & git -C $pinnedVcpkgRoot fetch --quiet --depth 1 origin $pinnedVcpkgCommit
+          if ($LASTEXITCODE -ne 0) {
+            throw 'The pinned vcpkg commit could not be fetched.'
+          }
+          & git -C $pinnedVcpkgRoot checkout --quiet --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) {
+            throw 'The pinned vcpkg commit could not be checked out.'
+          }
+          $actualVcpkgCommit = (& git -C $pinnedVcpkgRoot rev-parse HEAD).Trim().ToLowerInvariant()
+          if ($LASTEXITCODE -ne 0 -or $actualVcpkgCommit -ne $pinnedVcpkgCommit) {
+            throw 'The pinned vcpkg checkout did not match the approved commit.'
+          }
+
+          $requiredNativePorts = @(
+            'cpprestsdk',
+            'openssl',
+            'boost-system',
+            'boost-date-time',
+            'boost-regex'
+          )
+          foreach ($port in $requiredNativePorts) {
+            $portManifest = Join-Path $pinnedVcpkgRoot "ports\$port\vcpkg.json"
+            if (-not (Test-Path -LiteralPath $portManifest -PathType Leaf)) {
+              throw "The pinned vcpkg checkout does not contain required port $port."
+            }
+          }
+
+          $bootstrapVcpkg = Join-Path $pinnedVcpkgRoot 'bootstrap-vcpkg.bat'
+          if (-not (Test-Path -LiteralPath $bootstrapVcpkg -PathType Leaf)) {
+            throw 'The pinned vcpkg checkout does not contain its bootstrap script.'
+          }
+          & $bootstrapVcpkg -disableMetrics
+          if ($LASTEXITCODE -ne 0) {
+            throw 'The pinned vcpkg bootstrap failed.'
+          }
+          $vcpkgRoot = [System.IO.Path]::GetFullPath($pinnedVcpkgRoot)
           $vcpkg = Join-Path $vcpkgRoot 'vcpkg.exe'
+          if (-not (Test-Path -LiteralPath $vcpkg -PathType Leaf)) {
+            throw 'The pinned vcpkg bootstrap did not produce vcpkg.exe.'
+          }
+          & $vcpkg version
+          if ($LASTEXITCODE -ne 0) {
+            throw 'The pinned vcpkg executable failed.'
+          }
+          "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SHOWVAULT_PINNED_VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
           $requiredNativePackages = @(
             'cpprestsdk:x64-windows',
             'openssl:x64-windows',
@@ -93,6 +157,15 @@ jobs:
 
       - name: Run Windows Flutter verification
         run: |
+          $vcpkgRoot = [System.IO.Path]::GetFullPath($env:VCPKG_ROOT)
+          $pinnedVcpkgRoot = [System.IO.Path]::GetFullPath(
+            $env:SHOWVAULT_PINNED_VCPKG_ROOT)
+          if (-not [string]::Equals(
+              $vcpkgRoot,
+              $pinnedVcpkgRoot,
+              [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw 'VCPKG_ROOT was redirected after pinned dependency installation.'
+          }
           flutter pub get
           flutter analyze
           flutter test
