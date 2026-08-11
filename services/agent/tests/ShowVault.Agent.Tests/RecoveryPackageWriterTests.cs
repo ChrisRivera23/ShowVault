@@ -113,6 +113,154 @@ public sealed class RecoveryPackageWriterTests : IDisposable
             CancellationToken.None));
     }
 
+    [Theory]
+    [InlineData("altered")]
+    [InlineData("missing")]
+    [InlineData("extra")]
+    [InlineData("linked")]
+    public async Task Package_replay_rejects_damaged_or_unexpected_content(string scenario)
+    {
+        var sourceRoot = Path.Combine(_testRoot, $"replay-source-{scenario}");
+        Directory.CreateDirectory(sourceRoot);
+        var sourcePath = Path.Combine(sourceRoot, "main.show");
+        var content = Encoding.UTF8.GetBytes("expected");
+        await File.WriteAllBytesAsync(sourcePath, content);
+        var discovery = CreateDiscovery(
+            sourceRoot,
+            new DiscoveryFile(
+                "main.show",
+                content.Length,
+                DateTimeOffset.UtcNow,
+                Convert.ToHexStringLower(SHA256.HashData(content))));
+        var writer = CreateWriter();
+        var agentId = Guid.NewGuid();
+        var discoveryCommandId = Guid.NewGuid();
+        var createdAt = DateTimeOffset.UtcNow;
+        var package = await writer.CreateAsync(
+            agentId,
+            discoveryCommandId,
+            discovery,
+            createdAt,
+            CancellationToken.None);
+        var packagedFile = Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "main.show");
+
+        switch (scenario)
+        {
+            case "altered":
+                File.SetAttributes(packagedFile, FileAttributes.Normal);
+                await File.WriteAllTextAsync(packagedFile, "tampered");
+                break;
+            case "missing":
+                File.SetAttributes(packagedFile, FileAttributes.Normal);
+                File.Delete(packagedFile);
+                break;
+            case "extra":
+                await File.WriteAllTextAsync(
+                    Path.Combine(package.PackagePath, "unexpected.txt"),
+                    "unexpected");
+                break;
+            case "linked":
+                File.SetAttributes(packagedFile, FileAttributes.Normal);
+                File.Delete(packagedFile);
+                File.CreateSymbolicLink(packagedFile, sourcePath);
+                break;
+            default:
+                throw new InvalidOperationException("Unknown test scenario.");
+        }
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => writer.CreateAsync(
+            agentId,
+            discoveryCommandId,
+            discovery,
+            createdAt,
+            CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Concurrent_creation_returns_one_fully_valid_shared_package()
+    {
+        var sourceRoot = Path.Combine(_testRoot, "concurrent-source");
+        Directory.CreateDirectory(sourceRoot);
+        var content = new byte[1_048_576];
+        Random.Shared.NextBytes(content);
+        await File.WriteAllBytesAsync(Path.Combine(sourceRoot, "main.show"), content);
+        var discovery = CreateDiscovery(
+            sourceRoot,
+            new DiscoveryFile(
+                "main.show",
+                content.Length,
+                DateTimeOffset.UtcNow,
+                Convert.ToHexStringLower(SHA256.HashData(content))));
+        var writer = CreateWriter();
+        var agentId = Guid.NewGuid();
+        var discoveryCommandId = Guid.NewGuid();
+        var createdAt = DateTimeOffset.UtcNow;
+
+        var packages = await Task.WhenAll(
+            writer.CreateAsync(
+                agentId,
+                discoveryCommandId,
+                discovery,
+                createdAt,
+                CancellationToken.None),
+            writer.CreateAsync(
+                agentId,
+                discoveryCommandId,
+                discovery,
+                createdAt,
+                CancellationToken.None));
+
+        Assert.Equal(packages[0].PackageId, packages[1].PackageId);
+        Assert.Equal(packages[0].PackagePath, packages[1].PackagePath);
+        Assert.Equal(
+            content,
+            await File.ReadAllBytesAsync(Path.Combine(
+                packages[0].PackagePath,
+                RecoveryPackageFormat.ContentDirectoryName,
+                "main.show")));
+    }
+
+    [Fact]
+    public async Task Package_rejects_a_linked_package_directory()
+    {
+        var sourceRoot = Path.Combine(_testRoot, "linked-package-source");
+        Directory.CreateDirectory(sourceRoot);
+        var content = Encoding.UTF8.GetBytes("expected");
+        await File.WriteAllBytesAsync(Path.Combine(sourceRoot, "main.show"), content);
+        var discovery = CreateDiscovery(
+            sourceRoot,
+            new DiscoveryFile(
+                "main.show",
+                content.Length,
+                DateTimeOffset.UtcNow,
+                Convert.ToHexStringLower(SHA256.HashData(content))));
+        var outsideRoot = Path.Combine(
+            Path.GetTempPath(),
+            "showvault-linked-package-tests",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outsideRoot);
+        var packageDirectory = Path.Combine(_testRoot, "packages");
+        Directory.CreateSymbolicLink(packageDirectory, outsideRoot);
+        try
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => CreateWriter().CreateAsync(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                discovery,
+                DateTimeOffset.UtcNow,
+                CancellationToken.None));
+            Assert.Empty(Directory.EnumerateFileSystemEntries(outsideRoot));
+        }
+        finally
+        {
+            Directory.Delete(packageDirectory);
+            Directory.Delete(outsideRoot, recursive: true);
+        }
+    }
+
     public void Dispose()
     {
         if (!Directory.Exists(_testRoot))

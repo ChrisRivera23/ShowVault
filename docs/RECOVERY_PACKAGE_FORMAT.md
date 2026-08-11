@@ -41,6 +41,8 @@ Paths in the manifest always use `/` separators and must remain beneath the disc
 
 The referenced `StartDiscovery` result must exist in the Agent's durable SQLite state. A successful command stores the package ID, local path, and manifest in SQLite and emits a compact `JobCompleted` event. Replaying a running command uses its stable issued timestamp and resolves to the same package ID.
 
+Before an existing or concurrently published package is accepted, the Agent checks the exact directory and file set, rejects filesystem links, compares the manifest bytes, and re-hashes every declared content file. Altered, missing, extra, or linked entries fail the command instead of recording damaged recovery material as a completed backup.
+
 ## Trust boundary
 
 Read-only flags discourage accidental modification but are not a cryptographic access-control mechanism. The next slice independently verifies the manifest digest, layout, content sizes, and content hashes and emits immutable verification evidence.

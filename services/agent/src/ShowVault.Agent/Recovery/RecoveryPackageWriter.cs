@@ -9,6 +9,9 @@ namespace ShowVault.Agent.Recovery;
 public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly StringComparer FileSystemPathComparer = OperatingSystem.IsWindows()
+        ? StringComparer.OrdinalIgnoreCase
+        : StringComparer.Ordinal;
     private readonly string _packageDirectory = ResolvePackageDirectory(options.Value);
 
     public async Task<CreatedRecoveryPackage> CreateAsync(
@@ -54,11 +57,13 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
         var packagePath = Path.Combine(_packageDirectory, packageId);
 
         Directory.CreateDirectory(_packageDirectory);
+        EnsureDirectoryIsNotLink(_packageDirectory);
         if (Directory.Exists(packagePath))
         {
-            await EnsureExistingManifestMatchesAsync(
+            await EnsureExistingPackageMatchesAsync(
                 packagePath,
                 manifestBytes,
+                manifestFiles,
                 cancellationToken);
             return new CreatedRecoveryPackage(packageId, packagePath, manifest);
         }
@@ -103,9 +108,10 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
             }
             catch (IOException) when (Directory.Exists(packagePath))
             {
-                await EnsureExistingManifestMatchesAsync(
+                await EnsureExistingPackageMatchesAsync(
                     packagePath,
                     manifestBytes,
+                    manifestFiles,
                     cancellationToken);
             }
         }
@@ -117,6 +123,11 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
             }
         }
 
+        await EnsureExistingPackageMatchesAsync(
+            packagePath,
+            manifestBytes,
+            manifestFiles,
+            cancellationToken);
         return new CreatedRecoveryPackage(packageId, packagePath, manifest);
     }
 
@@ -197,34 +208,172 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
     {
         var relativePath = Path.GetRelativePath(rootPath, sourcePath);
         var currentPath = rootPath;
+        EnsurePathIsNotLink(currentPath);
         foreach (var segment in relativePath.Split(
             [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
             StringSplitOptions.RemoveEmptyEntries))
         {
             currentPath = Path.Combine(currentPath, segment);
-            if ((File.GetAttributes(currentPath) & FileAttributes.ReparsePoint) != 0)
-            {
-                throw new InvalidOperationException(
-                    $"Recovery package sources cannot traverse links: {relativePath}");
-            }
+            EnsurePathIsNotLink(currentPath);
         }
     }
 
-    private static async Task EnsureExistingManifestMatchesAsync(
+    private static async Task EnsureExistingPackageMatchesAsync(
         string packagePath,
         byte[] expectedManifest,
+        IReadOnlyList<RecoveryPackageFile> expectedContentFiles,
         CancellationToken cancellationToken)
     {
-        var manifestPath = Path.Combine(packagePath, RecoveryPackageFormat.ManifestFileName);
-        if (!File.Exists(manifestPath) ||
-            !CryptographicOperations.FixedTimeEquals(
-                await File.ReadAllBytesAsync(manifestPath, cancellationToken),
-                expectedManifest))
+        EnsureDirectoryIsNotLink(packagePath);
+
+        var expectedFiles = new Dictionary<string, RecoveryPackageFile?>(FileSystemPathComparer)
+        {
+            [RecoveryPackageFormat.ManifestFileName] = null
+        };
+        var expectedDirectories = new HashSet<string>(FileSystemPathComparer)
+        {
+            RecoveryPackageFormat.ContentDirectoryName
+        };
+        foreach (var file in expectedContentFiles)
+        {
+            var packageRelativePath = $"{RecoveryPackageFormat.ContentDirectoryName}/{file.RelativePath}";
+            if (!expectedFiles.TryAdd(packageRelativePath, file))
+            {
+                throw new InvalidOperationException(
+                    "A recovery package manifest contains duplicate file paths.");
+            }
+
+            var parent = Path.GetDirectoryName(
+                packageRelativePath.Replace('/', Path.DirectorySeparatorChar));
+            while (!string.IsNullOrEmpty(parent))
+            {
+                expectedDirectories.Add(NormalizePackagePath(parent));
+                parent = Path.GetDirectoryName(parent);
+            }
+        }
+
+        var directories = new Stack<string>();
+        directories.Push(packagePath);
+        while (directories.TryPop(out var directory))
+        {
+            foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var attributes = File.GetAttributes(entry);
+                if (IsLink(entry, attributes))
+                {
+                    throw new InvalidOperationException(
+                        "An existing content-addressed package contains a filesystem link.");
+                }
+
+                if ((attributes & FileAttributes.Device) != 0)
+                {
+                    throw new InvalidOperationException(
+                        "An existing content-addressed package contains a non-regular entry.");
+                }
+
+                var relativePath = NormalizePackagePath(Path.GetRelativePath(packagePath, entry));
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    if (!expectedDirectories.Remove(relativePath))
+                    {
+                        throw new InvalidOperationException(
+                            "An existing content-addressed package contains an unexpected directory.");
+                    }
+
+                    directories.Push(entry);
+                    continue;
+                }
+
+                if (!expectedFiles.Remove(relativePath, out var expectedFile))
+                {
+                    throw new InvalidOperationException(
+                        "An existing content-addressed package contains an unexpected file.");
+                }
+
+                if (expectedFile is null)
+                {
+                    if (!CryptographicOperations.FixedTimeEquals(
+                        await File.ReadAllBytesAsync(entry, cancellationToken),
+                        expectedManifest))
+                    {
+                        throw new InvalidOperationException(
+                            "An existing content-addressed package has an unexpected manifest.");
+                    }
+
+                    continue;
+                }
+
+                if (new FileInfo(entry).Length != expectedFile.Size ||
+                    !string.Equals(
+                        await HashFileAsync(entry, cancellationToken),
+                        expectedFile.Sha256,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        "An existing content-addressed package has unexpected file content.");
+                }
+            }
+        }
+
+        if (expectedDirectories.Count != 0 || expectedFiles.Count != 0)
         {
             throw new InvalidOperationException(
-                "An existing content-addressed package has an unexpected manifest.");
+                "An existing content-addressed package is incomplete.");
         }
     }
+
+    private static async Task<string> HashFileAsync(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            65_536,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        EnsurePathIsNotLink(path);
+        return Convert.ToHexStringLower(await SHA256.HashDataAsync(stream, cancellationToken));
+    }
+
+    private static void EnsureDirectoryIsNotLink(string path)
+    {
+        var attributes = File.GetAttributes(path);
+        if ((attributes & FileAttributes.Directory) == 0 || IsLink(path, attributes))
+        {
+            throw new InvalidOperationException(
+                "A recovery package directory cannot be a filesystem link.");
+        }
+    }
+
+    private static void EnsurePathIsNotLink(string path)
+    {
+        var attributes = File.GetAttributes(path);
+        if (IsLink(path, attributes))
+        {
+            throw new InvalidOperationException(
+                "Recovery package paths cannot traverse filesystem links.");
+        }
+    }
+
+    private static bool IsLink(string path, FileAttributes attributes)
+    {
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            return true;
+        }
+
+        FileSystemInfo info = (attributes & FileAttributes.Directory) != 0
+            ? new DirectoryInfo(path)
+            : new FileInfo(path);
+        return info.LinkTarget is not null;
+    }
+
+    private static string NormalizePackagePath(string path) =>
+        path.Replace(Path.DirectorySeparatorChar, '/')
+            .Replace(Path.AltDirectorySeparatorChar, '/');
 
     private static void MakeFilesReadOnly(string packagePath)
     {
