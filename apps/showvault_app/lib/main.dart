@@ -10,11 +10,17 @@ import 'package:showvault_app/src/recovery/upgrade_diagnostic_harness.dart';
 Future<void> main(List<String> arguments) async {
   if (AppConfig.upgradeHarnessEnabled &&
       await UpgradeDiagnosticHarness.tryRun(arguments)) {
-    exit(exitCode);
+    await _flushAndExit();
   }
   if (AppConfig.resilienceHarnessEnabled &&
       await ResilienceHarness.tryRun(arguments)) {
-    exit(exitCode);
+    await _flushAndExit();
   }
   runApp(const ProviderScope(child: ShowVaultApp()));
+}
+
+Future<Never> _flushAndExit() async {
+  await stdout.flush();
+  await stderr.flush();
+  exit(exitCode);
 }
