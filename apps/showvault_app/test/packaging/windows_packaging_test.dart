@@ -120,7 +120,7 @@ void main() {
     expect(text, contains('permissions:\n  contents: read'));
     expect(text, contains('flutter-version: 3.44.8'));
     expect(text, contains(r'$vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT'));
-    expect(text, contains(r'"VCPKG_ROOT=$vcpkgRoot"'));
+    expect(text, contains(r'"SHOWVAULT_RUNNER_VCPKG_ROOT=$vcpkgRoot"'));
     expect(text, contains(r'$env:GITHUB_ENV'));
     expect(text, contains(r"'^[A-Za-z]:[\\/][^\r\n]+$'"));
     expect(text, contains("Join-Path \$vcpkgRoot 'vcpkg.exe'"));
@@ -142,8 +142,57 @@ void main() {
     expect(text, contains('The controlled runner vcpkg executable failed.'));
     expect(
       text,
-      contains('VCPKG_ROOT was redirected after toolchain validation.'),
+      contains(
+        'VCPKG_INSTALLATION_ROOT was redirected after toolchain validation.',
+      ),
     );
+    expect(
+      text,
+      contains(
+        "\$pinnedVcpkgCommit = "
+        "'fa9a5b330aed997a68310ed56418617b87a3b83d'",
+      ),
+    );
+    expect(text, contains('https://github.com/microsoft/vcpkg.git'));
+    expect(
+      text,
+      contains(r'fetch --quiet --depth 1 origin $pinnedVcpkgCommit'),
+    );
+    expect(text, contains('checkout --quiet --detach FETCH_HEAD'));
+    expect(
+      text,
+      contains('The pinned vcpkg checkout did not match the approved commit.'),
+    );
+    expect(text, contains("'bootstrap-vcpkg.bat'"));
+    expect(text, contains(r'& $bootstrapVcpkg -disableMetrics'));
+    expect(text, contains(r'"VCPKG_ROOT=$vcpkgRoot"'));
+    expect(text, contains(r'"SHOWVAULT_PINNED_VCPKG_ROOT=$vcpkgRoot"'));
+    expect(
+      text,
+      contains(
+        'VCPKG_ROOT was redirected after pinned dependency installation.',
+      ),
+    );
+    final nativePorts = RegExp(
+      r"^            '([a-z0-9-]+)',?$",
+      multiLine: true,
+    ).allMatches(text).map((match) => match.group(1)).toList();
+    expect(
+      nativePorts,
+      equals(<String>[
+        'cpprestsdk',
+        'openssl',
+        'boost-system',
+        'boost-date-time',
+        'boost-regex',
+      ]),
+    );
+    expect(
+      text,
+      contains('The pinned vcpkg checkout does not contain required port'),
+    );
+    expect(text, isNot(contains('refs/heads/master')));
+    expect(text, isNot(contains('refs/heads/main')));
     final nativePackages = RegExp(
       r"'([a-z0-9-]+:x64-windows)'",
     ).allMatches(text).map((match) => match.group(1)).toList();
@@ -166,6 +215,10 @@ void main() {
     final flutterVerificationIndex = text.indexOf(
       '- name: Run Windows Flutter verification',
     );
+    final pinnedRootRecheckIndex = text.indexOf(
+      r'$env:SHOWVAULT_PINNED_VCPKG_ROOT',
+      nativeListIndex,
+    );
     final packageBuildIndex = text.indexOf(
       '- name: Build normal current-user package',
     );
@@ -176,7 +229,9 @@ void main() {
       ),
     );
     expect(nativeListIndex, greaterThan(nativeInstallIndex));
+    expect(pinnedRootRecheckIndex, greaterThan(nativeListIndex));
     expect(flutterVerificationIndex, greaterThan(nativeListIndex));
+    expect(pinnedRootRecheckIndex, greaterThan(flutterVerificationIndex));
     expect(packageBuildIndex, greaterThan(flutterVerificationIndex));
     expect(
       text,
