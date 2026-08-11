@@ -73,6 +73,69 @@ public sealed class AgentQueueStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Invalid_command_is_rejected_before_queue_persistence()
+    {
+        var command = AgentCommandEnvelope.Create(
+            Guid.NewGuid(),
+            AgentCommandType.StartDiscovery,
+            "correlation-invalid-command",
+            "{}",
+            TimeSpan.FromMinutes(5)) with
+        {
+            Type = (AgentCommandType)999
+        };
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            store.EnqueueCommandAsync(
+                command,
+                DateTimeOffset.UtcNow,
+                CancellationToken.None));
+
+        Assert.Empty(await store.GetPendingCommandsAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Command_state_transitions_are_conditional_and_survive_restart()
+    {
+        var command = AgentCommandEnvelope.Create(
+            Guid.NewGuid(),
+            AgentCommandType.StartDiscovery,
+            "correlation-state",
+            "{}",
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, DateTimeOffset.UtcNow, CancellationToken.None);
+
+        Assert.False(await store.TryTransitionCommandAsync(
+            command.CommandId,
+            LocalAgentCommandStatus.Pending,
+            LocalAgentCommandStatus.Completed,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None));
+        Assert.True(await store.TryTransitionCommandAsync(
+            command.CommandId,
+            LocalAgentCommandStatus.Pending,
+            LocalAgentCommandStatus.Running,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None));
+        Assert.False(await store.TryTransitionCommandAsync(
+            command.CommandId,
+            LocalAgentCommandStatus.Pending,
+            LocalAgentCommandStatus.Running,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None));
+
+        var running = await CreateStore().GetCommandsAsync(
+            LocalAgentCommandStatus.Running,
+            CancellationToken.None);
+        Assert.Single(running);
+        Assert.Equal(command, running[0]);
+    }
+
+    [Fact]
     public async Task Failed_delivery_remains_durable_until_retry_succeeds()
     {
         var now = DateTimeOffset.UtcNow;
