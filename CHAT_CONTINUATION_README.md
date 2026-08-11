@@ -96,6 +96,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Fifth Windows evidence run: `31452427593`, attempt 1, job `93659301883`, failed during installed before-app vault preparation after pinned dependencies, full Windows verification, and the normal package build passed; zero artifacts and no rerun
 - Bounded Windows prepare-diagnostic commit: `388466e feat: categorize Windows prepare failures`
 - Waited installed-harness process correction: `2058b5e fix: await Windows upgrade harness phases`
+- Published green prepare-correction product source: `2058b5eec11ec3e755d1906d205e57fcfb879c93 fix: await Windows upgrade harness phases`
+- Green prepare-correction product CI: push run `31455319415` and pull-request run `31455321837`
 - Expected worktree after the handoff commit: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Sequential catalog expansion remains paused while prototype readiness advances.
 
@@ -197,6 +199,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - The evidence distinguishes only a prepare-phase nonzero exit or missing success marker. `UpgradeDiagnosticHarness` catches the internal exception and emits a generic bounded failure, while the PowerShell runner captures that output and replaces it with its own generic error, so the deeper cause is not present in the hosted log and must not be guessed.
 - Local commit `388466e` adds fixed path-free harness status tokens and distinguishes unavailable/configuration, explicit harness prepare failure, nonzero command exit, and missing success marker without exposing raw exceptions or captured output.
 - Local commit `2058b5e` replaces the installed GUI call-operator boundary with `Start-Process -Wait -PassThru` plus owned stdout/stderr captures for prepare, verify, cleanup, and fallback cleanup. This corrects the ambiguous process-observation boundary; it does not guess which internal category occurred in the prior run.
+- Exact implementation head `2058b5eec11ec3e755d1906d205e57fcfb879c93` was pushed with the verified old-head lease from `cf76d62a867c3c3918cfb0200d429d84e9c9503a` to `codex/windows-packaging`. Push run `31455319415` passed API job `93667779201` and Flutter job `93667779236`; pull-request run `31455321837` passed API job `93667786448` and Flutter job `93667786482`.
+- PR #25 remains the accumulated draft comparison view. No PR mutation, bridge change, merge, Windows dispatch/rerun, artifact retrieval, or equipment access occurred during product publication.
 - Workflow provenance, independent checksum/cleanup verification, and artifact upload were skipped. GitHub reports zero artifacts. The proof runner's `finally` block is designed to attempt synthetic cleanup, uninstall, and marker-scoped workspace removal, and the ephemeral runner ended, but cleanup was not independently attested. The run was not rerun and no artifact was retrieved.
 - The native failures had two local causes. GitHub's Windows checkout used CRLF while several policy checks assumed LF-only workflow text. Restore target validation also extracted a final component using only `Platform.pathSeparator`, so mixed Windows separators could leave the full absolute path as the target name; containment comparison likewise needed Windows separator/case canonicalization.
 - Commit `2ebfe45` canonicalizes trusted workflow/policy input to LF while continuing to reject residual carriage returns and candidate substitutions. Commit `05ed93d` extracts Windows target leaf names across both separators and uses canonical Windows comparison for directory membership. These fixes are published in product source `6d6f47ac3b32041e56238060b8b2cd8e13485a2d` but have not yet been executed on Windows.
@@ -378,7 +382,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-The local diagnosis/correction gate is complete at exact implementation head `2058b5eec11ec3e755d1906d205e57fcfb879c93`. After explicit X2 authorization naming that exact head and branch, publish it as a leased fast-forward to `codex/windows-packaging`, wait for and record current push/PR CI, then stop. Bridge refresh/publication, merge, a new single dispatch, artifact retrieval, and equipment access remain separate later gates and are not authorized by this handoff.
+The corrected product source is published and green at exact head `2058b5eec11ec3e755d1906d205e57fcfb879c93`. After explicit authorization for the isolated bridge-preparation gate, create a fresh `codex/` bridge branch/worktree directly from exact current `main` `c039d5055799efe2995ab15463db19db8fa0079e`, revalidate that source and the existing remote bridge head `35b5d68b6a3bb5e25a3a240186b173a6582fba13`, deterministically prepare and independently verify the one-file workflow pinning `2058b5e`, confirm matching digests, focused tests, one-file diff, and commit locally. Stop before bridge push, PR mutation, merge, dispatch/rerun, artifact retrieval, or equipment access.
 
 The next slice must satisfy these boundaries:
 
