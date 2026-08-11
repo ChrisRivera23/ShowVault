@@ -127,6 +127,8 @@ A fresh local bridge worktree directly from exact `main` `efc7be24aab35312672c55
 
 That exact bridge was subsequently pushed with the verified old-head lease from `72ce24071784af03096574ede1f1eb2d0a8cfe7d` to `codex/windows-evidence-bridge`. Draft PR [#32](https://github.com/ChrisRivera23/ShowVault/pull/32) targets `main`, contains only the one-line source-pin update, and remains draft at exact head `daeff1f3af1ef990c678579c4005d4bf9919ab4e`. Push CI run `31465834386` and pull-request CI run `31465846592` passed both API and Flutter jobs. The PR has not been marked ready or merged, and no Windows workflow was dispatched.
 
+After exact head/base, one-file diff, source-pin, digest, four-check, review-policy, and mergeability revalidation, PR #32 was marked ready and merged with the expected-head guard at exact reviewed head `daeff1f3af1ef990c678579c4005d4bf9919ab4e`. Current `main` is merge commit `a900fd4a57392612e791acfaebdd3d09f31cd5ea`; its parents are prior `main` `efc7be24aab35312672c55a6f316f3bf18038a0f` and the exact bridge head. The merged workflow blob is byte-identical to the reviewed bridge, retains SHA-256 `fa3a8e0f57b2b2e8b72f91587f45fc1d1ededff3a167a47e505e03b0576b8f06`, and pins exact product source `5707a3c7bd05eca7e2d6344ee90817261578b715`. Automatic main CI run `31466746803` passed API job `93701117098` and Flutter job `93701117084`. No Windows workflow was dispatched.
+
 Host reboot, Authenticode trust/distribution signing, commercial Auth0 session expiry, provider quota exhaustion, real production-provider outage, personal-data recovery, clean-machine support range, and venue use remain separate gates.
 
 ## Manual Windows-native CI bridge
