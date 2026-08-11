@@ -7,7 +7,7 @@ namespace ShowVault.Agent.Communication;
 
 public sealed class AgentCommandClient(HttpClient client)
 {
-    public async Task<IReadOnlyList<AgentCommandEnvelope>> PollAsync(
+    public async Task<IReadOnlyList<AgentCommandEnvelope?>> PollAsync(
         StoredAgentIdentity identity,
         CancellationToken cancellationToken)
     {
@@ -44,5 +44,5 @@ public sealed class AgentCommandClient(HttpClient client)
         return request;
     }
 
-    private sealed record CommandPollResponse(IReadOnlyList<AgentCommandEnvelope>? Payload);
+    private sealed record CommandPollResponse(IReadOnlyList<AgentCommandEnvelope?>? Payload);
 }

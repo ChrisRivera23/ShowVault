@@ -20,6 +20,13 @@ public sealed class AgentCommandPoller(
             var commands = await commandClient.PollAsync(identity, cancellationToken);
             foreach (var command in commands)
             {
+                if (command is null)
+                {
+                    logger.LogWarning(
+                        "Rejected command with null envelope; the next cycle will continue");
+                    continue;
+                }
+
                 var now = timeProvider.GetUtcNow();
                 if (command.AgentId != identity.AgentId ||
                     !AgentCommandValidation.TryValidate(command, out _) ||

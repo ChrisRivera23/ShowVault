@@ -107,6 +107,23 @@ public sealed class AgentCommandPollerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Null_command_element_is_not_persisted_or_acknowledged()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var identity = new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential");
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        var handler = new NullCommandPollHandler();
+
+        await CreatePoller(store, handler, now)
+            .PollOnceAsync(identity, CancellationToken.None);
+
+        Assert.Empty(await store.GetPendingCommandsAsync(CancellationToken.None));
+        Assert.Equal(0, handler.AcknowledgementCount);
+    }
+
+    [Fact]
     public async Task Non_shutdown_timeout_is_contained_for_next_cycle()
     {
         var now = DateTimeOffset.UtcNow;
@@ -205,6 +222,30 @@ public sealed class AgentCommandPollerTests : IAsyncLifetime
             {
                 Content = new StringContent("{", Encoding.UTF8, "application/json")
             });
+    }
+
+    private sealed class NullCommandPollHandler : HttpMessageHandler
+    {
+        public int AcknowledgementCount { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        "{\"payload\":[null]}",
+                        Encoding.UTF8,
+                        "application/json")
+                });
+            }
+
+            AcknowledgementCount++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+        }
     }
 
     private sealed class TimeoutPollHandler : HttpMessageHandler
