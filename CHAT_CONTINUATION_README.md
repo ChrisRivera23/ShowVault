@@ -128,6 +128,8 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Published owned-result-channel bridge head: `ed9c36fd4db8553429d9e75d34c9ccafc245fcb5 ci: refresh Windows evidence source pin`
 - Draft owned-result-channel bridge PR: `#33` (`https://github.com/ChrisRivera23/ShowVault/pull/33`), exact head `ed9c36fd4db8553429d9e75d34c9ccafc245fcb5`, targeting `main`
 - Green owned-result-channel bridge CI: push run `31470175716` and pull-request run `31470199577`
+- Owned-result-channel bridge merge commit on `main`: `46dab66400d9201beb13e067e6f9d814ee00294a Merge pull request #33 from ChrisRivera23/codex/windows-evidence-bridge`
+- Green owned-result-channel merge CI: main run `31470421853`
 - Expected worktree after the handoff commit: clean except intentionally untracked `NEXT_CONVERSATION.md`
 - Sequential catalog expansion remains paused while prototype readiness advances.
 
@@ -278,6 +280,11 @@ The implementation remains venue-neutral and cross-platform. LIV nightclub is th
 - Draft PR #33, `https://github.com/ChrisRivera23/ShowVault/pull/33`, targets exact `main` `a900fd4a57392612e791acfaebdd3d09f31cd5ea` and remains open, draft, mergeable, and clean at exact head `ed9c36f`. Its complete diff is exactly `.github/workflows/windows-evidence.yml` with one insertion and one deletion.
 - Push CI run `31470175716` passed Flutter job `93711551800` and API job `93711551821`. Pull-request CI run `31470199577` passed Flutter job `93711628255` and API job `93711628397`. All four jobs are green for the exact bridge SHA.
 - No ready transition, merge, Windows workflow dispatch/rerun, artifact retrieval, or equipment access occurred during bridge publication.
+- After exact head/base, one-file diff, source-pin, digest, four-check, unprotected-branch review policy, and mergeability revalidation, PR #33 was marked ready and merged with the expected-head guard at exact reviewed head `ed9c36fd4db8553429d9e75d34c9ccafc245fcb5`.
+- Current `main` is merge commit `46dab66400d9201beb13e067e6f9d814ee00294a`. Its parents are prior `main` `a900fd4a57392612e791acfaebdd3d09f31cd5ea` and exact bridge head `ed9c36fd4db8553429d9e75d34c9ccafc245fcb5`.
+- Main's workflow is byte-identical to the reviewed bridge, pins exact product source `229f14ca5a20743e350903974e0d77831e39b4ae`, and retains SHA-256 `bfc5121a9a7474e8cd3fe28fb91764713f99bfbe9701e7d4a784f540db6293ec`.
+- Automatic main CI run `31470421853` passed Flutter job `93712311162` and API job `93712311288` for exact merge SHA `46dab664`.
+- No Windows workflow dispatch/rerun, artifact retrieval, or equipment access occurred during the merge gate.
 - For prior run `31452427593`, workflow provenance, independent checksum/cleanup verification, and artifact upload were skipped. GitHub reports zero artifacts. The proof runner's `finally` block is designed to attempt synthetic cleanup, uninstall, and marker-scoped workspace removal, and the ephemeral runner ended, but cleanup was not independently attested. That run was not rerun and no artifact was retrieved.
 - The native failures had two local causes. GitHub's Windows checkout used CRLF while several policy checks assumed LF-only workflow text. Restore target validation also extracted a final component using only `Platform.pathSeparator`, so mixed Windows separators could leave the full absolute path as the target name; containment comparison likewise needed Windows separator/case canonicalization.
 - Commit `2ebfe45` canonicalizes trusted workflow/policy input to LF while continuing to reject residual carriage returns and candidate substitutions. Commit `05ed93d` extracts Windows target leaf names across both separators and uses canonical Windows comparison for directory membership. These fixes are published in product source `6d6f47ac3b32041e56238060b8b2cd8e13485a2d` but have not yet been executed on Windows.
@@ -437,6 +444,7 @@ Do not copy exact local source paths into control-plane evidence or future docum
 - Product CI at published owned-result-channel source `229f14ca5a20743e350903974e0d77831e39b4ae`: push run `31469289598` and pull-request run `31469292927` passed all four API/Flutter jobs
 - Local owned-result-channel bridge: exact commit `ed9c36fd4db8553429d9e75d34c9ccafc245fcb5` is directly parented by `main` `a900fd4`, changes one workflow line from source `5707a3c` to `229f14c`, and independently verifies at SHA-256 `bfc5121a9a7474e8cd3fe28fb91764713f99bfbe9701e7d4a784f540db6293ec`; 35 focused tests and diff check pass
 - Owned-result-channel bridge publication: draft PR #33 is open, draft, clean, and mergeable at exact head `ed9c36f`; push run `31470175716` and pull-request run `31470199577` passed all four API/Flutter jobs
+- Owned-result-channel bridge merge: PR #33 merged exact reviewed head `ed9c36f` at `46dab66400d9201beb13e067e6f9d814ee00294a`; merge parents, workflow byte identity, source pin, and digest were revalidated; automatic main CI run `31470421853` passed both jobs
 - Product CI at published source `f3b7a1deeef76004fbc7c65f6256e6b24043916d`: all four checks passed
 - Final harness ZIP/report checksums and internal evidence checksum: passed
 - Final harness strict deep code-signature validation: passed
@@ -470,13 +478,13 @@ Do not copy exact local source paths into control-plane evidence or future docum
 
 ## Exact next bounded objective
 
-Draft bridge PR #33 is published and green at exact head `ed9c36fd4db8553429d9e75d34c9ccafc245fcb5`, targeting exact `main` `a900fd4a57392612e791acfaebdd3d09f31cd5ea`. After explicit authorization, the next bounded objective is to revalidate head/base, one-file diff, source pin, digest, all four checks, review policy, and mergeability; mark the PR ready and merge it with an expected-head guard; then wait for exact automatic `main` CI. Stop before Windows workflow dispatch/rerun, artifact retrieval, or equipment access.
+The replacement bridge is merged and green on exact `main` `46dab66400d9201beb13e067e6f9d814ee00294a`, pinning exact product source `229f14ca5a20743e350903974e0d77831e39b4ae`. After explicit authorization, the next bounded objective is to revalidate live main, workflow bytes/pin/digest, and the Windows-run list; dispatch exactly one new manual controlled Windows evidence run; follow it to completion; and record its bounded result. Stop before artifact retrieval or post-run verification even if it succeeds, and never rerun a failed attempt without separate authorization.
 
 The next slice must satisfy these boundaries:
 
 1. Seven authorized Windows evidence runs now exist and all failed at bounded gates. None is authorized for rerun. Run `31467029026` confirms the pinned dependency, full Windows verification, normal package, and proof-package rebuild paths, then reproduces `command-exit` with no token despite the flush correction and zero artifacts. Local diagnosis/correction is complete; product publication, bridge, merge, dispatch, artifact, and equipment gates remain separate.
 2. Treat PR #25 as an accumulated integration draft, not a Windows-only change. Follow `docs/WINDOWS_EVIDENCE_INTEGRATION_PLAN.md` and `docs/LOCAL_FIRST_INTEGRATION_AUDIT.md`: keep PR #25 as a comparison view, integrate PRs #3-#24 first, and reconstruct the six local-first milestones using the file-level dispositions for all 29 overlaps. Do not merge the accumulated draft merely to expose the workflow.
-3. Merge only exact reviewed bridge head `ed9c36fd4db8553429d9e75d34c9ccafc245fcb5` after revalidating every recorded invariant, use an expected-head guard, wait for automatic `main` CI, and do not invoke `verify_windows_run.dart` for failed run `31467029026`.
+3. Dispatch only the reviewed `Controlled Windows evidence` workflow at exact `main` `46dab66400d9201beb13e067e6f9d814ee00294a` after proving no newer run exists, follow exactly one new run without rerun, record its exact outcome, and do not retrieve artifacts or invoke `verify_windows_run.dart` within the dispatch gate.
 4. For a controlled computer, use PowerShell 7, Flutter Windows tooling, Visual Studio Desktop C++, and Inno Setup 6 on the build side. The installed target must not require Flutter, Git, the repository, or a separate Agent.
 5. Review `docs/WINDOWS_PACKAGING_AND_EXECUTION.md`, then run the normal package command and `tool/run-windows-installed-proof.ps1` into absent local-drive output directories.
 6. Confirm native PowerShell and Inno parsing/build, complete deployment, current-user `showvault://` registration, installer launch/uninstall, package manifest, checksums, and actual Authenticode states.
