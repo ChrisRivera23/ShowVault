@@ -105,7 +105,12 @@ function Assert-PreparePhasePassed {
         throw 'The installed before application prepare failed: harness-prepare-failure.'
     }
     if ($Result.ExitCode -ne 0) {
-        throw 'The installed before application prepare failed: command-exit.'
+        $ExitCodeBytes = [BitConverter]::GetBytes([int]$Result.ExitCode)
+        $ExitCodeHex = [BitConverter]::ToUInt32($ExitCodeBytes, 0).ToString('x8')
+        $EntryBoundary = if (
+            $Statuses -contains 'SHOWVAULT_UPGRADE_STATUS:harness-entered'
+        ) { 'after-harness-entry' } else { 'before-harness-entry' }
+        throw "The installed before application prepare failed: command-exit-$EntryBoundary-0x$ExitCodeHex."
     }
     if ($Statuses -notcontains 'SHOWVAULT_UPGRADE_STATUS:prepare-passed') {
         throw 'The installed before application prepare failed: missing-success-marker.'

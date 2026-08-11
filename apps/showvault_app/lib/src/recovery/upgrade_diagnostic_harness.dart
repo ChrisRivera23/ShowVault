@@ -28,6 +28,7 @@ class UpgradeDiagnosticHarness {
       exitCode = 64;
       return true;
     }
+    await result.write('${_statusPrefix}harness-entered');
     final commandIndex = arguments.indexOf(_command);
     final phase = commandIndex == 0 ? arguments[1] : arguments[0];
     if (!const {'prepare', 'verify', 'cleanup'}.contains(phase)) {

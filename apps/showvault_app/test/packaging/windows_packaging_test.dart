@@ -122,6 +122,12 @@ void main() {
     expect(text, isNot(contains('@(& \$InstalledExecutable')));
     expect(text, contains('unavailable-configuration'));
     expect(text, contains('command-exit'));
+    expect(text, contains("'SHOWVAULT_UPGRADE_STATUS:harness-entered'"));
+    expect(text, contains('[BitConverter]::GetBytes([int]\$Result.ExitCode)'));
+    expect(text, contains('[BitConverter]::ToUInt32(\$ExitCodeBytes, 0)'));
+    expect(text, contains("'after-harness-entry'"));
+    expect(text, contains("'before-harness-entry'"));
+    expect(text, contains('command-exit-\$EntryBoundary-0x\$ExitCodeHex'));
     expect(text, contains('missing-success-marker'));
     expect(text, contains('harness-prepare-failure'));
     expect(text, isNot(contains('throw \$Result.OutputLines')));

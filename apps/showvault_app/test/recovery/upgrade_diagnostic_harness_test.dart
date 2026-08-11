@@ -17,6 +17,7 @@ void main() {
     final text = harness.readAsStringSync();
 
     expect(text, contains("'SHOWVAULT_UPGRADE_STATUS:'"));
+    expect(text, contains("'\${_statusPrefix}harness-entered'"));
     expect(text, contains("'\${_statusPrefix}unavailable-configuration'"));
     expect(text, contains("'\${_statusPrefix}unsupported-phase'"));
     expect(text, contains("'\$_statusPrefix\$phase-passed'"));
@@ -40,6 +41,12 @@ void main() {
       expect(text, contains("'showvault.windows-proof.v1'"));
       expect(text, contains('followLinks: false'));
       expect(text, contains('mode: FileMode.append, flush: true'));
+      final entryIndex = text.indexOf(
+        "await result.write('\${_statusPrefix}harness-entered');",
+      );
+      final harnessIndex = text.indexOf('final harness = _UpgradeHarness(');
+      expect(entryIndex, greaterThanOrEqualTo(0));
+      expect(harnessIndex, greaterThan(entryIndex));
       expect(text, isNot(contains('writeAsString(error')));
     },
   );
