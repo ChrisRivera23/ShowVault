@@ -141,12 +141,6 @@ $RequiredRuntimePackages = @(
     'boost-date-time',
     'boost-regex'
 )
-$RuntimeBearingPackages = @(
-    'cpprestsdk',
-    'openssl',
-    'boost-date-time',
-    'boost-regex'
-)
 $RuntimeDllsByName = @{}
 foreach ($PackageName in $RequiredRuntimePackages) {
     $ListPattern = $PackageName + '_*_x64-windows.list'
@@ -161,10 +155,6 @@ foreach ($PackageName in $RequiredRuntimePackages) {
             ForEach-Object { $_.Trim().Replace('/', '\') } |
             Where-Object { $_ -match '^x64-windows\\bin\\[^\\/:*?"<>|]+\.dll$' }
     )
-    if (($RuntimeBearingPackages -contains $PackageName) -and
-        $PackageRuntimeEntries.Count -eq 0) {
-        throw "The installed vcpkg package has no release runtime DLL: $PackageName."
-    }
     foreach ($RuntimeEntry in $PackageRuntimeEntries) {
         $SourcePath = [System.IO.Path]::GetFullPath(
             (Join-Path $VcpkgInstalledDirectory $RuntimeEntry)

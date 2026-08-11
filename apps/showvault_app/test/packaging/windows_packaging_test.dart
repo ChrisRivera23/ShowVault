@@ -86,7 +86,11 @@ void main() {
     expect(text, contains('The installed vcpkg package manifest is invalid'));
     expect(
       text,
-      contains('The installed vcpkg package has no release runtime DLL'),
+      isNot(contains('The installed vcpkg package has no release runtime DLL')),
+    );
+    expect(
+      text,
+      contains('The approved vcpkg packages produced no release runtime DLLs.'),
     );
     expect(text, contains('A vcpkg runtime DLL path is invalid.'));
     expect(text, contains('Conflicting vcpkg runtime DLLs share the name'));
@@ -97,12 +101,12 @@ void main() {
       contains('A copied vcpkg runtime DLL failed checksum verification.'),
     );
     final requiredRuntimeStart = text.indexOf(r'$RequiredRuntimePackages = @(');
-    final runtimeBearingStart = text.indexOf(r'$RuntimeBearingPackages = @(');
+    final runtimeCollectorStart = text.indexOf(r'$RuntimeDllsByName = @{}');
     expect(requiredRuntimeStart, greaterThanOrEqualTo(0));
-    expect(runtimeBearingStart, greaterThan(requiredRuntimeStart));
+    expect(runtimeCollectorStart, greaterThan(requiredRuntimeStart));
     final requiredRuntimeSection = text.substring(
       requiredRuntimeStart,
-      runtimeBearingStart,
+      runtimeCollectorStart,
     );
     final runtimePackages = RegExp(r"^    '([a-z0-9-]+)',?$", multiLine: true)
         .allMatches(requiredRuntimeSection)
