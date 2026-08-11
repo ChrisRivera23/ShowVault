@@ -55,6 +55,25 @@ function Invoke-CheckedProcess {
     }
 }
 
+function Assert-PreparePhasePassed {
+    param([Parameter(Mandatory = $true)]$Result)
+    $Statuses = @($Result.OutputLines | Where-Object {
+        $_ -match '^SHOWVAULT_UPGRADE_STATUS:[a-z-]+$'
+    })
+    if ($Statuses -contains 'SHOWVAULT_UPGRADE_STATUS:unavailable-configuration') {
+        throw 'The installed before application prepare failed: unavailable-configuration.'
+    }
+    if ($Statuses -contains 'SHOWVAULT_UPGRADE_STATUS:prepare-harness-failed') {
+        throw 'The installed before application prepare failed: harness-prepare-failure.'
+    }
+    if ($Result.ExitCode -ne 0) {
+        throw 'The installed before application prepare failed: command-exit.'
+    }
+    if ($Statuses -notcontains 'SHOWVAULT_UPGRADE_STATUS:prepare-passed') {
+        throw 'The installed before application prepare failed: missing-success-marker.'
+    }
+}
+
 function Get-Sha256([string]$Path) {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
@@ -79,10 +98,11 @@ try {
     }
     $CleanupExecutable = $InstalledExecutable
     $PrepareOutput = @(& $InstalledExecutable --showvault-upgrade-phase prepare 2>&1)
-    if ($LASTEXITCODE -ne 0 -or
-        -not ($PrepareOutput -match 'ShowVault upgrade phase passed: prepare')) {
-        throw 'The installed before application did not prepare the vault.'
+    $PrepareResult = [pscustomobject]@{
+        ExitCode = $LASTEXITCODE
+        OutputLines = $PrepareOutput
     }
+    Assert-PreparePhasePassed -Result $PrepareResult
 
     $AfterBuild = @{
         OutputDirectory = $AfterOutput

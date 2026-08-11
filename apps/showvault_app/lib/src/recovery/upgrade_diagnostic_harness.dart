@@ -14,11 +14,13 @@ class UpgradeDiagnosticHarness {
   const UpgradeDiagnosticHarness._();
 
   static const _command = '--showvault-upgrade-phase';
+  static const _statusPrefix = 'SHOWVAULT_UPGRADE_STATUS:';
 
   static Future<bool> tryRun(List<String> arguments) async {
     if (!arguments.contains(_command)) return false;
     if (!AppConfig.canRunUpgradeHarness || arguments.length != 2) {
       stderr.writeln('ShowVault upgrade harness is unavailable.');
+      stderr.writeln('${_statusPrefix}unavailable-configuration');
       exitCode = 64;
       return true;
     }
@@ -26,6 +28,7 @@ class UpgradeDiagnosticHarness {
     final phase = commandIndex == 0 ? arguments[1] : arguments[0];
     if (!const {'prepare', 'verify', 'cleanup'}.contains(phase)) {
       stderr.writeln('ShowVault upgrade phase is unsupported.');
+      stderr.writeln('${_statusPrefix}unsupported-phase');
       exitCode = 64;
       return true;
     }
@@ -46,8 +49,10 @@ class UpgradeDiagnosticHarness {
         throw const FormatException();
       }
       stdout.writeln('ShowVault upgrade phase passed: $phase');
+      stdout.writeln('$_statusPrefix$phase-passed');
     } catch (_) {
       stderr.writeln('ShowVault upgrade phase failed: $phase');
+      stderr.writeln('$_statusPrefix$phase-harness-failed');
       exitCode = 1;
     }
     return true;

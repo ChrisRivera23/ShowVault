@@ -108,6 +108,11 @@ void main() {
     expect(text, contains('--showvault-upgrade-phase prepare'));
     expect(text, contains('--showvault-upgrade-phase verify'));
     expect(text, contains('--showvault-upgrade-phase cleanup'));
+    expect(text, contains('unavailable-configuration'));
+    expect(text, contains('command-exit'));
+    expect(text, contains('missing-success-marker'));
+    expect(text, contains('harness-prepare-failure'));
+    expect(text, isNot(contains('throw \$Result.OutputLines')));
     expect(text, contains('sourcePresentDuringRehydration'));
     expect(text, contains('Get-AuthenticodeSignature'));
     expect(text, isNot(contains(r'Remove-Item -LiteralPath $env:USERPROFILE')));
