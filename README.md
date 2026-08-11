@@ -41,14 +41,16 @@ Completed:
 - Venue Agent events and typed commands are durably queued in local SQLite.
 - Authenticated event delivery retries with stable event IDs and PostgreSQL deduplication.
 - Authorized venue managers can issue typed, expiring commands to a specific Agent.
-- Agents poll with their separate credential, validate protocol/identity/expiry, persist commands to SQLite, and only then acknowledge receipt.
+- Agents poll with their separate credential, validate protocol/identity/expiry, persist commands to SQLite, and only then acknowledge receipt. Expiry is rechecked atomically before execution and again before restart-resumed work.
 - Control-plane acknowledgements are idempotent, and local command state transitions are conditional and restart-safe.
+- The first-party filesystem discovery plugin inventories and SHA-256 hashes files only within locally allowed roots.
+- `StartDiscovery` commands execute from the durable queue, resume after restart, and emit idempotent completion or failure events.
 
 Current development branch:
 
-- `codex/agent-command-delivery` — durable control-plane command delivery and local command lifecycle.
+- `codex/file-discovery-plugin` — first file-oriented plugin and durable discovery execution.
 
-Client sign-in, membership administration, command execution/cancellation, plugin, backup, verification, and restore functionality have not been implemented yet.
+Client sign-in, membership administration, user-requested command cancellation, recovery packages, backup, verification, and restore functionality have not been implemented yet.
 
 ## Approved product direction
 
@@ -249,9 +251,9 @@ Universal object abstractions will be considered only after real plugin implemen
 3. Select the managed OpenID Connect provider. — Complete (Auth0)
 4. Implement organizations, venues, memberships, and tenant isolation. — Initial vertical slice complete
 5. Implement secure Venue Agent enrollment and identity. — Initial end-to-end slice complete
-6. Implement outbound Agent communication and durable local jobs. — Durable event delivery and command receipt complete; execution follows with the first plugin
-7. Implement the first file-oriented discovery plugin. — Next
-8. Define and create the immutable recovery-package format.
+6. Implement outbound Agent communication and durable local jobs. — Initial event, command, and discovery execution loop complete
+7. Implement the first file-oriented discovery plugin. — Complete (generic locally allowlisted filesystem integration)
+8. Define and create the immutable recovery-package format. — Next
 9. Implement cryptographic verification.
 10. Implement a controlled local restore.
 11. Display the complete recovery loop in Flutter.
@@ -263,10 +265,10 @@ Universal object abstractions will be considered only after real plugin implemen
 
 This section is maintained so a new Codex task can resume without relying on the previous chat transcript.
 
-- Completed draft PR stack: PR #3 `codex/auth-tenancy-foundation`, PR #4 `codex/agent-enrollment-identity`, and PR #5 `codex/agent-outbound-queue`.
-- Active work: `codex/agent-command-delivery`, stacked on PR #5.
-- This slice adds PostgreSQL-issued Agent commands, manager authorization, authenticated polling, protocol/identity/expiry checks, local SQLite persistence before acknowledgement, idempotent acknowledgement, and guarded local states (`pending`, `running`, `completed`, `failed`, `cancelled`).
-- The next implementation task is the first file-oriented discovery plugin and the minimal command executor that moves `StartDiscovery` through the durable state machine and emits outcome events.
+- Completed draft PR stack: PR #3 `codex/auth-tenancy-foundation`, PR #4 `codex/agent-enrollment-identity`, PR #5 `codex/agent-outbound-queue`, and PR #6 `codex/agent-command-delivery`.
+- Active work: `codex/file-discovery-plugin`, stacked on PR #6.
+- This slice adds a minimal manifest/capability/permission boundary, locally allowlisted filesystem discovery, bounded SHA-256 inventories, restart-safe `StartDiscovery` execution, and stable completion/failure event IDs.
+- The next implementation task is the immutable recovery-package format, using the real filesystem inventory to drive its manifest rather than designing it in isolation.
 - Auth0 is configured for human identity. Agent authentication intentionally remains a separate credential scheme.
 - Exact Codex context-window percentages are not exposed to the assistant. A context compaction occurred while building this slice; this README is the durable source of truth for a new task.
 
@@ -345,4 +347,4 @@ dotnet test tests/ShowVault.Agent.Tests/ShowVault.Agent.Tests.csproj
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-Draft PR #3 establishes Auth0 and the PostgreSQL-backed tenant boundary. Draft PR #4 adds secure Agent enrollment, OS credential storage, revocation, and rotation. The stacked `codex/agent-outbound-queue` branch adds a durable SQLite event outbox and typed command queue. The Agent records connection events before attempting the network, retries failures with exponential backoff and stable event IDs, and the authenticated control plane persists each event once. The next vertical slice is control-plane command issuance, authenticated Agent command polling, and durable acknowledgement before execution; that slice should lead directly into the first file-oriented discovery plugin. macOS LaunchDaemon keychain access remains an installer-validation requirement. Keep this README current and continue through focused, validated draft pull requests.
+Draft PRs #3 through #6 establish Auth0 tenancy, secure Agent identity, durable event delivery, and durable command receipt. The active filesystem-discovery slice adds the first real plugin boundary and executes `StartDiscovery` from SQLite through an allowlisted, bounded file inventory with SHA-256 hashes and durable outcome events. The next vertical slice should define and write an immutable recovery-package manifest from this inventory. macOS LaunchDaemon keychain access remains an installer-validation requirement. Keep this README current and continue through focused, validated draft pull requests.

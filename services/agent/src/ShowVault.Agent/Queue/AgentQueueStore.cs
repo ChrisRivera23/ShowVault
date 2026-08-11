@@ -39,6 +39,12 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
             );
             CREATE INDEX IF NOT EXISTS ix_command_queue_status
                 ON command_queue(status, issued_at);
+            CREATE TABLE IF NOT EXISTS discovery_results (
+                command_id TEXT PRIMARY KEY,
+                result_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(command_id) REFERENCES command_queue(command_id) ON DELETE CASCADE
+            );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
         await EnsureEventOutboxColumnAsync(
@@ -231,6 +237,64 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
         return await command.ExecuteNonQueryAsync(cancellationToken) == 1;
     }
 
+    public async Task<bool> TryStartCommandAsync(
+        Guid commandId,
+        DateTimeOffset expiresAt,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE command_queue SET status = 'running', updated_at = $now
+            WHERE command_id = $commandId
+                AND status = 'pending'
+                AND $expiresAt > $now;
+            """;
+        command.Parameters.AddWithValue("$commandId", commandId.ToString());
+        command.Parameters.AddWithValue("$expiresAt", Format(expiresAt));
+        command.Parameters.AddWithValue("$now", Format(now));
+        return await command.ExecuteNonQueryAsync(cancellationToken) == 1;
+    }
+
+    public async Task StoreDiscoveryResultAsync(
+        Guid commandId,
+        string resultJson,
+        DateTimeOffset createdAt,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resultJson);
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO discovery_results (command_id, result_json, created_at)
+            VALUES ($commandId, $resultJson, $createdAt)
+            ON CONFLICT(command_id) DO UPDATE SET
+                result_json = excluded.result_json,
+                created_at = excluded.created_at;
+            """;
+        command.Parameters.AddWithValue("$commandId", commandId.ToString());
+        command.Parameters.AddWithValue("$resultJson", resultJson);
+        command.Parameters.AddWithValue("$createdAt", Format(createdAt));
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task<string?> GetDiscoveryResultJsonAsync(
+        Guid commandId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT result_json FROM discovery_results WHERE command_id = $commandId;
+            """;
+        command.Parameters.AddWithValue("$commandId", commandId.ToString());
+        return await command.ExecuteScalarAsync(cancellationToken) as string;
+    }
+
     private async Task UpdateEventAsync(
         string sql,
         Guid eventId,
@@ -307,9 +371,11 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
         {
             (LocalAgentCommandStatus.Pending, LocalAgentCommandStatus.Running) => true,
             (LocalAgentCommandStatus.Pending, LocalAgentCommandStatus.Cancelled) => true,
+            (LocalAgentCommandStatus.Pending, LocalAgentCommandStatus.Expired) => true,
             (LocalAgentCommandStatus.Running, LocalAgentCommandStatus.Completed) => true,
             (LocalAgentCommandStatus.Running, LocalAgentCommandStatus.Failed) => true,
             (LocalAgentCommandStatus.Running, LocalAgentCommandStatus.Cancelled) => true,
+            (LocalAgentCommandStatus.Running, LocalAgentCommandStatus.Expired) => true,
             _ => false
         };
 }
@@ -322,5 +388,6 @@ public enum LocalAgentCommandStatus
     Running,
     Completed,
     Failed,
-    Cancelled
+    Cancelled,
+    Expired
 }

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using ShowVault.Agent.Identity;
 using ShowVault.Agent.Communication;
+using ShowVault.Agent.Execution;
 using ShowVault.Agent.Queue;
 using ShowVault.AgentContracts;
 
@@ -13,6 +14,7 @@ public sealed class AgentWorker(
     AgentQueueStore queueStore,
     AgentEventDispatcher eventDispatcher,
     AgentCommandPoller commandPoller,
+    AgentCommandExecutor commandExecutor,
     TimeProvider timeProvider) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -38,6 +40,7 @@ public sealed class AgentWorker(
         {
             await eventDispatcher.DispatchPendingOnceAsync(identity, stoppingToken);
             await commandPoller.PollOnceAsync(identity, stoppingToken);
+            await commandExecutor.ExecutePendingOnceAsync(identity, stoppingToken);
         }
         while (await timer.WaitForNextTickAsync(stoppingToken));
     }
