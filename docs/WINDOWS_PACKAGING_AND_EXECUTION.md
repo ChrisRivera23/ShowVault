@@ -101,6 +101,8 @@ The workflow still validates the hosted `VCPKG_INSTALLATION_ROOT` and rejects it
 
 Because `cpprestsdk` is archived and deindexed, this compatibility pin carries an explicit maintenance and security limitation and is not a long-term dependency-readiness claim. The current macOS host still has no Windows VM/device, PowerShell runtime, Wine environment, Windows SDK/MSVC toolchain, or Inno Setup compiler. The corrected pinned checkout/bootstrap/install path has not executed on Windows; the installer has not been compiled or executed, the URL callback has not been exercised, and no Windows artifact hash or installed evidence exists. Do not claim Windows packaging or runtime readiness until the controlled command above passes on Windows.
 
+Exact correction source `cf76d62a867c3c3918cfb0200d429d84e9c9503a` is published on `codex/windows-packaging`. Push run `31449739175` and pull-request run `31449738769` passed all API and Flutter checks for that SHA. These Linux CI checks validate repository regression and policy coverage; they do not execute the pinned Windows vcpkg bootstrap/install path or change the Windows readiness boundary above.
+
 Host reboot, Authenticode trust/distribution signing, commercial Auth0 session expiry, provider quota exhaustion, real production-provider outage, personal-data recovery, clean-machine support range, and venue use remain separate gates.
 
 ## Manual Windows-native CI bridge
