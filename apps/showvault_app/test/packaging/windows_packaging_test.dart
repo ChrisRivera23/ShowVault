@@ -70,6 +70,54 @@ void main() {
     expect(text, contains("'flutter_windows.dll'"));
     expect(text, contains("'data\\flutter_assets'"));
     expect(text, contains("'data\\app.so'"));
+    expect(text, contains("'installed'"));
+    expect(text, contains("'vcpkg\\info'"));
+    expect(
+      text,
+      contains(
+        'VCPKG_ROOT does not contain installed package ownership metadata.',
+      ),
+    );
+    expect(
+      text,
+      contains("\$ListPattern = \$PackageName + '_*_x64-windows.list'"),
+    );
+    expect(text, contains(r'^x64-windows\\bin\\[^\\/:*?"<>|]+\.dll$'));
+    expect(text, contains('The installed vcpkg package manifest is invalid'));
+    expect(
+      text,
+      contains('The installed vcpkg package has no release runtime DLL'),
+    );
+    expect(text, contains('A vcpkg runtime DLL path is invalid.'));
+    expect(text, contains('Conflicting vcpkg runtime DLLs share the name'));
+    expect(text, contains('Copy-Item -LiteralPath \$SourcePath'));
+    expect(text, contains('Get-FileHash -LiteralPath \$DestinationPath'));
+    expect(
+      text,
+      contains('A copied vcpkg runtime DLL failed checksum verification.'),
+    );
+    final requiredRuntimeStart = text.indexOf(r'$RequiredRuntimePackages = @(');
+    final runtimeBearingStart = text.indexOf(r'$RuntimeBearingPackages = @(');
+    expect(requiredRuntimeStart, greaterThanOrEqualTo(0));
+    expect(runtimeBearingStart, greaterThan(requiredRuntimeStart));
+    final requiredRuntimeSection = text.substring(
+      requiredRuntimeStart,
+      runtimeBearingStart,
+    );
+    final runtimePackages = RegExp(r"^    '([a-z0-9-]+)',?$", multiLine: true)
+        .allMatches(requiredRuntimeSection)
+        .map((match) => match.group(1))
+        .toList();
+    expect(
+      runtimePackages,
+      equals(<String>[
+        'cpprestsdk',
+        'openssl',
+        'boost-system',
+        'boost-date-time',
+        'boost-regex',
+      ]),
+    );
     expect(text, contains('Compress-Archive'));
     expect(text, contains('Get-AuthenticodeSignature'));
     expect(text, contains("'SHA256SUMS'"));

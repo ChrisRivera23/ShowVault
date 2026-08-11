@@ -71,6 +71,13 @@ if (-not (Test-Path -LiteralPath $VcpkgRoot -PathType Container) -or
     throw 'VCPKG_ROOT does not contain the required vcpkg executable and CMake toolchain.'
 }
 $env:VCPKG_ROOT = $VcpkgRoot
+$VcpkgInstalledDirectory = Join-Path $VcpkgRoot 'installed'
+$VcpkgInfoDirectory = Join-Path $VcpkgInstalledDirectory 'vcpkg\info'
+foreach ($RequiredDirectory in @($VcpkgInstalledDirectory, $VcpkgInfoDirectory)) {
+    if (-not (Test-Path -LiteralPath $RequiredDirectory -PathType Container)) {
+        throw 'VCPKG_ROOT does not contain installed package ownership metadata.'
+    }
+}
 if (-not $InnoSetupCompiler) {
     $InnoCandidates = @(
         (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
@@ -127,6 +134,75 @@ try {
 
 $BuildDirectory = Join-Path $AppDirectory 'build\windows\x64\runner\Release'
 $Executable = Join-Path $BuildDirectory 'ShowVault.exe'
+$RequiredRuntimePackages = @(
+    'cpprestsdk',
+    'openssl',
+    'boost-system',
+    'boost-date-time',
+    'boost-regex'
+)
+$RuntimeBearingPackages = @(
+    'cpprestsdk',
+    'openssl',
+    'boost-date-time',
+    'boost-regex'
+)
+$RuntimeDllsByName = @{}
+foreach ($PackageName in $RequiredRuntimePackages) {
+    $ListPattern = $PackageName + '_*_x64-windows.list'
+    $PackageLists = @(
+        Get-ChildItem -LiteralPath $VcpkgInfoDirectory -Filter $ListPattern -File
+    )
+    if ($PackageLists.Count -ne 1) {
+        throw "The installed vcpkg package manifest is invalid for $PackageName."
+    }
+    $PackageRuntimeEntries = @(
+        Get-Content -LiteralPath $PackageLists[0].FullName -Encoding utf8 |
+            ForEach-Object { $_.Trim().Replace('/', '\') } |
+            Where-Object { $_ -match '^x64-windows\\bin\\[^\\/:*?"<>|]+\.dll$' }
+    )
+    if (($RuntimeBearingPackages -contains $PackageName) -and
+        $PackageRuntimeEntries.Count -eq 0) {
+        throw "The installed vcpkg package has no release runtime DLL: $PackageName."
+    }
+    foreach ($RuntimeEntry in $PackageRuntimeEntries) {
+        $SourcePath = [System.IO.Path]::GetFullPath(
+            (Join-Path $VcpkgInstalledDirectory $RuntimeEntry)
+        )
+        $InstalledPrefix = $VcpkgInstalledDirectory.TrimEnd('\') + '\'
+        if (-not $SourcePath.StartsWith(
+                $InstalledPrefix,
+                [System.StringComparison]::OrdinalIgnoreCase
+            ) -or
+            -not (Test-Path -LiteralPath $SourcePath -PathType Leaf)) {
+            throw 'A vcpkg runtime DLL path is invalid.'
+        }
+        $RuntimeName = [System.IO.Path]::GetFileName($SourcePath)
+        $RuntimeKey = $RuntimeName.ToLowerInvariant()
+        if ($RuntimeDllsByName.ContainsKey($RuntimeKey)) {
+            $ExistingHash = (Get-FileHash -LiteralPath $RuntimeDllsByName[$RuntimeKey] -Algorithm SHA256).Hash
+            $CandidateHash = (Get-FileHash -LiteralPath $SourcePath -Algorithm SHA256).Hash
+            if ($ExistingHash -ne $CandidateHash) {
+                throw "Conflicting vcpkg runtime DLLs share the name $RuntimeName."
+            }
+        } else {
+            $RuntimeDllsByName[$RuntimeKey] = $SourcePath
+        }
+    }
+}
+if ($RuntimeDllsByName.Count -eq 0) {
+    throw 'The approved vcpkg packages produced no release runtime DLLs.'
+}
+foreach ($RuntimeKey in @($RuntimeDllsByName.Keys | Sort-Object)) {
+    $SourcePath = $RuntimeDllsByName[$RuntimeKey]
+    $DestinationPath = Join-Path $BuildDirectory ([System.IO.Path]::GetFileName($SourcePath))
+    Copy-Item -LiteralPath $SourcePath -Destination $DestinationPath -Force
+    $SourceHash = (Get-FileHash -LiteralPath $SourcePath -Algorithm SHA256).Hash
+    $DestinationHash = (Get-FileHash -LiteralPath $DestinationPath -Algorithm SHA256).Hash
+    if ($SourceHash -ne $DestinationHash) {
+        throw 'A copied vcpkg runtime DLL failed checksum verification.'
+    }
+}
 foreach ($RequiredPath in @(
     $Executable,
     (Join-Path $BuildDirectory 'flutter_windows.dll'),
