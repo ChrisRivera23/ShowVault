@@ -270,6 +270,87 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
         Assert.False(Directory.Exists(stagingPath));
     }
 
+    [Theory]
+    [InlineData("root-file")]
+    [InlineData("nested-file")]
+    [InlineData("root-directory")]
+    [InlineData("publication-file")]
+    public async Task Restore_refuses_unexpected_staging_tree_entries(string scenario)
+    {
+        var package = scenario == "nested-file"
+            ? await CreateNestedPackageAsync(includeLargeFile: false)
+            : await CreatePackageAsync();
+        var restorationId = Guid.NewGuid();
+        await EnqueueRestoreCommandAsync(restorationId, package.Manifest.AgentId);
+        var targetPath = Path.Combine(RestoreRoot, $"unexpected-{scenario}-target");
+        var stagingPath = Path.Combine(
+            RestoreRoot,
+            $".showvault-restore-{restorationId:N}");
+        var injected = false;
+        var probe = new ActionRaceProbe((point, relativePath) =>
+        {
+            if (scenario == "publication-file")
+            {
+                if (point == RestoreRacePoint.StagingTreeValidated)
+                {
+                    injected = true;
+                    File.WriteAllText(
+                        Path.Combine(stagingPath, "unexpected.txt"),
+                        "attacker-controlled");
+                }
+
+                return;
+            }
+
+            var expectedRacePath = scenario == "nested-file"
+                ? "nested/a-large.bin"
+                : "main.show";
+            if (point != RestoreRacePoint.DestinationFileOpened ||
+                relativePath != expectedRacePath)
+            {
+                return;
+            }
+
+            injected = true;
+            if (scenario == "root-file")
+            {
+                File.WriteAllText(
+                    Path.Combine(stagingPath, "unexpected.txt"),
+                    "attacker-controlled");
+            }
+            else if (scenario == "nested-file")
+            {
+                File.WriteAllText(
+                    Path.Combine(stagingPath, "nested", "unexpected.txt"),
+                    "attacker-controlled");
+            }
+            else
+            {
+                var unexpectedDirectory = Path.Combine(stagingPath, "unexpected");
+                Directory.CreateDirectory(unexpectedDirectory);
+                File.WriteAllText(
+                    Path.Combine(unexpectedDirectory, "payload.txt"),
+                    "attacker-controlled");
+            }
+        });
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateRestorer(probe).RestoreAsync(
+                restorationId,
+                package.Manifest.AgentId,
+                new StoredRecoveryPackage(package.PackageId, package.PackagePath, "{}"),
+                Guid.NewGuid(),
+                targetPath,
+                DateTimeOffset.UtcNow,
+                CancellationToken.None));
+
+        Assert.True(injected);
+        Assert.Contains("unexpected entries", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(_testRoot, failure.ToString(), StringComparison.Ordinal);
+        Assert.False(Directory.Exists(targetPath));
+        Assert.False(Directory.Exists(stagingPath));
+    }
+
     [Fact]
     public async Task Restore_resumes_after_atomic_publication_using_durable_intent()
     {
