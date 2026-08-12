@@ -9,12 +9,14 @@ public sealed record AgentPluginManifest(
 
 public enum AgentPluginCapability
 {
-    Discovery
+    Discovery,
+    SystemInventory
 }
 
 public enum AgentPluginPermission
 {
-    ReadFiles
+    ReadFiles,
+    ReadSystemInformation
 }
 
 public sealed record DiscoveryRequest(string RootPath, int MaxFiles = 1_000);
