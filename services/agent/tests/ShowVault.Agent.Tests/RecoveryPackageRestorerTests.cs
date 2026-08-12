@@ -49,6 +49,57 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
     }
 
     [Fact]
+    public void Windows_staging_handle_blocks_redirection_and_controls_publication_cleanup()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var parentPath = Path.Combine(_testRoot, "windows-staging-parent");
+        var stagingPath = Path.Combine(parentPath, "staging");
+        var outsidePath = Path.Combine(_testRoot, "windows-staging-outside");
+        Directory.CreateDirectory(parentPath);
+        using var parent = StableDirectoryTree.Open(parentPath);
+        var staging = parent.CreateDirectory("staging");
+        using (var file = staging.CreateFile("main.show"))
+        {
+            file.Write(Encoding.UTF8.GetBytes("configuration"));
+        }
+
+        Assert.ThrowsAny<IOException>(() => Directory.Move(stagingPath, outsidePath));
+        parent.RenameChild("staging", staging, "target");
+        staging.Dispose();
+
+        var targetPath = Path.Combine(parentPath, "target");
+        Assert.Equal("configuration", File.ReadAllText(Path.Combine(targetPath, "main.show")));
+        using var target = parent.OpenDirectory("target");
+        parent.DeleteChildTreeIfSame("target", target);
+        Assert.False(Directory.Exists(targetPath));
+        Assert.False(Directory.Exists(outsidePath));
+    }
+
+    [Fact]
+    public void Windows_child_handle_retains_ancestor_path_guards()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var rootPath = Path.Combine(_testRoot, "windows-guard-root");
+        var outsidePath = Path.Combine(_testRoot, "windows-guard-outside");
+        Directory.CreateDirectory(rootPath);
+        var root = StableDirectoryTree.Open(rootPath);
+        using var child = root.CreateDirectory("nested");
+        root.Dispose();
+
+        Assert.ThrowsAny<IOException>(() => Directory.Move(rootPath, outsidePath));
+        Assert.Empty(child.EnumerateNames());
+        Assert.False(Directory.Exists(outsidePath));
+    }
+
+    [Fact]
     public async Task Restore_rejects_targets_outside_local_allowlist()
     {
         var restorer = CreateRestorer();
