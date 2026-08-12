@@ -64,6 +64,23 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
             selectedRootDirectories: null,
             cancellationToken);
 
+    public static async Task<StableSourceSnapshot> CaptureBoundedAsync(
+        string rootPath,
+        int maximumFileCount,
+        int maximumDirectoryCount,
+        int maximumRelativePathLength,
+        long maximumFileBytes,
+        long maximumTotalBytes,
+        CancellationToken cancellationToken) => await CaptureAsync(
+            rootPath,
+            maximumFileCount,
+            maximumDirectoryCount,
+            maximumRelativePathLength,
+            maximumFileBytes,
+            maximumTotalBytes,
+            selectedRootDirectories: null,
+            cancellationToken);
+
     public static async Task<StableSourceSnapshot> CaptureSelectedRootDirectoriesAsync(
         string rootPath,
         IReadOnlySet<string> selectedRootDirectories,
@@ -129,7 +146,7 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
         }
 
         var normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootPath));
-        var root = StableDirectoryTree.Open(normalizedRoot);
+        var root = StableDirectoryTree.OpenReadOnlyNoFollowPath(normalizedRoot);
         var snapshot = new StableSourceSnapshot(
             normalizedRoot,
             root,
@@ -217,7 +234,7 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        using var currentRoot = StableDirectoryTree.Open(_rootPath);
+        using var currentRoot = StableDirectoryTree.OpenReadOnlyNoFollowPath(_rootPath);
         if (!_root.HasSameIdentity(currentRoot))
         {
             throw new IOException("Source root identity changed during capture.");
@@ -334,7 +351,7 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
             StableDirectoryTree? childDirectory = null;
             try
             {
-                childDirectory = directory.Directory.OpenDirectory(name);
+                childDirectory = directory.Directory.OpenDirectoryReadOnly(name);
             }
             catch (IOException)
             {

@@ -52,6 +52,39 @@ builder.Services
             .Any(),
         "A Resolume root cannot be configured as both a portable bundle and user data.")
     .Validate(
+        options => options.GrandMa2ShowExportRoots.Count <=
+                MaLightingShowExportDiscoveryPluginBase.MaximumConfiguredRootCount &&
+            options.GrandMa2ShowExportRoots.All(Path.IsPathFullyQualified) &&
+            options.GrandMa2ShowExportRoots
+                .Select(MaLightingShowExportDiscoveryPluginBase.NormalizeRoot)
+                .Distinct(OperatingSystem.IsWindows()
+                    ? StringComparer.OrdinalIgnoreCase
+                    : StringComparer.Ordinal)
+                .Count() == options.GrandMa2ShowExportRoots.Count,
+        "grandMA2 Assisted recovery requires at most 32 unique absolute show-export roots.")
+    .Validate(
+        options => options.GrandMa3ShowExportRoots.Count <=
+                MaLightingShowExportDiscoveryPluginBase.MaximumConfiguredRootCount &&
+            options.GrandMa3ShowExportRoots.All(Path.IsPathFullyQualified) &&
+            options.GrandMa3ShowExportRoots
+                .Select(MaLightingShowExportDiscoveryPluginBase.NormalizeRoot)
+                .Distinct(OperatingSystem.IsWindows()
+                    ? StringComparer.OrdinalIgnoreCase
+                    : StringComparer.Ordinal)
+                .Count() == options.GrandMa3ShowExportRoots.Count,
+        "grandMA3 Assisted recovery requires at most 32 unique absolute show-export roots.")
+    .Validate(
+        options => !options.GrandMa2ShowExportRoots
+            .Select(MaLightingShowExportDiscoveryPluginBase.NormalizeRoot)
+            .Intersect(
+                options.GrandMa3ShowExportRoots.Select(
+                    MaLightingShowExportDiscoveryPluginBase.NormalizeRoot),
+                OperatingSystem.IsWindows()
+                    ? StringComparer.OrdinalIgnoreCase
+                    : StringComparer.Ordinal)
+            .Any(),
+        "A grandMA export root cannot be configured for both product profiles.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -82,6 +115,8 @@ builder.Services.AddSingleton<AgentCommandPoller>();
 builder.Services.AddSingleton<IDiscoveryPlugin, FileSystemDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, ResolumeDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, ResolumeUserDataDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, GrandMa2ShowExportDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, GrandMa3ShowExportDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<ISystemInventorySource, PlatformSystemInventorySource>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
