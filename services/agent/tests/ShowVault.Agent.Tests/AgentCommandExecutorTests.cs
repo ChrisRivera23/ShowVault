@@ -648,6 +648,73 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             outcome.Envelope.Type);
     }
 
+    [Fact]
+    public async Task Resolume_discovery_packages_exact_bundle_with_path_free_outcomes()
+    {
+        var bundle = Path.Combine(_testRoot, "resolume-bundle");
+        Directory.CreateDirectory(Path.Combine(bundle, "media"));
+        await File.WriteAllTextAsync(Path.Combine(bundle, "Venue.avc"), "composition");
+        await File.WriteAllTextAsync(Path.Combine(bundle, "media", "intro.mov"), "media");
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var discovery = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartDiscovery,
+            "resolume-discovery",
+            JsonSerializer.Serialize(new
+            {
+                pluginId = ResolumeDiscoveryPlugin.PluginId,
+                rootPath = bundle,
+                maxFiles = ResolumeDiscoveryPlugin.MaximumFileLimit
+            }),
+            now,
+            TimeSpan.FromMinutes(5));
+        var backup = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CreateBackup,
+            "resolume-backup",
+            JsonSerializer.Serialize(new { discoveryCommandId = discovery.CommandId }),
+            now.AddSeconds(1),
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(discovery, now, CancellationToken.None);
+        var executor = CreateExecutor(store, now);
+        var identity = new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential");
+
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await store.EnqueueCommandAsync(backup, now, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+
+        var localResult = await store.GetDiscoveryResultJsonAsync(
+            discovery.CommandId,
+            CancellationToken.None);
+        Assert.Contains(bundle, localResult, StringComparison.Ordinal);
+        Assert.Contains("Venue.avc", localResult, StringComparison.Ordinal);
+        var package = await store.GetRecoveryPackageAsync(
+            backup.CommandId,
+            CancellationToken.None);
+        Assert.NotNull(package);
+        Assert.Equal(
+            "composition",
+            await File.ReadAllTextAsync(Path.Combine(
+                package.PackagePath,
+                RecoveryPackageFormat.ContentDirectoryName,
+                "Venue.avc")));
+        var outcomes = await store.GetPendingEventsAsync(
+            now.AddMinutes(1),
+            10,
+            CancellationToken.None);
+        Assert.Equal(2, outcomes.Count);
+        Assert.All(outcomes, outcome =>
+        {
+            Assert.DoesNotContain(bundle, outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("Venue.avc", outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("intro.mov", outcome.Envelope.Payload, StringComparison.Ordinal);
+        });
+    }
+
     public Task DisposeAsync()
     {
         if (Directory.Exists(_testRoot))
@@ -673,10 +740,18 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 DiscoveryRoots = [_testRoot]
             }),
             timeProvider);
+        var resolumePlugin = new ResolumeDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                ResolumeDiscoveryRoots = [Path.Combine(_testRoot, "resolume-bundle")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier(CreateOptions());
         return new AgentCommandExecutor(
             store,
-            new DiscoveryPluginRegistry([plugin]),
+            new DiscoveryPluginRegistry([plugin, resolumePlugin]),
             new SystemInventoryPlugin(
                 timeProvider,
                 inventorySource ?? new TestSystemInventorySource(

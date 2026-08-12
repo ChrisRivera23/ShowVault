@@ -20,6 +20,17 @@ builder.Services
         options => options.DiscoveryRoots.All(Path.IsPathFullyQualified),
         "Every discovery root must be an absolute path.")
     .Validate(
+        options => options.ResolumeDiscoveryRoots.Count <=
+                ResolumeDiscoveryPlugin.MaximumConfiguredRootCount &&
+            options.ResolumeDiscoveryRoots.All(Path.IsPathFullyQualified) &&
+            options.ResolumeDiscoveryRoots
+                .Select(ResolumeDiscoveryPlugin.NormalizeRoot)
+                .Distinct(OperatingSystem.IsWindows()
+                    ? StringComparer.OrdinalIgnoreCase
+                    : StringComparer.Ordinal)
+                .Count() == options.ResolumeDiscoveryRoots.Count,
+        "Resolume recovery requires at most 32 unique absolute bundle roots.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -48,6 +59,7 @@ builder.Services.AddSingleton<AgentQueueStore>();
 builder.Services.AddSingleton<AgentEventDispatcher>();
 builder.Services.AddSingleton<AgentCommandPoller>();
 builder.Services.AddSingleton<IDiscoveryPlugin, FileSystemDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, ResolumeDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<ISystemInventorySource, PlatformSystemInventorySource>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();

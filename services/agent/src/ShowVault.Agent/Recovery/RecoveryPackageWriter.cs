@@ -6,13 +6,27 @@ using ShowVault.Agent.Plugins;
 
 namespace ShowVault.Agent.Recovery;
 
-public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
+public sealed class RecoveryPackageWriter
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly StringComparer FileSystemPathComparer = OperatingSystem.IsWindows()
         ? StringComparer.OrdinalIgnoreCase
         : StringComparer.Ordinal;
-    private readonly string _packageDirectory = ResolvePackageDirectory(options.Value);
+    private readonly string _packageDirectory;
+    private readonly ISourceSnapshotRaceProbe? _sourceSnapshotRaceProbe;
+
+    public RecoveryPackageWriter(IOptions<AgentOptions> options)
+        : this(options, null)
+    {
+    }
+
+    internal RecoveryPackageWriter(
+        IOptions<AgentOptions> options,
+        ISourceSnapshotRaceProbe? sourceSnapshotRaceProbe)
+    {
+        _packageDirectory = ResolvePackageDirectory(options.Value);
+        _sourceSnapshotRaceProbe = sourceSnapshotRaceProbe;
+    }
 
     public async Task<CreatedRecoveryPackage> CreateAsync(
         Guid agentId,
@@ -68,6 +82,15 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
             return new CreatedRecoveryPackage(packageId, packagePath, manifest);
         }
 
+        await using var stableSource = await CaptureStableSourceAsync(
+            discovery,
+            rootPath,
+            manifestFiles,
+            cancellationToken);
+        _sourceSnapshotRaceProbe?.Reached(
+            SourceSnapshotRacePoint.SnapshotCaptured,
+            string.Empty);
+
         var stagingPath = Path.Combine(_packageDirectory, $".staging-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(
             stagingPath,
@@ -84,10 +107,15 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
                     RecoveryPackageFormat.ContentDirectoryName,
                     file.RelativePath.Replace('/', Path.DirectorySeparatorChar));
                 Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
-                var copiedHash = await CopyAndHashAsync(
-                    sourcePath,
-                    destinationPath,
-                    cancellationToken);
+                _sourceSnapshotRaceProbe?.Reached(
+                    SourceSnapshotRacePoint.SourceCopyStarted,
+                    file.RelativePath);
+                var copiedHash = stableSource is null
+                    ? await CopyAndHashAsync(sourcePath, destinationPath, cancellationToken)
+                    : await CopyAndHashAsync(
+                        stableSource.GetFile(file.RelativePath),
+                        destinationPath,
+                        cancellationToken);
                 var copiedLength = new FileInfo(destinationPath).Length;
                 if (copiedLength != file.Size ||
                     !string.Equals(copiedHash, file.Sha256, StringComparison.OrdinalIgnoreCase))
@@ -95,6 +123,13 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
                     throw new InvalidOperationException(
                         $"Source changed after discovery: {file.RelativePath}");
                 }
+            }
+
+            if (stableSource is not null)
+            {
+                await stableSource.ValidateStableAsync(
+                    rehashFiles: true,
+                    cancellationToken);
             }
 
             await File.WriteAllBytesAsync(
@@ -143,6 +178,14 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
             FileShare.Read,
             65_536,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
+        return await CopyAndHashAsync(source, destinationPath, cancellationToken);
+    }
+
+    private static async Task<string> CopyAndHashAsync(
+        Stream source,
+        string destinationPath,
+        CancellationToken cancellationToken)
+    {
         await using var destination = new FileStream(
             destinationPath,
             FileMode.CreateNew,
@@ -150,6 +193,11 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
             FileShare.None,
             65_536,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
+        if (source.CanSeek)
+        {
+            source.Position = 0;
+        }
+
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = ArrayPool<byte>.Shared.Rent(65_536);
         try
@@ -171,6 +219,36 @@ public sealed class RecoveryPackageWriter(IOptions<AgentOptions> options)
         finally
         {
             ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private static async Task<StableSourceSnapshot?> CaptureStableSourceAsync(
+        DiscoveryResult discovery,
+        string rootPath,
+        IReadOnlyList<RecoveryPackageFile> manifestFiles,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(
+                discovery.PluginId,
+                ResolumeDiscoveryPlugin.PluginId,
+                StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var snapshot = await StableSourceSnapshot.CaptureAsync(
+            rootPath,
+            ResolumeDiscoveryPlugin.MaximumFileLimit,
+            cancellationToken);
+        try
+        {
+            snapshot.RequireExactFiles(manifestFiles);
+            return snapshot;
+        }
+        catch
+        {
+            await snapshot.DisposeAsync();
+            throw;
         }
     }
 
