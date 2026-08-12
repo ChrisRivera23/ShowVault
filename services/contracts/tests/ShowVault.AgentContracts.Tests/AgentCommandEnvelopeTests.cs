@@ -15,6 +15,23 @@ public sealed class AgentCommandEnvelopeTests
     }
 
     [Fact]
+    public void System_inventory_command_is_supported_by_protocol_1_1()
+    {
+        var envelope = ValidCommand() with
+        {
+            Type = AgentCommandType.CollectSystemInventory
+        };
+
+        Assert.Equal("1.1", AgentProtocol.Version);
+        Assert.Equal(AgentProtocol.Version, envelope.ProtocolVersion);
+        Assert.True(AgentCommandValidation.TryValidate(envelope, out var error));
+        Assert.Empty(error);
+        Assert.Contains(
+            AgentCommandType.CollectSystemInventory,
+            AgentProtocolDescription.Current.Commands);
+    }
+
+    [Fact]
     public void Unsupported_command_type_is_rejected()
     {
         var envelope = ValidCommand() with { Type = (AgentCommandType)999 };

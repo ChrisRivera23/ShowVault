@@ -79,6 +79,149 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CollectSystemInventory_persists_inventory_and_completes_durably()
+    {
+        var now = DateTimeOffset.UtcNow;
+        const string privateMachineName = "private-synthetic-machine";
+        const string privateVolumeName = "private-synthetic-volume";
+        var agentId = Guid.NewGuid();
+        var command = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CollectSystemInventory,
+            "inventory-correlation",
+            "{}",
+            now,
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, now, CancellationToken.None);
+        var logger = new CapturingLogger();
+        var inventorySource = new TestSystemInventorySource(
+            new SystemInventoryHostFacts(
+                privateMachineName,
+                "Synthetic OS",
+                "X64",
+                "X64",
+                4),
+            [new SystemVolume(privateVolumeName, "Fixed", 1_000, 500)]);
+
+        var executor = CreateExecutor(store, now, logger, inventorySource);
+        await executor.ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+
+        Assert.Single(await store.GetCommandsAsync(
+            LocalAgentCommandStatus.Completed,
+            CancellationToken.None));
+        var inventoryJson = await store.GetDiscoveryResultJsonAsync(
+            command.CommandId,
+            CancellationToken.None);
+        Assert.Contains(SystemInventoryPlugin.PluginId, inventoryJson, StringComparison.Ordinal);
+        Assert.Contains("logicalProcessorCount", inventoryJson, StringComparison.Ordinal);
+        Assert.Contains(privateMachineName, inventoryJson, StringComparison.Ordinal);
+        Assert.Contains(privateVolumeName, inventoryJson, StringComparison.Ordinal);
+        var outcome = Assert.Single(await store.GetPendingEventsAsync(
+            now.AddMinutes(1),
+            10,
+            CancellationToken.None)).Envelope;
+        Assert.Equal(AgentEventType.JobCompleted, outcome.Type);
+        Assert.Contains("volumeCount", outcome.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain(privateMachineName, outcome.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain(privateVolumeName, outcome.Payload, StringComparison.Ordinal);
+        Assert.All(logger.Messages, message =>
+        {
+            Assert.DoesNotContain(privateMachineName, message, StringComparison.Ordinal);
+            Assert.DoesNotContain(privateVolumeName, message, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public async Task CollectSystemInventory_failure_emits_only_a_bounded_category()
+    {
+        var now = DateTimeOffset.UtcNow;
+        const string sensitiveFailure = "private-inventory-source-detail";
+        var agentId = Guid.NewGuid();
+        var command = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CollectSystemInventory,
+            "inventory-failure-correlation",
+            "{}",
+            now,
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, now, CancellationToken.None);
+        var logger = new CapturingLogger();
+
+        await CreateExecutor(
+                store,
+                now,
+                logger,
+                new ThrowingSystemInventorySource(sensitiveFailure))
+            .ExecutePendingOnceAsync(
+                new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+                CancellationToken.None);
+
+        Assert.Single(await store.GetCommandsAsync(
+            LocalAgentCommandStatus.Failed,
+            CancellationToken.None));
+        Assert.Null(await store.GetDiscoveryResultJsonAsync(
+            command.CommandId,
+            CancellationToken.None));
+        var outcome = Assert.Single(await store.GetPendingEventsAsync(
+            now.AddMinutes(1),
+            10,
+            CancellationToken.None)).Envelope;
+        Assert.Equal(AgentEventType.JobFailed, outcome.Type);
+        Assert.Equal(JsonSerializer.Serialize(new { error = "command-not-executable" }), outcome.Payload);
+        Assert.DoesNotContain(sensitiveFailure, outcome.Payload, StringComparison.Ordinal);
+        Assert.All(
+            logger.Messages,
+            message => Assert.DoesNotContain(sensitiveFailure, message, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task CollectSystemInventory_cancellation_emits_no_completion_event()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var command = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CollectSystemInventory,
+            "inventory-cancellation-correlation",
+            "{}",
+            now,
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, now, CancellationToken.None);
+        using var cancellation = new CancellationTokenSource();
+        var executor = CreateExecutor(
+            store,
+            now,
+            inventorySource: new CancelingSystemInventorySource(cancellation));
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            executor.ExecutePendingOnceAsync(
+                new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+                cancellation.Token));
+
+        Assert.Single(await store.GetCommandsAsync(
+            LocalAgentCommandStatus.Running,
+            CancellationToken.None));
+        Assert.Empty(await store.GetPendingEventsAsync(
+            now.AddMinutes(1),
+            10,
+            CancellationToken.None));
+        Assert.Null(await store.GetDiscoveryResultJsonAsync(
+            command.CommandId,
+            CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Running_command_resumes_after_restart_and_records_failure()
     {
         var now = DateTimeOffset.UtcNow;
@@ -518,7 +661,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     private AgentCommandExecutor CreateExecutor(
         AgentQueueStore store,
         DateTimeOffset now,
-        ILogger<AgentCommandExecutor>? logger = null)
+        ILogger<AgentCommandExecutor>? logger = null,
+        ISystemInventorySource? inventorySource = null)
     {
         var timeProvider = new FixedTimeProvider(now);
         var plugin = new FileSystemDiscoveryPlugin(
@@ -533,6 +677,16 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         return new AgentCommandExecutor(
             store,
             new DiscoveryPluginRegistry([plugin]),
+            new SystemInventoryPlugin(
+                timeProvider,
+                inventorySource ?? new TestSystemInventorySource(
+                    new SystemInventoryHostFacts(
+                        "synthetic-machine",
+                        "Synthetic OS",
+                        "X64",
+                        "X64",
+                        4),
+                    [])),
             new RecoveryPackageWriter(CreateOptions()),
             verifier,
             new RecoveryPackageRestorer(CreateOptions(), verifier, store),
@@ -572,6 +726,37 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private sealed class TestSystemInventorySource(
+        SystemInventoryHostFacts hostFacts,
+        IReadOnlyList<SystemVolume> volumes) : ISystemInventorySource
+    {
+        public SystemInventoryHostFacts ReadHostFacts() => hostFacts;
+
+        public IEnumerable<SystemVolume> EnumerateVolumes() => volumes;
+    }
+
+    private sealed class ThrowingSystemInventorySource(string sensitiveFailure)
+        : ISystemInventorySource
+    {
+        public SystemInventoryHostFacts ReadHostFacts() =>
+            throw new InvalidOperationException(sensitiveFailure);
+
+        public IEnumerable<SystemVolume> EnumerateVolumes() => [];
+    }
+
+    private sealed class CancelingSystemInventorySource(CancellationTokenSource cancellation)
+        : ISystemInventorySource
+    {
+        public SystemInventoryHostFacts ReadHostFacts() =>
+            new("synthetic", "Synthetic OS", "X64", "X64", 4);
+
+        public IEnumerable<SystemVolume> EnumerateVolumes()
+        {
+            cancellation.Cancel();
+            yield return new SystemVolume("must-not-be-stored", "Fixed", 100, 50);
+        }
     }
 
     private sealed class CapturingLogger : ILogger<AgentCommandExecutor>

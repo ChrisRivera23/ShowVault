@@ -12,6 +12,7 @@ namespace ShowVault.Agent.Execution;
 public sealed class AgentCommandExecutor(
     AgentQueueStore queueStore,
     DiscoveryPluginRegistry pluginRegistry,
+    SystemInventoryPlugin systemInventoryPlugin,
     RecoveryPackageWriter packageWriter,
     RecoveryPackageVerifier packageVerifier,
     RecoveryPackageRestorer packageRestorer,
@@ -93,6 +94,9 @@ public sealed class AgentCommandExecutor(
                 case AgentCommandType.StartDiscovery:
                     await ExecuteDiscoveryAsync(identity, command, cancellationToken);
                     break;
+                case AgentCommandType.CollectSystemInventory:
+                    await ExecuteSystemInventoryAsync(identity, command, cancellationToken);
+                    break;
                 case AgentCommandType.CreateBackup:
                     await ExecuteCreateBackupAsync(identity, command, cancellationToken);
                     break;
@@ -158,6 +162,36 @@ public sealed class AgentCommandExecutor(
                     result.PluginId,
                     fileCount = result.Files.Count,
                     result.Truncated
+                },
+                JsonOptions),
+            cancellationToken);
+    }
+
+    private async Task ExecuteSystemInventoryAsync(
+        StoredAgentIdentity identity,
+        AgentCommandEnvelope command,
+        CancellationToken cancellationToken)
+    {
+        var result = await systemInventoryPlugin.CollectAsync(cancellationToken);
+        await queueStore.StoreDiscoveryResultAsync(
+            command.CommandId,
+            JsonSerializer.Serialize(result, JsonOptions),
+            result.CollectedAt,
+            cancellationToken);
+        await RecordOutcomeAsync(
+            identity,
+            command,
+            AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Running,
+            LocalAgentCommandStatus.Completed,
+            JsonSerializer.Serialize(
+                new
+                {
+                    result.PluginId,
+                    result.OperatingSystem,
+                    result.OsArchitecture,
+                    result.LogicalProcessorCount,
+                    volumeCount = result.Volumes.Count
                 },
                 JsonOptions),
             cancellationToken);
