@@ -85,6 +85,19 @@ builder.Services
             .Any(),
         "A grandMA export root cannot be configured for both product profiles.")
     .Validate(
+        options => YamahaSettingsExportDiscoveryPluginBase.AreConfiguredRootsValid(
+            options.YamahaDm7SettingsExportRoots),
+        "Yamaha DM7 Assisted recovery requires at most 32 unique absolute export roots.")
+    .Validate(
+        options => YamahaSettingsExportDiscoveryPluginBase.AreConfiguredRootsValid(
+            options.YamahaRivageSettingsExportRoots),
+        "Yamaha RIVAGE Assisted recovery requires at most 32 unique absolute export roots.")
+    .Validate(
+        options => YamahaSettingsExportDiscoveryPluginBase.HaveNoOverlap(
+            options.YamahaDm7SettingsExportRoots,
+            options.YamahaRivageSettingsExportRoots),
+        "A Yamaha export root cannot be configured for both product profiles.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -117,6 +130,8 @@ builder.Services.AddSingleton<IDiscoveryPlugin, ResolumeDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, ResolumeUserDataDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, GrandMa2ShowExportDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, GrandMa3ShowExportDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, YamahaDm7SettingsExportDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, YamahaRivageSettingsExportDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<ISystemInventorySource, PlatformSystemInventorySource>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
