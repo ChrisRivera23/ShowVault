@@ -35,6 +35,15 @@ public sealed class RecoveryPackageWriter
         DateTimeOffset createdAt,
         CancellationToken cancellationToken)
     {
+        using var profileTimeout = string.Equals(
+                discovery.PluginId,
+                ResolumeUserDataDiscoveryPlugin.PluginId,
+                StringComparison.Ordinal)
+            ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
+            : null;
+        profileTimeout?.CancelAfter(ResolumeUserDataDiscoveryPlugin.MaximumPackageDuration);
+        var operationToken = profileTimeout?.Token ?? cancellationToken;
+
         if (discovery.Truncated)
         {
             throw new InvalidOperationException(
@@ -78,7 +87,7 @@ public sealed class RecoveryPackageWriter
                 packagePath,
                 manifestBytes,
                 manifestFiles,
-                cancellationToken);
+                operationToken);
             return new CreatedRecoveryPackage(packageId, packagePath, manifest);
         }
 
@@ -86,7 +95,7 @@ public sealed class RecoveryPackageWriter
             discovery,
             rootPath,
             manifestFiles,
-            cancellationToken);
+            operationToken);
         _sourceSnapshotRaceProbe?.Reached(
             SourceSnapshotRacePoint.SnapshotCaptured,
             string.Empty);
@@ -99,7 +108,7 @@ public sealed class RecoveryPackageWriter
         {
             foreach (var file in manifestFiles)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                operationToken.ThrowIfCancellationRequested();
                 var sourcePath = ResolveContainedPath(rootPath, file.RelativePath);
                 EnsurePathContainsNoLinks(rootPath, sourcePath);
                 var destinationPath = Path.Combine(
@@ -111,11 +120,11 @@ public sealed class RecoveryPackageWriter
                     SourceSnapshotRacePoint.SourceCopyStarted,
                     file.RelativePath);
                 var copiedHash = stableSource is null
-                    ? await CopyAndHashAsync(sourcePath, destinationPath, cancellationToken)
+                    ? await CopyAndHashAsync(sourcePath, destinationPath, operationToken)
                     : await CopyAndHashAsync(
                         stableSource.GetFile(file.RelativePath),
                         destinationPath,
-                        cancellationToken);
+                        operationToken);
                 var copiedLength = new FileInfo(destinationPath).Length;
                 if (copiedLength != file.Size ||
                     !string.Equals(copiedHash, file.Sha256, StringComparison.OrdinalIgnoreCase))
@@ -129,13 +138,13 @@ public sealed class RecoveryPackageWriter
             {
                 await stableSource.ValidateStableAsync(
                     rehashFiles: true,
-                    cancellationToken);
+                    operationToken);
             }
 
             await File.WriteAllBytesAsync(
                 Path.Combine(stagingPath, RecoveryPackageFormat.ManifestFileName),
                 manifestBytes,
-                cancellationToken);
+                operationToken);
             MakeFilesReadOnly(stagingPath);
             try
             {
@@ -147,7 +156,7 @@ public sealed class RecoveryPackageWriter
                     packagePath,
                     manifestBytes,
                     manifestFiles,
-                    cancellationToken);
+                    operationToken);
             }
         }
         finally
@@ -162,7 +171,7 @@ public sealed class RecoveryPackageWriter
             packagePath,
             manifestBytes,
             manifestFiles,
-            cancellationToken);
+            operationToken);
         return new CreatedRecoveryPackage(packageId, packagePath, manifest);
     }
 
@@ -228,18 +237,28 @@ public sealed class RecoveryPackageWriter
         IReadOnlyList<RecoveryPackageFile> manifestFiles,
         CancellationToken cancellationToken)
     {
-        if (!string.Equals(
-                discovery.PluginId,
-                ResolumeDiscoveryPlugin.PluginId,
-                StringComparison.Ordinal))
+        var isPortableBundle = string.Equals(
+            discovery.PluginId,
+            ResolumeDiscoveryPlugin.PluginId,
+            StringComparison.Ordinal);
+        var isUserData = string.Equals(
+            discovery.PluginId,
+            ResolumeUserDataDiscoveryPlugin.PluginId,
+            StringComparison.Ordinal);
+        if (!isPortableBundle && !isUserData)
         {
             return null;
         }
 
-        var snapshot = await StableSourceSnapshot.CaptureAsync(
-            rootPath,
-            ResolumeDiscoveryPlugin.MaximumFileLimit,
-            cancellationToken);
+        var snapshot = isPortableBundle
+            ? await StableSourceSnapshot.CaptureAsync(
+                rootPath,
+                ResolumeDiscoveryPlugin.MaximumFileLimit,
+                cancellationToken)
+            : await ResolumeUserDataDiscoveryPlugin.CaptureSnapshotAsync(
+                rootPath,
+                ResolumeUserDataDiscoveryPlugin.MaximumFileLimit,
+                cancellationToken);
         try
         {
             snapshot.RequireExactFiles(manifestFiles);

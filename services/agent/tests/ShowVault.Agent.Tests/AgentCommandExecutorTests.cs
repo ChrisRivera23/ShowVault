@@ -715,6 +715,76 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         });
     }
 
+    [Fact]
+    public async Task Resolume_user_data_packages_selected_categories_with_path_free_outcomes()
+    {
+        var userData = Path.Combine(_testRoot, "resolume-user-data");
+        Directory.CreateDirectory(Path.Combine(userData, "Preferences"));
+        Directory.CreateDirectory(Path.Combine(userData, "Private Notes"));
+        await File.WriteAllTextAsync(
+            Path.Combine(userData, "Preferences", "Arena.xml"),
+            "preferences");
+        await File.WriteAllTextAsync(
+            Path.Combine(userData, "Private Notes", "notes.txt"),
+            "private");
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var discovery = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartDiscovery,
+            "resolume-user-data-discovery",
+            JsonSerializer.Serialize(new
+            {
+                pluginId = ResolumeUserDataDiscoveryPlugin.PluginId,
+                rootPath = userData,
+                maxFiles = ResolumeUserDataDiscoveryPlugin.MaximumFileLimit
+            }),
+            now,
+            TimeSpan.FromMinutes(5));
+        var backup = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CreateBackup,
+            "resolume-user-data-backup",
+            JsonSerializer.Serialize(new { discoveryCommandId = discovery.CommandId }),
+            now.AddSeconds(1),
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(discovery, now, CancellationToken.None);
+        var executor = CreateExecutor(store, now);
+        var identity = new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential");
+
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await store.EnqueueCommandAsync(backup, now, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+
+        var package = await store.GetRecoveryPackageAsync(backup.CommandId, CancellationToken.None);
+        Assert.NotNull(package);
+        Assert.Equal(
+            "preferences",
+            await File.ReadAllTextAsync(Path.Combine(
+                package.PackagePath,
+                RecoveryPackageFormat.ContentDirectoryName,
+                "Preferences",
+                "Arena.xml")));
+        Assert.False(Directory.Exists(Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "Private Notes")));
+        var outcomes = await store.GetPendingEventsAsync(
+            now.AddMinutes(1),
+            10,
+            CancellationToken.None);
+        Assert.Equal(2, outcomes.Count);
+        Assert.All(outcomes, outcome =>
+        {
+            Assert.DoesNotContain(userData, outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("Arena.xml", outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("notes.txt", outcome.Envelope.Payload, StringComparison.Ordinal);
+        });
+    }
+
     public Task DisposeAsync()
     {
         if (Directory.Exists(_testRoot))
@@ -748,10 +818,18 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 ResolumeDiscoveryRoots = [Path.Combine(_testRoot, "resolume-bundle")]
             }),
             timeProvider);
+        var resolumeUserDataPlugin = new ResolumeUserDataDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                ResolumeUserDataRoots = [Path.Combine(_testRoot, "resolume-user-data")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier(CreateOptions());
         return new AgentCommandExecutor(
             store,
-            new DiscoveryPluginRegistry([plugin, resolumePlugin]),
+            new DiscoveryPluginRegistry([plugin, resolumePlugin, resolumeUserDataPlugin]),
             new SystemInventoryPlugin(
                 timeProvider,
                 inventorySource ?? new TestSystemInventorySource(
