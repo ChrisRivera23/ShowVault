@@ -786,6 +786,109 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Yamaha_dm7_export_packages_exact_root_with_path_free_outcomes()
+    {
+        var export = Path.Combine(_testRoot, "yamaha-dm7-export");
+        var privateSibling = Path.Combine(_testRoot, "private-yamaha-data");
+        Directory.CreateDirectory(export);
+        Directory.CreateDirectory(privateSibling);
+        await File.WriteAllTextAsync(Path.Combine(export, "Venue.dm7f"), "opaque-settings");
+        await File.WriteAllTextAsync(Path.Combine(privateSibling, "private.txt"), "private");
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var discovery = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartDiscovery,
+            "yamaha-dm7-discovery",
+            JsonSerializer.Serialize(new
+            {
+                pluginId = YamahaDm7SettingsExportDiscoveryPlugin.PluginId,
+                rootPath = export,
+                maxFiles = YamahaSettingsExportDiscoveryPluginBase.MaximumFileLimit
+            }),
+            now,
+            TimeSpan.FromMinutes(5));
+        var backup = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CreateBackup,
+            "yamaha-dm7-backup",
+            JsonSerializer.Serialize(new { discoveryCommandId = discovery.CommandId }),
+            now.AddSeconds(1),
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(discovery, now, CancellationToken.None);
+        var executor = CreateExecutor(store, now);
+        var identity = new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential");
+
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await store.EnqueueCommandAsync(backup, now, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+
+        var package = await store.GetRecoveryPackageAsync(backup.CommandId, CancellationToken.None);
+        Assert.NotNull(package);
+        Assert.True(File.Exists(Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "Venue.dm7f")));
+        Assert.False(File.Exists(Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "private.txt")));
+        var outcomes = await store.GetPendingEventsAsync(now.AddMinutes(1), 10, CancellationToken.None);
+        Assert.Equal(2, outcomes.Count);
+        Assert.All(outcomes, outcome =>
+        {
+            Assert.DoesNotContain(export, outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("Venue.dm7f", outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("private.txt", outcome.Envelope.Payload, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public async Task Yamaha_unauthorized_export_failure_is_path_free()
+    {
+        var privateRoot = Path.Combine(_testRoot, "unauthorized-yamaha");
+        Directory.CreateDirectory(privateRoot);
+        await File.WriteAllTextAsync(Path.Combine(privateRoot, "Private.dm7f"), "private");
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var command = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartDiscovery,
+            "yamaha-unauthorized",
+            JsonSerializer.Serialize(new
+            {
+                pluginId = YamahaDm7SettingsExportDiscoveryPlugin.PluginId,
+                rootPath = privateRoot,
+                maxFiles = 10
+            }),
+            now,
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, now, CancellationToken.None);
+        var logger = new CapturingLogger();
+
+        await CreateExecutor(store, now, logger).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+
+        var outcome = Assert.Single(await store.GetPendingEventsAsync(
+            now.AddMinutes(1), 10, CancellationToken.None)).Envelope;
+        Assert.Equal(AgentEventType.JobFailed, outcome.Type);
+        Assert.Equal("{\"error\":\"discovery-not-authorized\"}", outcome.Payload);
+        Assert.DoesNotContain(privateRoot, outcome.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain("Private.dm7f", outcome.Payload, StringComparison.Ordinal);
+        Assert.All(logger.Messages, message =>
+        {
+            Assert.DoesNotContain(privateRoot, message, StringComparison.Ordinal);
+            Assert.DoesNotContain("Private.dm7f", message, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
     public async Task GrandMa3_export_packages_exact_root_with_path_free_outcomes()
     {
         var shows = Path.Combine(_testRoot, "grandMA3", "shared", "shows");
@@ -950,11 +1053,35 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 GrandMa3ShowExportRoots = [Path.Combine(_testRoot, "grandMA3", "shared", "shows")]
             }),
             timeProvider);
+        var yamahaDm7Plugin = new YamahaDm7SettingsExportDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaDm7SettingsExportRoots = [Path.Combine(_testRoot, "yamaha-dm7-export")]
+            }),
+            timeProvider);
+        var yamahaRivagePlugin = new YamahaRivageSettingsExportDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaRivageSettingsExportRoots = [Path.Combine(_testRoot, "yamaha-rivage-export")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier(CreateOptions());
         return new AgentCommandExecutor(
             store,
             new DiscoveryPluginRegistry(
-                [plugin, resolumePlugin, resolumeUserDataPlugin, grandMa2Plugin, grandMa3Plugin]),
+                [
+                    plugin,
+                    resolumePlugin,
+                    resolumeUserDataPlugin,
+                    grandMa2Plugin,
+                    grandMa3Plugin,
+                    yamahaDm7Plugin,
+                    yamahaRivagePlugin
+                ]),
             new SystemInventoryPlugin(
                 timeProvider,
                 inventorySource ?? new TestSystemInventorySource(
@@ -998,6 +1125,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         DiscoveryRoots = [_testRoot],
         GrandMa2ShowExportRoots = [Path.Combine(_testRoot, "gma2", "3.9", "shows")],
         GrandMa3ShowExportRoots = [Path.Combine(_testRoot, "grandMA3", "shared", "shows")],
+        YamahaDm7SettingsExportRoots = [Path.Combine(_testRoot, "yamaha-dm7-export")],
+        YamahaRivageSettingsExportRoots = [Path.Combine(_testRoot, "yamaha-rivage-export")],
         RestoreRoots = [Path.Combine(_testRoot, "restores")]
     });
 

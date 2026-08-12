@@ -39,15 +39,20 @@ public sealed class RecoveryPackageWriter
     {
         var isMaLighting = MaLightingShowExportDiscoveryPluginBase.IsMaLightingPlugin(
             discovery.PluginId);
+        var isYamaha = YamahaSettingsExportDiscoveryPluginBase.IsYamahaPlugin(
+            discovery.PluginId);
         using var profileTimeout = string.Equals(
                 discovery.PluginId,
                 ResolumeUserDataDiscoveryPlugin.PluginId,
-                StringComparison.Ordinal) || isMaLighting
+                StringComparison.Ordinal) || isMaLighting || isYamaha
             ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
             : null;
-        profileTimeout?.CancelAfter(isMaLighting
-            ? MaLightingShowExportDiscoveryPluginBase.MaximumPackageDuration
-            : ResolumeUserDataDiscoveryPlugin.MaximumPackageDuration);
+        profileTimeout?.CancelAfter(
+            isMaLighting
+                ? MaLightingShowExportDiscoveryPluginBase.MaximumPackageDuration
+                : isYamaha
+                    ? YamahaSettingsExportDiscoveryPluginBase.MaximumPackageDuration
+                    : ResolumeUserDataDiscoveryPlugin.MaximumPackageDuration);
         var operationToken = profileTimeout?.Token ?? cancellationToken;
 
         if (discovery.Truncated)
@@ -84,26 +89,13 @@ public sealed class RecoveryPackageWriter
             manifestFiles,
             Dependencies: [],
             Relationships: [],
-            RestorePrerequisites: isGrandMa
-                ? [
-                    "Restore only to a new empty ShowVault-controlled target.",
-                    "An operator must place or import the verified export using the vendor workflow; never restore directly into a live console or onPC tree."
-                ]
-                : [],
-            CompatibilityRules: isGrandMa
-                ? [
-                    new RecoveryPackageCompatibilityRule(
-                        "vendor-forward-only-show-file",
-                        "Validate with an equal or newer compatible grandMA software version before operator import."),
-                    new RecoveryPackageCompatibilityRule(
-                        "source-version-evidence",
-                        MaLightingShowExportDiscoveryPluginBase.GetProductVersion(
-                            discovery.PluginId,
-                            rootPath) is { } version
-                            ? $"Export path records grandMA2 version {version}; application load compatibility is not yet verified."
-                            : "The export path does not encode a product version; operator confirmation and application validation are required.")
-                ]
-                : [],
+            RestorePrerequisites: BuildRestorePrerequisites(isGrandMa, isYamaha),
+            CompatibilityRules: BuildCompatibilityRules(
+                discovery.PluginId,
+                rootPath,
+                manifestFiles,
+                isGrandMa,
+                isYamaha),
             VerificationRecords: []);
         var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions);
         var packageId = Convert.ToHexStringLower(SHA256.HashData(manifestBytes));
@@ -111,7 +103,7 @@ public sealed class RecoveryPackageWriter
 
         Directory.CreateDirectory(_packageDirectory);
         EnsureDirectoryIsNotLink(_packageDirectory);
-        if (Directory.Exists(packagePath))
+        if (Directory.Exists(packagePath) && !isYamaha)
         {
             await EnsureExistingPackageMatchesAsync(
                 packagePath,
@@ -129,6 +121,22 @@ public sealed class RecoveryPackageWriter
         _sourceSnapshotRaceProbe?.Reached(
             SourceSnapshotRacePoint.SnapshotCaptured,
             string.Empty);
+        if (Directory.Exists(packagePath))
+        {
+            if (stableSource is not null)
+            {
+                await stableSource.ValidateStableAsync(
+                    rehashFiles: true,
+                    operationToken);
+            }
+
+            await EnsureExistingPackageMatchesAsync(
+                packagePath,
+                manifestBytes,
+                manifestFiles,
+                operationToken);
+            return new CreatedRecoveryPackage(packageId, packagePath, manifest);
+        }
 
         var stagingPath = Path.Combine(_packageDirectory, $".staging-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(
@@ -277,7 +285,9 @@ public sealed class RecoveryPackageWriter
             StringComparison.Ordinal);
         var isMaLighting = MaLightingShowExportDiscoveryPluginBase.IsMaLightingPlugin(
             discovery.PluginId);
-        if (!isPortableBundle && !isUserData && !isMaLighting)
+        var isYamaha = YamahaSettingsExportDiscoveryPluginBase.IsYamahaPlugin(
+            discovery.PluginId);
+        if (!isPortableBundle && !isUserData && !isMaLighting && !isYamaha)
         {
             return null;
         }
@@ -295,6 +305,16 @@ public sealed class RecoveryPackageWriter
                 "grandMA export root is no longer authorized by local Agent configuration.");
         }
 
+        if (isYamaha &&
+            !YamahaSettingsExportDiscoveryPluginBase.IsAuthorizedRoot(
+                _options,
+                discovery.PluginId,
+                rootPath))
+        {
+            throw new UnauthorizedAccessException(
+                "Yamaha export root is no longer authorized by local Agent configuration.");
+        }
+
         StableSourceSnapshot snapshot;
         try
         {
@@ -308,14 +328,24 @@ public sealed class RecoveryPackageWriter
                     rootPath,
                     ResolumeUserDataDiscoveryPlugin.MaximumFileLimit,
                     cancellationToken)
-                : await MaLightingShowExportDiscoveryPluginBase.CaptureSnapshotAsync(
-                    rootPath,
-                    MaLightingShowExportDiscoveryPluginBase.MaximumFileLimit,
-                    cancellationToken);
+                : isMaLighting
+                    ? await MaLightingShowExportDiscoveryPluginBase.CaptureSnapshotAsync(
+                        rootPath,
+                        MaLightingShowExportDiscoveryPluginBase.MaximumFileLimit,
+                        cancellationToken)
+                    : await YamahaSettingsExportDiscoveryPluginBase.CaptureSnapshotAsync(
+                        discovery.PluginId,
+                        rootPath,
+                        YamahaSettingsExportDiscoveryPluginBase.MaximumFileLimit,
+                        cancellationToken);
         }
-        catch (IOException exception) when (isMaLighting)
+        catch (IOException exception) when (isMaLighting || isYamaha)
         {
-            throw new IOException("grandMA show export could not be recaptured safely.", exception);
+            throw new IOException(
+                isMaLighting
+                    ? "grandMA show export could not be recaptured safely."
+                    : "Yamaha settings export could not be recaptured safely.",
+                exception);
         }
         try
         {
@@ -327,6 +357,74 @@ public sealed class RecoveryPackageWriter
             await snapshot.DisposeAsync();
             throw;
         }
+    }
+
+    private static IReadOnlyList<string> BuildRestorePrerequisites(
+        bool isGrandMa,
+        bool isYamaha)
+    {
+        if (isGrandMa)
+        {
+            return [
+                "Restore only to a new empty ShowVault-controlled target.",
+                "An operator must place or import the verified export using the vendor workflow; never restore directly into a live console or onPC tree."
+            ];
+        }
+
+        if (isYamaha)
+        {
+            return [
+                "Restore only to a new empty ShowVault-controlled target.",
+                "An operator must validate the export with the compatible Yamaha Editor or non-production hardware before any production use; before loading, power down connected equipment and/or lower all outputs, and never restore directly into a live console or Editor tree."
+            ];
+        }
+
+        return [];
+    }
+
+    private static IReadOnlyList<RecoveryPackageCompatibilityRule> BuildCompatibilityRules(
+        string pluginId,
+        string rootPath,
+        IReadOnlyList<RecoveryPackageFile> manifestFiles,
+        bool isGrandMa,
+        bool isYamaha)
+    {
+        if (isGrandMa)
+        {
+            return [
+                new RecoveryPackageCompatibilityRule(
+                    "vendor-forward-only-show-file",
+                    "Validate with an equal or newer compatible grandMA software version before operator import."),
+                new RecoveryPackageCompatibilityRule(
+                    "source-version-evidence",
+                    MaLightingShowExportDiscoveryPluginBase.GetProductVersion(
+                        pluginId,
+                        rootPath) is { } version
+                        ? $"Export path records grandMA2 version {version}; application load compatibility is not yet verified."
+                        : "The export path does not encode a product version; operator confirmation and application validation are required.")
+            ];
+        }
+
+        if (isYamaha)
+        {
+            var family = YamahaSettingsExportDiscoveryPluginBase.GetFamilyName(pluginId);
+            var formats = YamahaSettingsExportDiscoveryPluginBase.GetRecognizedFormats(
+                pluginId,
+                manifestFiles.Select(file => file.RelativePath));
+            return [
+                new RecoveryPackageCompatibilityRule(
+                    "opaque-settings-format",
+                    $"The package contains opaque {family} settings artifacts in these recognized formats: {string.Join(", ", formats)}. ShowVault does not parse or prove their contents."),
+                new RecoveryPackageCompatibilityRule(
+                    "operator-confirmation-required",
+                    "An operator must confirm the exact source family, model, software or firmware version, export completeness, and destination compatibility; a recognized extension and matching hash do not prove those facts."),
+                new RecoveryPackageCompatibilityRule(
+                    "dependency-closure",
+                    "This package does not establish license, plug-in, external-device, network, media, or other dependency closure.")
+            ];
+        }
+
+        return [];
     }
 
     private static string NormalizeRelativePath(string rootPath, string relativePath)
