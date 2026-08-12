@@ -31,6 +31,27 @@ builder.Services
                 .Count() == options.ResolumeDiscoveryRoots.Count,
         "Resolume recovery requires at most 32 unique absolute bundle roots.")
     .Validate(
+        options => options.ResolumeUserDataRoots.Count <=
+                ResolumeUserDataDiscoveryPlugin.MaximumConfiguredRootCount &&
+            options.ResolumeUserDataRoots.All(Path.IsPathFullyQualified) &&
+            options.ResolumeUserDataRoots
+                .Select(ResolumeDiscoveryPlugin.NormalizeRoot)
+                .Distinct(OperatingSystem.IsWindows()
+                    ? StringComparer.OrdinalIgnoreCase
+                    : StringComparer.Ordinal)
+                .Count() == options.ResolumeUserDataRoots.Count,
+        "Resolume user-data recovery requires at most 32 unique absolute roots.")
+    .Validate(
+        options => !options.ResolumeDiscoveryRoots
+            .Select(ResolumeDiscoveryPlugin.NormalizeRoot)
+            .Intersect(
+                options.ResolumeUserDataRoots.Select(ResolumeDiscoveryPlugin.NormalizeRoot),
+                OperatingSystem.IsWindows()
+                    ? StringComparer.OrdinalIgnoreCase
+                    : StringComparer.Ordinal)
+            .Any(),
+        "A Resolume root cannot be configured as both a portable bundle and user data.")
+    .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
     .Validate(
@@ -60,6 +81,7 @@ builder.Services.AddSingleton<AgentEventDispatcher>();
 builder.Services.AddSingleton<AgentCommandPoller>();
 builder.Services.AddSingleton<IDiscoveryPlugin, FileSystemDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, ResolumeDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, ResolumeUserDataDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<ISystemInventorySource, PlatformSystemInventorySource>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();

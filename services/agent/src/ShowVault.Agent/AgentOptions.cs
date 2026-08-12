@@ -24,4 +24,6 @@ public sealed class AgentOptions
     public IReadOnlyList<string> RestoreRoots { get; init; } = [];
 
     public IReadOnlyList<string> ResolumeDiscoveryRoots { get; init; } = [];
+
+    public IReadOnlyList<string> ResolumeUserDataRoots { get; init; } = [];
 }

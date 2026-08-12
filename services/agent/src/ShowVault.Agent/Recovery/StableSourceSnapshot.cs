@@ -21,22 +21,27 @@ internal sealed record StableSourceFile(
 
 internal sealed class StableSourceSnapshot : IAsyncDisposable
 {
-    private const int MaximumDirectoryCount = 512;
-    private const int MaximumRelativePathLength = 1_024;
+    private const int DefaultMaximumDirectoryCount = 512;
+    private const int DefaultMaximumRelativePathLength = 1_024;
     private static readonly StringComparer PathComparer = OperatingSystem.IsWindows()
         ? StringComparer.OrdinalIgnoreCase
         : StringComparer.Ordinal;
 
     private readonly string _rootPath;
     private readonly StableDirectoryTree _root;
+    private readonly IReadOnlySet<string>? _selectedRootDirectories;
     private readonly Dictionary<string, HeldDirectory> _directories = new(PathComparer);
     private readonly Dictionary<string, HeldFile> _files = new(PathComparer);
     private bool _disposed;
 
-    private StableSourceSnapshot(string rootPath, StableDirectoryTree root)
+    private StableSourceSnapshot(
+        string rootPath,
+        StableDirectoryTree root,
+        IReadOnlySet<string>? selectedRootDirectories)
     {
         _rootPath = rootPath;
         _root = root;
+        _selectedRootDirectories = selectedRootDirectories;
         _directories.Add(string.Empty, new HeldDirectory(string.Empty, string.Empty, null, root));
     }
 
@@ -49,20 +54,96 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
         string rootPath,
         int maximumFileCount,
         CancellationToken cancellationToken)
+        => await CaptureAsync(
+            rootPath,
+            maximumFileCount,
+            DefaultMaximumDirectoryCount,
+            DefaultMaximumRelativePathLength,
+            long.MaxValue,
+            long.MaxValue,
+            selectedRootDirectories: null,
+            cancellationToken);
+
+    public static async Task<StableSourceSnapshot> CaptureSelectedRootDirectoriesAsync(
+        string rootPath,
+        IReadOnlySet<string> selectedRootDirectories,
+        int maximumFileCount,
+        int maximumDirectoryCount,
+        int maximumRelativePathLength,
+        long maximumFileBytes,
+        long maximumTotalBytes,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(selectedRootDirectories);
+        if (selectedRootDirectories.Count == 0)
+        {
+            throw new ArgumentException(
+                "At least one root directory name must be selected.",
+                nameof(selectedRootDirectories));
+        }
+
+        return await CaptureAsync(
+            rootPath,
+            maximumFileCount,
+            maximumDirectoryCount,
+            maximumRelativePathLength,
+            maximumFileBytes,
+            maximumTotalBytes,
+            selectedRootDirectories,
+            cancellationToken);
+    }
+
+    private static async Task<StableSourceSnapshot> CaptureAsync(
+        string rootPath,
+        int maximumFileCount,
+        int maximumDirectoryCount,
+        int maximumRelativePathLength,
+        long maximumFileBytes,
+        long maximumTotalBytes,
+        IReadOnlySet<string>? selectedRootDirectories,
+        CancellationToken cancellationToken)
     {
         if (maximumFileCount < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(maximumFileCount));
         }
 
+        if (maximumDirectoryCount < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumDirectoryCount));
+        }
+
+        if (maximumRelativePathLength < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumRelativePathLength));
+        }
+
+        if (maximumFileBytes < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumFileBytes));
+        }
+
+        if (maximumTotalBytes < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maximumTotalBytes));
+        }
+
         var normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootPath));
         var root = StableDirectoryTree.Open(normalizedRoot);
-        var snapshot = new StableSourceSnapshot(normalizedRoot, root);
+        var snapshot = new StableSourceSnapshot(
+            normalizedRoot,
+            root,
+            selectedRootDirectories);
         try
         {
             await snapshot.CaptureDirectoryAsync(
                 snapshot._directories[string.Empty],
                 maximumFileCount,
+                maximumDirectoryCount,
+                maximumRelativePathLength,
+                maximumFileBytes,
+                maximumTotalBytes,
+                selectedRootDirectories,
                 cancellationToken);
             await snapshot.ValidateStableAsync(rehashFiles: true, cancellationToken);
             return snapshot;
@@ -100,6 +181,21 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
                     StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException("Source content changed after discovery.");
+            }
+        }
+    }
+
+    public void RequireNoEmptyDirectories()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        foreach (var directory in _directories.Values.Where(directory => directory.Parent is not null))
+        {
+            var descendantPrefix = $"{directory.RelativePath}/";
+            if (!_files.Keys.Any(relativePath =>
+                    relativePath.StartsWith(descendantPrefix, StringComparison.Ordinal)))
+            {
+                throw new InvalidOperationException(
+                    "Selected source content contains an empty directory.");
             }
         }
     }
@@ -150,7 +246,11 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
                     .Where(file => ReferenceEquals(file.Parent, directory))
                     .Select(file => file.Name))
                 .ToHashSet(PathComparer);
-            var actualNames = directory.Directory.EnumerateNames().ToHashSet(PathComparer);
+            var actualNames = directory.Directory.EnumerateNames()
+                .Where(name => directory.Parent is not null ||
+                    _selectedRootDirectories is null ||
+                    _selectedRootDirectories.Contains(name))
+                .ToHashSet(PathComparer);
             if (!expectedNames.SetEquals(actualNames))
             {
                 throw new IOException("Source topology changed during capture.");
@@ -208,13 +308,25 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
     private async Task CaptureDirectoryAsync(
         HeldDirectory directory,
         int maximumFileCount,
+        int maximumDirectoryCount,
+        int maximumRelativePathLength,
+        long maximumFileBytes,
+        long maximumTotalBytes,
+        IReadOnlySet<string>? selectedRootDirectories,
         CancellationToken cancellationToken)
     {
         foreach (var name in directory.Directory.EnumerateNames())
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (directory.Parent is null &&
+                selectedRootDirectories is not null &&
+                !selectedRootDirectories.Contains(name))
+            {
+                continue;
+            }
+
             var relativePath = CombineRelative(directory.RelativePath, name);
-            if (relativePath.Length > MaximumRelativePathLength)
+            if (relativePath.Length > maximumRelativePathLength)
             {
                 throw new IOException("Source contains an overlong relative path.");
             }
@@ -231,7 +343,7 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
 
             if (childDirectory is not null)
             {
-                if (_directories.Count == MaximumDirectoryCount)
+                if (_directories.Count - 1 == maximumDirectoryCount)
                 {
                     childDirectory.Dispose();
                     throw new IOException("Source contains too many directories.");
@@ -251,8 +363,19 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
                 await CaptureDirectoryAsync(
                     heldDirectory,
                     maximumFileCount,
+                    maximumDirectoryCount,
+                    maximumRelativePathLength,
+                    maximumFileBytes,
+                    maximumTotalBytes,
+                    selectedRootDirectories: null,
                     cancellationToken);
                 continue;
+            }
+
+            if (directory.Parent is null && selectedRootDirectories is not null)
+            {
+                throw new IOException(
+                    "A selected source category is a link, reparse point, or non-directory entry.");
             }
 
             if (_files.Count == maximumFileCount)
@@ -275,6 +398,17 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
             try
             {
                 var sizeBeforeHash = stream.Length;
+                if (sizeBeforeHash > maximumFileBytes)
+                {
+                    throw new IOException("Source contains a file larger than the allowed limit.");
+                }
+
+                var totalBytes = _files.Values.Sum(file => file.Metadata.Size);
+                if (sizeBeforeHash > maximumTotalBytes - totalBytes)
+                {
+                    throw new IOException("Source contains more bytes than the allowed limit.");
+                }
+
                 var sha256 = await HashAsync(stream, cancellationToken);
                 if (stream.Length != sizeBeforeHash)
                 {
