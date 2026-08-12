@@ -17,7 +17,7 @@ com.showvault.app://dev-4m7moxkl7dikmtf7.us.auth0.com/macos/com.showvault.app/ca
 showvault://callback
 ```
 
-Windows support in the Auth0 Flutter SDK is beta and does not persist credentials. ShowVault therefore keeps the Windows session in memory. Windows sign-in is not yet complete: the runner must forward `showvault://callback` activations to the Auth0 plugin, and production packaging must register the `showvault` protocol handler. Do not treat Windows authentication as proven until both pieces are implemented and tested together.
+ShowVault keeps macOS and Windows operator sessions in memory so the client never stores them in the user's personal login Keychain. Apple login uses the registered custom-scheme callback rather than requiring associated-domain entitlements. Windows support in the Auth0 Flutter SDK is beta; the runner forwards only exact `showvault://callback` activations over a current-user, single-instance channel to the Auth0 plugin. Production packaging must still register the `showvault` protocol handler, and the complete installed flow requires native Windows proof. Do not treat Windows authentication as proven until runner forwarding and installer registration pass together on Windows.
 
 ## Run
 
@@ -36,7 +36,12 @@ Override `AUTH0_CLIENT_ID`, `AUTH0_DOMAIN`, and `AUTH0_AUDIENCE` only when targe
 ```bash
 flutter analyze
 flutter test
+c++ -std=c++17 -Wall -Wextra -Werror \
+  windows/runner/auth_callback_protocol.cpp \
+  windows/runner/auth_callback_protocol_test.cpp \
+  -o /tmp/showvault-auth-callback-protocol-test
+/tmp/showvault-auth-callback-protocol-test
 flutter build macos --debug
 ```
 
-A macOS build requires full Xcode, not only the Command Line Tools.
+A macOS build requires full Xcode, not only the Command Line Tools. The portable callback test validates URI acceptance but does not replace a native Windows runner build or installed protocol activation proof.
