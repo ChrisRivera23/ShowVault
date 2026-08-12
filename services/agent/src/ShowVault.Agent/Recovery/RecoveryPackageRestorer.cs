@@ -101,6 +101,7 @@ public sealed class RecoveryPackageRestorer
             Directory.EnumerateFileSystemEntries(normalizedTarget).Any())
         {
             await EnsureRestoredTargetMatchesAsync(
+                allowedRoot,
                 normalizedTarget,
                 manifest,
                 cancellationToken);
@@ -201,7 +202,7 @@ public sealed class RecoveryPackageRestorer
                 targetParent.DeleteChildTreeIfSame(targetName, emptyTarget);
             }
 
-            targetParent.RenameChild(stagingName, targetName);
+            targetParent.RenameChild(stagingName, staging, targetName);
         }
         catch (IOException exception)
         {
@@ -291,6 +292,7 @@ public sealed class RecoveryPackageRestorer
     }
 
     private async Task EnsureRestoredTargetMatchesAsync(
+        string allowedRoot,
         string targetPath,
         RecoveryPackageManifest manifest,
         CancellationToken cancellationToken)
@@ -301,7 +303,8 @@ public sealed class RecoveryPackageRestorer
         var expectedDirectories = manifest.Files
             .SelectMany(file => GetParentPaths(file.RelativePath))
             .ToHashSet(StringComparer.Ordinal);
-        using var root = StableDirectoryTree.Open(targetPath);
+        using var parent = OpenTargetParent(allowedRoot, targetPath);
+        using var root = parent.OpenDirectory(Path.GetFileName(targetPath));
         await VerifyDirectoryAsync(
             root,
             string.Empty,

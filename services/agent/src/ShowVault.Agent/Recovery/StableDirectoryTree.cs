@@ -19,20 +19,41 @@ internal sealed class StableDirectoryTree : IDisposable
 {
     private readonly string _path;
     private readonly SafeFileHandle _handle;
+    private readonly IReadOnlyList<SafeFileHandle> _ancestorGuards;
 
-    private StableDirectoryTree(string path, SafeFileHandle handle)
+    private StableDirectoryTree(
+        string path,
+        SafeFileHandle handle,
+        IReadOnlyList<SafeFileHandle>? ancestorGuards = null)
     {
         _path = path;
         _handle = handle;
+        _ancestorGuards = ancestorGuards ?? [];
     }
 
     public string Path => _path;
 
-    public StableDirectoryTree Duplicate() => new(
-        _path,
-        OperatingSystem.IsWindows()
-            ? WindowsNative.Duplicate(_handle)
-            : UnixNative.Duplicate(_handle));
+    public StableDirectoryTree Duplicate()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return new StableDirectoryTree(_path, UnixNative.Duplicate(_handle));
+        }
+
+        var handle = WindowsNative.Duplicate(_handle);
+        try
+        {
+            return new StableDirectoryTree(
+                _path,
+                handle,
+                DuplicateWindowsGuards(includeCurrent: false));
+        }
+        catch
+        {
+            handle.Dispose();
+            throw;
+        }
+    }
 
     public bool HasSameIdentity(StableDirectoryTree other) => OperatingSystem.IsWindows()
         ? WindowsNative.SameIdentity(_handle, other._handle)
@@ -43,7 +64,7 @@ internal sealed class StableDirectoryTree : IDisposable
         var normalized = System.IO.Path.TrimEndingDirectorySeparator(
             System.IO.Path.GetFullPath(path));
         return OperatingSystem.IsWindows()
-            ? new StableDirectoryTree(normalized, WindowsNative.OpenDirectory(normalized))
+            ? new StableDirectoryTree(normalized, WindowsNative.OpenDirectory(normalized, canDelete: false))
             : new StableDirectoryTree(normalized, UnixNative.OpenDirectory(normalized));
     }
 
@@ -56,9 +77,12 @@ internal sealed class StableDirectoryTree : IDisposable
             WindowsNative.EnsureSameDirectory(_handle, _path);
         }
 
-        return OperatingSystem.IsWindows()
-            ? new StableDirectoryTree(path, WindowsNative.OpenDirectory(path))
-            : new StableDirectoryTree(path, UnixNative.OpenDirectoryAt(_handle, name));
+        if (OperatingSystem.IsWindows())
+        {
+            return CreateWindowsChild(path, WindowsNative.OpenDirectory(path, canDelete: true));
+        }
+
+        return new StableDirectoryTree(path, UnixNative.OpenDirectoryAt(_handle, name));
     }
 
     public StableDirectoryTree CreateDirectory(string name)
@@ -69,7 +93,7 @@ internal sealed class StableDirectoryTree : IDisposable
         {
             WindowsNative.EnsureSameDirectory(_handle, _path);
             Directory.CreateDirectory(path);
-            return new StableDirectoryTree(path, WindowsNative.OpenDirectory(path));
+            return CreateWindowsChild(path, WindowsNative.OpenDirectory(path, canDelete: true));
         }
 
         UnixNative.CreateDirectoryAt(_handle, name);
@@ -138,10 +162,15 @@ internal sealed class StableDirectoryTree : IDisposable
         ValidateName(name);
         try
         {
+            if (OperatingSystem.IsWindows())
+            {
+                using var currentIdentity = WindowsNative.OpenDirectoryForIdentity(
+                    System.IO.Path.Combine(parent._path, name));
+                return WindowsNative.SameIdentity(_handle, currentIdentity);
+            }
+
             using var current = parent.OpenDirectory(name);
-            return OperatingSystem.IsWindows()
-                ? WindowsNative.SameIdentity(_handle, current._handle)
-                : UnixNative.SameIdentity(_handle, current._handle);
+            return UnixNative.SameIdentity(_handle, current._handle);
         }
         catch (IOException)
         {
@@ -149,8 +178,27 @@ internal sealed class StableDirectoryTree : IDisposable
         }
     }
 
-    public void RenameChild(string sourceName, string destinationName)
-        => MoveChildTo(sourceName, this, destinationName);
+    public void RenameChild(
+        string sourceName,
+        StableDirectoryTree expected,
+        string destinationName)
+    {
+        ValidateName(sourceName);
+        ValidateName(destinationName);
+        if (!expected.IsSameDirectoryAt(this, sourceName))
+        {
+            throw new IOException("Restore directory identity changed before publication.");
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            WindowsNative.EnsureSameDirectory(_handle, _path);
+            WindowsNative.Rename(expected._handle, _handle, destinationName);
+            return;
+        }
+
+        UnixNative.RenameAt(_handle, sourceName, _handle, destinationName);
+    }
 
     public void MoveChildTo(
         string sourceName,
@@ -163,7 +211,7 @@ internal sealed class StableDirectoryTree : IDisposable
         {
             WindowsNative.EnsureSameDirectory(_handle, _path);
             WindowsNative.EnsureSameDirectory(destination._handle, destination._path);
-            Directory.Move(
+            File.Move(
                 System.IO.Path.Combine(_path, sourceName),
                 System.IO.Path.Combine(destination._path, destinationName));
             return;
@@ -183,8 +231,8 @@ internal sealed class StableDirectoryTree : IDisposable
         expected.DeleteContents();
         if (OperatingSystem.IsWindows())
         {
+            WindowsNative.MarkDelete(expected._handle);
             expected.Dispose();
-            Directory.Delete(System.IO.Path.Combine(_path, name));
         }
         else
         {
@@ -202,8 +250,8 @@ internal sealed class StableDirectoryTree : IDisposable
                 child.DeleteContents();
                 if (OperatingSystem.IsWindows())
                 {
+                    WindowsNative.MarkDelete(child._handle);
                     child.Dispose();
-                    Directory.Delete(System.IO.Path.Combine(_path, name));
                 }
                 else
                 {
@@ -214,7 +262,7 @@ internal sealed class StableDirectoryTree : IDisposable
             {
                 if (OperatingSystem.IsWindows())
                 {
-                    File.Delete(System.IO.Path.Combine(_path, name));
+                    WindowsNative.DeleteEntry(System.IO.Path.Combine(_path, name));
                 }
                 else
                 {
@@ -224,7 +272,54 @@ internal sealed class StableDirectoryTree : IDisposable
         }
     }
 
-    public void Dispose() => _handle.Dispose();
+    public void Dispose()
+    {
+        _handle.Dispose();
+        foreach (var guard in _ancestorGuards)
+        {
+            guard.Dispose();
+        }
+    }
+
+    private StableDirectoryTree CreateWindowsChild(string path, SafeFileHandle handle)
+    {
+        try
+        {
+            return new StableDirectoryTree(
+                path,
+                handle,
+                DuplicateWindowsGuards(includeCurrent: true));
+        }
+        catch
+        {
+            handle.Dispose();
+            throw;
+        }
+    }
+
+    private IReadOnlyList<SafeFileHandle> DuplicateWindowsGuards(bool includeCurrent)
+    {
+        var duplicates = new List<SafeFileHandle>();
+        try
+        {
+            duplicates.AddRange(_ancestorGuards.Select(WindowsNative.Duplicate));
+            if (includeCurrent)
+            {
+                duplicates.Add(WindowsNative.Duplicate(_handle));
+            }
+
+            return duplicates;
+        }
+        catch
+        {
+            foreach (var duplicate in duplicates)
+            {
+                duplicate.Dispose();
+            }
+
+            throw;
+        }
+    }
 
     internal static int ResolveUnixAtRemoveDirectoryFlag(bool isMacOS, bool isLinux)
     {
@@ -457,6 +552,7 @@ internal sealed class StableDirectoryTree : IDisposable
     {
         private const uint GenericRead = 0x80000000;
         private const uint GenericWrite = 0x40000000;
+        private const uint Delete = 0x00010000;
         private const uint ShareRead = 1;
         private const uint ShareWrite = 2;
         private const uint ShareDelete = 4;
@@ -464,12 +560,20 @@ internal sealed class StableDirectoryTree : IDisposable
         private const uint CreateNew = 1;
         private const uint BackupSemantics = 0x02000000;
         private const uint OpenReparsePoint = 0x00200000;
+        private const int FileRenameInfo = 3;
+        private const int FileDispositionInfo = 4;
         private const int FileAttributeTagInfo = 9;
         private const int FileIdInfo = 18;
 
-        public static SafeFileHandle OpenDirectory(string path)
+        public static SafeFileHandle OpenDirectory(string path, bool canDelete)
         {
-            var handle = Open(path, GenericRead, OpenExisting, BackupSemantics | OpenReparsePoint);
+            var access = GenericRead | GenericWrite | (canDelete ? Delete : 0);
+            var handle = Open(
+                path,
+                access,
+                ShareRead | ShareWrite,
+                OpenExisting,
+                BackupSemantics | OpenReparsePoint);
             EnsureNotReparse(handle);
             return handle;
         }
@@ -494,18 +598,28 @@ internal sealed class StableDirectoryTree : IDisposable
         }
 
         public static SafeFileHandle CreateRegularFile(string path) =>
-            Open(path, GenericWrite, CreateNew, OpenReparsePoint);
+            Open(
+                path,
+                GenericWrite,
+                ShareRead | ShareWrite | ShareDelete,
+                CreateNew,
+                OpenReparsePoint);
 
         public static SafeFileHandle OpenRegularFile(string path)
         {
-            var handle = Open(path, GenericRead, OpenExisting, OpenReparsePoint);
+            var handle = Open(
+                path,
+                GenericRead,
+                ShareRead | ShareWrite | ShareDelete,
+                OpenExisting,
+                OpenReparsePoint);
             EnsureNotReparse(handle);
             return handle;
         }
 
         public static void EnsureSameDirectory(SafeFileHandle expected, string path)
         {
-            using var current = OpenDirectory(path);
+            using var current = OpenDirectoryForIdentity(path);
             if (!SameIdentity(expected, current))
             {
                 throw new IOException("Restore directory identity changed.");
@@ -521,12 +635,93 @@ internal sealed class StableDirectoryTree : IDisposable
                 leftInfo.FileIdHigh == rightInfo.FileIdHigh;
         }
 
-        private static SafeFileHandle Open(string path, uint access, uint disposition, uint flags)
+        public static void Rename(
+            SafeFileHandle source,
+            SafeFileHandle destinationParent,
+            string destinationName)
+        {
+            var nameBytes = checked(destinationName.Length * sizeof(char));
+            var rootOffset = IntPtr.Size;
+            var lengthOffset = checked(rootOffset + IntPtr.Size);
+            var nameOffset = checked(lengthOffset + sizeof(uint));
+            var bufferSize = checked(nameOffset + nameBytes + sizeof(char));
+            var buffer = Marshal.AllocHGlobal(bufferSize);
+            try
+            {
+                Marshal.Copy(new byte[bufferSize], 0, buffer, bufferSize);
+                Marshal.WriteIntPtr(buffer, rootOffset, destinationParent.DangerousGetHandle());
+                Marshal.WriteInt32(buffer, lengthOffset, nameBytes);
+                Marshal.Copy(destinationName.ToCharArray(), 0, buffer + nameOffset, destinationName.Length);
+                if (!SetFileInformationByHandle(
+                    source,
+                    FileRenameInfo,
+                    buffer,
+                    (uint)bufferSize))
+                {
+                    throw Error("Could not publish the restored target.");
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+
+        public static void MarkDelete(SafeFileHandle handle)
+        {
+            var delete = Marshal.AllocHGlobal(1);
+            try
+            {
+                Marshal.WriteByte(delete, 1);
+                if (!SetFileInformationByHandle(
+                    handle,
+                    FileDispositionInfo,
+                    delete,
+                    1))
+                {
+                    throw Error("Could not clean the restore staging tree.");
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(delete);
+            }
+        }
+
+        public static void DeleteEntry(string path)
+        {
+            using var handle = Open(
+                path,
+                Delete,
+                ShareRead | ShareWrite | ShareDelete,
+                OpenExisting,
+                BackupSemantics | OpenReparsePoint);
+            MarkDelete(handle);
+        }
+
+        public static SafeFileHandle OpenDirectoryForIdentity(string path)
+        {
+            var handle = Open(
+                path,
+                GenericRead,
+                ShareRead | ShareWrite | ShareDelete,
+                OpenExisting,
+                BackupSemantics | OpenReparsePoint);
+            EnsureNotReparse(handle);
+            return handle;
+        }
+
+        private static SafeFileHandle Open(
+            string path,
+            uint access,
+            uint shareMode,
+            uint disposition,
+            uint flags)
         {
             var handle = CreateFileW(
                 path,
                 access,
-                ShareRead | ShareWrite | ShareDelete,
+                shareMode,
                 IntPtr.Zero,
                 disposition,
                 flags,
@@ -541,6 +736,9 @@ internal sealed class StableDirectoryTree : IDisposable
 
             return handle;
         }
+
+        private static IOException Error(string message) =>
+            new(message, new Win32Exception(Marshal.GetLastPInvokeError()));
 
         private static void EnsureNotReparse(SafeFileHandle handle)
         {
@@ -609,6 +807,14 @@ internal sealed class StableDirectoryTree : IDisposable
             int informationClass,
             out FileIdInformation information,
             int size);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetFileInformationByHandle(
+            SafeFileHandle handle,
+            int informationClass,
+            IntPtr information,
+            uint size);
 
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetCurrentProcess();
