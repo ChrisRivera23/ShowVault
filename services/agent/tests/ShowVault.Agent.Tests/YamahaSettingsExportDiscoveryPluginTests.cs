@@ -58,6 +58,84 @@ public sealed class YamahaSettingsExportDiscoveryPluginTests : IDisposable
         Assert.Equal(fileName, Assert.Single(result.Files).RelativePath);
     }
 
+    [Theory]
+    [InlineData("Venue.CLF")]
+    [InlineData("Venue.clf")]
+    public async Task ClQl_accepts_the_shared_primary_settings_format(string fileName)
+    {
+        var export = Path.Combine(_root, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(export);
+        await File.WriteAllTextAsync(Path.Combine(export, fileName), "opaque-clql-settings");
+
+        var result = await CreateClQl(export).DiscoverAsync(
+            new DiscoveryRequest(export), CancellationToken.None);
+
+        Assert.Equal(YamahaClQlSettingsExportDiscoveryPlugin.PluginId, result.PluginId);
+        Assert.Equal("1.0.0", result.PluginVersion);
+        Assert.Equal(fileName, Assert.Single(result.Files).RelativePath);
+    }
+
+    [Theory]
+    [InlineData("Venue.TFF")]
+    [InlineData("Venue.tff")]
+    public async Task Tf_requires_tff_and_captures_tfp_and_tfs_companions(string settingsFile)
+    {
+        var export = Path.Combine(_root, "tf-with-companions");
+        Directory.CreateDirectory(Path.Combine(export, "companions"));
+        await File.WriteAllTextAsync(Path.Combine(export, settingsFile), "settings");
+        await File.WriteAllTextAsync(Path.Combine(export, "companions", "Vocal.TFP"), "preset");
+        await File.WriteAllTextAsync(Path.Combine(export, "companions", "Scene.TFS"), "scene");
+
+        var result = await CreateTf(export).DiscoverAsync(
+            new DiscoveryRequest(export), CancellationToken.None);
+
+        Assert.Equal(YamahaTfSettingsExportDiscoveryPlugin.PluginId, result.PluginId);
+        Assert.Equal("1.0.0", result.PluginVersion);
+        Assert.Equal(3, result.Files.Count);
+        Assert.Contains(result.Files, file => file.RelativePath == settingsFile);
+        Assert.Contains(result.Files,
+            file => file.RelativePath == Path.Combine("companions", "Vocal.TFP"));
+        Assert.Contains(result.Files,
+            file => file.RelativePath == Path.Combine("companions", "Scene.TFS"));
+    }
+
+    [Theory]
+    [InlineData("Only.TFP")]
+    [InlineData("Only.TFS")]
+    public async Task Tf_companions_do_not_authorize_a_settings_export(string fileName)
+    {
+        var export = Path.Combine(_root, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(export);
+        await File.WriteAllTextAsync(Path.Combine(export, fileName), "companion");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateTf(export).DiscoverAsync(
+                new DiscoveryRequest(export), CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData("clql", "Venue.TFF")]
+    [InlineData("tf", "Venue.CLF")]
+    [InlineData("clql", "Venue.dm7f")]
+    [InlineData("tf", "Venue.RIVAGEPM")]
+    public async Task Discovery_rejects_a_primary_artifact_from_another_yamaha_family(
+        string selectedFamily,
+        string foreignFile)
+    {
+        var export = Path.Combine(_root, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(export);
+        await File.WriteAllTextAsync(
+            Path.Combine(export, selectedFamily == "clql" ? "Venue.CLF" : "Venue.TFF"),
+            "settings");
+        await File.WriteAllTextAsync(Path.Combine(export, foreignFile), "foreign");
+
+        var plugin = selectedFamily == "clql"
+            ? (IDiscoveryPlugin)CreateClQl(export)
+            : CreateTf(export);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            plugin.DiscoverAsync(new DiscoveryRequest(export), CancellationToken.None));
+    }
+
     [Fact]
     public async Task Discovery_requires_recognized_artifact_at_root_level()
     {
@@ -96,13 +174,17 @@ public sealed class YamahaSettingsExportDiscoveryPluginTests : IDisposable
         Assert.False(YamahaSettingsExportDiscoveryPluginBase.AreConfiguredRootsValid(
             [roots[0], roots[0]]));
         Assert.False(YamahaSettingsExportDiscoveryPluginBase.AreConfiguredRootsValid(
+            [roots[0], Path.Combine(roots[0], "nested")]));
+        Assert.False(YamahaSettingsExportDiscoveryPluginBase.AreConfiguredRootsValid(
             ["relative-export"]));
         Assert.False(YamahaSettingsExportDiscoveryPluginBase.HaveNoOverlap(
             [roots[0]],
             [roots[0]]));
         Assert.False(YamahaSettingsExportDiscoveryPluginBase.HaveNoOverlap(
             [roots[0]],
-            [Path.Combine(roots[0], "nested")]));
+            [Path.Combine(roots[0], "nested")],
+            [roots[1]],
+            [roots[2]]));
     }
 
     [Fact]
@@ -117,6 +199,17 @@ public sealed class YamahaSettingsExportDiscoveryPluginTests : IDisposable
                 CreateOptions(dm7Roots: [dm7Export]),
                 TimeProvider.System).DiscoverAsync(
                     new DiscoveryRequest(dm7Export),
+                    CancellationToken.None));
+
+        var clQlExport = Path.Combine(_root, "clql-only");
+        Directory.CreateDirectory(clQlExport);
+        await File.WriteAllTextAsync(Path.Combine(clQlExport, "Venue.TFF"), "settings");
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            new YamahaTfSettingsExportDiscoveryPlugin(
+                CreateOptions(clQlRoots: [clQlExport]),
+                TimeProvider.System).DiscoverAsync(
+                    new DiscoveryRequest(clQlExport),
                     CancellationToken.None));
     }
 
@@ -335,14 +428,24 @@ public sealed class YamahaSettingsExportDiscoveryPluginTests : IDisposable
     private YamahaRivageSettingsExportDiscoveryPlugin CreateRivage(string root) =>
         new(CreateOptions(rivageRoots: [root]), TimeProvider.System);
 
+    private YamahaClQlSettingsExportDiscoveryPlugin CreateClQl(string root) =>
+        new(CreateOptions(clQlRoots: [root]), TimeProvider.System);
+
+    private YamahaTfSettingsExportDiscoveryPlugin CreateTf(string root) =>
+        new(CreateOptions(tfRoots: [root]), TimeProvider.System);
+
     private static IOptions<AgentOptions> CreateOptions(
         IReadOnlyList<string>? dm7Roots = null,
-        IReadOnlyList<string>? rivageRoots = null) =>
+        IReadOnlyList<string>? rivageRoots = null,
+        IReadOnlyList<string>? clQlRoots = null,
+        IReadOnlyList<string>? tfRoots = null) =>
         Options.Create(new AgentOptions
         {
             ControlPlaneUri = new Uri("https://control.test"),
             Name = "Test Agent",
             YamahaDm7SettingsExportRoots = dm7Roots ?? [],
-            YamahaRivageSettingsExportRoots = rivageRoots ?? []
+            YamahaRivageSettingsExportRoots = rivageRoots ?? [],
+            YamahaClQlSettingsExportRoots = clQlRoots ?? [],
+            YamahaTfSettingsExportRoots = tfRoots ?? []
         });
 }

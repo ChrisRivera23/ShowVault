@@ -411,7 +411,8 @@ public sealed class RecoveryPackageWriter
             var formats = YamahaSettingsExportDiscoveryPluginBase.GetRecognizedFormats(
                 pluginId,
                 manifestFiles.Select(file => file.RelativePath));
-            return [
+            var rules = new List<RecoveryPackageCompatibilityRule>
+            {
                 new RecoveryPackageCompatibilityRule(
                     "opaque-settings-format",
                     $"The package contains opaque {family} settings artifacts in these recognized formats: {string.Join(", ", formats)}. ShowVault does not parse or prove their contents."),
@@ -421,7 +422,18 @@ public sealed class RecoveryPackageWriter
                 new RecoveryPackageCompatibilityRule(
                     "dependency-closure",
                     "This package does not establish license, plug-in, external-device, network, media, or other dependency closure.")
-            ];
+            };
+            var companionFormats = YamahaSettingsExportDiscoveryPluginBase.GetCompanionFormats(
+                pluginId,
+                manifestFiles.Select(file => file.RelativePath));
+            if (companionFormats.Count != 0)
+            {
+                rules.Add(new RecoveryPackageCompatibilityRule(
+                    "opaque-companion-formats",
+                    $"The package also preserves these opaque TF companion formats: {string.Join(", ", companionFormats)}. .TFP presets and .TFS scenes do not prove that the .TFF settings export is complete."));
+            }
+
+            return rules;
         }
 
         return [];

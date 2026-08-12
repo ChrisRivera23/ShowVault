@@ -93,10 +93,20 @@ builder.Services
             options.YamahaRivageSettingsExportRoots),
         "Yamaha RIVAGE Assisted recovery requires at most 32 unique absolute export roots.")
     .Validate(
+        options => YamahaSettingsExportDiscoveryPluginBase.AreConfiguredRootsValid(
+            options.YamahaClQlSettingsExportRoots),
+        "Yamaha CL/QL Assisted recovery requires at most 32 unique absolute export roots.")
+    .Validate(
+        options => YamahaSettingsExportDiscoveryPluginBase.AreConfiguredRootsValid(
+            options.YamahaTfSettingsExportRoots),
+        "Yamaha TF Assisted recovery requires at most 32 unique absolute export roots.")
+    .Validate(
         options => YamahaSettingsExportDiscoveryPluginBase.HaveNoOverlap(
             options.YamahaDm7SettingsExportRoots,
-            options.YamahaRivageSettingsExportRoots),
-        "A Yamaha export root cannot be configured for both product profiles.")
+            options.YamahaRivageSettingsExportRoots,
+            options.YamahaClQlSettingsExportRoots,
+            options.YamahaTfSettingsExportRoots),
+        "A Yamaha export root cannot overlap another Yamaha product profile.")
     .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
         "Every restore root must be an absolute path.")
@@ -132,6 +142,8 @@ builder.Services.AddSingleton<IDiscoveryPlugin, GrandMa2ShowExportDiscoveryPlugi
 builder.Services.AddSingleton<IDiscoveryPlugin, GrandMa3ShowExportDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaDm7SettingsExportDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaRivageSettingsExportDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, YamahaClQlSettingsExportDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, YamahaTfSettingsExportDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<ISystemInventorySource, PlatformSystemInventorySource>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();
