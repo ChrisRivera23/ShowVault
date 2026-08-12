@@ -20,4 +20,6 @@ public sealed class AgentOptions
     public string? PackageDirectory { get; init; }
 
     public IReadOnlyList<string> DiscoveryRoots { get; init; } = [];
+
+    public IReadOnlyList<string> RestoreRoots { get; init; } = [];
 }

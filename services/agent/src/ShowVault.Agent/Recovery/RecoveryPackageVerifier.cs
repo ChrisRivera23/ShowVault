@@ -8,7 +8,7 @@ namespace ShowVault.Agent.Recovery;
 
 public sealed class RecoveryPackageVerifier(IOptions<AgentOptions> options)
 {
-    private const long MaximumManifestBytes = 16 * 1024 * 1024;
+    internal const long MaximumManifestBytes = 16 * 1024 * 1024;
     private const int LinuxOpenFlags = 0x0008_0000 | 0x0002_0000 | 0x0000_0800;
     private const int MacOsOpenFlags = 0x0100_0000 | 0x0000_0100 | 0x0000_0004;
     private const int SeekCurrent = 1;
@@ -77,7 +77,7 @@ public sealed class RecoveryPackageVerifier(IOptions<AgentOptions> options)
             }
             else
             {
-                await using var manifestStream = TryOpenRegularFile(manifestPath);
+                await using var manifestStream = OpenRegularFile(manifestPath);
                 if (manifestStream is null || manifestStream.Length > MaximumManifestBytes)
                 {
                     structuralIssues.Add("A bounded regular manifest.json file is required.");
@@ -136,7 +136,7 @@ public sealed class RecoveryPackageVerifier(IOptions<AgentOptions> options)
                     resolvedPackagePath,
                     RecoveryPackageFormat.ContentDirectoryName,
                     file.RelativePath.Replace('/', Path.DirectorySeparatorChar));
-                await using var stream = TryOpenRegularFile(contentPath);
+                await using var stream = OpenRegularFile(contentPath);
                 if (stream is null)
                 {
                     structuralIssues.Add($"Package content must be regular: {file.RelativePath}");
@@ -445,7 +445,7 @@ public sealed class RecoveryPackageVerifier(IOptions<AgentOptions> options)
     private static bool IsLink(string path) =>
         (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
 
-    private static FileStream? TryOpenRegularFile(string path)
+    internal static FileStream? OpenRegularFile(string path)
     {
         try
         {
