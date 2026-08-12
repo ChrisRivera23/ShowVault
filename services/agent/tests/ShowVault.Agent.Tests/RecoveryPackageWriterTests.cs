@@ -90,6 +90,84 @@ public sealed class RecoveryPackageWriterTests : IDisposable
     }
 
     [Fact]
+    public async Task Resolume_package_rejects_a_late_unmanifested_source_file()
+    {
+        var sourceRoot = Path.Combine(_testRoot, "resolume-late-source");
+        Directory.CreateDirectory(sourceRoot);
+        var content = Encoding.UTF8.GetBytes("composition");
+        await File.WriteAllBytesAsync(Path.Combine(sourceRoot, "Venue.avc"), content);
+        var discovery = CreateDiscovery(
+            sourceRoot,
+            new DiscoveryFile(
+                "Venue.avc",
+                content.Length,
+                DateTimeOffset.UtcNow,
+                Convert.ToHexStringLower(SHA256.HashData(content)))) with
+        {
+            PluginId = ResolumeDiscoveryPlugin.PluginId
+        };
+        var writer = new RecoveryPackageWriter(
+            CreateOptions(),
+            new CallbackSourceSnapshotRaceProbe((point, _) =>
+            {
+                if (point == SourceSnapshotRacePoint.SnapshotCaptured)
+                {
+                    File.WriteAllText(Path.Combine(sourceRoot, "late-added.mov"), "late media");
+                }
+            }));
+
+        await Assert.ThrowsAnyAsync<IOException>(() => writer.CreateAsync(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            discovery,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None));
+
+        Assert.Empty(Directory.EnumerateDirectories(Path.Combine(_testRoot, "packages")));
+    }
+
+    [Fact]
+    public async Task Resolume_package_rejects_a_late_source_file_replacement()
+    {
+        var sourceRoot = Path.Combine(_testRoot, "resolume-replaced-source");
+        Directory.CreateDirectory(sourceRoot);
+        var sourcePath = Path.Combine(sourceRoot, "Venue.avc");
+        var content = Encoding.UTF8.GetBytes("composition");
+        await File.WriteAllBytesAsync(sourcePath, content);
+        var discovery = CreateDiscovery(
+            sourceRoot,
+            new DiscoveryFile(
+                "Venue.avc",
+                content.Length,
+                DateTimeOffset.UtcNow,
+                Convert.ToHexStringLower(SHA256.HashData(content)))) with
+        {
+            PluginId = ResolumeDiscoveryPlugin.PluginId
+        };
+        var writer = new RecoveryPackageWriter(
+            CreateOptions(),
+            new CallbackSourceSnapshotRaceProbe((point, relativePath) =>
+            {
+                if (point == SourceSnapshotRacePoint.SourceCopyStarted &&
+                    relativePath == "Venue.avc")
+                {
+                    var replacement = Path.Combine(sourceRoot, "replacement.tmp");
+                    File.WriteAllBytes(replacement, content);
+                    File.Move(replacement, sourcePath, overwrite: true);
+                }
+            }));
+
+        await Assert.ThrowsAnyAsync<IOException>(() => writer.CreateAsync(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            discovery,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None));
+
+        Assert.Empty(Directory.EnumerateDirectories(Path.Combine(_testRoot, "packages")));
+    }
+
+    [Fact]
     public async Task Package_rejects_untrusted_paths_and_truncated_inventories()
     {
         var sourceRoot = Path.Combine(_testRoot, "unsafe-source");
@@ -276,12 +354,14 @@ public sealed class RecoveryPackageWriterTests : IDisposable
         Directory.Delete(_testRoot, recursive: true);
     }
 
-    private RecoveryPackageWriter CreateWriter() => new(Options.Create(new AgentOptions
+    private IOptions<AgentOptions> CreateOptions() => Options.Create(new AgentOptions
     {
         ControlPlaneUri = new Uri("https://control.test"),
         Name = "Test Agent",
         PackageDirectory = Path.Combine(_testRoot, "packages")
-    }));
+    });
+
+    private RecoveryPackageWriter CreateWriter() => new(CreateOptions());
 
     private static DiscoveryResult CreateDiscovery(
         string rootPath,
@@ -293,4 +373,11 @@ public sealed class RecoveryPackageWriterTests : IDisposable
             DateTimeOffset.UtcNow,
             false,
             files);
+
+    private sealed class CallbackSourceSnapshotRaceProbe(
+        Action<SourceSnapshotRacePoint, string> callback) : ISourceSnapshotRaceProbe
+    {
+        public void Reached(SourceSnapshotRacePoint point, string relativePath) =>
+            callback(point, relativePath);
+    }
 }
