@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Options;
@@ -11,9 +13,8 @@ namespace ShowVault.Agent.Tests;
 public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
 {
     private readonly string _testRoot = Path.Combine(
-        Path.GetTempPath(),
-        "showvault-restorer-tests",
-        Guid.NewGuid().ToString("N"));
+        OperatingSystem.IsWindows() ? Path.GetTempPath() : "/tmp",
+        $"sv-restorer-{Guid.NewGuid():N}");
     private AgentQueueStore _store = null!;
 
     public Task InitializeAsync()
@@ -55,6 +56,52 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
             CancellationToken.None));
 
         Assert.Equal("user data", await File.ReadAllTextAsync(Path.Combine(targetPath, "keep.txt")));
+    }
+
+    [Fact]
+    public async Task Restore_rejects_linked_target_before_reading_package()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var outside = Path.Combine(_testRoot, "outside-target");
+        Directory.CreateDirectory(outside);
+        var targetPath = Path.Combine(RestoreRoot, "linked-target");
+        Directory.CreateSymbolicLink(targetPath, outside);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateRestorer().RestoreAsync(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            new StoredRecoveryPackage("package", "missing", "{}"),
+            Guid.NewGuid(),
+            targetPath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Restore_rejects_linked_target_parent_before_reading_package()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var outside = Path.Combine(_testRoot, "outside-parent");
+        Directory.CreateDirectory(outside);
+        var linkedParent = Path.Combine(RestoreRoot, "linked-parent");
+        Directory.CreateSymbolicLink(linkedParent, outside);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateRestorer().RestoreAsync(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            new StoredRecoveryPackage("package", "missing", "{}"),
+            Guid.NewGuid(),
+            Path.Combine(linkedParent, "target"),
+            DateTimeOffset.UtcNow,
+            CancellationToken.None));
     }
 
     [Fact]
@@ -140,6 +187,69 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
         Assert.Equal("configuration", await File.ReadAllTextAsync(Path.Combine(targetPath, "main.show")));
     }
 
+    [Fact]
+    public async Task Restore_restart_adoption_rejects_fifo_without_blocking()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var (restorer, package, restorationId, verificationId, targetPath) =
+            await CreatePublishedRestoreAsync("fifo-target");
+        var targetFile = Path.Combine(targetPath, "main.show");
+        File.Delete(targetFile);
+        using (var process = Process.Start(new ProcessStartInfo("mkfifo")
+        {
+            UseShellExecute = false,
+            ArgumentList = { targetFile }
+        })!)
+        {
+            await process.WaitForExitAsync();
+            Assert.Equal(0, process.ExitCode);
+        }
+
+        var rejection = Assert.ThrowsAsync<InvalidOperationException>(() => restorer.RestoreAsync(
+            restorationId,
+            package.Manifest.AgentId,
+            new StoredRecoveryPackage(package.PackageId, package.PackagePath, "{}"),
+            verificationId,
+            targetPath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None));
+
+        Assert.Same(rejection, await Task.WhenAny(rejection, Task.Delay(500)));
+        Assert.Contains("regular files", (await rejection).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Restore_restart_adoption_rejects_socket_without_blocking()
+    {
+        if (!Socket.OSSupportsUnixDomainSockets)
+        {
+            return;
+        }
+
+        var (restorer, package, restorationId, verificationId, targetPath) =
+            await CreatePublishedRestoreAsync("socket-target");
+        var targetFile = Path.Combine(targetPath, "main.show");
+        File.Delete(targetFile);
+        using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+        socket.Bind(new UnixDomainSocketEndPoint(targetFile));
+
+        var rejection = Assert.ThrowsAsync<InvalidOperationException>(() => restorer.RestoreAsync(
+            restorationId,
+            package.Manifest.AgentId,
+            new StoredRecoveryPackage(package.PackageId, package.PackagePath, "{}"),
+            verificationId,
+            targetPath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None));
+
+        Assert.Same(rejection, await Task.WhenAny(rejection, Task.Delay(500)));
+        Assert.Contains("regular files", (await rejection).Message, StringComparison.Ordinal);
+    }
+
     public Task DisposeAsync()
     {
         if (Directory.Exists(_testRoot))
@@ -159,6 +269,30 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
     }
 
     private string RestoreRoot => Path.Combine(_testRoot, "restores");
+
+    private async Task<(
+        RecoveryPackageRestorer Restorer,
+        CreatedRecoveryPackage Package,
+        Guid RestorationId,
+        Guid VerificationId,
+        string TargetPath)> CreatePublishedRestoreAsync(string targetName)
+    {
+        var package = await CreatePackageAsync();
+        var restorationId = Guid.NewGuid();
+        var verificationId = Guid.NewGuid();
+        await EnqueueRestoreCommandAsync(restorationId, package.Manifest.AgentId);
+        var targetPath = Path.Combine(RestoreRoot, targetName);
+        var restorer = CreateRestorer();
+        await restorer.RestoreAsync(
+            restorationId,
+            package.Manifest.AgentId,
+            new StoredRecoveryPackage(package.PackageId, package.PackagePath, "{}"),
+            verificationId,
+            targetPath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+        return (restorer, package, restorationId, verificationId, targetPath);
+    }
 
     private RecoveryPackageRestorer CreateRestorer()
     {

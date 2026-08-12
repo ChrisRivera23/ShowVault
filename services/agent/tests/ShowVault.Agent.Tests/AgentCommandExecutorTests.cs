@@ -362,6 +362,61 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         Assert.NotNull(restoration);
         Assert.Equal(package.PackageId, restoration.PackageId);
         Assert.Equal(64, restoration.EvidenceSha256.Length);
+        var restorationResult = JsonSerializer.Deserialize<RecoveryRestorationResult>(
+            restoration.ResultJson,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.NotNull(restorationResult);
+        Assert.Equal(now, restorationResult.RestoredAt);
+        var restoreOutcome = Assert.Single(
+            await store.GetPendingEventsAsync(now.AddMinutes(1), 10, CancellationToken.None),
+            candidate => candidate.Envelope.EventId == restoreCommand.CommandId);
+        Assert.DoesNotContain(restoreTarget, restoreOutcome.Envelope.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain("targetPath", restoreOutcome.Envelope.Payload, StringComparison.Ordinal);
+
+        var replayTarget = Path.Combine(_testRoot, "restores", "replay-target");
+        var mismatchedTarget = Path.Combine(_testRoot, "restores", "different-target");
+        var replayCommand = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartRestore,
+            "restore-replay",
+            JsonSerializer.Serialize(new
+            {
+                backupCommandId = backupCommand.CommandId,
+                verificationCommandId = verifyCommand.CommandId,
+                targetPath = replayTarget
+            }),
+            now.AddSeconds(4),
+            TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(replayCommand, now, CancellationToken.None);
+        var mismatchedResultJson = RecoveryPackageRestorer.Serialize(new RecoveryRestorationResult(
+            replayCommand.CommandId,
+            package.PackageId,
+            verifyCommand.CommandId,
+            mismatchedTarget,
+            now,
+            1,
+            true,
+            ["stored evidence"]));
+        await store.StoreRecoveryRestorationAsync(
+            replayCommand.CommandId,
+            package.PackageId,
+            mismatchedTarget,
+            mismatchedResultJson,
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(mismatchedResultJson))),
+            now,
+            CancellationToken.None);
+
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+
+        Assert.Contains(
+            await store.GetCommandsAsync(LocalAgentCommandStatus.Failed, CancellationToken.None),
+            candidate => candidate.CommandId == replayCommand.CommandId);
+        Assert.False(Directory.Exists(replayTarget));
+        var replayOutcome = Assert.Single(
+            await store.GetPendingEventsAsync(now.AddMinutes(1), 10, CancellationToken.None),
+            candidate => candidate.Envelope.EventId == replayCommand.CommandId);
+        Assert.DoesNotContain(replayTarget, replayOutcome.Envelope.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain(mismatchedTarget, replayOutcome.Envelope.Payload, StringComparison.Ordinal);
     }
 
     [Theory]

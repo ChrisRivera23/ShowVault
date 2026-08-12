@@ -475,13 +475,16 @@ public sealed class AgentQueueStore(IOptions<AgentOptions> options)
         await connection.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT package_id, target_path
+            SELECT package_id, target_path, created_at
             FROM recovery_restore_intents WHERE command_id = $commandId;
             """;
         command.Parameters.AddWithValue("$commandId", commandId.ToString());
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         return await reader.ReadAsync(cancellationToken)
-            ? new StoredRecoveryRestoreIntent(reader.GetString(0), reader.GetString(1))
+            ? new StoredRecoveryRestoreIntent(
+                reader.GetString(0),
+                reader.GetString(1),
+                DateTimeOffset.Parse(reader.GetString(2), CultureInfo.InvariantCulture))
             : null;
     }
 
@@ -610,7 +613,10 @@ public sealed record StoredRecoveryRestoration(
     string ResultJson,
     string EvidenceSha256);
 
-public sealed record StoredRecoveryRestoreIntent(string PackageId, string TargetPath);
+public sealed record StoredRecoveryRestoreIntent(
+    string PackageId,
+    string TargetPath,
+    DateTimeOffset CreatedAt);
 
 public enum LocalAgentCommandStatus
 {

@@ -25,11 +25,7 @@ public sealed class RecoveryPackageRestorer(
         DateTimeOffset restoredAt,
         CancellationToken cancellationToken)
     {
-        var normalizedTarget = Path.TrimEndingDirectorySeparator(Path.GetFullPath(targetPath));
-        var allowedRoot = _restoreRoots.FirstOrDefault(root => IsStrictDescendant(root, normalizedTarget))
-            ?? throw new UnauthorizedAccessException(
-                "Restore target is not beneath a locally configured restore root.");
-        EnsureParentPathIsSafe(allowedRoot, normalizedTarget);
+        var (normalizedTarget, allowedRoot) = ResolveTargetPath(targetPath);
         var intent = await queueStore.GetRecoveryRestoreIntentAsync(
             restorationId,
             cancellationToken);
@@ -42,11 +38,18 @@ public sealed class RecoveryPackageRestorer(
                 normalizedTarget,
                 restoredAt,
                 cancellationToken);
+            intent = await queueStore.GetRecoveryRestoreIntentAsync(
+                restorationId,
+                cancellationToken)
+                ?? throw new InvalidOperationException("Restore intent was not stored.");
         }
-        else if (intent.PackageId != package.PackageId || intent.TargetPath != normalizedTarget)
+
+        if (intent.PackageId != package.PackageId || intent.TargetPath != normalizedTarget)
         {
             throw new InvalidOperationException("Stored restore intent does not match this operation.");
         }
+
+        restoredAt = intent.CreatedAt;
 
         var preRestoreVerification = await verifier.VerifyAsync(
             restorationId,
@@ -64,10 +67,16 @@ public sealed class RecoveryPackageRestorer(
         var manifestPath = Path.Combine(
             package.PackagePath,
             RecoveryPackageFormat.ManifestFileName);
-        var manifest = JsonSerializer.Deserialize<RecoveryPackageManifest>(
-            await File.ReadAllBytesAsync(manifestPath, cancellationToken),
-            JsonOptions)
-            ?? throw new InvalidOperationException("Recovery package manifest is invalid.");
+        var manifest = await ReadVerifiedManifestAsync(
+            manifestPath,
+            package.PackageId,
+            cancellationToken);
+        EnsureParentPathIsSafe(allowedRoot, normalizedTarget);
+        if (IsLinkIfPresent(normalizedTarget))
+        {
+            throw new InvalidOperationException("Restore target cannot be a filesystem link.");
+        }
+
         if (Directory.Exists(normalizedTarget) &&
             Directory.EnumerateFileSystemEntries(normalizedTarget).Any())
         {
@@ -87,6 +96,7 @@ public sealed class RecoveryPackageRestorer(
         var parentPath = Path.GetDirectoryName(normalizedTarget)
             ?? throw new InvalidOperationException("Restore target must have a parent directory.");
         var stagingPath = Path.Combine(parentPath, $".showvault-restore-{restorationId:N}");
+        EnsureParentPathIsSafe(allowedRoot, normalizedTarget);
         if (File.Exists(stagingPath) || IsLinkIfPresent(stagingPath))
         {
             throw new InvalidOperationException("Restore staging path already exists.");
@@ -98,6 +108,11 @@ public sealed class RecoveryPackageRestorer(
         }
 
         Directory.CreateDirectory(stagingPath);
+        if (IsLink(stagingPath))
+        {
+            throw new InvalidOperationException("Restore staging path cannot be a filesystem link.");
+        }
+
         try
         {
             foreach (var file in manifest.Files)
@@ -114,11 +129,15 @@ public sealed class RecoveryPackageRestorer(
                     Path.Combine(package.PackagePath, RecoveryPackageFormat.ContentDirectoryName),
                     sourcePath);
                 Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+                await using var source = RecoveryPackageVerifier.OpenRegularFile(sourcePath)
+                    ?? throw new InvalidOperationException(
+                        $"Restore source must be a regular file: {file.RelativePath}");
                 var restoredHash = await CopyAndHashAsync(
-                    sourcePath,
+                    source,
                     destinationPath,
                     cancellationToken);
-                if (new FileInfo(destinationPath).Length != file.Size ||
+                if (source.Length != file.Size ||
+                    new FileInfo(destinationPath).Length != file.Size ||
                     !string.Equals(restoredHash, file.Sha256, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException(
@@ -126,17 +145,23 @@ public sealed class RecoveryPackageRestorer(
                 }
             }
 
+            EnsureParentPathIsSafe(allowedRoot, normalizedTarget);
             EnsureTargetIsAbsentOrEmpty(normalizedTarget);
             if (Directory.Exists(normalizedTarget))
             {
                 Directory.Delete(normalizedTarget);
             }
 
+            if (IsLink(stagingPath))
+            {
+                throw new InvalidOperationException("Restore staging path cannot be a filesystem link.");
+            }
+
             Directory.Move(stagingPath, normalizedTarget);
         }
         finally
         {
-            if (Directory.Exists(stagingPath))
+            if (Directory.Exists(stagingPath) && !IsLink(stagingPath))
             {
                 Directory.Delete(stagingPath, recursive: true);
             }
@@ -154,18 +179,48 @@ public sealed class RecoveryPackageRestorer(
     public static string Serialize(RecoveryRestorationResult result) =>
         JsonSerializer.Serialize(result, JsonOptions);
 
+    internal string NormalizeAndValidateTargetPath(string targetPath) =>
+        ResolveTargetPath(targetPath).NormalizedTarget;
+
+    private (string NormalizedTarget, string AllowedRoot) ResolveTargetPath(string targetPath)
+    {
+        var normalizedTarget = Path.TrimEndingDirectorySeparator(Path.GetFullPath(targetPath));
+        var allowedRoot = _restoreRoots.FirstOrDefault(root => IsStrictDescendant(root, normalizedTarget))
+            ?? throw new UnauthorizedAccessException(
+                "Restore target is not beneath a locally configured restore root.");
+        EnsureParentPathIsSafe(allowedRoot, normalizedTarget);
+        return (normalizedTarget, allowedRoot);
+    }
+
+    private static async Task<RecoveryPackageManifest> ReadVerifiedManifestAsync(
+        string manifestPath,
+        string expectedPackageId,
+        CancellationToken cancellationToken)
+    {
+        await using var manifestStream = RecoveryPackageVerifier.OpenRegularFile(manifestPath)
+            ?? throw new InvalidOperationException("Recovery package manifest must be a regular file.");
+        if (manifestStream.Length > RecoveryPackageVerifier.MaximumManifestBytes)
+        {
+            throw new InvalidOperationException("Recovery package manifest is too large.");
+        }
+
+        var manifestBytes = new byte[checked((int)manifestStream.Length)];
+        await manifestStream.ReadExactlyAsync(manifestBytes, cancellationToken);
+        var actualPackageId = Convert.ToHexStringLower(SHA256.HashData(manifestBytes));
+        if (!string.Equals(actualPackageId, expectedPackageId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Recovery package manifest identity changed after verification.");
+        }
+
+        return JsonSerializer.Deserialize<RecoveryPackageManifest>(manifestBytes, JsonOptions)
+            ?? throw new InvalidOperationException("Recovery package manifest is invalid.");
+    }
+
     private static async Task<string> CopyAndHashAsync(
-        string sourcePath,
+        FileStream source,
         string destinationPath,
         CancellationToken cancellationToken)
     {
-        await using var source = new FileStream(
-            sourcePath,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read,
-            65_536,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
         await using var destination = new FileStream(
             destinationPath,
             FileMode.CreateNew,
@@ -238,10 +293,12 @@ public sealed class RecoveryPackageRestorer(
                 }
 
                 var expected = manifest.Files.Single(file => file.RelativePath == relativePath);
-                await using var stream = File.OpenRead(path);
+                await using var stream = RecoveryPackageVerifier.OpenRegularFile(path)
+                    ?? throw new InvalidOperationException(
+                        "Published restore target must contain only regular files.");
                 var hash = Convert.ToHexStringLower(
                     await SHA256.HashDataAsync(stream, cancellationToken));
-                if (new FileInfo(path).Length != expected.Size ||
+                if (stream.Length != expected.Size ||
                     !string.Equals(hash, expected.Sha256, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException(
@@ -322,6 +379,11 @@ public sealed class RecoveryPackageRestorer(
 
     private static void EnsureNoLinks(string rootPath, string path)
     {
+        if (!Directory.Exists(rootPath) || IsLink(rootPath))
+        {
+            throw new InvalidOperationException("Restore source root cannot be a filesystem link.");
+        }
+
         var currentPath = rootPath;
         foreach (var segment in Path.GetRelativePath(rootPath, path).Split(
             [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],

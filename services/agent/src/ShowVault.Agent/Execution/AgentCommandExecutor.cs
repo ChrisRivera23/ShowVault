@@ -310,6 +310,7 @@ public sealed class AgentCommandExecutor(
             cancellationToken)
             ?? throw new InvalidOperationException("The referenced package verification was not found.");
         ValidatePassingVerification(payload.VerificationCommandId, package.PackageId, verification);
+        var normalizedTargetPath = packageRestorer.NormalizeAndValidateTargetPath(payload.TargetPath);
 
         var storedRestoration = await queueStore.GetRecoveryRestorationAsync(
             command.CommandId,
@@ -324,8 +325,8 @@ public sealed class AgentCommandExecutor(
                 identity.AgentId,
                 package,
                 payload.VerificationCommandId,
-                payload.TargetPath,
-                command.IssuedAt,
+                normalizedTargetPath,
+                timeProvider.GetUtcNow(),
                 cancellationToken);
             resultJson = RecoveryPackageRestorer.Serialize(result);
             evidenceSha256 = HashEvidence(resultJson);
@@ -335,12 +336,13 @@ public sealed class AgentCommandExecutor(
                 result.TargetPath,
                 resultJson,
                 evidenceSha256,
-                command.IssuedAt,
+                result.RestoredAt,
                 cancellationToken);
         }
         else
         {
             if (storedRestoration.PackageId != package.PackageId ||
+                storedRestoration.TargetPath != normalizedTargetPath ||
                 HashEvidence(storedRestoration.ResultJson) != storedRestoration.EvidenceSha256)
             {
                 throw new InvalidOperationException("Stored restoration evidence is invalid.");
@@ -352,7 +354,9 @@ public sealed class AgentCommandExecutor(
                 ?? throw new InvalidOperationException("Stored restoration evidence is invalid.");
             if (result.RestorationId != command.CommandId ||
                 result.PackageId != package.PackageId ||
-                result.VerificationId != payload.VerificationCommandId)
+                result.VerificationId != payload.VerificationCommandId ||
+                result.TargetPath != normalizedTargetPath ||
+                result.TargetPath != storedRestoration.TargetPath)
             {
                 throw new InvalidOperationException("Stored restoration evidence identity is invalid.");
             }
@@ -370,7 +374,6 @@ public sealed class AgentCommandExecutor(
                     result.RestorationId,
                     result.PackageId,
                     result.VerificationId,
-                    result.TargetPath,
                     result.Passed,
                     result.FileCount,
                     evidenceSha256
