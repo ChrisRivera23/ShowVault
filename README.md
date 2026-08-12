@@ -53,7 +53,7 @@ Completed:
 - Restore copying uses staging, immediate package revalidation, restored-file hashing, atomic publication, restart-safe intent, and write-once evidence.
 - The control plane derives tenant-scoped recovery runs from issued commands and durable Agent outcomes without exposing local filesystem paths.
 - Flutter native runners now exist for Android, iOS, macOS, and Windows under the shared `com.showvault.app` identity.
-- The Flutter client uses Auth0 Universal Login, securely restores mobile/macOS sessions, and requests the ShowVault API audience.
+- The Flutter client uses Auth0 Universal Login, restores mobile sessions, keeps macOS/Windows operator sessions in memory, and requests the ShowVault API audience.
 - Authenticated Flutter loading discovers the operator's first accessible organization and venue and renders only live tenant-scoped recovery history with truthful empty and status states; synthetic evidence is never substituted.
 
 Current development branch:
@@ -277,7 +277,7 @@ This section is maintained so a new Codex task can resume without relying on the
 
 - Completed draft PR stack: PRs #3 through #11, ending with `codex/recovery-history-read-model`.
 - Active work: `codex/flutter-auth0-live-history`, stacked on PR #11.
-- This slice adds native Android/iOS/macOS/Windows runners, the `com.showvault.app` identity, Auth0 Universal Login/session restoration, bearer-authenticated tenant discovery and recovery-history loading, explicit setup/empty/error states, and preserves truthful recovery status presentation without synthetic records.
+- This slice adds native Android/iOS/macOS/Windows runners, the `com.showvault.app` identity, Auth0 Universal Login with persistent mobile and memory-only desktop sessions, bearer-authenticated tenant discovery and recovery-history loading, explicit setup/empty/error states, and preserves truthful recovery status presentation without synthetic records.
 - Auth0 Native application `ShowVault Flutter` is registered and its callback/logout URLs and public Client ID are configured. A live login/API proof still requires a deployed ShowVault API and a native build host; this workstation has only Xcode Command Line Tools.
 - The next numbered implementation slice is system-inventory and network-device discovery. Start with a bounded, read-only system-inventory plugin; the first vendor-specific product integration and pilot workflow remain Product Owner decisions.
 - Auth0 is configured for human identity. Agent authentication intentionally remains a separate credential scheme.
