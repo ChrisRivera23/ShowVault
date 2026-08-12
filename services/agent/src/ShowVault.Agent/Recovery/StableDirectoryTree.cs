@@ -124,7 +124,7 @@ internal sealed class StableDirectoryTree : IDisposable
         var handle = OperatingSystem.IsWindows()
             ? WindowsNative.CreateRegularFile(path)
             : UnixNative.CreateRegularFileAt(_handle, name);
-        return new FileStream(handle, FileAccess.Write, 65_536, isAsync: false);
+        return new FileStream(handle, FileAccess.ReadWrite, 65_536, isAsync: false);
     }
 
     public FileStream OpenRegularFile(string name)
@@ -178,6 +178,24 @@ internal sealed class StableDirectoryTree : IDisposable
         }
     }
 
+    public bool IsSameFileAt(string name, SafeFileHandle expected)
+    {
+        ValidateName(name);
+        try
+        {
+            using var current = OperatingSystem.IsWindows()
+                ? WindowsNative.OpenRegularFile(System.IO.Path.Combine(_path, name))
+                : UnixNative.OpenRegularFileAt(_handle, name);
+            return OperatingSystem.IsWindows()
+                ? WindowsNative.SameIdentity(expected, current)
+                : UnixNative.SameIdentity(expected, current);
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+    }
+
     public void RenameChild(
         string sourceName,
         StableDirectoryTree expected,
@@ -202,22 +220,32 @@ internal sealed class StableDirectoryTree : IDisposable
 
     public void MoveChildTo(
         string sourceName,
+        SafeFileHandle expected,
         StableDirectoryTree destination,
         string destinationName)
     {
         ValidateName(sourceName);
         ValidateName(destinationName);
+        if (!IsSameFileAt(sourceName, expected))
+        {
+            throw new IOException("Restore staging file identity changed before placement.");
+        }
+
         if (OperatingSystem.IsWindows())
         {
             WindowsNative.EnsureSameDirectory(_handle, _path);
             WindowsNative.EnsureSameDirectory(destination._handle, destination._path);
-            File.Move(
-                System.IO.Path.Combine(_path, sourceName),
-                System.IO.Path.Combine(destination._path, destinationName));
-            return;
+            WindowsNative.Rename(expected, destination._handle, destinationName);
+        }
+        else
+        {
+            UnixNative.RenameAt(_handle, sourceName, destination._handle, destinationName);
         }
 
-        UnixNative.RenameAt(_handle, sourceName, destination._handle, destinationName);
+        if (!destination.IsSameFileAt(destinationName, expected))
+        {
+            throw new IOException("Restore staging file identity changed during placement.");
+        }
     }
 
     public void DeleteChildTreeIfSame(string name, StableDirectoryTree expected)
@@ -348,7 +376,7 @@ internal sealed class StableDirectoryTree : IDisposable
     private static class UnixNative
     {
         private const int ReadOnly = 0;
-        private const int WriteOnly = 1;
+        private const int ReadWrite = 2;
         private const uint DirectoryMode = 0x1C0; // 0700
         private const uint FileMode = 0x180; // 0600
 
@@ -372,7 +400,7 @@ internal sealed class StableDirectoryTree : IDisposable
             Wrap(openat(
                 Fd(parent),
                 name,
-                WriteOnly | CreateFlag | ExclusiveFlag | NoFollowFlag | CloseOnExecFlag,
+                ReadWrite | CreateFlag | ExclusiveFlag | NoFollowFlag | CloseOnExecFlag,
                 FileMode));
 
         public static SafeFileHandle OpenRegularFileAt(SafeFileHandle parent, string name)
@@ -600,8 +628,8 @@ internal sealed class StableDirectoryTree : IDisposable
         public static SafeFileHandle CreateRegularFile(string path) =>
             Open(
                 path,
-                GenericWrite,
-                ShareRead | ShareWrite | ShareDelete,
+                GenericRead | GenericWrite | Delete,
+                ShareRead | ShareDelete,
                 CreateNew,
                 OpenReparsePoint);
 

@@ -133,6 +133,7 @@ public sealed class RecoveryPackageRestorer
         }
 
         using var staging = targetParent.CreateDirectory(stagingName);
+        var placedFiles = new List<PlacedRestoreFile>();
 
         try
         {
@@ -152,38 +153,54 @@ public sealed class RecoveryPackageRestorer
                 var temporaryName = $".showvault-file-{Guid.NewGuid():N}";
                 string restoredHash;
                 long restoredLength;
-                await using (var temporary = staging.CreateFile(temporaryName))
+                FileStream? temporary = staging.CreateFile(temporaryName);
+                try
                 {
                     restoredHash = await CopyAndHashAsync(
                         source,
                         temporary,
                         cancellationToken);
                     restoredLength = temporary.Length;
-                }
 
-                if (source.Length != file.Size || restoredLength != file.Size ||
-                    !string.Equals(restoredHash, file.Sha256, StringComparison.OrdinalIgnoreCase))
+                    if (source.Length != file.Size || restoredLength != file.Size ||
+                        !string.Equals(restoredHash, file.Sha256, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidOperationException(
+                            $"Restored content does not match the package: {file.RelativePath}");
+                    }
+
+                    using var destinationParent = OpenOrCreateRelativeParent(
+                        staging,
+                        file.RelativePath);
+                    _raceProbe?.Reached(RestoreRacePoint.DestinationFileOpened, file.RelativePath);
+                    if (!IsExpectedRelativeParent(staging, file.RelativePath, destinationParent))
+                    {
+                        throw new InvalidOperationException(
+                            "Restore destination directory identity changed.");
+                    }
+
+                    staging.MoveChildTo(
+                        temporaryName,
+                        temporary.SafeFileHandle,
+                        destinationParent,
+                        Path.GetFileName(file.RelativePath));
+                    placedFiles.Add(new PlacedRestoreFile(
+                        file.RelativePath,
+                        temporary,
+                        file.Size,
+                        file.Sha256));
+                    temporary = null;
+                }
+                finally
                 {
-                    throw new InvalidOperationException(
-                        $"Restored content does not match the package: {file.RelativePath}");
+                    if (temporary is not null)
+                    {
+                        await temporary.DisposeAsync();
+                    }
                 }
-
-                using var destinationParent = OpenOrCreateRelativeParent(
-                    staging,
-                    file.RelativePath);
-                _raceProbe?.Reached(RestoreRacePoint.DestinationFileOpened, file.RelativePath);
-                if (!IsExpectedRelativeParent(staging, file.RelativePath, destinationParent))
-                {
-                    throw new InvalidOperationException(
-                        "Restore destination directory identity changed.");
-                }
-
-                staging.MoveChildTo(
-                    temporaryName,
-                    destinationParent,
-                    Path.GetFileName(file.RelativePath));
             }
 
+            await ValidatePlacedFilesAsync(staging, placedFiles, cancellationToken);
             EnsureParentPathIsSafe(allowedRoot, normalizedTarget);
             EnsureTargetIsAbsentOrEmpty(normalizedTarget);
             if (!staging.IsSameDirectoryAt(targetParent, stagingName))
@@ -212,6 +229,11 @@ public sealed class RecoveryPackageRestorer
         }
         finally
         {
+            foreach (var placedFile in placedFiles)
+            {
+                await placedFile.Stream.DisposeAsync();
+            }
+
             targetParent.DeleteChildTreeIfSame(stagingName, staging);
         }
 
@@ -288,6 +310,33 @@ public sealed class RecoveryPackageRestorer
         finally
         {
             ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private static async Task ValidatePlacedFilesAsync(
+        StableDirectoryTree staging,
+        IReadOnlyList<PlacedRestoreFile> placedFiles,
+        CancellationToken cancellationToken)
+    {
+        foreach (var placedFile in placedFiles)
+        {
+            using var parent = OpenExistingRelativeParent(staging, placedFile.RelativePath);
+            var name = Path.GetFileName(placedFile.RelativePath);
+            if (!parent.IsSameFileAt(name, placedFile.Stream.SafeFileHandle))
+            {
+                throw new InvalidOperationException(
+                    "Restore staging file identity changed before publication.");
+            }
+
+            placedFile.Stream.Position = 0;
+            var hash = Convert.ToHexStringLower(
+                await SHA256.HashDataAsync(placedFile.Stream, cancellationToken));
+            if (placedFile.Stream.Length != placedFile.Size ||
+                !string.Equals(hash, placedFile.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Restore staging file content changed before publication.");
+            }
         }
     }
 
@@ -437,6 +486,30 @@ public sealed class RecoveryPackageRestorer
         return current;
     }
 
+    private static StableDirectoryTree OpenExistingRelativeParent(
+        StableDirectoryTree root,
+        string relativePath)
+    {
+        var segments = relativePath.Split('/');
+        var current = root.Duplicate();
+        try
+        {
+            for (var index = 0; index < segments.Length - 1; index++)
+            {
+                var next = current.OpenDirectory(segments[index]);
+                current.Dispose();
+                current = next;
+            }
+
+            return current;
+        }
+        catch
+        {
+            current.Dispose();
+            throw;
+        }
+    }
+
     private static bool IsExpectedRelativeParent(
         StableDirectoryTree root,
         string relativePath,
@@ -578,6 +651,12 @@ public sealed class RecoveryPackageRestorer
 
     private static bool IsLink(string path) =>
         (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+
+    private sealed record PlacedRestoreFile(
+        string RelativePath,
+        FileStream Stream,
+        long Size,
+        string Sha256);
 }
 
 public sealed record RecoveryRestorationResult(
