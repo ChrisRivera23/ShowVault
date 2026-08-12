@@ -24,6 +24,30 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
         return _store.InitializeAsync(CancellationToken.None);
     }
 
+    [Theory]
+    [InlineData(true, false, 0x80)]
+    [InlineData(false, true, 0x200)]
+    public void Unix_directory_removal_flag_matches_platform(
+        bool isMacOS,
+        bool isLinux,
+        int expected)
+    {
+        Assert.Equal(
+            expected,
+            StableDirectoryTree.ResolveUnixAtRemoveDirectoryFlag(isMacOS, isLinux));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void Unix_directory_removal_flag_rejects_unsupported_platforms(
+        bool isMacOS,
+        bool isLinux)
+    {
+        Assert.Throws<PlatformNotSupportedException>(() =>
+            StableDirectoryTree.ResolveUnixAtRemoveDirectoryFlag(isMacOS, isLinux));
+    }
+
     [Fact]
     public async Task Restore_rejects_targets_outside_local_allowlist()
     {
