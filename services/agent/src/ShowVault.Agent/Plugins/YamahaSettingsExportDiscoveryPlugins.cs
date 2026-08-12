@@ -193,7 +193,8 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
         pluginId is YamahaDm7SettingsExportDiscoveryPlugin.PluginId or
             YamahaRivageSettingsExportDiscoveryPlugin.PluginId or
             YamahaClQlSettingsExportDiscoveryPlugin.PluginId or
-            YamahaTfSettingsExportDiscoveryPlugin.PluginId;
+            YamahaTfSettingsExportDiscoveryPlugin.PluginId or
+            YamahaDm3SettingsExportDiscoveryPlugin.PluginId;
 
     internal static bool IsAuthorizedRoot(AgentOptions options, string pluginId, string rootPath)
     {
@@ -207,6 +208,8 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
                 options.YamahaClQlSettingsExportRoots,
             YamahaTfSettingsExportDiscoveryPlugin.PluginId =>
                 options.YamahaTfSettingsExportRoots,
+            YamahaDm3SettingsExportDiscoveryPlugin.PluginId =>
+                options.YamahaDm3SettingsExportRoots,
             _ => []
         };
         return roots.Select(NormalizeRoot).Contains(NormalizeRoot(rootPath), PathComparer);
@@ -246,6 +249,11 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
             {
                 formats.Add(".TFF");
             }
+            else if (pluginId == YamahaDm3SettingsExportDiscoveryPlugin.PluginId &&
+                     string.Equals(extension, ".DM3F", StringComparison.OrdinalIgnoreCase))
+            {
+                formats.Add(".DM3F");
+            }
         }
 
         return formats.OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToList();
@@ -257,6 +265,7 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
         YamahaRivageSettingsExportDiscoveryPlugin.PluginId => "Yamaha RIVAGE PM",
         YamahaClQlSettingsExportDiscoveryPlugin.PluginId => "Yamaha CL/QL",
         YamahaTfSettingsExportDiscoveryPlugin.PluginId => "Yamaha TF",
+        YamahaDm3SettingsExportDiscoveryPlugin.PluginId => "Yamaha DM3",
         _ => "Yamaha"
     };
 
@@ -264,7 +273,13 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
         string pluginId,
         IEnumerable<string> relativePaths)
     {
-        if (pluginId != YamahaTfSettingsExportDiscoveryPlugin.PluginId)
+        var companionExtensions = pluginId switch
+        {
+            YamahaTfSettingsExportDiscoveryPlugin.PluginId => new[] { ".TFP", ".TFS" },
+            YamahaDm3SettingsExportDiscoveryPlugin.PluginId => new[] { ".DM3P", ".DM3S" },
+            _ => []
+        };
+        if (companionExtensions.Length == 0)
         {
             return [];
         }
@@ -272,8 +287,7 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
         return relativePaths
             .Select(Path.GetExtension)
             .Where(extension => !string.IsNullOrEmpty(extension) &&
-                (string.Equals(extension, ".TFP", StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(extension, ".TFS", StringComparison.OrdinalIgnoreCase)))
+                companionExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
             .Select(extension => extension!.ToUpperInvariant())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(extension => extension, StringComparer.OrdinalIgnoreCase)
@@ -317,6 +331,11 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
         if (string.Equals(extension, ".CLF", StringComparison.OrdinalIgnoreCase))
         {
             return YamahaClQlSettingsExportDiscoveryPlugin.PluginId;
+        }
+
+        if (string.Equals(extension, ".DM3F", StringComparison.OrdinalIgnoreCase))
+        {
+            return YamahaDm3SettingsExportDiscoveryPlugin.PluginId;
         }
 
         return string.Equals(extension, ".TFF", StringComparison.OrdinalIgnoreCase)
@@ -403,4 +422,21 @@ public sealed class YamahaTfSettingsExportDiscoveryPlugin(
 
     protected override IReadOnlyList<string> ConfiguredRoots =>
         Options.YamahaTfSettingsExportRoots;
+}
+
+public sealed class YamahaDm3SettingsExportDiscoveryPlugin(
+    IOptions<AgentOptions> options,
+    TimeProvider timeProvider) : YamahaSettingsExportDiscoveryPluginBase(options, timeProvider)
+{
+    public const string PluginId = "showvault.yamaha-dm3-settings-export";
+
+    public override AgentPluginManifest Manifest { get; } = new(
+        PluginId,
+        "ShowVault Yamaha DM3 Settings Export Assisted Recovery",
+        "1.0.0",
+        new HashSet<AgentPluginCapability> { AgentPluginCapability.Discovery },
+        new HashSet<AgentPluginPermission> { AgentPluginPermission.ReadFiles });
+
+    protected override IReadOnlyList<string> ConfiguredRoots =>
+        Options.YamahaDm3SettingsExportRoots;
 }

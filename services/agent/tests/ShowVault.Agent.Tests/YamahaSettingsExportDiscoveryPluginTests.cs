@@ -114,24 +114,87 @@ public sealed class YamahaSettingsExportDiscoveryPluginTests : IDisposable
     }
 
     [Theory]
+    [InlineData("Venue.DM3F")]
+    [InlineData("Venue.dm3f")]
+    public async Task Dm3_requires_dm3f_and_captures_scene_and_preset_companions(
+        string settingsFile)
+    {
+        var export = Path.Combine(_root, "dm3-with-companions");
+        Directory.CreateDirectory(Path.Combine(export, "companions"));
+        await File.WriteAllTextAsync(Path.Combine(export, settingsFile), "settings");
+        await File.WriteAllTextAsync(Path.Combine(export, "companions", "Scene.DM3S"), "scene");
+        await File.WriteAllTextAsync(Path.Combine(export, "companions", "Vocal.DM3P"), "preset");
+
+        var result = await CreateDm3(export).DiscoverAsync(
+            new DiscoveryRequest(export), CancellationToken.None);
+
+        Assert.Equal(YamahaDm3SettingsExportDiscoveryPlugin.PluginId, result.PluginId);
+        Assert.Equal("1.0.0", result.PluginVersion);
+        Assert.Equal(3, result.Files.Count);
+        Assert.Contains(result.Files, file => file.RelativePath == settingsFile);
+        Assert.Contains(result.Files,
+            file => file.RelativePath == Path.Combine("companions", "Scene.DM3S"));
+        Assert.Contains(result.Files,
+            file => file.RelativePath == Path.Combine("companions", "Vocal.DM3P"));
+    }
+
+    [Theory]
+    [InlineData("Only.DM3S")]
+    [InlineData("Only.DM3P")]
+    public async Task Dm3_companions_do_not_authorize_a_settings_export(string fileName)
+    {
+        var export = Path.Combine(_root, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(export);
+        await File.WriteAllTextAsync(Path.Combine(export, fileName), "companion");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateDm3(export).DiscoverAsync(
+                new DiscoveryRequest(export), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Dm3_requires_primary_settings_artifact_at_root_level()
+    {
+        var export = Path.Combine(_root, "dm3-descendant-marker");
+        Directory.CreateDirectory(Path.Combine(export, "nested"));
+        await File.WriteAllTextAsync(Path.Combine(export, "nested", "Venue.DM3F"), "settings");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateDm3(export).DiscoverAsync(
+                new DiscoveryRequest(export), CancellationToken.None));
+    }
+
+    [Theory]
     [InlineData("clql", "Venue.TFF")]
     [InlineData("tf", "Venue.CLF")]
     [InlineData("clql", "Venue.dm7f")]
     [InlineData("tf", "Venue.RIVAGEPM")]
+    [InlineData("dm3", "Venue.TFF")]
+    [InlineData("tf", "Venue.DM3F")]
+    [InlineData("dm7", "Venue.DM3F")]
     public async Task Discovery_rejects_a_primary_artifact_from_another_yamaha_family(
         string selectedFamily,
         string foreignFile)
     {
         var export = Path.Combine(_root, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(export);
-        await File.WriteAllTextAsync(
-            Path.Combine(export, selectedFamily == "clql" ? "Venue.CLF" : "Venue.TFF"),
-            "settings");
+        var selectedFile = selectedFamily switch
+        {
+            "clql" => "Venue.CLF",
+            "tf" => "Venue.TFF",
+            "dm3" => "Venue.DM3F",
+            _ => "Venue.dm7f"
+        };
+        await File.WriteAllTextAsync(Path.Combine(export, selectedFile), "settings");
         await File.WriteAllTextAsync(Path.Combine(export, foreignFile), "foreign");
 
-        var plugin = selectedFamily == "clql"
-            ? (IDiscoveryPlugin)CreateClQl(export)
-            : CreateTf(export);
+        var plugin = selectedFamily switch
+        {
+            "clql" => (IDiscoveryPlugin)CreateClQl(export),
+            "tf" => CreateTf(export),
+            "dm3" => CreateDm3(export),
+            _ => CreateDm7(export)
+        };
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             plugin.DiscoverAsync(new DiscoveryRequest(export), CancellationToken.None));
     }
@@ -184,7 +247,14 @@ public sealed class YamahaSettingsExportDiscoveryPluginTests : IDisposable
             [roots[0]],
             [Path.Combine(roots[0], "nested")],
             [roots[1]],
-            [roots[2]]));
+            [roots[2]],
+            [roots[3]]));
+        Assert.False(YamahaSettingsExportDiscoveryPluginBase.HaveNoOverlap(
+            [roots[0]],
+            [roots[1]],
+            [roots[2]],
+            [roots[3]],
+            [Path.Combine(roots[3], "dm3-nested")]));
     }
 
     [Fact]
@@ -210,6 +280,17 @@ public sealed class YamahaSettingsExportDiscoveryPluginTests : IDisposable
                 CreateOptions(clQlRoots: [clQlExport]),
                 TimeProvider.System).DiscoverAsync(
                     new DiscoveryRequest(clQlExport),
+                    CancellationToken.None));
+
+        var dm3Export = Path.Combine(_root, "dm3-only");
+        Directory.CreateDirectory(dm3Export);
+        await File.WriteAllTextAsync(Path.Combine(dm3Export, "Venue.DM3F"), "settings");
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            new YamahaDm3SettingsExportDiscoveryPlugin(
+                CreateOptions(tfRoots: [dm3Export]),
+                TimeProvider.System).DiscoverAsync(
+                    new DiscoveryRequest(dm3Export),
                     CancellationToken.None));
     }
 
@@ -434,11 +515,15 @@ public sealed class YamahaSettingsExportDiscoveryPluginTests : IDisposable
     private YamahaTfSettingsExportDiscoveryPlugin CreateTf(string root) =>
         new(CreateOptions(tfRoots: [root]), TimeProvider.System);
 
+    private YamahaDm3SettingsExportDiscoveryPlugin CreateDm3(string root) =>
+        new(CreateOptions(dm3Roots: [root]), TimeProvider.System);
+
     private static IOptions<AgentOptions> CreateOptions(
         IReadOnlyList<string>? dm7Roots = null,
         IReadOnlyList<string>? rivageRoots = null,
         IReadOnlyList<string>? clQlRoots = null,
-        IReadOnlyList<string>? tfRoots = null) =>
+        IReadOnlyList<string>? tfRoots = null,
+        IReadOnlyList<string>? dm3Roots = null) =>
         Options.Create(new AgentOptions
         {
             ControlPlaneUri = new Uri("https://control.test"),
@@ -446,6 +531,7 @@ public sealed class YamahaSettingsExportDiscoveryPluginTests : IDisposable
             YamahaDm7SettingsExportRoots = dm7Roots ?? [],
             YamahaRivageSettingsExportRoots = rivageRoots ?? [],
             YamahaClQlSettingsExportRoots = clQlRoots ?? [],
-            YamahaTfSettingsExportRoots = tfRoots ?? []
+            YamahaTfSettingsExportRoots = tfRoots ?? [],
+            YamahaDm3SettingsExportRoots = dm3Roots ?? []
         });
 }

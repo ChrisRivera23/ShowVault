@@ -428,9 +428,13 @@ public sealed class RecoveryPackageWriter
                 manifestFiles.Select(file => file.RelativePath));
             if (companionFormats.Count != 0)
             {
+                var companionRequirement = pluginId ==
+                    YamahaDm3SettingsExportDiscoveryPlugin.PluginId
+                    ? $"The package also preserves these opaque DM3 companion formats: {string.Join(", ", companionFormats)}. .DM3S scenes and .DM3P presets do not prove that the .DM3F settings export is complete or compatible."
+                    : $"The package also preserves these opaque TF companion formats: {string.Join(", ", companionFormats)}. .TFP presets and .TFS scenes do not prove that the .TFF settings export is complete.";
                 rules.Add(new RecoveryPackageCompatibilityRule(
                     "opaque-companion-formats",
-                    $"The package also preserves these opaque TF companion formats: {string.Join(", ", companionFormats)}. .TFP presets and .TFS scenes do not prove that the .TFF settings export is complete."));
+                    companionRequirement));
             }
 
             return rules;

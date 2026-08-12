@@ -110,6 +110,83 @@ public sealed class YamahaSettingsExportRecoveryPackageTests : IDisposable
     }
 
     [Fact]
+    public async Task Dm3_package_labels_all_settings_scenes_presets_and_compatibility_limits()
+    {
+        var export = await CreateExportAsync("Venue.DM3F");
+        await File.WriteAllTextAsync(Path.Combine(export, "Scene.DM3S"), "scene");
+        await File.WriteAllTextAsync(Path.Combine(export, "Vocal.DM3P"), "preset");
+        var discovery = await CreateDm3(export).DiscoverAsync(
+            new DiscoveryRequest(export), CancellationToken.None);
+
+        var package = await CreateWriter(dm3Roots: [export]).CreateAsync(
+            Guid.NewGuid(), Guid.NewGuid(), discovery, DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        Assert.Equal(YamahaDm3SettingsExportDiscoveryPlugin.PluginId,
+            package.Manifest.Source.PluginId);
+        Assert.Equal("1.0.0", package.Manifest.Source.PluginVersion);
+        Assert.Contains(package.Manifest.CompatibilityRules,
+            rule => rule.Kind == "opaque-settings-format" &&
+                rule.Requirement.Contains("Yamaha DM3", StringComparison.Ordinal) &&
+                rule.Requirement.Contains(".DM3F", StringComparison.Ordinal));
+        Assert.Contains(package.Manifest.CompatibilityRules,
+            rule => rule.Kind == "opaque-companion-formats" &&
+                rule.Requirement.Contains(".DM3S", StringComparison.Ordinal) &&
+                rule.Requirement.Contains(".DM3P", StringComparison.Ordinal) &&
+                rule.Requirement.Contains("do not prove", StringComparison.Ordinal));
+        Assert.Contains(package.Manifest.CompatibilityRules,
+            rule => rule.Kind == "operator-confirmation-required" &&
+                rule.Requirement.Contains("export completeness", StringComparison.Ordinal));
+        Assert.Contains(package.Manifest.RestorePrerequisites,
+            value => value.Contains("lower all outputs", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Dm3_package_rechecks_cross_family_structure()
+    {
+        var export = await CreateExportAsync("Venue.DM3F");
+        var discovery = await CreateDm3(export).DiscoverAsync(
+            new DiscoveryRequest(export), CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(export, "Foreign.TFF"), "foreign");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateWriter(dm3Roots: [export]).CreateAsync(
+                Guid.NewGuid(), Guid.NewGuid(), discovery, DateTimeOffset.UtcNow,
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Dm3_existing_package_is_not_reused_after_source_topology_changes()
+    {
+        var export = await CreateExportAsync("Venue.DM3F");
+        var discovery = await CreateDm3(export).DiscoverAsync(
+            new DiscoveryRequest(export), CancellationToken.None);
+        var writer = CreateWriter(dm3Roots: [export]);
+        var agentId = Guid.NewGuid();
+        var discoveryId = Guid.NewGuid();
+        var createdAt = DateTimeOffset.UtcNow;
+        await writer.CreateAsync(
+            agentId, discoveryId, discovery, createdAt, CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(export, "Late.DM3P"), "late");
+
+        await Assert.ThrowsAnyAsync<Exception>(() => writer.CreateAsync(
+            agentId, discoveryId, discovery, createdAt, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Dm3_package_rechecks_local_root_authorization()
+    {
+        var export = await CreateExportAsync("Venue.DM3F");
+        var discovery = await CreateDm3(export).DiscoverAsync(
+            new DiscoveryRequest(export), CancellationToken.None);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            CreateWriter().CreateAsync(
+                Guid.NewGuid(), Guid.NewGuid(), discovery, DateTimeOffset.UtcNow,
+                CancellationToken.None));
+    }
+
+    [Fact]
     public async Task ClQl_package_rechecks_cross_family_structure()
     {
         var export = await CreateExportAsync("Venue.CLF");
@@ -332,18 +409,23 @@ public sealed class YamahaSettingsExportRecoveryPackageTests : IDisposable
     private YamahaTfSettingsExportDiscoveryPlugin CreateTf(string root) =>
         new(CreateOptions(tfRoots: [root]), TimeProvider.System);
 
+    private YamahaDm3SettingsExportDiscoveryPlugin CreateDm3(string root) =>
+        new(CreateOptions(dm3Roots: [root]), TimeProvider.System);
+
     private RecoveryPackageWriter CreateWriter(
         IReadOnlyList<string>? dm7Roots = null,
         IReadOnlyList<string>? rivageRoots = null,
         IReadOnlyList<string>? clQlRoots = null,
-        IReadOnlyList<string>? tfRoots = null) =>
-        new(CreateOptions(dm7Roots, rivageRoots, clQlRoots, tfRoots));
+        IReadOnlyList<string>? tfRoots = null,
+        IReadOnlyList<string>? dm3Roots = null) =>
+        new(CreateOptions(dm7Roots, rivageRoots, clQlRoots, tfRoots, dm3Roots));
 
     private IOptions<AgentOptions> CreateOptions(
         IReadOnlyList<string>? dm7Roots = null,
         IReadOnlyList<string>? rivageRoots = null,
         IReadOnlyList<string>? clQlRoots = null,
-        IReadOnlyList<string>? tfRoots = null) =>
+        IReadOnlyList<string>? tfRoots = null,
+        IReadOnlyList<string>? dm3Roots = null) =>
         Options.Create(new AgentOptions
         {
             ControlPlaneUri = new Uri("https://control.test"),
@@ -352,7 +434,8 @@ public sealed class YamahaSettingsExportRecoveryPackageTests : IDisposable
             YamahaDm7SettingsExportRoots = dm7Roots ?? [],
             YamahaRivageSettingsExportRoots = rivageRoots ?? [],
             YamahaClQlSettingsExportRoots = clQlRoots ?? [],
-            YamahaTfSettingsExportRoots = tfRoots ?? []
+            YamahaTfSettingsExportRoots = tfRoots ?? [],
+            YamahaDm3SettingsExportRoots = dm3Roots ?? []
         });
 
     private sealed class CallbackSourceSnapshotRaceProbe(
