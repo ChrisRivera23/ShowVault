@@ -133,7 +133,7 @@ public sealed class RecoveryPackageRestorer
         }
 
         using var staging = targetParent.CreateDirectory(stagingName);
-        var placedFiles = new List<PlacedRestoreFile>();
+        var placedFiles = new List<RetainedRestoreFile>();
         var stagingPublished = false;
         var publicationValidated = false;
 
@@ -186,7 +186,7 @@ public sealed class RecoveryPackageRestorer
                         temporary.SafeFileHandle,
                         destinationParent,
                         Path.GetFileName(file.RelativePath));
-                    placedFiles.Add(new PlacedRestoreFile(
+                    placedFiles.Add(new RetainedRestoreFile(
                         file.RelativePath,
                         temporary,
                         file.Size,
@@ -349,7 +349,7 @@ public sealed class RecoveryPackageRestorer
 
     private static async Task ValidateStagingTreeAsync(
         StableDirectoryTree staging,
-        IReadOnlyList<PlacedRestoreFile> placedFiles,
+        IReadOnlyList<RetainedRestoreFile> placedFiles,
         CancellationToken cancellationToken,
         Action<string>? fileHashStarted = null)
     {
@@ -378,7 +378,7 @@ public sealed class RecoveryPackageRestorer
     private static async Task ValidateStagingDirectoryAsync(
         StableDirectoryTree directory,
         string parentRelativePath,
-        IReadOnlyDictionary<string, PlacedRestoreFile> expectedFiles,
+        IReadOnlyDictionary<string, RetainedRestoreFile> expectedFiles,
         HashSet<string> remainingFiles,
         HashSet<string> remainingDirectories,
         CancellationToken cancellationToken,
@@ -452,7 +452,7 @@ public sealed class RecoveryPackageRestorer
 
     private static void ValidatePublishedTopology(
         StableDirectoryTree staging,
-        IReadOnlyList<PlacedRestoreFile> placedFiles,
+        IReadOnlyList<RetainedRestoreFile> placedFiles,
         CancellationToken cancellationToken)
     {
         var expectedFiles = placedFiles.ToDictionary(
@@ -479,7 +479,7 @@ public sealed class RecoveryPackageRestorer
     private static void ValidatePublishedTopologyDirectory(
         StableDirectoryTree directory,
         string parentRelativePath,
-        IReadOnlyDictionary<string, PlacedRestoreFile> expectedFiles,
+        IReadOnlyDictionary<string, RetainedRestoreFile> expectedFiles,
         HashSet<string> remainingFiles,
         HashSet<string> remainingDirectories,
         CancellationToken cancellationToken)
@@ -544,34 +544,56 @@ public sealed class RecoveryPackageRestorer
         RecoveryPackageManifest manifest,
         CancellationToken cancellationToken)
     {
-        var expectedFiles = manifest.Files
-            .Select(file => file.RelativePath)
-            .ToHashSet(StringComparer.Ordinal);
+        var expectedFiles = manifest.Files.ToDictionary(
+            file => file.RelativePath,
+            StringComparer.Ordinal);
+        var remainingFiles = expectedFiles.Keys.ToHashSet(StringComparer.Ordinal);
         var expectedDirectories = manifest.Files
             .SelectMany(file => GetParentPaths(file.RelativePath))
             .ToHashSet(StringComparer.Ordinal);
         using var parent = OpenTargetParent(allowedRoot, targetPath);
-        using var root = parent.OpenDirectory(Path.GetFileName(targetPath));
-        await VerifyDirectoryAsync(
-            root,
-            string.Empty,
-            manifest,
-            expectedFiles,
-            expectedDirectories,
-            cancellationToken);
-
-        if (expectedFiles.Count != 0)
+        var targetName = Path.GetFileName(targetPath);
+        using var root = parent.OpenDirectory(targetName);
+        var validatedFiles = new List<RetainedRestoreFile>();
+        try
         {
-            throw new InvalidOperationException("Published restore target is incomplete.");
+            await VerifyDirectoryAsync(
+                root,
+                string.Empty,
+                expectedFiles,
+                remainingFiles,
+                expectedDirectories,
+                validatedFiles,
+                cancellationToken);
+
+            if (remainingFiles.Count != 0)
+            {
+                throw new InvalidOperationException("Published restore target is incomplete.");
+            }
+
+            ValidatePublishedTopology(root, validatedFiles, cancellationToken);
+            if (!root.IsSameDirectoryAt(parent, targetName))
+            {
+                throw new InvalidOperationException(
+                    "Published restore target identity changed.");
+            }
+        }
+        finally
+        {
+            foreach (var validatedFile in validatedFiles)
+            {
+                await validatedFile.Stream.DisposeAsync();
+            }
         }
     }
 
     private async Task VerifyDirectoryAsync(
         StableDirectoryTree directory,
         string parentRelativePath,
-        RecoveryPackageManifest manifest,
-        HashSet<string> expectedFiles,
+        IReadOnlyDictionary<string, RecoveryPackageFile> expectedFiles,
+        HashSet<string> remainingFiles,
         HashSet<string> expectedDirectories,
+        List<RetainedRestoreFile> validatedFiles,
         CancellationToken cancellationToken)
     {
         foreach (var name in directory.EnumerateNames())
@@ -599,9 +621,10 @@ public sealed class RecoveryPackageRestorer
                     await VerifyDirectoryAsync(
                         child,
                         relativePath,
-                        manifest,
                         expectedFiles,
+                        remainingFiles,
                         expectedDirectories,
+                        validatedFiles,
                         cancellationToken);
                     if (!child.IsSameDirectoryAt(directory, name))
                     {
@@ -613,16 +636,17 @@ public sealed class RecoveryPackageRestorer
                 continue;
             }
 
-            if (!expectedFiles.Remove(relativePath))
+            if (!remainingFiles.Remove(relativePath) ||
+                !expectedFiles.TryGetValue(relativePath, out var expected))
             {
                 throw new InvalidOperationException(
                     "Published restore target contains unexpected entries.");
             }
 
-            var expected = manifest.Files.Single(file => file.RelativePath == relativePath);
+            FileStream? stream = null;
             try
             {
-                await using var stream = directory.OpenRegularFile(name);
+                stream = directory.OpenRegularFile(name);
                 var hash = Convert.ToHexStringLower(
                     await SHA256.HashDataAsync(stream, cancellationToken));
                 if (stream.Length != expected.Size ||
@@ -631,12 +655,26 @@ public sealed class RecoveryPackageRestorer
                     throw new InvalidOperationException(
                         "Published restore target failed integrity checks.");
                 }
+
+                validatedFiles.Add(new RetainedRestoreFile(
+                    relativePath,
+                    stream,
+                    expected.Size,
+                    expected.Sha256));
+                stream = null;
             }
             catch (IOException exception)
             {
                 throw new InvalidOperationException(
                     "Published restore target must contain only regular files.",
                     exception);
+            }
+            finally
+            {
+                if (stream is not null)
+                {
+                    await stream.DisposeAsync();
+                }
             }
         }
     }
@@ -850,7 +888,7 @@ public sealed class RecoveryPackageRestorer
     private static bool IsLink(string path) =>
         (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
 
-    private sealed record PlacedRestoreFile(
+    private sealed record RetainedRestoreFile(
         string RelativePath,
         FileStream Stream,
         long Size,

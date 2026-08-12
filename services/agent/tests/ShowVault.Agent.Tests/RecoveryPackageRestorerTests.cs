@@ -429,6 +429,61 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Restore_restart_refuses_root_entry_injected_during_validation()
+    {
+        var package = await CreateNestedPackageAsync(includeLargeFile: true);
+        var restorationId = Guid.NewGuid();
+        await EnqueueRestoreCommandAsync(restorationId, package.Manifest.AgentId);
+        var verificationId = Guid.NewGuid();
+        var targetPath = Path.Combine(RestoreRoot, "replay-root-injection-target");
+        var stagingPath = Path.Combine(
+            RestoreRoot,
+            $".showvault-restore-{restorationId:N}");
+        var first = await CreateRestorer().RestoreAsync(
+            restorationId,
+            package.Manifest.AgentId,
+            new StoredRecoveryPackage(package.PackageId, package.PackagePath, "{}"),
+            verificationId,
+            targetPath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+        var injected = false;
+        var probe = new ActionRaceProbe((point, relativePath) =>
+        {
+            if (point != RestoreRacePoint.AdoptionDirectoryOpened || relativePath != "nested")
+            {
+                return;
+            }
+
+            injected = true;
+            File.WriteAllText(
+                Path.Combine(targetPath, "unexpected.txt"),
+                "attacker-controlled");
+        });
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateRestorer(probe).RestoreAsync(
+                restorationId,
+                package.Manifest.AgentId,
+                new StoredRecoveryPackage(package.PackageId, package.PackagePath, "{}"),
+                verificationId,
+                targetPath,
+                first.RestoredAt,
+                CancellationToken.None));
+
+        Assert.True(injected);
+        Assert.Contains("unexpected entries", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(_testRoot, failure.ToString(), StringComparison.Ordinal);
+        Assert.True(Directory.Exists(targetPath));
+        Assert.Equal(
+            "attacker-controlled",
+            await File.ReadAllTextAsync(Path.Combine(targetPath, "unexpected.txt")));
+        Assert.True(File.Exists(Path.Combine(targetPath, "nested", "a-large.bin")));
+        Assert.True(File.Exists(Path.Combine(targetPath, "nested", "z-escaped.show")));
+        Assert.False(Directory.Exists(stagingPath));
+    }
+
+    [Fact]
     public async Task Restore_restart_adoption_rejects_fifo_without_blocking()
     {
         if (OperatingSystem.IsWindows())
