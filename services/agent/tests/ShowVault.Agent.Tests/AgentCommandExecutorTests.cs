@@ -904,6 +904,73 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Yamaha_dm3_export_packages_exact_root_with_path_free_outcomes()
+    {
+        var export = Path.Combine(_testRoot, "yamaha-dm3-export");
+        var privateSibling = Path.Combine(_testRoot, "private-dm3-data");
+        Directory.CreateDirectory(export);
+        Directory.CreateDirectory(privateSibling);
+        await File.WriteAllTextAsync(Path.Combine(export, "Venue.DM3F"), "opaque-settings");
+        await File.WriteAllTextAsync(Path.Combine(export, "Scene.DM3S"), "scene");
+        await File.WriteAllTextAsync(Path.Combine(privateSibling, "private.txt"), "private");
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var discovery = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartDiscovery,
+            "yamaha-dm3-discovery",
+            JsonSerializer.Serialize(new
+            {
+                pluginId = YamahaDm3SettingsExportDiscoveryPlugin.PluginId,
+                rootPath = export,
+                maxFiles = YamahaSettingsExportDiscoveryPluginBase.MaximumFileLimit
+            }),
+            now,
+            TimeSpan.FromMinutes(5));
+        var backup = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CreateBackup,
+            "yamaha-dm3-backup",
+            JsonSerializer.Serialize(new { discoveryCommandId = discovery.CommandId }),
+            now.AddSeconds(1),
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(discovery, now, CancellationToken.None);
+        var executor = CreateExecutor(store, now);
+        var identity = new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential");
+
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await store.EnqueueCommandAsync(backup, now, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+
+        var package = await store.GetRecoveryPackageAsync(backup.CommandId, CancellationToken.None);
+        Assert.NotNull(package);
+        Assert.True(File.Exists(Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "Venue.DM3F")));
+        Assert.True(File.Exists(Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "Scene.DM3S")));
+        Assert.False(File.Exists(Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "private.txt")));
+        var outcomes = await store.GetPendingEventsAsync(now.AddMinutes(1), 10, CancellationToken.None);
+        Assert.Equal(2, outcomes.Count);
+        Assert.All(outcomes, outcome =>
+        {
+            Assert.DoesNotContain(export, outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("Venue.DM3F", outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("Scene.DM3S", outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("private.txt", outcome.Envelope.Payload, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
     public async Task Yamaha_tf_unauthorized_export_failure_is_path_free()
     {
         var privateRoot = Path.Combine(_testRoot, "unauthorized-yamaha-tf");
@@ -1184,6 +1251,14 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 YamahaTfSettingsExportRoots = [Path.Combine(_testRoot, "yamaha-tf-export")]
             }),
             timeProvider);
+        var yamahaDm3Plugin = new YamahaDm3SettingsExportDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaDm3SettingsExportRoots = [Path.Combine(_testRoot, "yamaha-dm3-export")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier(CreateOptions());
         return new AgentCommandExecutor(
             store,
@@ -1197,7 +1272,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     yamahaDm7Plugin,
                     yamahaRivagePlugin,
                     yamahaClQlPlugin,
-                    yamahaTfPlugin
+                    yamahaTfPlugin,
+                    yamahaDm3Plugin
                 ]),
             new SystemInventoryPlugin(
                 timeProvider,
@@ -1246,6 +1322,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         YamahaRivageSettingsExportRoots = [Path.Combine(_testRoot, "yamaha-rivage-export")],
         YamahaClQlSettingsExportRoots = [Path.Combine(_testRoot, "yamaha-clql-export")],
         YamahaTfSettingsExportRoots = [Path.Combine(_testRoot, "yamaha-tf-export")],
+        YamahaDm3SettingsExportRoots = [Path.Combine(_testRoot, "yamaha-dm3-export")],
         RestoreRoots = [Path.Combine(_testRoot, "restores")]
     });
 
