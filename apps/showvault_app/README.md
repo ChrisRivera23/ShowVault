@@ -17,7 +17,7 @@ com.showvault.app://dev-4m7moxkl7dikmtf7.us.auth0.com/macos/com.showvault.app/ca
 showvault://callback
 ```
 
-Windows support in the Auth0 Flutter SDK is beta and does not persist credentials. ShowVault therefore keeps the Windows session in memory. Production Windows packaging must register the `showvault` protocol handler in its installer.
+Windows support in the Auth0 Flutter SDK is beta and does not persist credentials. ShowVault therefore keeps the Windows session in memory. Windows sign-in is not yet complete: the runner must forward `showvault://callback` activations to the Auth0 plugin, and production packaging must register the `showvault` protocol handler. Do not treat Windows authentication as proven until both pieces are implemented and tested together.
 
 ## Run
 
@@ -29,7 +29,7 @@ flutter run -d macos \
   --dart-define=SHOWVAULT_API_BASE_URL=https://api.showvault.app
 ```
 
-Override `AUTH0_CLIENT_ID`, `AUTH0_DOMAIN`, and `AUTH0_AUDIENCE` only when targeting another environment. When the Android Auth0 domain differs from the repository default, also pass `-Pauth0Domain=<domain>` through Gradle.
+Override `AUTH0_CLIENT_ID`, `AUTH0_DOMAIN`, and `AUTH0_AUDIENCE` only when targeting another environment. `SHOWVAULT_API_BASE_URL` must remain an HTTPS origin without credentials, a path, query, or fragment; the client rejects any other value before sending its access token. When the Android Auth0 domain differs from the repository default, also pass `-Pauth0Domain=<domain>` through Gradle.
 
 ## Verify
 

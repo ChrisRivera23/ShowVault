@@ -17,11 +17,22 @@ class RecoveryHistory {
 }
 
 class ShowVaultApi {
-  ShowVaultApi({http.Client? client}) : _client = client ?? http.Client();
+  ShowVaultApi({http.Client? client, String? baseUrl})
+    : _client = client ?? http.Client(),
+      _baseUri = _parseBaseUri(baseUrl ?? AppConfig.apiBaseUrl);
 
   final http.Client _client;
+  final Uri _baseUri;
 
   Future<RecoveryHistory> loadRecoveryHistory(String accessToken) async {
+    if (accessToken.trim().isEmpty) {
+      throw ArgumentError.value(
+        accessToken,
+        'accessToken',
+        'must not be empty',
+      );
+    }
+
     final organizations = await _getList('/api/v1/organizations', accessToken);
     if (organizations.isEmpty) {
       return const RecoveryHistory(
@@ -62,7 +73,7 @@ class ShowVaultApi {
     String accessToken,
   ) async {
     final response = await _client.get(
-      Uri.parse('${AppConfig.apiBaseUrl}$path'),
+      _baseUri.resolve(path),
       headers: {'Authorization': 'Bearer $accessToken'},
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -73,6 +84,25 @@ class ShowVaultApi {
     return payload
         .map((item) => item! as Map<String, Object?>)
         .toList(growable: false);
+  }
+
+  static Uri _parseBaseUri(String value) {
+    final uri = Uri.tryParse(value);
+    if (uri == null ||
+        uri.scheme != 'https' ||
+        !uri.hasAuthority ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        (uri.path.isNotEmpty && uri.path != '/') ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      throw ArgumentError.value(
+        value,
+        'baseUrl',
+        'must be an HTTPS origin without credentials, a path, query, or fragment',
+      );
+    }
+    return uri;
   }
 }
 

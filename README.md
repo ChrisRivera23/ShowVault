@@ -60,7 +60,7 @@ Current development branch:
 
 - `codex/flutter-auth0-live-history` — native Flutter runners, Auth0 client sign-in, and live recovery-history loading.
 
-Auth0 dashboard application creation is waiting for the Product Owner to sign in on the prepared Chrome tab. Membership administration, user-requested command cancellation, digital signatures, NAS/cloud storage, and persistent control-plane package records have not been implemented yet.
+The Auth0 Native application is registered. Windows callback forwarding and installer protocol registration still need to be implemented and proven together. Membership administration, user-requested command cancellation, digital signatures, NAS/cloud storage, and persistent control-plane package records have not been implemented yet.
 
 ## Approved product direction
 

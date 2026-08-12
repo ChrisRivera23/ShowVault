@@ -33,4 +33,32 @@ void main() {
       '/api/v1/organizations/org-id/venues/venue-id/recovery-runs',
     ]);
   });
+
+  test('rejects an insecure API origin before sending an access token', () {
+    var requestSent = false;
+    final client = MockClient((request) async {
+      requestSent = true;
+      return http.Response('{"payload":[]}', 200);
+    });
+
+    expect(
+      () => ShowVaultApi(client: client, baseUrl: 'http://api.showvault.test'),
+      throwsArgumentError,
+    );
+    expect(requestSent, isFalse);
+  });
+
+  test('rejects an empty access token before making a request', () async {
+    var requestSent = false;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        requestSent = true;
+        return http.Response('{"payload":[]}', 200);
+      }),
+      baseUrl: 'https://api.showvault.test',
+    );
+
+    await expectLater(api.loadRecoveryHistory('   '), throwsArgumentError);
+    expect(requestSent, isFalse);
+  });
 }
