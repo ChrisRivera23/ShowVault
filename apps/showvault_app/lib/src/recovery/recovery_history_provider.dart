@@ -1,7 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:showvault_app/src/recovery/recovery_run.dart';
+import 'package:showvault_app/src/api/showvault_api.dart';
+import 'package:showvault_app/src/auth/auth_provider.dart';
 
-final recoveryHistoryProvider = Provider<List<RecoveryRun>>((ref) {
-  // Authenticated API loading replaces this honest empty state after sign-in.
-  return const [];
+final showVaultApiProvider = Provider<ShowVaultApi>((ref) => ShowVaultApi());
+
+final recoveryHistoryProvider = FutureProvider<RecoveryHistory>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) throw StateError('Authentication is required.');
+  return ref
+      .watch(showVaultApiProvider)
+      .loadRecoveryHistory(session.accessToken);
 });

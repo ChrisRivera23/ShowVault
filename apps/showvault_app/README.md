@@ -1,0 +1,47 @@
+# ShowVault native client
+
+The shared Flutter client targets Android, iOS, macOS, and Windows. It uses Auth0 Universal Login and loads tenant-scoped recovery history from the ShowVault control plane; no preview recovery records are bundled.
+
+## Auth0 application
+
+The Auth0 application `ShowVault Flutter` is registered as a Native application. Its public Client ID is configured as the app default, the native identity is `com.showvault.app`, and the tenant domain currently used by the API is `dev-4m7moxkl7dikmtf7.us.auth0.com`.
+
+Configure both Allowed Callback URLs and Allowed Logout URLs with:
+
+```text
+https://dev-4m7moxkl7dikmtf7.us.auth0.com/android/com.showvault.app/callback
+https://dev-4m7moxkl7dikmtf7.us.auth0.com/ios/com.showvault.app/callback
+com.showvault.app://dev-4m7moxkl7dikmtf7.us.auth0.com/ios/com.showvault.app/callback
+https://dev-4m7moxkl7dikmtf7.us.auth0.com/macos/com.showvault.app/callback
+com.showvault.app://dev-4m7moxkl7dikmtf7.us.auth0.com/macos/com.showvault.app/callback
+showvault://callback
+```
+
+ShowVault keeps macOS and Windows operator sessions in memory so the client never stores them in the user's personal login Keychain. Apple login uses the registered custom-scheme callback rather than requiring associated-domain entitlements. Windows support in the Auth0 Flutter SDK is beta; the runner forwards only exact `showvault://callback` activations over a current-user, single-instance channel to the Auth0 plugin. Production packaging must still register the `showvault` protocol handler, and the complete installed flow requires native Windows proof. Do not treat Windows authentication as proven until runner forwarding and installer registration pass together on Windows.
+
+## Run
+
+Never commit an Auth0 client secret. Native clients use a public Client ID and Authorization Code + PKCE.
+
+```bash
+flutter pub get
+flutter run -d macos \
+  --dart-define=SHOWVAULT_API_BASE_URL=https://api.showvault.app
+```
+
+Override `AUTH0_CLIENT_ID`, `AUTH0_DOMAIN`, and `AUTH0_AUDIENCE` only when targeting another environment. `SHOWVAULT_API_BASE_URL` must remain an HTTPS origin without credentials, a path, query, or fragment; the client rejects any other value before sending its access token. When the Android Auth0 domain differs from the repository default, also pass `-Pauth0Domain=<domain>` through Gradle.
+
+## Verify
+
+```bash
+flutter analyze
+flutter test
+c++ -std=c++17 -Wall -Wextra -Werror \
+  windows/runner/auth_callback_protocol.cpp \
+  windows/runner/auth_callback_protocol_test.cpp \
+  -o /tmp/showvault-auth-callback-protocol-test
+/tmp/showvault-auth-callback-protocol-test
+flutter build macos --debug
+```
+
+A macOS build requires full Xcode, not only the Command Line Tools. The portable callback test validates URI acceptance but does not replace a native Windows runner build or installed protocol activation proof.
