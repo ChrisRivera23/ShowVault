@@ -118,6 +118,14 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
                     "Configured directory has no recognized root-level Yamaha settings artifact.");
             }
 
+            if (GetConflictingPrimaryFormats(
+                    pluginId,
+                    snapshot.Files.Select(file => file.RelativePath)).Count != 0)
+            {
+                throw new InvalidOperationException(
+                    "Configured directory contains a settings artifact for another Yamaha family.");
+            }
+
             return snapshot;
         }
         catch
@@ -127,27 +135,46 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
         }
     }
 
-    internal static bool AreConfiguredRootsValid(IReadOnlyList<string> roots) =>
-        roots.Count <= MaximumConfiguredRootCount &&
-        roots.All(Path.IsPathFullyQualified) &&
-        roots.Select(NormalizeRoot).Distinct(PathComparer).Count() == roots.Count;
-
-    internal static bool HaveNoOverlap(
-        IReadOnlyList<string> first,
-        IReadOnlyList<string> second)
+    internal static bool AreConfiguredRootsValid(IReadOnlyList<string> roots)
     {
-        if (!first.All(Path.IsPathFullyQualified) ||
-            !second.All(Path.IsPathFullyQualified))
+        if (roots.Count > MaximumConfiguredRootCount ||
+            !roots.All(Path.IsPathFullyQualified))
+        {
+            return false;
+        }
+
+        var normalized = roots.Select(NormalizeRoot).ToList();
+        return normalized.Distinct(PathComparer).Count() == roots.Count &&
+            !normalized.Where((_, index) =>
+                    normalized.Skip(index + 1).Any(other =>
+                        IsSameOrDescendant(normalized[index], other) ||
+                        IsSameOrDescendant(other, normalized[index])))
+                .Any();
+    }
+
+    internal static bool HaveNoOverlap(params IReadOnlyList<string>[] groups)
+    {
+        if (groups.Any(group => !group.All(Path.IsPathFullyQualified)))
         {
             return true;
         }
 
-        var normalizedFirst = first.Select(NormalizeRoot).ToList();
-        var normalizedSecond = second.Select(NormalizeRoot).ToList();
-        return !normalizedFirst.Any(firstRoot =>
-            normalizedSecond.Any(secondRoot =>
-                IsSameOrDescendant(firstRoot, secondRoot) ||
-                IsSameOrDescendant(secondRoot, firstRoot)));
+        for (var firstIndex = 0; firstIndex < groups.Length; firstIndex++)
+        {
+            var firstRoots = groups[firstIndex].Select(NormalizeRoot).ToList();
+            for (var secondIndex = firstIndex + 1; secondIndex < groups.Length; secondIndex++)
+            {
+                var secondRoots = groups[secondIndex].Select(NormalizeRoot).ToList();
+                if (firstRoots.Any(firstRoot => secondRoots.Any(secondRoot =>
+                        IsSameOrDescendant(firstRoot, secondRoot) ||
+                        IsSameOrDescendant(secondRoot, firstRoot))))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     internal static string NormalizeRoot(string path) =>
@@ -164,7 +191,9 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
 
     internal static bool IsYamahaPlugin(string pluginId) =>
         pluginId is YamahaDm7SettingsExportDiscoveryPlugin.PluginId or
-            YamahaRivageSettingsExportDiscoveryPlugin.PluginId;
+            YamahaRivageSettingsExportDiscoveryPlugin.PluginId or
+            YamahaClQlSettingsExportDiscoveryPlugin.PluginId or
+            YamahaTfSettingsExportDiscoveryPlugin.PluginId;
 
     internal static bool IsAuthorizedRoot(AgentOptions options, string pluginId, string rootPath)
     {
@@ -174,6 +203,10 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
                 options.YamahaDm7SettingsExportRoots,
             YamahaRivageSettingsExportDiscoveryPlugin.PluginId =>
                 options.YamahaRivageSettingsExportRoots,
+            YamahaClQlSettingsExportDiscoveryPlugin.PluginId =>
+                options.YamahaClQlSettingsExportRoots,
+            YamahaTfSettingsExportDiscoveryPlugin.PluginId =>
+                options.YamahaTfSettingsExportRoots,
             _ => []
         };
         return roots.Select(NormalizeRoot).Contains(NormalizeRoot(rootPath), PathComparer);
@@ -203,6 +236,16 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
             {
                 formats.Add(extension.ToUpperInvariant());
             }
+            else if (pluginId == YamahaClQlSettingsExportDiscoveryPlugin.PluginId &&
+                     string.Equals(extension, ".CLF", StringComparison.OrdinalIgnoreCase))
+            {
+                formats.Add(".CLF");
+            }
+            else if (pluginId == YamahaTfSettingsExportDiscoveryPlugin.PluginId &&
+                     string.Equals(extension, ".TFF", StringComparison.OrdinalIgnoreCase))
+            {
+                formats.Add(".TFF");
+            }
         }
 
         return formats.OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToList();
@@ -212,8 +255,74 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
     {
         YamahaDm7SettingsExportDiscoveryPlugin.PluginId => "Yamaha DM7",
         YamahaRivageSettingsExportDiscoveryPlugin.PluginId => "Yamaha RIVAGE PM",
+        YamahaClQlSettingsExportDiscoveryPlugin.PluginId => "Yamaha CL/QL",
+        YamahaTfSettingsExportDiscoveryPlugin.PluginId => "Yamaha TF",
         _ => "Yamaha"
     };
+
+    internal static IReadOnlyList<string> GetCompanionFormats(
+        string pluginId,
+        IEnumerable<string> relativePaths)
+    {
+        if (pluginId != YamahaTfSettingsExportDiscoveryPlugin.PluginId)
+        {
+            return [];
+        }
+
+        return relativePaths
+            .Select(Path.GetExtension)
+            .Where(extension => !string.IsNullOrEmpty(extension) &&
+                (string.Equals(extension, ".TFP", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(extension, ".TFS", StringComparison.OrdinalIgnoreCase)))
+            .Select(extension => extension!.ToUpperInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(extension => extension, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> GetConflictingPrimaryFormats(
+        string pluginId,
+        IEnumerable<string> relativePaths)
+    {
+        var conflicts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var extension in relativePaths.Select(Path.GetExtension))
+        {
+            if (string.IsNullOrEmpty(extension))
+            {
+                continue;
+            }
+
+            var owner = GetPrimaryFormatOwner(extension);
+            if (owner is not null && !string.Equals(owner, pluginId, StringComparison.Ordinal))
+            {
+                conflicts.Add(extension.ToUpperInvariant());
+            }
+        }
+
+        return conflicts.OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private static string? GetPrimaryFormatOwner(string extension)
+    {
+        if (string.Equals(extension, ".dm7f", StringComparison.OrdinalIgnoreCase))
+        {
+            return YamahaDm7SettingsExportDiscoveryPlugin.PluginId;
+        }
+
+        if (YamahaRivageSettingsExportDiscoveryPlugin.SettingsExtensions.Contains(extension))
+        {
+            return YamahaRivageSettingsExportDiscoveryPlugin.PluginId;
+        }
+
+        if (string.Equals(extension, ".CLF", StringComparison.OrdinalIgnoreCase))
+        {
+            return YamahaClQlSettingsExportDiscoveryPlugin.PluginId;
+        }
+
+        return string.Equals(extension, ".TFF", StringComparison.OrdinalIgnoreCase)
+            ? YamahaTfSettingsExportDiscoveryPlugin.PluginId
+            : null;
+    }
 
     protected AgentOptions Options => options.Value;
 }
@@ -260,4 +369,38 @@ public sealed class YamahaRivageSettingsExportDiscoveryPlugin(
 
     protected override IReadOnlyList<string> ConfiguredRoots =>
         Options.YamahaRivageSettingsExportRoots;
+}
+
+public sealed class YamahaClQlSettingsExportDiscoveryPlugin(
+    IOptions<AgentOptions> options,
+    TimeProvider timeProvider) : YamahaSettingsExportDiscoveryPluginBase(options, timeProvider)
+{
+    public const string PluginId = "showvault.yamaha-cl-ql-settings-export";
+
+    public override AgentPluginManifest Manifest { get; } = new(
+        PluginId,
+        "ShowVault Yamaha CL/QL Settings Export Assisted Recovery",
+        "1.0.0",
+        new HashSet<AgentPluginCapability> { AgentPluginCapability.Discovery },
+        new HashSet<AgentPluginPermission> { AgentPluginPermission.ReadFiles });
+
+    protected override IReadOnlyList<string> ConfiguredRoots =>
+        Options.YamahaClQlSettingsExportRoots;
+}
+
+public sealed class YamahaTfSettingsExportDiscoveryPlugin(
+    IOptions<AgentOptions> options,
+    TimeProvider timeProvider) : YamahaSettingsExportDiscoveryPluginBase(options, timeProvider)
+{
+    public const string PluginId = "showvault.yamaha-tf-settings-export";
+
+    public override AgentPluginManifest Manifest { get; } = new(
+        PluginId,
+        "ShowVault Yamaha TF Settings Export Assisted Recovery",
+        "1.0.0",
+        new HashSet<AgentPluginCapability> { AgentPluginCapability.Discovery },
+        new HashSet<AgentPluginPermission> { AgentPluginPermission.ReadFiles });
+
+    protected override IReadOnlyList<string> ConfiguredRoots =>
+        Options.YamahaTfSettingsExportRoots;
 }

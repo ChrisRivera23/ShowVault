@@ -60,6 +60,101 @@ public sealed class YamahaSettingsExportRecoveryPackageTests : IDisposable
     }
 
     [Fact]
+    public async Task ClQl_package_requires_exact_source_model_and_completeness_confirmation()
+    {
+        var export = await CreateExportAsync("Venue.CLF");
+        var discovery = await CreateClQl(export).DiscoverAsync(
+            new DiscoveryRequest(export), CancellationToken.None);
+
+        var package = await CreateWriter(clQlRoots: [export]).CreateAsync(
+            Guid.NewGuid(), Guid.NewGuid(), discovery, DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        Assert.Equal(YamahaClQlSettingsExportDiscoveryPlugin.PluginId,
+            package.Manifest.Source.PluginId);
+        Assert.Contains(package.Manifest.CompatibilityRules,
+            rule => rule.Kind == "opaque-settings-format" &&
+                rule.Requirement.Contains("Yamaha CL/QL", StringComparison.Ordinal) &&
+                rule.Requirement.Contains(".CLF", StringComparison.Ordinal));
+        Assert.Contains(package.Manifest.CompatibilityRules,
+            rule => rule.Kind == "operator-confirmation-required" &&
+                rule.Requirement.Contains("exact source family", StringComparison.Ordinal) &&
+                rule.Requirement.Contains("export completeness", StringComparison.Ordinal));
+        Assert.Contains(package.Manifest.RestorePrerequisites,
+            value => value.Contains("lower all outputs", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Tf_package_labels_presets_and_scenes_as_opaque_companions()
+    {
+        var export = await CreateExportAsync("Venue.TFF");
+        await File.WriteAllTextAsync(Path.Combine(export, "Vocal.TFP"), "preset");
+        await File.WriteAllTextAsync(Path.Combine(export, "Scene.TFS"), "scene");
+        var discovery = await CreateTf(export).DiscoverAsync(
+            new DiscoveryRequest(export), CancellationToken.None);
+
+        var package = await CreateWriter(tfRoots: [export]).CreateAsync(
+            Guid.NewGuid(), Guid.NewGuid(), discovery, DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        Assert.Equal(YamahaTfSettingsExportDiscoveryPlugin.PluginId,
+            package.Manifest.Source.PluginId);
+        Assert.Contains(package.Manifest.CompatibilityRules,
+            rule => rule.Kind == "opaque-settings-format" &&
+                rule.Requirement.Contains(".TFF", StringComparison.Ordinal));
+        Assert.Contains(package.Manifest.CompatibilityRules,
+            rule => rule.Kind == "opaque-companion-formats" &&
+                rule.Requirement.Contains(".TFP", StringComparison.Ordinal) &&
+                rule.Requirement.Contains(".TFS", StringComparison.Ordinal) &&
+                rule.Requirement.Contains("do not prove", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ClQl_package_rechecks_cross_family_structure()
+    {
+        var export = await CreateExportAsync("Venue.CLF");
+        var discovery = await CreateClQl(export).DiscoverAsync(
+            new DiscoveryRequest(export), CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(export, "Foreign.TFF"), "foreign");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateWriter(clQlRoots: [export]).CreateAsync(
+                Guid.NewGuid(), Guid.NewGuid(), discovery, DateTimeOffset.UtcNow,
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Tf_existing_package_is_not_reused_after_source_topology_changes()
+    {
+        var export = await CreateExportAsync("Venue.TFF");
+        var discovery = await CreateTf(export).DiscoverAsync(
+            new DiscoveryRequest(export), CancellationToken.None);
+        var writer = CreateWriter(tfRoots: [export]);
+        var agentId = Guid.NewGuid();
+        var discoveryId = Guid.NewGuid();
+        var createdAt = DateTimeOffset.UtcNow;
+        await writer.CreateAsync(
+            agentId, discoveryId, discovery, createdAt, CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(export, "Late.TFP"), "late");
+
+        await Assert.ThrowsAnyAsync<Exception>(() => writer.CreateAsync(
+            agentId, discoveryId, discovery, createdAt, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ClQl_package_rechecks_local_root_authorization()
+    {
+        var export = await CreateExportAsync("Venue.CLF");
+        var discovery = await CreateClQl(export).DiscoverAsync(
+            new DiscoveryRequest(export), CancellationToken.None);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            CreateWriter().CreateAsync(
+                Guid.NewGuid(), Guid.NewGuid(), discovery, DateTimeOffset.UtcNow,
+                CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Package_rejects_late_file_without_publishing_stale_package()
     {
         var export = await CreateExportAsync("Venue.dm7f");
@@ -231,21 +326,33 @@ public sealed class YamahaSettingsExportRecoveryPackageTests : IDisposable
     private YamahaRivageSettingsExportDiscoveryPlugin CreateRivage(string root) =>
         new(CreateOptions(rivageRoots: [root]), TimeProvider.System);
 
+    private YamahaClQlSettingsExportDiscoveryPlugin CreateClQl(string root) =>
+        new(CreateOptions(clQlRoots: [root]), TimeProvider.System);
+
+    private YamahaTfSettingsExportDiscoveryPlugin CreateTf(string root) =>
+        new(CreateOptions(tfRoots: [root]), TimeProvider.System);
+
     private RecoveryPackageWriter CreateWriter(
         IReadOnlyList<string>? dm7Roots = null,
-        IReadOnlyList<string>? rivageRoots = null) =>
-        new(CreateOptions(dm7Roots, rivageRoots));
+        IReadOnlyList<string>? rivageRoots = null,
+        IReadOnlyList<string>? clQlRoots = null,
+        IReadOnlyList<string>? tfRoots = null) =>
+        new(CreateOptions(dm7Roots, rivageRoots, clQlRoots, tfRoots));
 
     private IOptions<AgentOptions> CreateOptions(
         IReadOnlyList<string>? dm7Roots = null,
-        IReadOnlyList<string>? rivageRoots = null) =>
+        IReadOnlyList<string>? rivageRoots = null,
+        IReadOnlyList<string>? clQlRoots = null,
+        IReadOnlyList<string>? tfRoots = null) =>
         Options.Create(new AgentOptions
         {
             ControlPlaneUri = new Uri("https://control.test"),
             Name = "Test Agent",
             PackageDirectory = Path.Combine(_root, "packages"),
             YamahaDm7SettingsExportRoots = dm7Roots ?? [],
-            YamahaRivageSettingsExportRoots = rivageRoots ?? []
+            YamahaRivageSettingsExportRoots = rivageRoots ?? [],
+            YamahaClQlSettingsExportRoots = clQlRoots ?? [],
+            YamahaTfSettingsExportRoots = tfRoots ?? []
         });
 
     private sealed class CallbackSourceSnapshotRaceProbe(
