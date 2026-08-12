@@ -51,12 +51,14 @@ Completed:
 - Verification results are stored once with an evidence digest; detected corruption completes with a failed integrity result rather than an executor error.
 - `StartRestore` requires passing verification and restores only beneath locally allowed roots into absent or empty targets.
 - Restore copying uses staging, immediate package revalidation, restored-file hashing, atomic publication, restart-safe intent, and write-once evidence.
+- The control plane derives tenant-scoped recovery runs from issued commands and durable Agent outcomes without exposing local filesystem paths.
+- Flutter now presents a responsive Scan → Backup → Verify → Restore history with an honest empty state until native Auth0 sign-in enables live data.
 
 Current development branch:
 
-- `codex/controlled-local-restore` — verified, allowlisted, controlled local restoration.
+- `codex/recovery-history-read-model` — tenant recovery history and first Flutter recovery-loop view.
 
-Client sign-in, membership administration, user-requested command cancellation, Flutter recovery-loop visibility, digital signatures, NAS/cloud storage, and control-plane package read models have not been implemented yet.
+Native client sign-in/live history loading, membership administration, user-requested command cancellation, digital signatures, NAS/cloud storage, and persistent control-plane package records have not been implemented yet.
 
 ## Approved product direction
 
@@ -262,7 +264,7 @@ Universal object abstractions will be considered only after real plugin implemen
 8. Define and create the immutable recovery-package format. — Complete (local format 1.0)
 9. Implement cryptographic verification. — Initial structural and SHA-256 integrity verification complete
 10. Implement a controlled local restore. — Complete (allowlisted test targets)
-11. Display the complete recovery loop in Flutter. — Next, with a control-plane recovery read model
+11. Display the complete recovery loop in Flutter. — Initial read model and truthful empty/status presentation complete; live Auth0 loading next
 12. Add the network-device and system-inventory plugins.
 13. Add cloud upload and mobile monitoring.
 14. Pilot repeatedly with one real venue.
@@ -271,10 +273,10 @@ Universal object abstractions will be considered only after real plugin implemen
 
 This section is maintained so a new Codex task can resume without relying on the previous chat transcript.
 
-- Completed draft PR stack: PR #3 `codex/auth-tenancy-foundation`, PR #4 `codex/agent-enrollment-identity`, PR #5 `codex/agent-outbound-queue`, PR #6 `codex/agent-command-delivery`, PR #7 `codex/file-discovery-plugin`, PR #8 `codex/immutable-recovery-package`, and PR #9 `codex/package-verification`.
-- Active work: `codex/controlled-local-restore`, stacked on PR #9.
-- This slice adds locally allowlisted strict-descendant targets, passing-verification enforcement, pre-restore revalidation, no-follow staging, restored-content hashing, atomic publication, durable restore intents, restart adoption of only matching published targets, and write-once restoration evidence.
-- The next implementation task is a control-plane recovery read model derived from Agent outcome events and the first Flutter view of the Scan → Backup → Verify → Restore loop. Package signatures remain separate future security work.
+- Completed draft PR stack: PR #3 `codex/auth-tenancy-foundation`, PR #4 `codex/agent-enrollment-identity`, PR #5 `codex/agent-outbound-queue`, PR #6 `codex/agent-command-delivery`, PR #7 `codex/file-discovery-plugin`, PR #8 `codex/immutable-recovery-package`, PR #9 `codex/package-verification`, and PR #10 `codex/controlled-local-restore`.
+- Active work: `codex/recovery-history-read-model`, stacked on PR #10.
+- This slice adds tenant/venue recovery-run derivation, Agent-bound typed stage linkage, truthful status projection, authorization coverage, strict Flutter response models, and a responsive recovery-loop dashboard without synthetic recovery claims.
+- The next implementation task is native Flutter platform runners, an Auth0 Native application/callback configuration, authenticated API loading, and removal of preview data once the live state is proven. Package signatures remain separate future security work.
 - Auth0 is configured for human identity. Agent authentication intentionally remains a separate credential scheme.
 - Exact Codex context-window percentages are not exposed to the assistant. A context compaction occurred while building this slice; this README is the durable source of truth for a new task.
 
@@ -353,4 +355,4 @@ dotnet test tests/ShowVault.Agent.Tests/ShowVault.Agent.Tests.csproj
 
 The Product Owner approved the focused venue-resilience direction, the control-plane/Venue-Agent separation, Flutter clients, ASP.NET Core modular monolith, PostgreSQL metadata storage, SQLite local state, S3-compatible content storage, evidence-based verification, and a narrow one-venue/one-plugin recovery MVP.
 
-Draft PRs #3 through #9 establish Auth0 tenancy, secure Agent identity, durable communication, allowlisted filesystem discovery, atomic recovery packages, and independent integrity verification. The active restore slice executes `StartRestore` only against passing evidence and an explicitly allowed empty target, atomically publishes re-hashed content, and records restart-safe restoration evidence. The next vertical slice should derive a control-plane recovery read model from Agent outcomes and display the first complete Scan → Backup → Verify → Restore history in Flutter. macOS LaunchDaemon keychain access remains an installer-validation requirement. Keep this README current and continue through focused, validated draft pull requests.
+Draft PRs #3 through #10 establish Auth0 tenancy and the complete Agent-side Scan → Backup → Verify → Restore loop. The active history slice derives tenant-scoped, Agent-bound runs from the command/event ledger and presents the first responsive Flutter recovery dashboard without leaking Agent-local paths or inventing recovery evidence. The view remains empty until native runners and Auth0 client configuration provide live authenticated loading. macOS LaunchDaemon keychain access remains an installer-validation requirement. Keep this README current and continue through focused, validated draft pull requests.
