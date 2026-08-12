@@ -228,6 +228,49 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Restore_refuses_replaced_staging_file_after_hash()
+    {
+        var package = await CreatePackageAsync();
+        var restorationId = Guid.NewGuid();
+        await EnqueueRestoreCommandAsync(restorationId, package.Manifest.AgentId);
+        var targetPath = Path.Combine(RestoreRoot, "staging-file-swap-target");
+        var stagingPath = Path.Combine(
+            RestoreRoot,
+            $".showvault-restore-{restorationId:N}");
+        var replacementAttempted = false;
+        var probe = new ActionRaceProbe((point, relativePath) =>
+        {
+            if (point != RestoreRacePoint.DestinationFileOpened || relativePath != "main.show")
+            {
+                return;
+            }
+
+            var temporaryPath = Assert.Single(Directory.EnumerateFiles(
+                stagingPath,
+                ".showvault-file-*",
+                SearchOption.TopDirectoryOnly));
+            replacementAttempted = true;
+            File.Delete(temporaryPath);
+            File.WriteAllText(temporaryPath, "attacker-controlled");
+        });
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateRestorer(probe).RestoreAsync(
+                restorationId,
+                package.Manifest.AgentId,
+                new StoredRecoveryPackage(package.PackageId, package.PackagePath, "{}"),
+                Guid.NewGuid(),
+                targetPath,
+                DateTimeOffset.UtcNow,
+                CancellationToken.None));
+
+        Assert.True(replacementAttempted);
+        Assert.DoesNotContain(_testRoot, failure.ToString(), StringComparison.Ordinal);
+        Assert.False(Directory.Exists(targetPath));
+        Assert.False(Directory.Exists(stagingPath));
+    }
+
+    [Fact]
     public async Task Restore_resumes_after_atomic_publication_using_durable_intent()
     {
         var package = await CreatePackageAsync();
