@@ -35,6 +35,10 @@ internal sealed class StableDirectoryTree : IDisposable
             ? WindowsNative.Duplicate(_handle)
             : UnixNative.Duplicate(_handle));
 
+    public bool HasSameIdentity(StableDirectoryTree other) => OperatingSystem.IsWindows()
+        ? WindowsNative.SameIdentity(_handle, other._handle)
+        : UnixNative.SameIdentity(_handle, other._handle);
+
     public static StableDirectoryTree Open(string path)
     {
         var normalized = System.IO.Path.TrimEndingDirectorySeparator(
@@ -147,19 +151,26 @@ internal sealed class StableDirectoryTree : IDisposable
     }
 
     public void RenameChild(string sourceName, string destinationName)
+        => MoveChildTo(sourceName, this, destinationName);
+
+    public void MoveChildTo(
+        string sourceName,
+        StableDirectoryTree destination,
+        string destinationName)
     {
         ValidateName(sourceName);
         ValidateName(destinationName);
         if (OperatingSystem.IsWindows())
         {
             WindowsNative.EnsureSameDirectory(_handle, _path);
+            WindowsNative.EnsureSameDirectory(destination._handle, destination._path);
             Directory.Move(
                 System.IO.Path.Combine(_path, sourceName),
-                System.IO.Path.Combine(_path, destinationName));
+                System.IO.Path.Combine(destination._path, destinationName));
             return;
         }
 
-        UnixNative.RenameAt(_handle, sourceName, destinationName);
+        UnixNative.RenameAt(_handle, sourceName, destination._handle, destinationName);
     }
 
     public void DeleteChildTreeIfSame(string name, StableDirectoryTree expected)
@@ -328,9 +339,17 @@ internal sealed class StableDirectoryTree : IDisposable
             return leftIdentity == rightIdentity;
         }
 
-        public static void RenameAt(SafeFileHandle parent, string source, string destination)
+        public static void RenameAt(
+            SafeFileHandle sourceParent,
+            string source,
+            SafeFileHandle destinationParent,
+            string destination)
         {
-            if (renameat(Fd(parent), source, Fd(parent), destination) != 0)
+            if (renameat(
+                Fd(sourceParent),
+                source,
+                Fd(destinationParent),
+                destination) != 0)
             {
                 throw Error("Could not publish the restored target.");
             }

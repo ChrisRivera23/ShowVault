@@ -290,6 +290,7 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
                 CancellationToken.None));
 
         Assert.DoesNotContain(_testRoot, failure.ToString(), StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(outside, "a-large.bin")));
         Assert.False(File.Exists(Path.Combine(outside, "z-escaped.show")));
         Assert.False(Directory.Exists(targetPath));
         Assert.False(Directory.Exists(stagingPath));

@@ -116,6 +116,9 @@ public sealed class RecoveryPackageRestorer
         var parentPath = Path.GetDirectoryName(normalizedTarget)
             ?? throw new InvalidOperationException("Restore target must have a parent directory.");
         var stagingPath = Path.Combine(parentPath, $".showvault-restore-{restorationId:N}");
+        using var targetParent = OpenTargetParent(allowedRoot, normalizedTarget);
+        var stagingName = Path.GetFileName(stagingPath);
+        var targetName = Path.GetFileName(normalizedTarget);
         EnsureParentPathIsSafe(allowedRoot, normalizedTarget);
         if (File.Exists(stagingPath) || IsLinkIfPresent(stagingPath))
         {
@@ -124,12 +127,10 @@ public sealed class RecoveryPackageRestorer
 
         if (Directory.Exists(stagingPath))
         {
-            Directory.Delete(stagingPath, recursive: true);
+            using var staleStaging = targetParent.OpenDirectory(stagingName);
+            targetParent.DeleteChildTreeIfSame(stagingName, staleStaging);
         }
 
-        using var targetParent = OpenTargetParent(allowedRoot, normalizedTarget);
-        var stagingName = Path.GetFileName(stagingPath);
-        var targetName = Path.GetFileName(normalizedTarget);
         using var staging = targetParent.CreateDirectory(stagingName);
 
         try
@@ -147,23 +148,39 @@ public sealed class RecoveryPackageRestorer
                 await using var source = RecoveryPackageVerifier.OpenRegularFile(sourcePath)
                     ?? throw new InvalidOperationException(
                         $"Restore source must be a regular file: {file.RelativePath}");
-                using var destinationParent = OpenOrCreateRelativeParent(
-                    staging,
-                    file.RelativePath);
-                await using var destination = destinationParent.CreateFile(
-                    Path.GetFileName(file.RelativePath));
-                _raceProbe?.Reached(RestoreRacePoint.DestinationFileOpened, file.RelativePath);
-                var restoredHash = await CopyAndHashAsync(
-                    source,
-                    destination,
-                    cancellationToken);
-                if (source.Length != file.Size ||
-                    destination.Length != file.Size ||
+                var temporaryName = $".showvault-file-{Guid.NewGuid():N}";
+                string restoredHash;
+                long restoredLength;
+                await using (var temporary = staging.CreateFile(temporaryName))
+                {
+                    restoredHash = await CopyAndHashAsync(
+                        source,
+                        temporary,
+                        cancellationToken);
+                    restoredLength = temporary.Length;
+                }
+
+                if (source.Length != file.Size || restoredLength != file.Size ||
                     !string.Equals(restoredHash, file.Sha256, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException(
                         $"Restored content does not match the package: {file.RelativePath}");
                 }
+
+                using var destinationParent = OpenOrCreateRelativeParent(
+                    staging,
+                    file.RelativePath);
+                _raceProbe?.Reached(RestoreRacePoint.DestinationFileOpened, file.RelativePath);
+                if (!IsExpectedRelativeParent(staging, file.RelativePath, destinationParent))
+                {
+                    throw new InvalidOperationException(
+                        "Restore destination directory identity changed.");
+                }
+
+                staging.MoveChildTo(
+                    temporaryName,
+                    destinationParent,
+                    Path.GetFileName(file.RelativePath));
             }
 
             EnsureParentPathIsSafe(allowedRoot, normalizedTarget);
@@ -175,7 +192,13 @@ public sealed class RecoveryPackageRestorer
 
             if (Directory.Exists(normalizedTarget))
             {
-                Directory.Delete(normalizedTarget);
+                using var emptyTarget = targetParent.OpenDirectory(targetName);
+                if (emptyTarget.EnumerateNames().Count != 0)
+                {
+                    throw new InvalidOperationException("Restore target must be empty.");
+                }
+
+                targetParent.DeleteChildTreeIfSame(targetName, emptyTarget);
             }
 
             targetParent.RenameChild(stagingName, targetName);
@@ -410,6 +433,45 @@ public sealed class RecoveryPackageRestorer
 
         return current;
     }
+
+    private static bool IsExpectedRelativeParent(
+        StableDirectoryTree root,
+        string relativePath,
+        StableDirectoryTree expected)
+    {
+        var segments = relativePath.Split('/');
+        using var currentRoot = root.Duplicate();
+        var current = currentRoot;
+        var disposeCurrent = false;
+        try
+        {
+            for (var index = 0; index < segments.Length - 1; index++)
+            {
+                var next = current.OpenDirectory(segments[index]);
+                if (disposeCurrent)
+                {
+                    current.Dispose();
+                }
+
+                current = next;
+                disposeCurrent = true;
+            }
+
+            return current.HasSameIdentity(expected);
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        finally
+        {
+            if (disposeCurrent)
+            {
+                current.Dispose();
+            }
+        }
+    }
+
 
     private static IEnumerable<string> GetParentPaths(string relativePath)
     {
