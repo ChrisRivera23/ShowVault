@@ -134,6 +134,8 @@ public sealed class RecoveryPackageRestorer
 
         using var staging = targetParent.CreateDirectory(stagingName);
         var placedFiles = new List<PlacedRestoreFile>();
+        var stagingPublished = false;
+        var publicationValidated = false;
 
         try
         {
@@ -200,7 +202,8 @@ public sealed class RecoveryPackageRestorer
                 }
             }
 
-            await ValidatePlacedFilesAsync(staging, placedFiles, cancellationToken);
+            await ValidateStagingTreeAsync(staging, placedFiles, cancellationToken);
+            _raceProbe?.Reached(RestoreRacePoint.StagingTreeValidated, string.Empty);
             EnsureParentPathIsSafe(allowedRoot, normalizedTarget);
             EnsureTargetIsAbsentOrEmpty(normalizedTarget);
             if (!staging.IsSameDirectoryAt(targetParent, stagingName))
@@ -220,6 +223,25 @@ public sealed class RecoveryPackageRestorer
             }
 
             targetParent.RenameChild(stagingName, staging, targetName);
+            stagingPublished = true;
+            using var publishedTarget = targetParent.OpenDirectory(targetName);
+            if (!publishedTarget.HasSameIdentity(staging))
+            {
+                throw new InvalidOperationException(
+                    "Published restore target identity changed.");
+            }
+
+            await ValidateStagingTreeAsync(
+                publishedTarget,
+                placedFiles,
+                cancellationToken);
+            if (!publishedTarget.IsSameDirectoryAt(targetParent, targetName))
+            {
+                throw new InvalidOperationException(
+                    "Published restore target identity changed.");
+            }
+
+            publicationValidated = true;
         }
         catch (IOException exception)
         {
@@ -234,7 +256,12 @@ public sealed class RecoveryPackageRestorer
                 await placedFile.Stream.DisposeAsync();
             }
 
-            targetParent.DeleteChildTreeIfSame(stagingName, staging);
+            if (!publicationValidated)
+            {
+                targetParent.DeleteChildTreeIfSame(
+                    stagingPublished ? targetName : stagingName,
+                    staging);
+            }
         }
 
         return CreateResult(
@@ -313,16 +340,87 @@ public sealed class RecoveryPackageRestorer
         }
     }
 
-    private static async Task ValidatePlacedFilesAsync(
+    private static async Task ValidateStagingTreeAsync(
         StableDirectoryTree staging,
         IReadOnlyList<PlacedRestoreFile> placedFiles,
         CancellationToken cancellationToken)
     {
-        foreach (var placedFile in placedFiles)
+        var expectedFiles = placedFiles.ToDictionary(
+            file => file.RelativePath,
+            StringComparer.Ordinal);
+        var remainingFiles = expectedFiles.Keys.ToHashSet(StringComparer.Ordinal);
+        var remainingDirectories = placedFiles
+            .SelectMany(file => GetParentPaths(file.RelativePath))
+            .ToHashSet(StringComparer.Ordinal);
+
+        await ValidateStagingDirectoryAsync(
+            staging,
+            string.Empty,
+            expectedFiles,
+            remainingFiles,
+            remainingDirectories,
+            cancellationToken);
+        if (remainingFiles.Count != 0 || remainingDirectories.Count != 0)
         {
-            using var parent = OpenExistingRelativeParent(staging, placedFile.RelativePath);
-            var name = Path.GetFileName(placedFile.RelativePath);
-            if (!parent.IsSameFileAt(name, placedFile.Stream.SafeFileHandle))
+            throw new InvalidOperationException("Restore staging tree is incomplete.");
+        }
+    }
+
+    private static async Task ValidateStagingDirectoryAsync(
+        StableDirectoryTree directory,
+        string parentRelativePath,
+        IReadOnlyDictionary<string, PlacedRestoreFile> expectedFiles,
+        HashSet<string> remainingFiles,
+        HashSet<string> remainingDirectories,
+        CancellationToken cancellationToken)
+    {
+        foreach (var name in directory.EnumerateNames())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var relativePath = parentRelativePath.Length == 0
+                ? name
+                : $"{parentRelativePath}/{name}";
+            if (remainingDirectories.Remove(relativePath))
+            {
+                StableDirectoryTree child;
+                try
+                {
+                    child = directory.OpenDirectory(name);
+                }
+                catch (IOException exception)
+                {
+                    throw new InvalidOperationException(
+                        "Restore staging tree contains an invalid directory.",
+                        exception);
+                }
+
+                using (child)
+                {
+                    await ValidateStagingDirectoryAsync(
+                        child,
+                        relativePath,
+                        expectedFiles,
+                        remainingFiles,
+                        remainingDirectories,
+                        cancellationToken);
+                    if (!child.IsSameDirectoryAt(directory, name))
+                    {
+                        throw new InvalidOperationException(
+                            "Restore staging directory identity changed before publication.");
+                    }
+                }
+
+                continue;
+            }
+
+            if (!remainingFiles.Remove(relativePath) ||
+                !expectedFiles.TryGetValue(relativePath, out var placedFile))
+            {
+                throw new InvalidOperationException(
+                    "Restore staging tree contains unexpected entries.");
+            }
+
+            if (!directory.IsSameFileAt(name, placedFile.Stream.SafeFileHandle))
             {
                 throw new InvalidOperationException(
                     "Restore staging file identity changed before publication.");

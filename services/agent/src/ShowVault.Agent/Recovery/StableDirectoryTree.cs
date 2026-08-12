@@ -7,7 +7,8 @@ namespace ShowVault.Agent.Recovery;
 internal enum RestoreRacePoint
 {
     DestinationFileOpened,
-    AdoptionDirectoryOpened
+    AdoptionDirectoryOpened,
+    StagingTreeValidated
 }
 
 internal interface IRestoreRaceProbe
@@ -421,16 +422,20 @@ internal sealed class StableDirectoryTree : IDisposable
 
         public static IReadOnlyList<string> EnumerateNames(SafeFileHandle directory)
         {
-            var duplicate = dup(Fd(directory));
-            if (duplicate < 0)
+            var enumerationHandle = openat(
+                Fd(directory),
+                ".",
+                ReadOnly | DirectoryFlag | NoFollowFlag | CloseOnExecFlag,
+                0);
+            if (enumerationHandle < 0)
             {
-                throw Error("Could not duplicate a restore directory handle.");
+                throw Error("Could not open a restore directory for enumeration.");
             }
 
-            var stream = fdopendir(duplicate);
+            var stream = fdopendir(enumerationHandle);
             if (stream == IntPtr.Zero)
             {
-                close(duplicate);
+                close(enumerationHandle);
                 throw Error("Could not enumerate a restore directory.");
             }
 
