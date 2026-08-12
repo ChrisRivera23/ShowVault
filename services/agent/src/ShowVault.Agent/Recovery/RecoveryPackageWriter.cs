@@ -13,6 +13,7 @@ public sealed class RecoveryPackageWriter
         ? StringComparer.OrdinalIgnoreCase
         : StringComparer.Ordinal;
     private readonly string _packageDirectory;
+    private readonly AgentOptions _options;
     private readonly ISourceSnapshotRaceProbe? _sourceSnapshotRaceProbe;
 
     public RecoveryPackageWriter(IOptions<AgentOptions> options)
@@ -24,7 +25,8 @@ public sealed class RecoveryPackageWriter
         IOptions<AgentOptions> options,
         ISourceSnapshotRaceProbe? sourceSnapshotRaceProbe)
     {
-        _packageDirectory = ResolvePackageDirectory(options.Value);
+        _options = options.Value;
+        _packageDirectory = ResolvePackageDirectory(_options);
         _sourceSnapshotRaceProbe = sourceSnapshotRaceProbe;
     }
 
@@ -35,13 +37,17 @@ public sealed class RecoveryPackageWriter
         DateTimeOffset createdAt,
         CancellationToken cancellationToken)
     {
+        var isMaLighting = MaLightingShowExportDiscoveryPluginBase.IsMaLightingPlugin(
+            discovery.PluginId);
         using var profileTimeout = string.Equals(
                 discovery.PluginId,
                 ResolumeUserDataDiscoveryPlugin.PluginId,
-                StringComparison.Ordinal)
+                StringComparison.Ordinal) || isMaLighting
             ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)
             : null;
-        profileTimeout?.CancelAfter(ResolumeUserDataDiscoveryPlugin.MaximumPackageDuration);
+        profileTimeout?.CancelAfter(isMaLighting
+            ? MaLightingShowExportDiscoveryPluginBase.MaximumPackageDuration
+            : ResolumeUserDataDiscoveryPlugin.MaximumPackageDuration);
         var operationToken = profileTimeout?.Token ?? cancellationToken;
 
         if (discovery.Truncated)
@@ -58,6 +64,8 @@ public sealed class RecoveryPackageWriter
                 file.Size,
                 file.Sha256.ToLowerInvariant()))
             .ToList();
+        var isGrandMa = MaLightingShowExportDiscoveryPluginBase.IsMaLightingPlugin(
+            discovery.PluginId);
         var manifest = new RecoveryPackageManifest(
             RecoveryPackageFormat.Version,
             agentId,
@@ -66,14 +74,36 @@ public sealed class RecoveryPackageWriter
                 rootPath,
                 discovery.PluginId,
                 discovery.PluginVersion,
-                ProductVersion: null,
+                ProductVersion: isGrandMa
+                    ? MaLightingShowExportDiscoveryPluginBase.GetProductVersion(
+                        discovery.PluginId,
+                        rootPath)
+                    : null,
                 FirmwareVersion: null),
             createdAt,
             manifestFiles,
             Dependencies: [],
             Relationships: [],
-            RestorePrerequisites: [],
-            CompatibilityRules: [],
+            RestorePrerequisites: isGrandMa
+                ? [
+                    "Restore only to a new empty ShowVault-controlled target.",
+                    "An operator must place or import the verified export using the vendor workflow; never restore directly into a live console or onPC tree."
+                ]
+                : [],
+            CompatibilityRules: isGrandMa
+                ? [
+                    new RecoveryPackageCompatibilityRule(
+                        "vendor-forward-only-show-file",
+                        "Validate with an equal or newer compatible grandMA software version before operator import."),
+                    new RecoveryPackageCompatibilityRule(
+                        "source-version-evidence",
+                        MaLightingShowExportDiscoveryPluginBase.GetProductVersion(
+                            discovery.PluginId,
+                            rootPath) is { } version
+                            ? $"Export path records grandMA2 version {version}; application load compatibility is not yet verified."
+                            : "The export path does not encode a product version; operator confirmation and application validation are required.")
+                ]
+                : [],
             VerificationRecords: []);
         var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions);
         var packageId = Convert.ToHexStringLower(SHA256.HashData(manifestBytes));
@@ -231,7 +261,7 @@ public sealed class RecoveryPackageWriter
         }
     }
 
-    private static async Task<StableSourceSnapshot?> CaptureStableSourceAsync(
+    private async Task<StableSourceSnapshot?> CaptureStableSourceAsync(
         DiscoveryResult discovery,
         string rootPath,
         IReadOnlyList<RecoveryPackageFile> manifestFiles,
@@ -245,20 +275,48 @@ public sealed class RecoveryPackageWriter
             discovery.PluginId,
             ResolumeUserDataDiscoveryPlugin.PluginId,
             StringComparison.Ordinal);
-        if (!isPortableBundle && !isUserData)
+        var isMaLighting = MaLightingShowExportDiscoveryPluginBase.IsMaLightingPlugin(
+            discovery.PluginId);
+        if (!isPortableBundle && !isUserData && !isMaLighting)
         {
             return null;
         }
 
-        var snapshot = isPortableBundle
-            ? await StableSourceSnapshot.CaptureAsync(
-                rootPath,
-                ResolumeDiscoveryPlugin.MaximumFileLimit,
-                cancellationToken)
-            : await ResolumeUserDataDiscoveryPlugin.CaptureSnapshotAsync(
-                rootPath,
-                ResolumeUserDataDiscoveryPlugin.MaximumFileLimit,
-                cancellationToken);
+        if (isMaLighting &&
+            (!MaLightingShowExportDiscoveryPluginBase.IsAuthorizedRoot(
+                _options,
+                discovery.PluginId,
+                rootPath) ||
+             !MaLightingShowExportDiscoveryPluginBase.IsRecognizedRoot(
+                 discovery.PluginId,
+                 rootPath)))
+        {
+            throw new UnauthorizedAccessException(
+                "grandMA export root is no longer authorized by local Agent configuration.");
+        }
+
+        StableSourceSnapshot snapshot;
+        try
+        {
+            snapshot = isPortableBundle
+                ? await StableSourceSnapshot.CaptureAsync(
+                    rootPath,
+                    ResolumeDiscoveryPlugin.MaximumFileLimit,
+                    cancellationToken)
+                : isUserData
+                ? await ResolumeUserDataDiscoveryPlugin.CaptureSnapshotAsync(
+                    rootPath,
+                    ResolumeUserDataDiscoveryPlugin.MaximumFileLimit,
+                    cancellationToken)
+                : await MaLightingShowExportDiscoveryPluginBase.CaptureSnapshotAsync(
+                    rootPath,
+                    MaLightingShowExportDiscoveryPluginBase.MaximumFileLimit,
+                    cancellationToken);
+        }
+        catch (IOException exception) when (isMaLighting)
+        {
+            throw new IOException("grandMA show export could not be recaptured safely.", exception);
+        }
         try
         {
             snapshot.RequireExactFiles(manifestFiles);

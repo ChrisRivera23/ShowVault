@@ -70,6 +70,69 @@ internal sealed class StableDirectoryTree : IDisposable
             : new StableDirectoryTree(normalized, UnixNative.OpenDirectory(normalized));
     }
 
+    private static string NormalizeReadOnlySourcePath(string path)
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return path;
+        }
+
+        foreach (var alias in new[] { "/etc", "/tmp", "/var" })
+        {
+            if (string.Equals(path, alias, StringComparison.Ordinal) ||
+                path.StartsWith($"{alias}/", StringComparison.Ordinal))
+            {
+                return $"/private{path}";
+            }
+        }
+
+        return path;
+    }
+
+    public static StableDirectoryTree OpenReadOnlyNoFollowPath(string path)
+    {
+        var normalized = NormalizeReadOnlySourcePath(
+            System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(path)));
+        var pathRoot = System.IO.Path.GetPathRoot(normalized);
+        if (string.IsNullOrEmpty(pathRoot))
+        {
+            throw new IOException("Source root is not fully qualified.");
+        }
+
+        StableDirectoryTree? current = OperatingSystem.IsWindows()
+            ? new StableDirectoryTree(
+                pathRoot,
+                WindowsNative.OpenDirectoryReadOnly(pathRoot))
+            : new StableDirectoryTree(pathRoot, UnixNative.OpenDirectory(pathRoot));
+        try
+        {
+            var relativePath = System.IO.Path.GetRelativePath(pathRoot, normalized);
+            if (relativePath == ".")
+            {
+                var result = current;
+                current = null;
+                return result;
+            }
+
+            foreach (var segment in relativePath.Split(
+                         [System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar],
+                         StringSplitOptions.RemoveEmptyEntries))
+            {
+                var next = current.OpenDirectoryReadOnly(segment);
+                current.Dispose();
+                current = next;
+            }
+
+            var opened = current;
+            current = null;
+            return opened;
+        }
+        finally
+        {
+            current?.Dispose();
+        }
+    }
+
     public StableDirectoryTree OpenDirectory(string name)
     {
         ValidateName(name);
@@ -82,6 +145,19 @@ internal sealed class StableDirectoryTree : IDisposable
         if (OperatingSystem.IsWindows())
         {
             return CreateWindowsChild(path, WindowsNative.OpenDirectory(path, canDelete: true));
+        }
+
+        return new StableDirectoryTree(path, UnixNative.OpenDirectoryAt(_handle, name));
+    }
+
+    public StableDirectoryTree OpenDirectoryReadOnly(string name)
+    {
+        ValidateName(name);
+        var path = System.IO.Path.Combine(_path, name);
+        if (OperatingSystem.IsWindows())
+        {
+            WindowsNative.EnsureSameDirectory(_handle, _path);
+            return CreateWindowsChild(path, WindowsNative.OpenDirectoryReadOnly(path));
         }
 
         return new StableDirectoryTree(path, UnixNative.OpenDirectoryAt(_handle, name));
@@ -171,7 +247,7 @@ internal sealed class StableDirectoryTree : IDisposable
                 return WindowsNative.SameIdentity(_handle, currentIdentity);
             }
 
-            using var current = parent.OpenDirectory(name);
+            using var current = parent.OpenDirectoryReadOnly(name);
             return UnixNative.SameIdentity(_handle, current._handle);
         }
         catch (IOException)
@@ -606,6 +682,18 @@ internal sealed class StableDirectoryTree : IDisposable
                 path,
                 access,
                 ShareRead | ShareWrite,
+                OpenExisting,
+                BackupSemantics | OpenReparsePoint);
+            EnsureNotReparse(handle);
+            return handle;
+        }
+
+        public static SafeFileHandle OpenDirectoryReadOnly(string path)
+        {
+            var handle = Open(
+                path,
+                GenericRead,
+                ShareRead | ShareWrite | ShareDelete,
                 OpenExisting,
                 BackupSemantics | OpenReparsePoint);
             EnsureNotReparse(handle);

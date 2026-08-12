@@ -785,6 +785,114 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         });
     }
 
+    [Fact]
+    public async Task GrandMa3_export_packages_exact_root_with_path_free_outcomes()
+    {
+        var shows = Path.Combine(_testRoot, "grandMA3", "shared", "shows");
+        var privateSibling = Path.Combine(_testRoot, "grandMA3", "gma3_library", "users");
+        Directory.CreateDirectory(shows);
+        Directory.CreateDirectory(privateSibling);
+        await File.WriteAllTextAsync(Path.Combine(shows, "Venue.show"), "show");
+        await File.WriteAllTextAsync(Path.Combine(privateSibling, "private.xml"), "private");
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var discovery = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartDiscovery,
+            "grandma3-discovery",
+            JsonSerializer.Serialize(new
+            {
+                pluginId = GrandMa3ShowExportDiscoveryPlugin.PluginId,
+                rootPath = shows,
+                maxFiles = MaLightingShowExportDiscoveryPluginBase.MaximumFileLimit
+            }),
+            now,
+            TimeSpan.FromMinutes(5));
+        var backup = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CreateBackup,
+            "grandma3-backup",
+            JsonSerializer.Serialize(new { discoveryCommandId = discovery.CommandId }),
+            now.AddSeconds(1),
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(discovery, now, CancellationToken.None);
+        var executor = CreateExecutor(store, now);
+        var identity = new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential");
+
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await store.EnqueueCommandAsync(backup, now, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+
+        var package = await store.GetRecoveryPackageAsync(backup.CommandId, CancellationToken.None);
+        Assert.NotNull(package);
+        Assert.True(File.Exists(Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "Venue.show")));
+        Assert.False(Directory.Exists(Path.Combine(
+            package.PackagePath,
+            RecoveryPackageFormat.ContentDirectoryName,
+            "gma3_library")));
+        var outcomes = await store.GetPendingEventsAsync(
+            now.AddMinutes(1),
+            10,
+            CancellationToken.None);
+        Assert.Equal(2, outcomes.Count);
+        Assert.All(outcomes, outcome =>
+        {
+            Assert.DoesNotContain(shows, outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("Venue.show", outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("private.xml", outcome.Envelope.Payload, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public async Task GrandMa3_unauthorized_export_failure_is_path_free()
+    {
+        var privateRoot = Path.Combine(_testRoot, "private-grandMA3", "shared", "shows");
+        Directory.CreateDirectory(privateRoot);
+        await File.WriteAllTextAsync(Path.Combine(privateRoot, "Private.show"), "private");
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var command = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartDiscovery,
+            "grandma3-unauthorized",
+            JsonSerializer.Serialize(new
+            {
+                pluginId = GrandMa3ShowExportDiscoveryPlugin.PluginId,
+                rootPath = privateRoot,
+                maxFiles = 10
+            }),
+            now,
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, now, CancellationToken.None);
+        var logger = new CapturingLogger();
+
+        await CreateExecutor(store, now, logger).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+
+        var outcome = Assert.Single(await store.GetPendingEventsAsync(
+            now.AddMinutes(1),
+            10,
+            CancellationToken.None)).Envelope;
+        Assert.Equal(AgentEventType.JobFailed, outcome.Type);
+        Assert.Equal("{\"error\":\"discovery-not-authorized\"}", outcome.Payload);
+        Assert.DoesNotContain(privateRoot, outcome.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain("Private.show", outcome.Payload, StringComparison.Ordinal);
+        Assert.All(logger.Messages, message =>
+        {
+            Assert.DoesNotContain(privateRoot, message, StringComparison.Ordinal);
+            Assert.DoesNotContain("Private.show", message, StringComparison.Ordinal);
+        });
+    }
+
     public Task DisposeAsync()
     {
         if (Directory.Exists(_testRoot))
@@ -826,10 +934,27 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 ResolumeUserDataRoots = [Path.Combine(_testRoot, "resolume-user-data")]
             }),
             timeProvider);
+        var grandMa2Plugin = new GrandMa2ShowExportDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                GrandMa2ShowExportRoots = [Path.Combine(_testRoot, "gma2", "3.9", "shows")]
+            }),
+            timeProvider);
+        var grandMa3Plugin = new GrandMa3ShowExportDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                GrandMa3ShowExportRoots = [Path.Combine(_testRoot, "grandMA3", "shared", "shows")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier(CreateOptions());
         return new AgentCommandExecutor(
             store,
-            new DiscoveryPluginRegistry([plugin, resolumePlugin, resolumeUserDataPlugin]),
+            new DiscoveryPluginRegistry(
+                [plugin, resolumePlugin, resolumeUserDataPlugin, grandMa2Plugin, grandMa3Plugin]),
             new SystemInventoryPlugin(
                 timeProvider,
                 inventorySource ?? new TestSystemInventorySource(
@@ -871,6 +996,8 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         DataDirectory = Path.Combine(_testRoot, "data"),
         PackageDirectory = Path.Combine(_testRoot, "packages"),
         DiscoveryRoots = [_testRoot],
+        GrandMa2ShowExportRoots = [Path.Combine(_testRoot, "gma2", "3.9", "shows")],
+        GrandMa3ShowExportRoots = [Path.Combine(_testRoot, "grandMA3", "shared", "shows")],
         RestoreRoots = [Path.Combine(_testRoot, "restores")]
     });
 
