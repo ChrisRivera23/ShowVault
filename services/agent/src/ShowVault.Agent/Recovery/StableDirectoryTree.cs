@@ -17,7 +17,6 @@ internal interface IRestoreRaceProbe
 
 internal sealed class StableDirectoryTree : IDisposable
 {
-    private const int UnixAtRemovedir = 0x80;
     private readonly string _path;
     private readonly SafeFileHandle _handle;
 
@@ -189,7 +188,7 @@ internal sealed class StableDirectoryTree : IDisposable
         }
         else
         {
-            UnixNative.UnlinkAt(_handle, name, UnixAtRemovedir);
+            UnixNative.UnlinkAt(_handle, name, UnixAtRemoveDirectoryFlag);
         }
     }
 
@@ -208,7 +207,7 @@ internal sealed class StableDirectoryTree : IDisposable
                 }
                 else
                 {
-                    UnixNative.UnlinkAt(_handle, name, UnixAtRemovedir);
+                    UnixNative.UnlinkAt(_handle, name, UnixAtRemoveDirectoryFlag);
                 }
             }
             catch (IOException)
@@ -226,6 +225,21 @@ internal sealed class StableDirectoryTree : IDisposable
     }
 
     public void Dispose() => _handle.Dispose();
+
+    internal static int ResolveUnixAtRemoveDirectoryFlag(bool isMacOS, bool isLinux)
+    {
+        if (isMacOS == isLinux)
+        {
+            throw new PlatformNotSupportedException(
+                "Restore directory cleanup is supported only on macOS and Linux.");
+        }
+
+        return isMacOS ? 0x80 : 0x200;
+    }
+
+    private static int UnixAtRemoveDirectoryFlag => ResolveUnixAtRemoveDirectoryFlag(
+        OperatingSystem.IsMacOS(),
+        OperatingSystem.IsLinux());
 
     private static void ValidateName(string name)
     {
