@@ -234,6 +234,13 @@ public sealed class RecoveryPackageRestorer
             await ValidateStagingTreeAsync(
                 publishedTarget,
                 placedFiles,
+                cancellationToken,
+                relativePath => _raceProbe?.Reached(
+                    RestoreRacePoint.PublishedFileHashStarted,
+                    relativePath));
+            ValidatePublishedTopology(
+                publishedTarget,
+                placedFiles,
                 cancellationToken);
             if (!publishedTarget.IsSameDirectoryAt(targetParent, targetName))
             {
@@ -343,7 +350,8 @@ public sealed class RecoveryPackageRestorer
     private static async Task ValidateStagingTreeAsync(
         StableDirectoryTree staging,
         IReadOnlyList<PlacedRestoreFile> placedFiles,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<string>? fileHashStarted = null)
     {
         var expectedFiles = placedFiles.ToDictionary(
             file => file.RelativePath,
@@ -359,7 +367,8 @@ public sealed class RecoveryPackageRestorer
             expectedFiles,
             remainingFiles,
             remainingDirectories,
-            cancellationToken);
+            cancellationToken,
+            fileHashStarted);
         if (remainingFiles.Count != 0 || remainingDirectories.Count != 0)
         {
             throw new InvalidOperationException("Restore staging tree is incomplete.");
@@ -372,7 +381,8 @@ public sealed class RecoveryPackageRestorer
         IReadOnlyDictionary<string, PlacedRestoreFile> expectedFiles,
         HashSet<string> remainingFiles,
         HashSet<string> remainingDirectories,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<string>? fileHashStarted)
     {
         foreach (var name in directory.EnumerateNames())
         {
@@ -402,7 +412,8 @@ public sealed class RecoveryPackageRestorer
                         expectedFiles,
                         remainingFiles,
                         remainingDirectories,
-                        cancellationToken);
+                        cancellationToken,
+                        fileHashStarted);
                     if (!child.IsSameDirectoryAt(directory, name))
                     {
                         throw new InvalidOperationException(
@@ -426,6 +437,7 @@ public sealed class RecoveryPackageRestorer
                     "Restore staging file identity changed before publication.");
             }
 
+            fileHashStarted?.Invoke(relativePath);
             placedFile.Stream.Position = 0;
             var hash = Convert.ToHexStringLower(
                 await SHA256.HashDataAsync(placedFile.Stream, cancellationToken));
@@ -434,6 +446,94 @@ public sealed class RecoveryPackageRestorer
             {
                 throw new InvalidOperationException(
                     "Restore staging file content changed before publication.");
+            }
+        }
+    }
+
+    private static void ValidatePublishedTopology(
+        StableDirectoryTree staging,
+        IReadOnlyList<PlacedRestoreFile> placedFiles,
+        CancellationToken cancellationToken)
+    {
+        var expectedFiles = placedFiles.ToDictionary(
+            file => file.RelativePath,
+            StringComparer.Ordinal);
+        var remainingFiles = expectedFiles.Keys.ToHashSet(StringComparer.Ordinal);
+        var remainingDirectories = placedFiles
+            .SelectMany(file => GetParentPaths(file.RelativePath))
+            .ToHashSet(StringComparer.Ordinal);
+
+        ValidatePublishedTopologyDirectory(
+            staging,
+            string.Empty,
+            expectedFiles,
+            remainingFiles,
+            remainingDirectories,
+            cancellationToken);
+        if (remainingFiles.Count != 0 || remainingDirectories.Count != 0)
+        {
+            throw new InvalidOperationException("Published restore target is incomplete.");
+        }
+    }
+
+    private static void ValidatePublishedTopologyDirectory(
+        StableDirectoryTree directory,
+        string parentRelativePath,
+        IReadOnlyDictionary<string, PlacedRestoreFile> expectedFiles,
+        HashSet<string> remainingFiles,
+        HashSet<string> remainingDirectories,
+        CancellationToken cancellationToken)
+    {
+        foreach (var name in directory.EnumerateNames())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var relativePath = parentRelativePath.Length == 0
+                ? name
+                : $"{parentRelativePath}/{name}";
+            if (remainingDirectories.Remove(relativePath))
+            {
+                StableDirectoryTree child;
+                try
+                {
+                    child = directory.OpenDirectory(name);
+                }
+                catch (IOException exception)
+                {
+                    throw new InvalidOperationException(
+                        "Published restore target contains an invalid directory.",
+                        exception);
+                }
+
+                using (child)
+                {
+                    ValidatePublishedTopologyDirectory(
+                        child,
+                        relativePath,
+                        expectedFiles,
+                        remainingFiles,
+                        remainingDirectories,
+                        cancellationToken);
+                    if (!child.IsSameDirectoryAt(directory, name))
+                    {
+                        throw new InvalidOperationException(
+                            "Published restore target directory identity changed.");
+                    }
+                }
+
+                continue;
+            }
+
+            if (!remainingFiles.Remove(relativePath) ||
+                !expectedFiles.TryGetValue(relativePath, out var placedFile))
+            {
+                throw new InvalidOperationException(
+                    "Published restore target contains unexpected entries.");
+            }
+
+            if (!directory.IsSameFileAt(name, placedFile.Stream.SafeFileHandle))
+            {
+                throw new InvalidOperationException(
+                    "Published restore target file identity changed.");
             }
         }
     }

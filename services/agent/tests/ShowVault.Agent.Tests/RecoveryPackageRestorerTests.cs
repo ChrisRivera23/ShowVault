@@ -352,6 +352,48 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Restore_refuses_root_entry_injected_during_post_publication_hash()
+    {
+        var package = await CreateNestedPackageAsync(includeLargeFile: true);
+        var restorationId = Guid.NewGuid();
+        await EnqueueRestoreCommandAsync(restorationId, package.Manifest.AgentId);
+        var targetPath = Path.Combine(RestoreRoot, "published-hash-injection-target");
+        var stagingPath = Path.Combine(
+            RestoreRoot,
+            $".showvault-restore-{restorationId:N}");
+        var injected = false;
+        var probe = new ActionRaceProbe((point, relativePath) =>
+        {
+            if (point != RestoreRacePoint.PublishedFileHashStarted ||
+                relativePath != "nested/a-large.bin")
+            {
+                return;
+            }
+
+            injected = true;
+            File.WriteAllText(
+                Path.Combine(targetPath, "unexpected.txt"),
+                "attacker-controlled");
+        });
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateRestorer(probe).RestoreAsync(
+                restorationId,
+                package.Manifest.AgentId,
+                new StoredRecoveryPackage(package.PackageId, package.PackagePath, "{}"),
+                Guid.NewGuid(),
+                targetPath,
+                DateTimeOffset.UtcNow,
+                CancellationToken.None));
+
+        Assert.True(injected);
+        Assert.Contains("unexpected entries", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(_testRoot, failure.ToString(), StringComparison.Ordinal);
+        Assert.False(Directory.Exists(targetPath));
+        Assert.False(Directory.Exists(stagingPath));
+    }
+
+    [Fact]
     public async Task Restore_resumes_after_atomic_publication_using_durable_intent()
     {
         var package = await CreatePackageAsync();

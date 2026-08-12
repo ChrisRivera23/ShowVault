@@ -8,7 +8,8 @@ internal enum RestoreRacePoint
 {
     DestinationFileOpened,
     AdoptionDirectoryOpened,
-    StagingTreeValidated
+    StagingTreeValidated,
+    PublishedFileHashStarted
 }
 
 internal interface IRestoreRaceProbe
