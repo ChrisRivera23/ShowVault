@@ -1012,6 +1012,73 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         });
     }
 
+    [Theory]
+    [InlineData(YamahaProVisionaireDesignProjectDiscoveryPlugin.PluginId, "Venue.pvd")]
+    [InlineData(YamahaMtxMrxProjectDiscoveryPlugin.PluginId, "Venue.mtx")]
+    public async Task Yamaha_project_profiles_package_exact_root_with_path_free_outcomes(
+        string pluginId,
+        string primaryFile)
+    {
+        var project = Path.Combine(
+            _testRoot,
+            pluginId == YamahaProVisionaireDesignProjectDiscoveryPlugin.PluginId
+                ? "yamaha-provisionaire-project"
+                : "yamaha-mtx-mrx-project");
+        var privateSibling = $"{project}-private";
+        Directory.CreateDirectory(project);
+        Directory.CreateDirectory(privateSibling);
+        await File.WriteAllTextAsync(Path.Combine(project, primaryFile), "opaque-project");
+        await File.WriteAllTextAsync(Path.Combine(project, "operator-note.txt"), "companion");
+        await File.WriteAllTextAsync(Path.Combine(privateSibling, "private.txt"), "private");
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var discovery = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.StartDiscovery,
+            $"{pluginId}-discovery",
+            JsonSerializer.Serialize(new
+            {
+                pluginId,
+                rootPath = project,
+                maxFiles = YamahaSettingsExportDiscoveryPluginBase.MaximumFileLimit
+            }),
+            now,
+            TimeSpan.FromMinutes(5));
+        var backup = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CreateBackup,
+            $"{pluginId}-backup",
+            JsonSerializer.Serialize(new { discoveryCommandId = discovery.CommandId }),
+            now.AddSeconds(1),
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(default);
+        await store.EnqueueCommandAsync(discovery, now, default);
+        var executor = CreateExecutor(store, now);
+        var identity = new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential");
+
+        await executor.ExecutePendingOnceAsync(identity, default);
+        await store.EnqueueCommandAsync(backup, now, default);
+        await executor.ExecutePendingOnceAsync(identity, default);
+        await executor.ExecutePendingOnceAsync(identity, default);
+
+        var package = await store.GetRecoveryPackageAsync(backup.CommandId, default);
+        Assert.NotNull(package);
+        Assert.True(File.Exists(Path.Combine(
+            package.PackagePath, RecoveryPackageFormat.ContentDirectoryName, primaryFile)));
+        Assert.False(File.Exists(Path.Combine(
+            package.PackagePath, RecoveryPackageFormat.ContentDirectoryName, "private.txt")));
+        var outcomes = await store.GetPendingEventsAsync(now.AddMinutes(1), 10, default);
+        Assert.Equal(2, outcomes.Count);
+        Assert.All(outcomes, outcome =>
+        {
+            Assert.DoesNotContain(project, outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain(primaryFile, outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("operator-note.txt", outcome.Envelope.Payload, StringComparison.Ordinal);
+            Assert.DoesNotContain("private.txt", outcome.Envelope.Payload, StringComparison.Ordinal);
+        });
+    }
+
     [Fact]
     public async Task Yamaha_unauthorized_export_failure_is_path_free()
     {
@@ -1259,6 +1326,23 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 YamahaDm3SettingsExportRoots = [Path.Combine(_testRoot, "yamaha-dm3-export")]
             }),
             timeProvider);
+        var yamahaProVisionairePlugin = new YamahaProVisionaireDesignProjectDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaProVisionaireDesignProjectRoots =
+                    [Path.Combine(_testRoot, "yamaha-provisionaire-project")]
+            }),
+            timeProvider);
+        var yamahaMtxMrxPlugin = new YamahaMtxMrxProjectDiscoveryPlugin(
+            Options.Create(new AgentOptions
+            {
+                ControlPlaneUri = new Uri("https://control.test"),
+                Name = "Test Agent",
+                YamahaMtxMrxProjectRoots = [Path.Combine(_testRoot, "yamaha-mtx-mrx-project")]
+            }),
+            timeProvider);
         var verifier = new RecoveryPackageVerifier(CreateOptions());
         return new AgentCommandExecutor(
             store,
@@ -1273,7 +1357,9 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                     yamahaRivagePlugin,
                     yamahaClQlPlugin,
                     yamahaTfPlugin,
-                    yamahaDm3Plugin
+                    yamahaDm3Plugin,
+                    yamahaProVisionairePlugin,
+                    yamahaMtxMrxPlugin
                 ]),
             new SystemInventoryPlugin(
                 timeProvider,
@@ -1323,6 +1409,9 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
         YamahaClQlSettingsExportRoots = [Path.Combine(_testRoot, "yamaha-clql-export")],
         YamahaTfSettingsExportRoots = [Path.Combine(_testRoot, "yamaha-tf-export")],
         YamahaDm3SettingsExportRoots = [Path.Combine(_testRoot, "yamaha-dm3-export")],
+        YamahaProVisionaireDesignProjectRoots =
+            [Path.Combine(_testRoot, "yamaha-provisionaire-project")],
+        YamahaMtxMrxProjectRoots = [Path.Combine(_testRoot, "yamaha-mtx-mrx-project")],
         RestoreRoots = [Path.Combine(_testRoot, "restores")]
     });
 

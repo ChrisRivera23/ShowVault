@@ -105,12 +105,22 @@ builder.Services
             options.YamahaDm3SettingsExportRoots),
         "Yamaha DM3 Assisted recovery requires at most 32 unique absolute export roots.")
     .Validate(
+        options => YamahaSettingsExportDiscoveryPluginBase.AreConfiguredRootsValid(
+            options.YamahaProVisionaireDesignProjectRoots),
+        "Yamaha ProVisionaire Design Assisted recovery requires at most 32 unique absolute project roots.")
+    .Validate(
+        options => YamahaSettingsExportDiscoveryPluginBase.AreConfiguredRootsValid(
+            options.YamahaMtxMrxProjectRoots),
+        "Yamaha MTX/MRX Assisted recovery requires at most 32 unique absolute project roots.")
+    .Validate(
         options => YamahaSettingsExportDiscoveryPluginBase.HaveNoOverlap(
             options.YamahaDm7SettingsExportRoots,
             options.YamahaRivageSettingsExportRoots,
             options.YamahaClQlSettingsExportRoots,
             options.YamahaTfSettingsExportRoots,
-            options.YamahaDm3SettingsExportRoots),
+            options.YamahaDm3SettingsExportRoots,
+            options.YamahaProVisionaireDesignProjectRoots,
+            options.YamahaMtxMrxProjectRoots),
         "A Yamaha export root cannot overlap another Yamaha product profile.")
     .Validate(
         options => options.RestoreRoots.All(Path.IsPathFullyQualified),
@@ -150,6 +160,8 @@ builder.Services.AddSingleton<IDiscoveryPlugin, YamahaRivageSettingsExportDiscov
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaClQlSettingsExportDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaTfSettingsExportDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaDm3SettingsExportDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, YamahaProVisionaireDesignProjectDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, YamahaMtxMrxProjectDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<ISystemInventorySource, PlatformSystemInventorySource>();
 builder.Services.AddSingleton<SystemInventoryPlugin>();

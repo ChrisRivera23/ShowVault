@@ -194,7 +194,9 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
             YamahaRivageSettingsExportDiscoveryPlugin.PluginId or
             YamahaClQlSettingsExportDiscoveryPlugin.PluginId or
             YamahaTfSettingsExportDiscoveryPlugin.PluginId or
-            YamahaDm3SettingsExportDiscoveryPlugin.PluginId;
+            YamahaDm3SettingsExportDiscoveryPlugin.PluginId or
+            YamahaProVisionaireDesignProjectDiscoveryPlugin.PluginId or
+            YamahaMtxMrxProjectDiscoveryPlugin.PluginId;
 
     internal static bool IsAuthorizedRoot(AgentOptions options, string pluginId, string rootPath)
     {
@@ -210,6 +212,10 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
                 options.YamahaTfSettingsExportRoots,
             YamahaDm3SettingsExportDiscoveryPlugin.PluginId =>
                 options.YamahaDm3SettingsExportRoots,
+            YamahaProVisionaireDesignProjectDiscoveryPlugin.PluginId =>
+                options.YamahaProVisionaireDesignProjectRoots,
+            YamahaMtxMrxProjectDiscoveryPlugin.PluginId =>
+                options.YamahaMtxMrxProjectRoots,
             _ => []
         };
         return roots.Select(NormalizeRoot).Contains(NormalizeRoot(rootPath), PathComparer);
@@ -254,6 +260,16 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
             {
                 formats.Add(".DM3F");
             }
+            else if (pluginId == YamahaProVisionaireDesignProjectDiscoveryPlugin.PluginId &&
+                     string.Equals(extension, ".pvd", StringComparison.OrdinalIgnoreCase))
+            {
+                formats.Add(".pvd");
+            }
+            else if (pluginId == YamahaMtxMrxProjectDiscoveryPlugin.PluginId &&
+                     string.Equals(extension, ".mtx", StringComparison.OrdinalIgnoreCase))
+            {
+                formats.Add(".mtx");
+            }
         }
 
         return formats.OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToList();
@@ -266,6 +282,9 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
         YamahaClQlSettingsExportDiscoveryPlugin.PluginId => "Yamaha CL/QL",
         YamahaTfSettingsExportDiscoveryPlugin.PluginId => "Yamaha TF",
         YamahaDm3SettingsExportDiscoveryPlugin.PluginId => "Yamaha DM3",
+        YamahaProVisionaireDesignProjectDiscoveryPlugin.PluginId =>
+            "Yamaha ProVisionaire Design",
+        YamahaMtxMrxProjectDiscoveryPlugin.PluginId => "Yamaha MTX/MRX Editor",
         _ => "Yamaha"
     };
 
@@ -336,6 +355,16 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
         if (string.Equals(extension, ".DM3F", StringComparison.OrdinalIgnoreCase))
         {
             return YamahaDm3SettingsExportDiscoveryPlugin.PluginId;
+        }
+
+        if (string.Equals(extension, ".pvd", StringComparison.OrdinalIgnoreCase))
+        {
+            return YamahaProVisionaireDesignProjectDiscoveryPlugin.PluginId;
+        }
+
+        if (string.Equals(extension, ".mtx", StringComparison.OrdinalIgnoreCase))
+        {
+            return YamahaMtxMrxProjectDiscoveryPlugin.PluginId;
         }
 
         return string.Equals(extension, ".TFF", StringComparison.OrdinalIgnoreCase)
