@@ -250,6 +250,105 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
         Assert.Contains("regular files", (await rejection).Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Restore_refuses_nested_staging_directory_swap_without_redirected_file()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var package = await CreateNestedPackageAsync(includeLargeFile: true);
+        var restorationId = Guid.NewGuid();
+        await EnqueueRestoreCommandAsync(restorationId, package.Manifest.AgentId);
+        var targetPath = Path.Combine(RestoreRoot, "swap-target");
+        var stagingPath = Path.Combine(
+            RestoreRoot,
+            $".showvault-restore-{restorationId:N}");
+        var outside = Path.Combine(_testRoot, "outside-staging-swap");
+        var probe = new ActionRaceProbe((point, relativePath) =>
+        {
+            if (point != RestoreRacePoint.DestinationFileOpened ||
+                relativePath != "nested/a-large.bin")
+            {
+                return;
+            }
+
+            var nested = Path.Combine(stagingPath, "nested");
+            Directory.Move(nested, outside);
+            Directory.CreateSymbolicLink(nested, outside);
+        });
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateRestorer(probe).RestoreAsync(
+                restorationId,
+                package.Manifest.AgentId,
+                new StoredRecoveryPackage(package.PackageId, package.PackagePath, "{}"),
+                Guid.NewGuid(),
+                targetPath,
+                DateTimeOffset.UtcNow,
+                CancellationToken.None));
+
+        Assert.DoesNotContain(_testRoot, failure.ToString(), StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(outside, "z-escaped.show")));
+        Assert.False(Directory.Exists(targetPath));
+        Assert.False(Directory.Exists(stagingPath));
+        Directory.Delete(outside, recursive: true);
+    }
+
+    [Fact]
+    public async Task Restore_restart_adoption_refuses_nested_directory_swap()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var package = await CreateNestedPackageAsync(includeLargeFile: false);
+        var restorationId = Guid.NewGuid();
+        var verificationId = Guid.NewGuid();
+        await EnqueueRestoreCommandAsync(restorationId, package.Manifest.AgentId);
+        var targetPath = Path.Combine(RestoreRoot, "adoption-swap-target");
+        await CreateRestorer().RestoreAsync(
+            restorationId,
+            package.Manifest.AgentId,
+            new StoredRecoveryPackage(package.PackageId, package.PackagePath, "{}"),
+            verificationId,
+            targetPath,
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        var outside = Path.Combine(_testRoot, "outside-adoption-swap");
+        var probe = new ActionRaceProbe((point, relativePath) =>
+        {
+            if (point != RestoreRacePoint.AdoptionDirectoryOpened || relativePath != "nested")
+            {
+                return;
+            }
+
+            var nested = Path.Combine(targetPath, "nested");
+            Directory.Move(nested, outside);
+            Directory.CreateSymbolicLink(nested, outside);
+        });
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateRestorer(probe).RestoreAsync(
+                restorationId,
+                package.Manifest.AgentId,
+                new StoredRecoveryPackage(package.PackageId, package.PackagePath, "{}"),
+                verificationId,
+                targetPath,
+                DateTimeOffset.UtcNow,
+                CancellationToken.None));
+
+        Assert.Contains("identity changed", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(_testRoot, failure.ToString(), StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(outside, "unexpected.show")));
+        Directory.Delete(Path.Combine(targetPath, "nested"));
+        Directory.Delete(targetPath);
+        Directory.Delete(outside, recursive: true);
+    }
+
     public Task DisposeAsync()
     {
         if (Directory.Exists(_testRoot))
@@ -294,13 +393,14 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
         return (restorer, package, restorationId, verificationId, targetPath);
     }
 
-    private RecoveryPackageRestorer CreateRestorer()
+    private RecoveryPackageRestorer CreateRestorer(IRestoreRaceProbe? raceProbe = null)
     {
         var verifier = new RecoveryPackageVerifier(CreateOptions());
         return new RecoveryPackageRestorer(
             CreateOptions(),
             verifier,
-            _store);
+            _store,
+            raceProbe);
     }
 
     private Task EnqueueRestoreCommandAsync(Guid commandId, Guid agentId) =>
@@ -357,5 +457,64 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
             discovery,
             DateTimeOffset.UtcNow,
             CancellationToken.None);
+    }
+
+    private async Task<CreatedRecoveryPackage> CreateNestedPackageAsync(bool includeLargeFile)
+    {
+        var sourceRoot = Path.Combine(_testRoot, "nested-source");
+        var nested = Path.Combine(sourceRoot, "nested");
+        Directory.CreateDirectory(nested);
+        var firstPath = Path.Combine(nested, "a-large.bin");
+        await using (var stream = new FileStream(
+            firstPath,
+            FileMode.CreateNew,
+            FileAccess.Write,
+            FileShare.None))
+        {
+            stream.SetLength(includeLargeFile ? 128L * 1024 * 1024 : 1024);
+        }
+
+        var secondPath = Path.Combine(nested, "z-escaped.show");
+        await File.WriteAllTextAsync(secondPath, "configuration");
+        var discoveries = new List<DiscoveryFile>();
+        foreach (var (path, relativePath) in new[]
+        {
+            (firstPath, "nested/a-large.bin"),
+            (secondPath, "nested/z-escaped.show")
+        })
+        {
+            await using var stream = File.OpenRead(path);
+            discoveries.Add(new DiscoveryFile(
+                relativePath,
+                stream.Length,
+                DateTimeOffset.UtcNow,
+                Convert.ToHexStringLower(await SHA256.HashDataAsync(stream))));
+        }
+
+        var writer = new RecoveryPackageWriter(Options.Create(new AgentOptions
+        {
+            ControlPlaneUri = new Uri("https://control.test"),
+            Name = "Test Agent",
+            PackageDirectory = Path.Combine(_testRoot, "packages")
+        }));
+        return await writer.CreateAsync(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            new DiscoveryResult(
+                FileSystemDiscoveryPlugin.PluginId,
+                "0.1.0",
+                sourceRoot,
+                DateTimeOffset.UtcNow,
+                false,
+                discoveries),
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+    }
+
+    private sealed class ActionRaceProbe(Action<RestoreRacePoint, string> action)
+        : IRestoreRaceProbe
+    {
+        public void Reached(RestoreRacePoint point, string relativePath) =>
+            action(point, relativePath);
     }
 }
