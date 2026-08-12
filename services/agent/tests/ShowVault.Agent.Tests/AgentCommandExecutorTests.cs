@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -305,6 +307,119 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
                 package.PackagePath,
                 RecoveryPackageFormat.ContentDirectoryName,
                 "venue.show")));
+
+        var verifyCommand = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.VerifyBackup,
+            "verify",
+            JsonSerializer.Serialize(new { backupCommandId = backupCommand.CommandId }),
+            now.AddSeconds(2),
+            TimeSpan.FromMinutes(5));
+        await store.EnqueueCommandAsync(verifyCommand, now, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+        await executor.ExecutePendingOnceAsync(identity, CancellationToken.None);
+
+        var verification = await store.GetPackageVerificationAsync(
+            verifyCommand.CommandId,
+            CancellationToken.None);
+        Assert.NotNull(verification);
+        Assert.Equal(package.PackageId, verification.PackageId);
+        Assert.Equal(64, verification.EvidenceSha256.Length);
+        Assert.Contains("\"passed\":true", verification.ResultJson, StringComparison.Ordinal);
+        var verificationResult = JsonSerializer.Deserialize<RecoveryPackageVerificationResult>(
+            verification.ResultJson,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.NotNull(verificationResult);
+        Assert.Equal(now, verificationResult.VerifiedAt);
+        Assert.Single((await store.GetCommandsAsync(
+            LocalAgentCommandStatus.Completed,
+            CancellationToken.None)), candidate => candidate.CommandId == verifyCommand.CommandId);
+    }
+
+    [Theory]
+    [InlineData("valid")]
+    [InlineData("digest")]
+    [InlineData("identity")]
+    public async Task Stored_verification_evidence_replay_is_validated(string scenario)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var agentId = Guid.NewGuid();
+        var backupCommand = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.CreateBackup,
+            "stored-backup",
+            JsonSerializer.Serialize(new { discoveryCommandId = Guid.NewGuid() }),
+            now.AddMinutes(-2),
+            TimeSpan.FromMinutes(5));
+        var verifyCommand = AgentCommandEnvelope.Create(
+            agentId,
+            AgentCommandType.VerifyBackup,
+            $"stored-verification-{scenario}",
+            JsonSerializer.Serialize(new { backupCommandId = backupCommand.CommandId }),
+            now.AddMinutes(-1),
+            TimeSpan.FromMinutes(5));
+        var packageId = new string('a', 64);
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(backupCommand, now, CancellationToken.None);
+        Assert.True(await store.TryTransitionCommandAsync(
+            backupCommand.CommandId,
+            LocalAgentCommandStatus.Pending,
+            LocalAgentCommandStatus.Running,
+            now,
+            CancellationToken.None));
+        Assert.True(await store.TryTransitionCommandAsync(
+            backupCommand.CommandId,
+            LocalAgentCommandStatus.Running,
+            LocalAgentCommandStatus.Completed,
+            now,
+            CancellationToken.None));
+        await store.StoreRecoveryPackageAsync(
+            backupCommand.CommandId,
+            packageId,
+            Path.Combine(_testRoot, "unused-replay-path", packageId),
+            "{}",
+            now,
+            CancellationToken.None);
+        await store.EnqueueCommandAsync(verifyCommand, now, CancellationToken.None);
+        var result = new RecoveryPackageVerificationResult(
+            scenario == "identity" ? Guid.NewGuid() : verifyCommand.CommandId,
+            packageId,
+            now.AddSeconds(-30),
+            true,
+            [
+                new RecoveryPackageVerificationLevel("structural", true, ["Passed."]),
+                new RecoveryPackageVerificationLevel("cryptographic", true, ["Passed."])
+            ]);
+        var resultJson = RecoveryPackageVerifier.Serialize(result);
+        var evidenceSha256 = scenario == "digest"
+            ? new string('0', 64)
+            : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(resultJson)));
+        await store.StorePackageVerificationAsync(
+            verifyCommand.CommandId,
+            packageId,
+            resultJson,
+            evidenceSha256,
+            result.VerifiedAt,
+            CancellationToken.None);
+
+        await CreateExecutor(store, now).ExecutePendingOnceAsync(
+            new StoredAgentIdentity(agentId, Guid.NewGuid(), "credential"),
+            CancellationToken.None);
+
+        var expectedStatus = scenario == "valid"
+            ? LocalAgentCommandStatus.Completed
+            : LocalAgentCommandStatus.Failed;
+        Assert.Contains(
+            await store.GetCommandsAsync(expectedStatus, CancellationToken.None),
+            command => command.CommandId == verifyCommand.CommandId);
+        var outcome = Assert.Single(await store.GetPendingEventsAsync(
+            now.AddMinutes(1),
+            10,
+            CancellationToken.None));
+        Assert.Equal(
+            scenario == "valid" ? AgentEventType.JobCompleted : AgentEventType.JobFailed,
+            outcome.Envelope.Type);
     }
 
     public Task DisposeAsync()
@@ -335,6 +450,7 @@ public sealed class AgentCommandExecutorTests : IAsyncLifetime
             store,
             new DiscoveryPluginRegistry([plugin]),
             new RecoveryPackageWriter(CreateOptions()),
+            new RecoveryPackageVerifier(CreateOptions()),
             timeProvider,
             logger ?? NullLogger<AgentCommandExecutor>.Instance);
     }

@@ -162,6 +162,43 @@ public sealed class AgentQueueStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Verification_evidence_is_inserted_once_and_survives_restart()
+    {
+        var command = AgentCommandEnvelope.Create(
+            Guid.NewGuid(),
+            AgentCommandType.VerifyBackup,
+            "verification-evidence",
+            "{}",
+            TimeSpan.FromMinutes(5));
+        var store = CreateStore();
+        await store.InitializeAsync(CancellationToken.None);
+        await store.EnqueueCommandAsync(command, DateTimeOffset.UtcNow, CancellationToken.None);
+        await store.StorePackageVerificationAsync(
+            command.CommandId,
+            "package-id",
+            "{\"passed\":true}",
+            "first-digest",
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+        await store.StorePackageVerificationAsync(
+            command.CommandId,
+            "different-package",
+            "{\"passed\":false}",
+            "second-digest",
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
+
+        var stored = await CreateStore().GetPackageVerificationAsync(
+            command.CommandId,
+            CancellationToken.None);
+
+        Assert.NotNull(stored);
+        Assert.Equal("package-id", stored.PackageId);
+        Assert.Equal("first-digest", stored.EvidenceSha256);
+        Assert.Equal("{\"passed\":true}", stored.ResultJson);
+    }
+
+    [Fact]
     public async Task Failed_delivery_remains_durable_until_retry_succeeds()
     {
         var now = DateTimeOffset.UtcNow;

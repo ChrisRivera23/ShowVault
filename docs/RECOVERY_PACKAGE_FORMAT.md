@@ -45,4 +45,4 @@ Before an existing or concurrently published package is accepted, the Agent chec
 
 ## Trust boundary
 
-Read-only flags discourage accidental modification but are not a cryptographic access-control mechanism. The next slice independently verifies the manifest digest, layout, content sizes, and content hashes and emits immutable verification evidence.
+Read-only flags discourage accidental modification but are not a cryptographic access-control mechanism. `VerifyBackup` independently verifies the configured package-store boundary, a bounded regular manifest, complete required manifest shape, manifest digest, exact layout, regular content files, content sizes, and content hashes and emits immutable verification evidence. Unix verification uses no-follow, nonblocking file opens so sockets and FIFOs cannot stall hashing, and the inspected handle is the one hashed. Format 1.0 is not digitally signed, so it provides integrity but not creator authenticity.
