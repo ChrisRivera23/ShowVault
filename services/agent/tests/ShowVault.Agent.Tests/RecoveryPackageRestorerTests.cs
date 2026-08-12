@@ -162,7 +162,7 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
 
     private RecoveryPackageRestorer CreateRestorer()
     {
-        var verifier = new RecoveryPackageVerifier();
+        var verifier = new RecoveryPackageVerifier(CreateOptions());
         return new RecoveryPackageRestorer(
             CreateOptions(),
             verifier,
@@ -188,6 +188,7 @@ public sealed class RecoveryPackageRestorerTests : IAsyncLifetime
         ControlPlaneUri = new Uri("https://control.test"),
         Name = "Test Agent",
         DataDirectory = Path.Combine(_testRoot, "data"),
+        PackageDirectory = Path.Combine(_testRoot, "packages"),
         RestoreRoots = [RestoreRoot]
     });
 

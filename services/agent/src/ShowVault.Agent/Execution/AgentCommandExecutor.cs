@@ -362,6 +362,7 @@ public sealed class AgentCommandExecutor(
             identity,
             command,
             AgentEventType.JobCompleted,
+            LocalAgentCommandStatus.Running,
             LocalAgentCommandStatus.Completed,
             JsonSerializer.Serialize(
                 new
