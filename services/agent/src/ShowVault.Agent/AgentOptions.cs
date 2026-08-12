@@ -40,4 +40,8 @@ public sealed class AgentOptions
     public IReadOnlyList<string> YamahaTfSettingsExportRoots { get; init; } = [];
 
     public IReadOnlyList<string> YamahaDm3SettingsExportRoots { get; init; } = [];
+
+    public IReadOnlyList<string> YamahaProVisionaireDesignProjectRoots { get; init; } = [];
+
+    public IReadOnlyList<string> YamahaMtxMrxProjectRoots { get; init; } = [];
 }
