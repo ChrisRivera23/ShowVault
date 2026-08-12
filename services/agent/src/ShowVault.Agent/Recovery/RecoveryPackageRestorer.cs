@@ -6,15 +6,35 @@ using ShowVault.Agent.Queue;
 
 namespace ShowVault.Agent.Recovery;
 
-public sealed class RecoveryPackageRestorer(
-    IOptions<AgentOptions> options,
-    RecoveryPackageVerifier verifier,
-    AgentQueueStore queueStore)
+public sealed class RecoveryPackageRestorer
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private readonly IReadOnlyList<string> _restoreRoots = options.Value.RestoreRoots
-        .Select(path => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)))
-        .ToList();
+    private readonly IReadOnlyList<string> _restoreRoots;
+    private readonly RecoveryPackageVerifier _verifier;
+    private readonly AgentQueueStore _queueStore;
+    private readonly IRestoreRaceProbe? _raceProbe;
+
+    public RecoveryPackageRestorer(
+        IOptions<AgentOptions> options,
+        RecoveryPackageVerifier verifier,
+        AgentQueueStore queueStore)
+        : this(options, verifier, queueStore, null)
+    {
+    }
+
+    internal RecoveryPackageRestorer(
+        IOptions<AgentOptions> options,
+        RecoveryPackageVerifier verifier,
+        AgentQueueStore queueStore,
+        IRestoreRaceProbe? raceProbe)
+    {
+        _restoreRoots = options.Value.RestoreRoots
+            .Select(path => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)))
+            .ToList();
+        _verifier = verifier;
+        _queueStore = queueStore;
+        _raceProbe = raceProbe;
+    }
 
     public async Task<RecoveryRestorationResult> RestoreAsync(
         Guid restorationId,
@@ -26,19 +46,19 @@ public sealed class RecoveryPackageRestorer(
         CancellationToken cancellationToken)
     {
         var (normalizedTarget, allowedRoot) = ResolveTargetPath(targetPath);
-        var intent = await queueStore.GetRecoveryRestoreIntentAsync(
+        var intent = await _queueStore.GetRecoveryRestoreIntentAsync(
             restorationId,
             cancellationToken);
         if (intent is null)
         {
             EnsureTargetIsAbsentOrEmpty(normalizedTarget);
-            await queueStore.StoreRecoveryRestoreIntentAsync(
+            await _queueStore.StoreRecoveryRestoreIntentAsync(
                 restorationId,
                 package.PackageId,
                 normalizedTarget,
                 restoredAt,
                 cancellationToken);
-            intent = await queueStore.GetRecoveryRestoreIntentAsync(
+            intent = await _queueStore.GetRecoveryRestoreIntentAsync(
                 restorationId,
                 cancellationToken)
                 ?? throw new InvalidOperationException("Restore intent was not stored.");
@@ -51,7 +71,7 @@ public sealed class RecoveryPackageRestorer(
 
         restoredAt = intent.CreatedAt;
 
-        var preRestoreVerification = await verifier.VerifyAsync(
+        var preRestoreVerification = await _verifier.VerifyAsync(
             restorationId,
             agentId,
             package.PackageId,
@@ -107,11 +127,10 @@ public sealed class RecoveryPackageRestorer(
             Directory.Delete(stagingPath, recursive: true);
         }
 
-        Directory.CreateDirectory(stagingPath);
-        if (IsLink(stagingPath))
-        {
-            throw new InvalidOperationException("Restore staging path cannot be a filesystem link.");
-        }
+        using var targetParent = OpenTargetParent(allowedRoot, normalizedTarget);
+        var stagingName = Path.GetFileName(stagingPath);
+        var targetName = Path.GetFileName(normalizedTarget);
+        using var staging = targetParent.CreateDirectory(stagingName);
 
         try
         {
@@ -122,22 +141,24 @@ public sealed class RecoveryPackageRestorer(
                     package.PackagePath,
                     RecoveryPackageFormat.ContentDirectoryName,
                     file.RelativePath.Replace('/', Path.DirectorySeparatorChar));
-                var destinationPath = Path.Combine(
-                    stagingPath,
-                    file.RelativePath.Replace('/', Path.DirectorySeparatorChar));
                 EnsureNoLinks(
                     Path.Combine(package.PackagePath, RecoveryPackageFormat.ContentDirectoryName),
                     sourcePath);
-                Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
                 await using var source = RecoveryPackageVerifier.OpenRegularFile(sourcePath)
                     ?? throw new InvalidOperationException(
                         $"Restore source must be a regular file: {file.RelativePath}");
+                using var destinationParent = OpenOrCreateRelativeParent(
+                    staging,
+                    file.RelativePath);
+                await using var destination = destinationParent.CreateFile(
+                    Path.GetFileName(file.RelativePath));
+                _raceProbe?.Reached(RestoreRacePoint.DestinationFileOpened, file.RelativePath);
                 var restoredHash = await CopyAndHashAsync(
                     source,
-                    destinationPath,
+                    destination,
                     cancellationToken);
                 if (source.Length != file.Size ||
-                    new FileInfo(destinationPath).Length != file.Size ||
+                    destination.Length != file.Size ||
                     !string.Equals(restoredHash, file.Sha256, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException(
@@ -147,24 +168,27 @@ public sealed class RecoveryPackageRestorer(
 
             EnsureParentPathIsSafe(allowedRoot, normalizedTarget);
             EnsureTargetIsAbsentOrEmpty(normalizedTarget);
+            if (!staging.IsSameDirectoryAt(targetParent, stagingName))
+            {
+                throw new InvalidOperationException("Restore staging directory identity changed.");
+            }
+
             if (Directory.Exists(normalizedTarget))
             {
                 Directory.Delete(normalizedTarget);
             }
 
-            if (IsLink(stagingPath))
-            {
-                throw new InvalidOperationException("Restore staging path cannot be a filesystem link.");
-            }
-
-            Directory.Move(stagingPath, normalizedTarget);
+            targetParent.RenameChild(stagingName, targetName);
+        }
+        catch (IOException exception)
+        {
+            throw new InvalidOperationException(
+                "Restore filesystem boundary changed during execution.",
+                exception);
         }
         finally
         {
-            if (Directory.Exists(stagingPath) && !IsLink(stagingPath))
-            {
-                Directory.Delete(stagingPath, recursive: true);
-            }
+            targetParent.DeleteChildTreeIfSame(stagingName, staging);
         }
 
         return CreateResult(
@@ -218,16 +242,9 @@ public sealed class RecoveryPackageRestorer(
 
     private static async Task<string> CopyAndHashAsync(
         FileStream source,
-        string destinationPath,
+        FileStream destination,
         CancellationToken cancellationToken)
     {
-        await using var destination = new FileStream(
-            destinationPath,
-            FileMode.CreateNew,
-            FileAccess.Write,
-            FileShare.None,
-            65_536,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = ArrayPool<byte>.Shared.Rent(65_536);
         try
@@ -250,7 +267,7 @@ public sealed class RecoveryPackageRestorer(
         }
     }
 
-    private static async Task EnsureRestoredTargetMatchesAsync(
+    private async Task EnsureRestoredTargetMatchesAsync(
         string targetPath,
         RecoveryPackageManifest manifest,
         CancellationToken cancellationToken)
@@ -261,41 +278,78 @@ public sealed class RecoveryPackageRestorer(
         var expectedDirectories = manifest.Files
             .SelectMany(file => GetParentPaths(file.RelativePath))
             .ToHashSet(StringComparer.Ordinal);
-        var directories = new Queue<string>();
-        directories.Enqueue(targetPath);
-        while (directories.TryDequeue(out var directory))
+        using var root = StableDirectoryTree.Open(targetPath);
+        await VerifyDirectoryAsync(
+            root,
+            string.Empty,
+            manifest,
+            expectedFiles,
+            expectedDirectories,
+            cancellationToken);
+
+        if (expectedFiles.Count != 0)
         {
-            foreach (var path in Directory.EnumerateFileSystemEntries(directory))
+            throw new InvalidOperationException("Published restore target is incomplete.");
+        }
+    }
+
+    private async Task VerifyDirectoryAsync(
+        StableDirectoryTree directory,
+        string parentRelativePath,
+        RecoveryPackageManifest manifest,
+        HashSet<string> expectedFiles,
+        HashSet<string> expectedDirectories,
+        CancellationToken cancellationToken)
+    {
+        foreach (var name in directory.EnumerateNames())
+        {
+            var relativePath = parentRelativePath.Length == 0
+                ? name
+                : $"{parentRelativePath}/{name}";
+            if (expectedDirectories.Contains(relativePath))
             {
-                var relativePath = Path.GetRelativePath(targetPath, path)
-                    .Replace(Path.DirectorySeparatorChar, '/');
-                if (IsLink(path))
+                StableDirectoryTree child;
+                try
                 {
-                    throw new InvalidOperationException("Published restore target contains a link.");
+                    child = directory.OpenDirectory(name);
                 }
-
-                if (Directory.Exists(path))
-                {
-                    if (!expectedDirectories.Contains(relativePath))
-                    {
-                        throw new InvalidOperationException(
-                            "Published restore target contains an unexpected directory.");
-                    }
-
-                    directories.Enqueue(path);
-                    continue;
-                }
-
-                if (!expectedFiles.Remove(relativePath))
+                catch (IOException exception)
                 {
                     throw new InvalidOperationException(
-                        "Published restore target contains unexpected files.");
+                        "Published restore target contains a linked or invalid directory.",
+                        exception);
                 }
 
-                var expected = manifest.Files.Single(file => file.RelativePath == relativePath);
-                await using var stream = RecoveryPackageVerifier.OpenRegularFile(path)
-                    ?? throw new InvalidOperationException(
-                        "Published restore target must contain only regular files.");
+                using (child)
+                {
+                    _raceProbe?.Reached(RestoreRacePoint.AdoptionDirectoryOpened, relativePath);
+                    await VerifyDirectoryAsync(
+                        child,
+                        relativePath,
+                        manifest,
+                        expectedFiles,
+                        expectedDirectories,
+                        cancellationToken);
+                    if (!child.IsSameDirectoryAt(directory, name))
+                    {
+                        throw new InvalidOperationException(
+                            "Published restore target directory identity changed.");
+                    }
+                }
+
+                continue;
+            }
+
+            if (!expectedFiles.Remove(relativePath))
+            {
+                throw new InvalidOperationException(
+                    "Published restore target contains unexpected entries.");
+            }
+
+            var expected = manifest.Files.Single(file => file.RelativePath == relativePath);
+            try
+            {
+                await using var stream = directory.OpenRegularFile(name);
                 var hash = Convert.ToHexStringLower(
                     await SHA256.HashDataAsync(stream, cancellationToken));
                 if (stream.Length != expected.Size ||
@@ -305,12 +359,56 @@ public sealed class RecoveryPackageRestorer(
                         "Published restore target failed integrity checks.");
                 }
             }
+            catch (IOException exception)
+            {
+                throw new InvalidOperationException(
+                    "Published restore target must contain only regular files.",
+                    exception);
+            }
+        }
+    }
+
+    private static StableDirectoryTree OpenTargetParent(string rootPath, string targetPath)
+    {
+        var parentPath = Path.GetDirectoryName(targetPath)
+            ?? throw new InvalidOperationException("Restore target must have a parent directory.");
+        var current = StableDirectoryTree.Open(rootPath);
+        foreach (var segment in Path.GetRelativePath(rootPath, parentPath).Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (segment == ".")
+            {
+                continue;
+            }
+
+            var next = current.OpenDirectory(segment);
+            current.Dispose();
+            current = next;
         }
 
-        if (expectedFiles.Count != 0)
+        return current;
+    }
+
+    private static StableDirectoryTree OpenOrCreateRelativeParent(
+        StableDirectoryTree root,
+        string relativePath)
+    {
+        var segments = relativePath.Split('/');
+        if (segments.Length == 1)
         {
-            throw new InvalidOperationException("Published restore target is incomplete.");
+            return root.Duplicate();
         }
+
+        var current = root.Duplicate();
+        for (var index = 0; index < segments.Length - 1; index++)
+        {
+            var next = current.GetOrCreateDirectory(segments[index]);
+            current.Dispose();
+            current = next;
+        }
+
+        return current;
     }
 
     private static IEnumerable<string> GetParentPaths(string relativePath)
