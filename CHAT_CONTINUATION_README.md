@@ -175,6 +175,26 @@ persisted expiry, closed/bounded key rotation, configured-origin and generic
 portal errors, and chunked request-body limits. Production portal startup remains
 disabled, and no product source or external system changed during the review.
 
+### Milestone 7 adversarial repair checkpoint
+
+The Product Owner authorized the frozen three-step local repair. It is complete
+on `codex/account-portal-m7-repair` from review base `549a91f`. The cohesive
+commits are `22212c8` (API safety), `5763fe3` (portal contract), and `ffa996e`
+(adversarial proof matrix), followed by the final evidence/handoff commit.
+
+The repair denies personal beta at hosted sync while retaining its guarded
+direct scan path; makes invitation expiry/races/key rotation/body limits and the
+accepted-membership linkage fail closed; sends the exact Auth0 `audience`;
+enforces the configured portal origin and generic errors; bounds ephemeral
+stores; and renders the missing organization/error context. API 105, portal 15,
+platform 30, local-engine 67, contracts 22, Agent 291, and Flutter 32 tests pass.
+Flutter analysis, EF migration consistency, five Release builds, focused
+formatting, diff checks, and credential/browser-storage scans are clean.
+
+This remains local synthetic proof only. No Auth0 or Stripe configuration,
+external API/object mutation, deployment, production enablement, real-person
+data, native installation, or external Git action occurred.
+
 ## Authorization boundary
 
 The Product Owner subsequently authorized the bounded Stripe sandbox/account
@@ -197,9 +217,8 @@ up destructively without new explicit authorization.
 Two independent next actions are available. Stripe sandbox proof can resume
 now that the Product Owner is signed into the sandbox dashboard, but still
 requires the fixture choice and a reachable HTTPS webhook route for complete
-proof. The safe local roadmap action is the separately authorized three-step
-milestone-7 repair sequence frozen in the adversarial review: API safety, portal
-contract, then complete proof/evidence. Auth0 operational configuration/deployed proof,
+proof. The milestone-7 local repair is complete and ready for fresh review and
+integration authorization. Auth0 operational configuration/deployed proof,
 durable production portal sessions, real-person onboarding/privacy policy,
 internal staff Admin, production hosted-object storage, and native proof remain
 independently gated.

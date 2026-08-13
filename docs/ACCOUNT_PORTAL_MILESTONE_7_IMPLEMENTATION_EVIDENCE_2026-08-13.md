@@ -11,9 +11,16 @@
   (`Add invitation and account administration API`)
 - Commit 3: `74db2fb744ff445697555900eaaf419823350e64`
   (`Add secure account portal BFF`)
+- Adversarial-review base: `549a91f01ca678ac8a7535ae1f95445009a2be05`
+- Repair branch: `codex/account-portal-m7-repair`
+- Repair commit 1: `22212c8` (`Repair account API safety invariants`)
+- Repair commit 2: `5763fe3` (`Repair account portal security contract`)
+- Repair commit 3: `ffa996e` (`Complete account portal adversarial proof matrix`)
 
-The implementation spans 63 files from the planning base. Generated `bin` and
-`obj` outputs remain ignored and uncommitted.
+The repaired implementation spans 71 files from the planning base. The repair
+changes 25 files from the adversarial-review base, including this evidence and
+the continuation handoff. Generated `bin` and `obj` outputs remain ignored and
+uncommitted.
 
 ## Implemented boundary
 
@@ -42,6 +49,21 @@ use, local return paths, and one-time server-side invitation-code display. It
 contains no Flutter/local-engine dependency, browser token storage, analytics,
 or `offline_access`. Checked-in configuration is disabled and secret-free.
 
+The repair closes every finding in the adversarial review. Personal-beta
+identities retain direct recovery-candidate scan/list access but are rejected
+before all hosted-sync state or object-store access. Invitation acceptance now
+persists observed expiry, recovers an exact same-subject concurrency winner,
+and binds accepted invitations to memberships through a restrictive foreign
+key. Key configuration is normalized and bounded to active plus retiring keys,
+and refuses premature removal while an unexpired pending invitation references
+the retiring key. Account JSON is bounded independently of `Content-Length`.
+
+The portal now sends Auth0's exact `audience` authorization parameter on
+ordinary and step-up redirects, enforces the configured HTTPS scheme/host/port,
+sets the enabled host allowlist, returns generic correlation-only failures,
+bounds both Development-only ephemeral stores, renders organization/error
+context, and retains the production startup denial.
+
 Only an in-memory ticket store exists in this milestone, so enabled production
 startup deliberately fails closed. A real durable encrypted/distributed ticket
 store and persistent Data Protection key ring remain a separate operational
@@ -53,11 +75,33 @@ Passing suites:
 
 - local engine: 67;
 - platform: 30;
-- API: 68;
+- API: 105;
 - agent contracts: 22;
 - agent: 291;
-- account portal: 8; and
+- account portal: 15; and
 - Flutter: 32, with `flutter analyze` reporting no issues.
+
+The 105 API cases include these exact repair additions over the original 68:
+
+- four body/key/personal-beta safety cases;
+- fifteen account-administration cases covering every non-Owner role,
+  outsider/missing-subject/personal-beta, revocation, cross-tenant IDs,
+  same-subject and other-subject races, existing active/suspended/revoked
+  subjects, persisted expiry, role/state/revision rules, concurrent mutation,
+  rate limiting, retiring-key acceptance, and missing-pending-key denial;
+- seventeen active-versus-suspended/revoked endpoint cases across Tenant,
+  Recovery Candidates, Recovery History, Agent Enrollment, Commercial Plan,
+  Billing, Hosted Sync, and Account Administration, including role-preserving
+  restoration; and
+- one additional closed step-up-claim case. The hosted-sync personal-beta case
+  also proves its guarded direct recovery scan/list path remains available.
+
+The 15 portal cases include the original eight plus bounded-store eviction,
+exact-origin and actual OIDC redirect parsing (`audience`, code response, PKCE,
+state, and nonce), step-up audience/scope/`acr_values`/`max_age`, generic error
+redaction, authenticated organization/member rendering, successful antiforgery
+mutation, bearer-token/subject exclusion, one-time invitation-code refresh,
+typed forbidden-to-step-up mapping, and rendered uniform invitation failure.
 
 Release builds completed with zero warnings/errors for API, account portal,
 Agent, local-engine host, and sync-engine host. EF reports no pending model
@@ -95,8 +139,8 @@ milestone-7 implementation.
 
 ## Next gated action
 
-The next safe action is a fresh adversarial code review of these three commits
-against the frozen architecture and evidence, followed by repairs if findings
-exist. Auth0 operational configuration/deployed proof, durable production portal
-sessions, real-person onboarding/privacy policy, and Stripe sandbox object proof
-remain independent, explicitly authorized gates.
+The locally testable repair gate is satisfied. The next safe action is a fresh
+review of the repair commits and this exact evidence before integration.
+Auth0 operational configuration/deployed proof, durable production portal
+sessions, real-person onboarding/privacy policy, production enablement, and
+Stripe sandbox object proof remain independent, explicitly authorized gates.

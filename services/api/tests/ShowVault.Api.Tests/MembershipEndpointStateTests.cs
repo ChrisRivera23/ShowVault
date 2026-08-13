@@ -79,29 +79,29 @@ public sealed class MembershipEndpointStateTests(TenantApiFactory factory)
 
     private static Task<HttpResponseMessage> SendAsync(HttpClient client, Surface surface,
         Fixture fixture) => surface switch
-    {
-        Surface.Tenant => client.GetAsync(
-            $"/api/v1/organizations/{fixture.OrganizationId}/venues"),
-        Surface.RecoveryCandidates => client.GetAsync(
-            $"/api/v1/organizations/{fixture.OrganizationId}/venues/{fixture.VenueId}" +
-            "/recovery-candidates"),
-        Surface.RecoveryHistory => client.GetAsync(
-            $"/api/v1/organizations/{fixture.OrganizationId}/venues/{fixture.VenueId}" +
-            "/recovery-runs"),
-        Surface.AgentEnrollment => client.PostAsync(
-            $"/api/v1/organizations/{fixture.OrganizationId}/venues/{fixture.VenueId}" +
-            "/agent-enrollments", null),
-        Surface.CommercialPlan => client.GetAsync(
-            $"/api/v1/organizations/{fixture.OrganizationId}/plan"),
-        Surface.Billing => client.GetAsync(
-            $"/api/v1/organizations/{fixture.OrganizationId}/billing/offering"),
-        Surface.HostedSync => client.GetAsync(
-            $"/api/v1/organizations/{fixture.OrganizationId}/venues/{fixture.VenueId}" +
-            "/hosted-sync/" + new string('a', 64) + "/receipt"),
-        Surface.AccountAdministration => client.GetAsync(
-            $"/api/v1/organizations/{fixture.OrganizationId}/account/members"),
-        _ => throw new ArgumentOutOfRangeException(nameof(surface))
-    };
+        {
+            Surface.Tenant => client.GetAsync(
+                $"/api/v1/organizations/{fixture.OrganizationId}/venues"),
+            Surface.RecoveryCandidates => client.GetAsync(
+                $"/api/v1/organizations/{fixture.OrganizationId}/venues/{fixture.VenueId}" +
+                "/recovery-candidates"),
+            Surface.RecoveryHistory => client.GetAsync(
+                $"/api/v1/organizations/{fixture.OrganizationId}/venues/{fixture.VenueId}" +
+                "/recovery-runs"),
+            Surface.AgentEnrollment => client.PostAsync(
+                $"/api/v1/organizations/{fixture.OrganizationId}/venues/{fixture.VenueId}" +
+                "/agent-enrollments", null),
+            Surface.CommercialPlan => client.GetAsync(
+                $"/api/v1/organizations/{fixture.OrganizationId}/plan"),
+            Surface.Billing => client.GetAsync(
+                $"/api/v1/organizations/{fixture.OrganizationId}/billing/offering"),
+            Surface.HostedSync => client.GetAsync(
+                $"/api/v1/organizations/{fixture.OrganizationId}/venues/{fixture.VenueId}" +
+                "/hosted-sync/" + new string('a', 64) + "/receipt"),
+            Surface.AccountAdministration => client.GetAsync(
+                $"/api/v1/organizations/{fixture.OrganizationId}/account/members"),
+            _ => throw new ArgumentOutOfRangeException(nameof(surface))
+        };
 
     private async Task<Fixture> SeedAsync(string subject, OrganizationRole role)
     {
