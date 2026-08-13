@@ -76,16 +76,53 @@ class LocalVaultInspection {
   const LocalVaultInspection({
     required this.recoveryPoints,
     required this.queueAttentionCount,
+    required this.restoreAttentionCount,
   });
 
   final List<LocalRecoveryPointSummary> recoveryPoints;
   final int queueAttentionCount;
+  final int restoreAttentionCount;
 }
 
 class LocalSaveOperation {
   const LocalSaveOperation({required this.result, required this.cancel});
 
   final Future<LocalSaveResult> result;
+  final Future<void> Function() cancel;
+}
+
+class LocalRestoreResult {
+  const LocalRestoreResult({
+    required this.recoveryPointId,
+    required this.restoreEvidenceId,
+    required this.fileCount,
+    required this.totalBytes,
+    required this.completedAt,
+    required this.localStatus,
+  });
+
+  factory LocalRestoreResult.fromJson(Map<String, Object?> json) =>
+      LocalRestoreResult(
+        recoveryPointId: _string(json, 'recoveryPointId'),
+        restoreEvidenceId: _string(json, 'restoreEvidenceId'),
+        fileCount: _integer(json, 'fileCount'),
+        totalBytes: _integer(json, 'totalBytes'),
+        completedAt: DateTime.parse(_string(json, 'completedAt')),
+        localStatus: _string(json, 'localStatus'),
+      );
+
+  final String recoveryPointId;
+  final String restoreEvidenceId;
+  final int fileCount;
+  final int totalBytes;
+  final DateTime completedAt;
+  final String localStatus;
+}
+
+class LocalRestoreOperation {
+  const LocalRestoreOperation({required this.result, required this.cancel});
+
+  final Future<LocalRestoreResult> result;
   final Future<void> Function() cancel;
 }
 
@@ -98,6 +135,13 @@ abstract class LocalEngineClient {
   });
 
   Future<LocalVaultInspection> inspectVault(String selectedVault);
+
+  LocalRestoreOperation startRestore({
+    required String recoveryPointId,
+    required String selectedVault,
+    required String selectedTarget,
+    required void Function(LocalSaveProgress progress) onProgress,
+  });
 }
 
 class ProcessLocalEngineClient implements LocalEngineClient {
@@ -211,6 +255,7 @@ class ProcessLocalEngineClient implements LocalEngineClient {
       inspection = LocalVaultInspection(
         recoveryPoints: summaries,
         queueAttentionCount: _integer(payload, 'queueAttentionCount'),
+        restoreAttentionCount: _integer(payload, 'restoreAttentionCount'),
       );
     }
     final errorOutput = await process.stderr.transform(utf8.decoder).join();
@@ -220,6 +265,75 @@ class ProcessLocalEngineClient implements LocalEngineClient {
       throw const LocalEngineClientException('local_io_failed');
     }
     return inspection;
+  }
+
+  @override
+  LocalRestoreOperation startRestore({
+    required String recoveryPointId,
+    required String selectedVault,
+    required String selectedTarget,
+    required void Function(LocalSaveProgress progress) onProgress,
+  }) {
+    Process? process;
+    final result = () async {
+      process = await Process.start(_executablePath, const []);
+      final current = process!;
+      current.stdin.writeln(
+        jsonEncode({
+          'operation': 'restore',
+          'recoveryPointId': recoveryPointId,
+          'selectedVault': selectedVault,
+          'selectedTarget': selectedTarget,
+        }),
+      );
+      await current.stdin.flush();
+      LocalRestoreResult? restoreResult;
+      await for (final line
+          in current.stdout
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
+        final envelope = _envelope(line);
+        switch (envelope.type) {
+          case 'progress':
+            onProgress(
+              LocalSaveProgress(
+                _string(envelope.payload, 'stage'),
+                _integer(envelope.payload, 'completedUnits'),
+                _integer(envelope.payload, 'totalUnits'),
+              ),
+            );
+          case 'result':
+            restoreResult = LocalRestoreResult.fromJson(envelope.payload);
+          case 'error':
+            throw LocalEngineClientException(
+              envelope.code ?? 'local_io_failed',
+            );
+          default:
+            throw const LocalEngineClientException('invalid_host_response');
+        }
+      }
+      final errorOutput = await current.stderr.transform(utf8.decoder).join();
+      final exitCode = await current.exitCode;
+      await current.stdin.close();
+      if (errorOutput.isNotEmpty || exitCode != 0 || restoreResult == null) {
+        throw const LocalEngineClientException('local_io_failed');
+      }
+      return restoreResult;
+    }();
+    return LocalRestoreOperation(
+      result: result,
+      cancel: () async {
+        final current = process;
+        if (current != null) {
+          try {
+            current.stdin.writeln(jsonEncode({'operation': 'cancel'}));
+            await current.stdin.flush();
+          } on StateError {
+            current.kill(ProcessSignal.sigint);
+          }
+        }
+      },
+    );
   }
 
   static String _packagedHostPath() {

@@ -84,7 +84,12 @@ class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
   LocalSaveProgress? _saveProgress;
   LocalSaveResult? _saveResult;
   List<LocalRecoveryPointSummary>? _vaultPoints;
+  String? _selectedVault;
+  LocalRestoreOperation? _restoreOperation;
+  LocalSaveProgress? _restoreProgress;
+  LocalRestoreResult? _restoreResult;
   int _queueAttentionCount = 0;
+  int _restoreAttentionCount = 0;
   String? _localError;
   String? _cloudError;
 
@@ -198,8 +203,10 @@ class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
           .inspectVault(selected);
       if (mounted) {
         setState(() {
+          _selectedVault = selected;
           _vaultPoints = inspection.recoveryPoints;
           _queueAttentionCount = inspection.queueAttentionCount;
+          _restoreAttentionCount = inspection.restoreAttentionCount;
         });
       }
     } on LocalEngineClientException {
@@ -211,6 +218,65 @@ class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
       }
     } finally {
       if (mounted) setState(() => _openingVault = false);
+    }
+  }
+
+  Future<void> _restore(LocalRecoveryPointSummary point) async {
+    final vault = _selectedVault;
+    if (vault == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Restore ${point.productName} files?'),
+        content: const Text(
+          'ShowVault will copy verified files into a separate empty sandbox. '
+          'It will not load them into a running application or device.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Choose sandbox'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final target = await ref
+        .read(localDirectoryConsentProvider)
+        .selectRestoreTarget();
+    if (target == null || !mounted) return;
+    setState(() {
+      _localError = null;
+      _restoreResult = null;
+      _restoreProgress = const LocalSaveProgress('starting_restore', 0, 1);
+    });
+    final operation = ref
+        .read(localEngineClientProvider)
+        .startRestore(
+          recoveryPointId: point.recoveryPointId,
+          selectedVault: vault,
+          selectedTarget: target,
+          onProgress: (progress) {
+            if (mounted) setState(() => _restoreProgress = progress);
+          },
+        );
+    setState(() => _restoreOperation = operation);
+    try {
+      final result = await operation.result;
+      if (mounted) setState(() => _restoreResult = result);
+    } on LocalEngineClientException catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _localError = error.code == 'cancelled'
+            ? 'Restore cancelled before publication.'
+            : 'Restore needs attention. No unverified result was reported.',
+      );
+    } finally {
+      if (mounted) setState(() => _restoreOperation = null);
     }
   }
 
@@ -252,7 +318,12 @@ class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
               ),
               const SizedBox(width: 16),
               FilledButton.icon(
-                onPressed: _scanning || _saveOperation != null ? null : _scan,
+                onPressed:
+                    _scanning ||
+                        _saveOperation != null ||
+                        _restoreOperation != null
+                    ? null
+                    : _scan,
                 icon: const Icon(Icons.search),
                 label: Text(_scanning ? 'Scanning…' : 'Scan'),
               ),
@@ -311,15 +382,58 @@ class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
             ),
           ],
           if (_vaultPoints != null)
-            Text(
-              _vaultPoints!.isEmpty
-                  ? 'No verified local recovery points found.'
-                  : '${_vaultPoints!.length} verified local recovery point(s) available.',
+            if (_vaultPoints!.isEmpty)
+              const Text('No verified local recovery points found.')
+            else ...[
+              Text(
+                '${_vaultPoints!.length} verified local recovery point(s) available.',
+              ),
+              for (final point in _vaultPoints!)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.restore_outlined),
+                  title: Text(point.productName),
+                  subtitle: Text(
+                    '${point.fileCount} verified file(s) • local vault',
+                  ),
+                  trailing: FilledButton.tonal(
+                    onPressed:
+                        _saveOperation == null && _restoreOperation == null
+                        ? () => _restore(point)
+                        : null,
+                    child: const Text('Restore'),
+                  ),
+                ),
+            ],
+          if (_restoreOperation != null || _restoreProgress != null) ...[
+            const Divider(height: 28),
+            Text(_restoreProgressLabel(_restoreProgress)),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: _progressValue(_restoreProgress)),
+            if (_restoreOperation != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _restoreOperation?.cancel,
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Cancel Restore'),
+                ),
+              ),
+          ],
+          if (_restoreResult != null)
+            const Chip(
+              avatar: Icon(Icons.restore_page_outlined),
+              label: Text('Restored locally'),
             ),
           if (_queueAttentionCount > 0)
             Chip(
               avatar: const Icon(Icons.error_outline),
               label: Text('Queue attention: $_queueAttentionCount'),
+            ),
+          if (_restoreAttentionCount > 0)
+            Chip(
+              avatar: const Icon(Icons.restore_outlined),
+              label: Text('Restore attention: $_restoreAttentionCount'),
             ),
           if (_localError != null)
             Padding(
@@ -332,7 +446,10 @@ class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
-              onPressed: _openingVault || _saveOperation != null
+              onPressed:
+                  _openingVault ||
+                      _saveOperation != null ||
+                      _restoreOperation != null
                   ? null
                   : _openVault,
               icon: const Icon(Icons.folder_open_outlined),
@@ -358,6 +475,15 @@ class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
     if (progress == null || progress.totalUnits <= 0) return null;
     return (progress.completedUnits / progress.totalUnits).clamp(0, 1);
   }
+
+  static String _restoreProgressLabel(LocalSaveProgress? progress) =>
+      switch (progress?.stage) {
+        'verifying_package' => 'Reverifying the local recovery point…',
+        'copying' => 'Copying verified files into the Restore sandbox…',
+        'publishing' => 'Publishing the restored copy…',
+        'completed' => 'Recording path-free Restore evidence…',
+        _ => 'Starting local Restore…',
+      };
 }
 
 class RecoveryHistoryView extends StatelessWidget {

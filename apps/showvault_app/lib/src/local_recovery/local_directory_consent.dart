@@ -10,6 +10,7 @@ abstract class LocalDirectoryConsent {
 
   Future<String?> selectExactSource();
   Future<String?> selectVault();
+  Future<String?> selectRestoreTarget();
 }
 
 class NativeLocalDirectoryConsent extends LocalDirectoryConsent {
@@ -22,4 +23,8 @@ class NativeLocalDirectoryConsent extends LocalDirectoryConsent {
   @override
   Future<String?> selectVault() =>
       getDirectoryPath(confirmButtonText: 'Use local vault');
+
+  @override
+  Future<String?> selectRestoreTarget() =>
+      getDirectoryPath(confirmButtonText: 'Use empty Restore sandbox');
 }

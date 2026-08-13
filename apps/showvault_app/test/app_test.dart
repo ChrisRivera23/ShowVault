@@ -49,6 +49,9 @@ class _SyntheticConsent extends LocalDirectoryConsent {
 
   @override
   Future<String?> selectVault() async => '/synthetic/vault';
+
+  @override
+  Future<String?> selectRestoreTarget() async => '/synthetic/restore-target';
 }
 
 class _SuccessfulLocalEngine extends LocalEngineClient {
@@ -80,7 +83,66 @@ class _SuccessfulLocalEngine extends LocalEngineClient {
 
   @override
   Future<LocalVaultInspection> inspectVault(String selectedVault) async =>
-      const LocalVaultInspection(recoveryPoints: [], queueAttentionCount: 1);
+      const LocalVaultInspection(
+        recoveryPoints: [],
+        queueAttentionCount: 1,
+        restoreAttentionCount: 0,
+      );
+
+  @override
+  LocalRestoreOperation startRestore({
+    required String recoveryPointId,
+    required String selectedVault,
+    required String selectedTarget,
+    required void Function(LocalSaveProgress progress) onProgress,
+  }) => throw UnimplementedError();
+}
+
+class _SuccessfulRestoreEngine extends _SuccessfulLocalEngine {
+  @override
+  Future<LocalVaultInspection> inspectVault(String selectedVault) async =>
+      LocalVaultInspection(
+        recoveryPoints: [
+          LocalRecoveryPointSummary(
+            recoveryPointId: 'a' * 64,
+            candidateKey: 'macos.serato-dj-pro.user-data',
+            productName: 'Serato DJ Pro',
+            fileCount: 2,
+            totalBytes: 20,
+            createdAt: DateTime.utc(2026, 8, 13),
+            localStatus: 'verified',
+            cloudStatus: 'queued',
+          ),
+        ],
+        queueAttentionCount: 0,
+        restoreAttentionCount: 0,
+      );
+
+  @override
+  LocalRestoreOperation startRestore({
+    required String recoveryPointId,
+    required String selectedVault,
+    required String selectedTarget,
+    required void Function(LocalSaveProgress progress) onProgress,
+  }) {
+    expect(recoveryPointId, 'a' * 64);
+    expect(selectedVault, '/synthetic/vault');
+    expect(selectedTarget, '/synthetic/restore-target');
+    onProgress(const LocalSaveProgress('completed', 1, 1));
+    return LocalRestoreOperation(
+      result: Future.value(
+        LocalRestoreResult(
+          recoveryPointId: recoveryPointId,
+          restoreEvidenceId: 'b' * 64,
+          fileCount: 2,
+          totalBytes: 20,
+          completedAt: DateTime.utc(2026, 8, 13),
+          localStatus: 'restored',
+        ),
+      ),
+      cancel: () async {},
+    );
+  }
 }
 
 class _CancellableLocalEngine extends _SuccessfulLocalEngine {
@@ -194,6 +256,40 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Queue attention: 1'), findsOneWidget);
+    expect(find.textContaining('/synthetic/'), findsNothing);
+  });
+
+  testWidgets('restores a freshly verified point while signed out', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(_SignedOutAuthService()),
+          localDirectoryConsentProvider.overrideWithValue(
+            const _SyntheticConsent(),
+          ),
+          localEngineClientProvider.overrideWithValue(
+            _SuccessfulRestoreEngine(),
+          ),
+        ],
+        child: const ShowVaultApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open local vault'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Restore'));
+    await tester.tap(find.text('Restore'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('will not load'), findsOneWidget);
+    expect(find.text('Choose sandbox'), findsOneWidget);
+    expect(find.textContaining('/synthetic/'), findsNothing);
+    await tester.tap(find.text('Choose sandbox'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Restored locally'), findsOneWidget);
     expect(find.textContaining('/synthetic/'), findsNothing);
   });
 
