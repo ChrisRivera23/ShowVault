@@ -9,8 +9,17 @@ esac
 
 project_path="$SRCROOT/../../../services/local-engine/src/ShowVault.LocalEngine.Host/ShowVault.LocalEngine.Host.csproj"
 output_path="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/local-engine"
+sync_project_path="$SRCROOT/../../../services/local-engine/src/ShowVault.SyncEngine.Host/ShowVault.SyncEngine.Host.csproj"
 
 dotnet publish "$project_path" \
+  --configuration Release \
+  --runtime "$runtime_identifier" \
+  --self-contained true \
+  -p:PublishSingleFile=true \
+  -p:IncludeNativeLibrariesForSelfExtract=true \
+  --output "$output_path"
+
+dotnet publish "$sync_project_path" \
   --configuration Release \
   --runtime "$runtime_identifier" \
   --self-contained true \

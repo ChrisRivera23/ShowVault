@@ -55,6 +55,8 @@ add_subdirectory("runner")
 find_program(DOTNET_EXECUTABLE dotnet REQUIRED)
 set(LOCAL_ENGINE_PROJECT
   "${CMAKE_CURRENT_SOURCE_DIR}/../../../services/local-engine/src/ShowVault.LocalEngine.Host/ShowVault.LocalEngine.Host.csproj")
+set(SYNC_ENGINE_PROJECT
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../../services/local-engine/src/ShowVault.SyncEngine.Host/ShowVault.SyncEngine.Host.csproj")
 set(LOCAL_ENGINE_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/local-engine")
 add_custom_target(local_engine_host ALL
   COMMAND "${DOTNET_EXECUTABLE}" publish "${LOCAL_ENGINE_PROJECT}"
@@ -64,7 +66,16 @@ add_custom_target(local_engine_host ALL
     -p:PublishSingleFile=true
     -p:IncludeNativeLibrariesForSelfExtract=true
     --output "${LOCAL_ENGINE_OUTPUT}"
-  BYPRODUCTS "${LOCAL_ENGINE_OUTPUT}/showvault-local-engine.exe"
+  COMMAND "${DOTNET_EXECUTABLE}" publish "${SYNC_ENGINE_PROJECT}"
+    --configuration Release
+    --runtime win-x64
+    --self-contained true
+    -p:PublishSingleFile=true
+    -p:IncludeNativeLibrariesForSelfExtract=true
+    --output "${LOCAL_ENGINE_OUTPUT}"
+  BYPRODUCTS
+    "${LOCAL_ENGINE_OUTPUT}/showvault-local-engine.exe"
+    "${LOCAL_ENGINE_OUTPUT}/showvault-sync-engine.exe"
   VERBATIM)
 add_dependencies(${BINARY_NAME} local_engine_host)
 

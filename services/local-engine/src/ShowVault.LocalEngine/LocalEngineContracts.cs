@@ -36,6 +36,26 @@ public sealed record LocalRestoreProgress(
     int CompletedUnits,
     int TotalUnits);
 
+public sealed record LocalSyncRequest(
+    string SelectedVault,
+    Guid OrganizationId,
+    Guid VenueId,
+    string AccessToken,
+    Uri ApiBaseUri,
+    int MaximumRecoveryPoints = 25);
+
+public sealed record LocalSyncResult(
+    int SynchronizedCount,
+    int RetryScheduledCount,
+    int AttentionCount,
+    long SynchronizedBytes,
+    string CloudStatus);
+
+public sealed record LocalSyncProgress(
+    string Stage,
+    int CompletedUnits,
+    int TotalUnits);
+
 public sealed record LocalRecoveryPointSummary(
     string RecoveryPointId,
     string CandidateKey,

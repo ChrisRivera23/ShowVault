@@ -15,5 +15,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/ShowVault.Api/ShowVault.Api.csproj" />
+    <ProjectReference Include="../../../local-engine/src/ShowVault.LocalEngine/ShowVault.LocalEngine.csproj" />
   </ItemGroup>
 </Project>

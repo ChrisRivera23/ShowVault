@@ -3,6 +3,9 @@ using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
 using System.Text.Json;
+using System.Net;
+using System.Net.Http.Json;
+using System.Text;
 using Microsoft.Data.Sqlite;
 using Xunit;
 
@@ -973,6 +976,144 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
         Assert.Contains("completed", statuses);
     }
 
+    [Fact]
+    public async Task Sync_freshly_verifies_uploads_and_records_verified_receipt_path_free()
+    {
+        var saved = await CreateEngine().SaveAsync(new(Key, Source, Vault));
+        var organizationId = Guid.NewGuid();
+        var venueId = Guid.NewGuid();
+        var handler = new SyntheticSyncHandler(organizationId, venueId);
+        var sync = new LocalSyncEngine(new HttpClient(handler),
+            timeProvider: new FixedTimeProvider(
+                new DateTimeOffset(2026, 8, 13, 13, 0, 0, TimeSpan.Zero)));
+
+        var result = await sync.SynchronizeAsync(new(
+            Vault, organizationId, venueId, "synthetic-secret-token",
+            new Uri("https://sync.invalid/")));
+
+        Assert.Equal(1, result.SynchronizedCount);
+        Assert.Equal("synchronized", result.CloudStatus);
+        Assert.Equal(saved.TotalBytes, result.SynchronizedBytes);
+        var point = Assert.Single(await CreateEngine().InspectVaultAsync(Vault));
+        Assert.Equal("synchronized", point.CloudStatus);
+        Assert.Equal(saved.RecoveryPointId, handler.Manifest!.RecoveryPointId);
+        Assert.Equal(2, handler.Objects.Count);
+        var databaseBytes = await File.ReadAllBytesAsync(Path.Combine(
+            Vault, "Upload Queue", LocalVaultLayout.QueueDatabaseName));
+        var databaseText = Encoding.UTF8.GetString(databaseBytes);
+        Assert.DoesNotContain("synthetic-secret-token", databaseText, StringComparison.Ordinal);
+        Assert.DoesNotContain(Vault, databaseText, StringComparison.Ordinal);
+        Assert.DoesNotContain(Source, databaseText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Sync_unavailable_schedules_retry_without_changing_local_verification()
+    {
+        var saved = await CreateEngine().SaveAsync(new(Key, Source, Vault));
+        var handler = new SyntheticSyncHandler(Guid.NewGuid(), Guid.NewGuid())
+        {
+            Unavailable = true
+        };
+        var sync = new LocalSyncEngine(new HttpClient(handler));
+
+        var result = await sync.SynchronizeAsync(new(
+            Vault, handler.OrganizationId, handler.VenueId, "synthetic-token",
+            new Uri("https://sync.invalid/")));
+
+        Assert.Equal(1, result.RetryScheduledCount);
+        Assert.Equal("retry_scheduled", result.CloudStatus);
+        var point = Assert.Single(await CreateEngine().InspectVaultAsync(Vault));
+        Assert.Equal(saved.RecoveryPointId, point.RecoveryPointId);
+        Assert.Equal("verified", point.LocalStatus);
+        Assert.Equal("retry_scheduled", point.CloudStatus);
+    }
+
+    [Fact]
+    public async Task Sync_tamper_enters_attention_and_uploads_nothing()
+    {
+        await CreateEngine().SaveAsync(new(Key, Source, Vault));
+        var package = Assert.Single(Directory.EnumerateDirectories(
+            Path.Combine(Vault, "Backups", "Serato DJ Pro")));
+        var content = Path.Combine(package, "content", "database V2");
+        MakeWritable(content);
+        await File.WriteAllTextAsync(content, "tampered");
+        var handler = new SyntheticSyncHandler(Guid.NewGuid(), Guid.NewGuid());
+
+        var result = await new LocalSyncEngine(new HttpClient(handler)).SynchronizeAsync(new(
+            Vault, handler.OrganizationId, handler.VenueId, "synthetic-token",
+            new Uri("https://sync.invalid/")));
+
+        Assert.Equal(1, result.AttentionCount);
+        Assert.Equal("attention", result.CloudStatus);
+        Assert.Null(handler.Manifest);
+        var inspection = await CreateEngine().InspectVaultStateAsync(Vault);
+        Assert.Empty(inspection.RecoveryPoints);
+        Assert.Equal(1, inspection.QueueAttentionCount);
+    }
+
+    [Fact]
+    public async Task Sync_cancel_preserves_partial_chunks_and_next_attempt_resumes()
+    {
+        var saved = await CreateEngine().SaveAsync(new(Key, Source, Vault));
+        var handler = new SyntheticSyncHandler(Guid.NewGuid(), Guid.NewGuid());
+        var sync = new LocalSyncEngine(new HttpClient(handler));
+        using var cancellation = new CancellationTokenSource();
+        var progress = new SynchronousTestProgress<LocalSyncProgress>(value =>
+        {
+            if (value.Stage == "uploading") cancellation.Cancel();
+        });
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => sync.SynchronizeAsync(new(
+            Vault, handler.OrganizationId, handler.VenueId, "synthetic-token",
+            new Uri("https://sync.invalid/")), progress, cancellation.Token));
+        Assert.NotEmpty(handler.Objects);
+        var retryPoint = Assert.Single(await CreateEngine().InspectVaultAsync(Vault));
+        Assert.Equal("retry_scheduled", retryPoint.CloudStatus);
+
+        var resumed = await sync.SynchronizeAsync(new(
+            Vault, handler.OrganizationId, handler.VenueId, "synthetic-token",
+            new Uri("https://sync.invalid/")));
+
+        Assert.Equal(1, resumed.SynchronizedCount);
+        Assert.Equal(saved.TotalBytes, handler.Objects.Values.Sum(value => value.Count));
+        Assert.Equal("synchronized",
+            Assert.Single(await CreateEngine().InspectVaultAsync(Vault)).CloudStatus);
+    }
+
+    [Fact]
+    public async Task Packaged_sync_host_rejects_extra_fields_without_echoing_token_or_path()
+    {
+        var start = new ProcessStartInfo(SyncHostExecutablePath())
+        {
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        using var process = Process.Start(start) ?? throw new InvalidOperationException();
+        await process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(new
+        {
+            operation = "synchronize",
+            selectedVault = Vault,
+            organizationId = Guid.NewGuid(),
+            venueId = Guid.NewGuid(),
+            accessToken = "synthetic-secret-token",
+            apiBaseUrl = "https://sync.invalid/",
+            sourcePath = Source
+        }));
+        process.StandardInput.Close();
+        var output = await process.StandardOutput.ReadToEndAsync();
+        var error = await process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, process.ExitCode);
+        Assert.Empty(error);
+        Assert.Contains("invalid_request", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("synthetic-secret-token", output, StringComparison.Ordinal);
+        Assert.DoesNotContain(Vault, output, StringComparison.Ordinal);
+        Assert.DoesNotContain(Source, output, StringComparison.Ordinal);
+    }
+
     private LocalRecoveryEngine CreateEngine(
         LocalEngineLimits? limits = null,
         Action<string>? testHook = null)
@@ -1040,9 +1181,103 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
             "ShowVault.LocalEngine.Host", "bin", "Release", "net10.0",
             OperatingSystem.IsWindows() ? "showvault-local-engine.exe" : "showvault-local-engine"));
 
+    private static string SyncHostExecutablePath(
+        [CallerFilePath] string sourceFile = "") => Path.GetFullPath(Path.Combine(
+            Path.GetDirectoryName(sourceFile)!, "..", "..", "src",
+            "ShowVault.SyncEngine.Host", "bin", "Release", "net10.0",
+            OperatingSystem.IsWindows() ? "showvault-sync-engine.exe" : "showvault-sync-engine"));
+
     private sealed class FixedTimeProvider(DateTimeOffset value) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => value;
+    }
+
+    private sealed class SynchronousTestProgress<T>(Action<T> callback) : IProgress<T>
+    {
+        public void Report(T value) => callback(value);
+    }
+
+    private sealed class SyntheticSyncHandler(Guid organizationId, Guid venueId)
+        : HttpMessageHandler
+    {
+        private static readonly JsonSerializerOptions Options =
+            new(JsonSerializerDefaults.Web);
+        public Guid OrganizationId { get; } = organizationId;
+        public Guid VenueId { get; } = venueId;
+        public HostedSyncManifest? Manifest { get; private set; }
+        public Dictionary<string, List<byte>> Objects { get; } = new(StringComparer.Ordinal);
+        public bool Unavailable { get; init; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Assert.Equal("Bearer", request.Headers.Authorization?.Scheme);
+            Assert.StartsWith("synthetic-", request.Headers.Authorization?.Parameter,
+                StringComparison.Ordinal);
+            if (Unavailable) return new(HttpStatusCode.ServiceUnavailable);
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.EndsWith("/begin", StringComparison.Ordinal))
+            {
+                var begin = await request.Content!.ReadFromJsonAsync<HostedSyncBeginRequest>(
+                    Options, cancellationToken);
+                Manifest = begin!.Manifest;
+                return Envelope(new HostedSyncBeginResponse(
+                    "0123456789abcdef0123456789abcdef", 4, false));
+            }
+            var relativePath = Query(request.RequestUri, "path");
+            if (request.Method == HttpMethod.Get && path.EndsWith("/files", StringComparison.Ordinal))
+            {
+                var length = Objects.TryGetValue(relativePath, out var bytes) ? bytes.Count : 0;
+                return Envelope(new HostedSyncFileStateResponse(length));
+            }
+            if (request.Method == HttpMethod.Put && path.EndsWith("/files", StringComparison.Ordinal))
+            {
+                var offset = long.Parse(Query(request.RequestUri, "offset"));
+                var bytes = await request.Content!.ReadAsByteArrayAsync(cancellationToken);
+                var current = Objects.GetValueOrDefault(relativePath) ?? [];
+                Assert.Equal(current.Count, offset);
+                current.AddRange(bytes);
+                Objects[relativePath] = current;
+                return new(HttpStatusCode.NoContent);
+            }
+            if (path.EndsWith("/commit", StringComparison.Ordinal))
+            {
+                var manifest = Assert.IsType<HostedSyncManifest>(Manifest);
+                var receipt = new HostedSyncReceipt("1.0", OrganizationId, VenueId,
+                    manifest.RecoveryPointId,
+                    Convert.ToHexStringLower(SHA256.HashData(
+                        JsonSerializer.SerializeToUtf8Bytes(manifest, Options))),
+                    manifest.FileCount, manifest.TotalBytes,
+                    manifest.Files.Select(file => new HostedSyncObjectDigest(
+                        file.RelativePath, file.Size, file.Sha256)).ToArray(),
+                    DateTimeOffset.Parse("2026-08-13T13:00:00Z"));
+                return Envelope(receipt);
+            }
+            return new(HttpStatusCode.NotFound);
+        }
+
+        private static HttpResponseMessage Envelope<T>(T payload) => new(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                status = "success",
+                message = "Request completed",
+                correlationId = "synthetic",
+                version = "1.0",
+                timestamp = DateTimeOffset.Parse("2026-08-13T13:00:00Z"),
+                payload
+            }, options: Options)
+        };
+
+        private static string Query(Uri uri, string key)
+        {
+            foreach (var part in uri.Query.TrimStart('?').Split('&'))
+            {
+                var pair = part.Split('=', 2);
+                if (pair[0] == key) return Uri.UnescapeDataString(pair[1]);
+            }
+            return "";
+        }
     }
 
     [DllImport("libc", EntryPoint = "link", SetLastError = true)]

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:showvault_app/src/config/app_config.dart';
 
 final localEngineClientProvider = Provider<LocalEngineClient>(
   (ref) => ProcessLocalEngineClient(),
@@ -126,6 +127,38 @@ class LocalRestoreOperation {
   final Future<void> Function() cancel;
 }
 
+class LocalSyncResult {
+  const LocalSyncResult({
+    required this.synchronizedCount,
+    required this.retryScheduledCount,
+    required this.attentionCount,
+    required this.synchronizedBytes,
+    required this.cloudStatus,
+  });
+
+  factory LocalSyncResult.fromJson(Map<String, Object?> json) =>
+      LocalSyncResult(
+        synchronizedCount: _integer(json, 'synchronizedCount'),
+        retryScheduledCount: _integer(json, 'retryScheduledCount'),
+        attentionCount: _integer(json, 'attentionCount'),
+        synchronizedBytes: _integer(json, 'synchronizedBytes'),
+        cloudStatus: _string(json, 'cloudStatus'),
+      );
+
+  final int synchronizedCount;
+  final int retryScheduledCount;
+  final int attentionCount;
+  final int synchronizedBytes;
+  final String cloudStatus;
+}
+
+class LocalSyncOperation {
+  const LocalSyncOperation({required this.result, required this.cancel});
+
+  final Future<LocalSyncResult> result;
+  final Future<void> Function() cancel;
+}
+
 abstract class LocalEngineClient {
   LocalSaveOperation startSave({
     required String candidateKey,
@@ -142,6 +175,14 @@ abstract class LocalEngineClient {
     required String selectedTarget,
     required void Function(LocalSaveProgress progress) onProgress,
   });
+
+  LocalSyncOperation startSync({
+    required String selectedVault,
+    required String organizationId,
+    required String venueId,
+    required String accessToken,
+    required void Function(LocalSaveProgress progress) onProgress,
+  }) => throw UnimplementedError();
 }
 
 class ProcessLocalEngineClient implements LocalEngineClient {
@@ -336,6 +377,76 @@ class ProcessLocalEngineClient implements LocalEngineClient {
     );
   }
 
+  @override
+  LocalSyncOperation startSync({
+    required String selectedVault,
+    required String organizationId,
+    required String venueId,
+    required String accessToken,
+    required void Function(LocalSaveProgress progress) onProgress,
+  }) {
+    Process? process;
+    final result = () async {
+      process = await Process.start(_packagedSyncHostPath(), const []);
+      final current = process!;
+      current.stdin.writeln(
+        jsonEncode({
+          'operation': 'synchronize',
+          'selectedVault': selectedVault,
+          'organizationId': organizationId,
+          'venueId': venueId,
+          'accessToken': accessToken,
+          'apiBaseUrl': AppConfig.apiBaseUrl,
+        }),
+      );
+      await current.stdin.flush();
+      LocalSyncResult? syncResult;
+      await for (final line
+          in current.stdout
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
+        final envelope = _envelope(line);
+        switch (envelope.type) {
+          case 'progress':
+            onProgress(
+              LocalSaveProgress(
+                _string(envelope.payload, 'stage'),
+                _integer(envelope.payload, 'completedUnits'),
+                _integer(envelope.payload, 'totalUnits'),
+              ),
+            );
+          case 'result':
+            syncResult = LocalSyncResult.fromJson(envelope.payload);
+          case 'error':
+            throw LocalEngineClientException(envelope.code ?? 'sync_failed');
+          default:
+            throw const LocalEngineClientException('invalid_host_response');
+        }
+      }
+      final errorOutput = await current.stderr.transform(utf8.decoder).join();
+      final exitCode = await current.exitCode;
+      await current.stdin.close();
+      if (errorOutput.isNotEmpty || exitCode != 0 || syncResult == null) {
+        throw const LocalEngineClientException('sync_failed');
+      }
+      return syncResult;
+    }();
+    return LocalSyncOperation(
+      result: result,
+      cancel: () async {
+        final current = process;
+        if (current != null) {
+          try {
+            current.stdin.writeln(jsonEncode({'operation': 'cancel'}));
+            await current.stdin.flush();
+          } on StateError {
+            current.kill(ProcessSignal.sigint);
+          }
+        }
+      },
+    );
+  }
+
   static String _packagedHostPath() {
     final executable = File(Platform.resolvedExecutable);
     if (Platform.isMacOS) {
@@ -346,6 +457,19 @@ class ProcessLocalEngineClient implements LocalEngineClient {
     }
     return '${executable.parent.path}${Platform.pathSeparator}local-engine'
         '${Platform.pathSeparator}showvault-local-engine'
+        '${Platform.isWindows ? '.exe' : ''}';
+  }
+
+  static String _packagedSyncHostPath() {
+    final executable = File(Platform.resolvedExecutable);
+    if (Platform.isMacOS) {
+      final contents = executable.parent.parent;
+      return '${contents.path}${Platform.pathSeparator}Resources'
+          '${Platform.pathSeparator}local-engine${Platform.pathSeparator}'
+          'showvault-sync-engine';
+    }
+    return '${executable.parent.path}${Platform.pathSeparator}local-engine'
+        '${Platform.pathSeparator}showvault-sync-engine'
         '${Platform.isWindows ? '.exe' : ''}';
   }
 }

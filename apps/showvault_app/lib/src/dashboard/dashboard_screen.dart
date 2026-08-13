@@ -88,6 +88,9 @@ class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
   LocalRestoreOperation? _restoreOperation;
   LocalSaveProgress? _restoreProgress;
   LocalRestoreResult? _restoreResult;
+  LocalSyncOperation? _syncOperation;
+  LocalSaveProgress? _syncProgress;
+  LocalSyncResult? _syncResult;
   int _queueAttentionCount = 0;
   int _restoreAttentionCount = 0;
   String? _localError;
@@ -280,6 +283,92 @@ class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
     }
   }
 
+  Future<void> _synchronize() async {
+    final vault = _selectedVault;
+    final token = widget.accessToken;
+    final history = widget.history;
+    if (vault == null ||
+        token == null ||
+        history == null ||
+        history.organizationId.isEmpty ||
+        history.venueId.isEmpty) {
+      return;
+    }
+    final queued = _vaultPoints!
+        .where((point) => point.cloudStatus != 'synchronized')
+        .toList(growable: false);
+    final bytes = queued.fold<int>(
+      0,
+      (total, point) => total + point.totalBytes,
+    );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Synchronize verified recovery points?'),
+        content: Text(
+          'ShowVault will upload ${queued.length} verified recovery point(s) '
+          '($bytes bytes), including backup content and relative filenames, '
+          'to this venue. Local Save and Restore remain available offline.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Synchronize'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _localError = null;
+      _syncResult = null;
+      _syncProgress = const LocalSaveProgress('starting_sync', 0, 1);
+    });
+    final operation = ref
+        .read(localEngineClientProvider)
+        .startSync(
+          selectedVault: vault,
+          organizationId: history.organizationId,
+          venueId: history.venueId,
+          accessToken: token,
+          onProgress: (progress) {
+            if (mounted) setState(() => _syncProgress = progress);
+          },
+        );
+    setState(() => _syncOperation = operation);
+    try {
+      final result = await operation.result;
+      final inspection = await ref
+          .read(localEngineClientProvider)
+          .inspectVault(vault);
+      if (!mounted) return;
+      setState(() {
+        _syncResult = result;
+        _syncProgress = null;
+        _vaultPoints = inspection.recoveryPoints;
+        _queueAttentionCount = inspection.queueAttentionCount;
+      });
+    } on LocalEngineClientException catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _localError = error.code == 'cancelled'
+            ? 'Synchronization cancelled. Verified local recovery points were kept.'
+            : 'Synchronization needs attention. Verified local recovery points were kept.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _syncOperation = null;
+          if (_syncResult == null) _syncProgress = null;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Card(
     child: Padding(
@@ -394,7 +483,7 @@ class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
                   leading: const Icon(Icons.restore_outlined),
                   title: Text(point.productName),
                   subtitle: Text(
-                    '${point.fileCount} verified file(s) • local vault',
+                    '${point.fileCount} verified file(s) • ${_cloudLabel(point.cloudStatus)}',
                   ),
                   trailing: FilledButton.tonal(
                     onPressed:
@@ -405,6 +494,39 @@ class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
                   ),
                 ),
             ],
+          if (_canSynchronize) ...[
+            const Divider(height: 28),
+            FilledButton.icon(
+              onPressed:
+                  _syncOperation == null &&
+                      _saveOperation == null &&
+                      _restoreOperation == null
+                  ? _synchronize
+                  : null,
+              icon: const Icon(Icons.cloud_upload_outlined),
+              label: const Text('Synchronize'),
+            ),
+          ],
+          if (_syncOperation != null || _syncProgress != null) ...[
+            const SizedBox(height: 12),
+            const Text('Synchronizing verified recovery points…'),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: _progressValue(_syncProgress)),
+            if (_syncOperation != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _syncOperation?.cancel,
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Cancel synchronization'),
+                ),
+              ),
+          ],
+          if (_syncResult?.synchronizedCount case final count? when count > 0)
+            Chip(
+              avatar: const Icon(Icons.cloud_done_outlined),
+              label: Text('Synchronized: $count'),
+            ),
           if (_restoreOperation != null || _restoreProgress != null) ...[
             const Divider(height: 28),
             Text(_restoreProgressLabel(_restoreProgress)),
@@ -484,6 +606,17 @@ class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
         'completed' => 'Recording path-free Restore evidence…',
         _ => 'Starting local Restore…',
       };
+
+  bool get _canSynchronize {
+    final history = widget.history;
+    return widget.accessToken != null &&
+        _selectedVault != null &&
+        history != null &&
+        history.organizationId.isNotEmpty &&
+        history.venueId.isNotEmpty &&
+        (_vaultPoints?.any((point) => point.cloudStatus != 'synchronized') ??
+            false);
+  }
 }
 
 class RecoveryHistoryView extends StatelessWidget {
@@ -558,6 +691,14 @@ class _ConfigurationRequired extends StatelessWidget {
         'Configure the public native Client ID before connecting this app. See the Flutter app README for the complete command.',
   );
 }
+
+String _cloudLabel(String status) => switch (status) {
+  'synchronizing' => 'Synchronizing',
+  'retry_scheduled' => 'Retry scheduled',
+  'attention' => 'Sync attention',
+  'synchronized' => 'Synchronized',
+  _ => 'Cloud queued',
+};
 
 class _AuthPrompt extends ConsumerWidget {
   const _AuthPrompt({this.hasError = false});

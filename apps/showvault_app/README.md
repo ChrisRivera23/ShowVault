@@ -18,11 +18,21 @@ Cancel remains available before publication; interrupted or ambiguous state is
 preserved as **Restore attention**. Restore remains signed-out/offline and does
 not load a running application or device.
 
-The desktop build configuration publishes the local host into a private
-`local-engine` bundle directory. The host accepts only Save, vault inspection,
-Restore, and in-process Cancel JSON records over standard input/output and has
-no network or
-arbitrary-command surface. Native build, signing, sandbox, installation, and
+When signed in with a tenant-scoped venue, an opened vault with queued verified
+points shows **Synchronize**. The consent dialog discloses the bounded byte
+count and that backup content and relative filenames will be uploaded. A
+separate packaged .NET synchronization host freshly verifies and retains the
+exact local files, supports Cancel and resumable chunks, verifies the immutable
+hosted receipt, and only then records **Synchronized** in the vault database.
+Tokens remain in process memory. Hosted failure leaves Save, inspection, and
+Restore offline and unchanged.
+
+The desktop build configuration publishes two hosts into a private
+`local-engine` bundle directory. The network-free local host accepts only Save,
+vault inspection, Restore, and in-process Cancel JSON records. The separate
+sync host accepts only one tenant-scoped Synchronize operation and in-process
+Cancel over standard input/output; it has no arbitrary-command surface. Native
+build, signing, sandbox, installation, and
 real-data proof remain gated and are not implied by source-level validation.
 
 ## Auth0 application

@@ -266,7 +266,7 @@ public sealed class LocalRecoveryEngine
             summaries.Add(new(
                 record.RecoveryPointId, record.CandidateKey, record.ProductName,
                 verified.VerifiedFileCount, verified.VerifiedBytes, record.CreatedAt,
-                "verified", "queued"));
+                "verified", record.CloudStatus));
         }
         return new(
             summaries,

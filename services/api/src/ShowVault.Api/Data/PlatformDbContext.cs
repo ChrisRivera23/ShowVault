@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ShowVault.Platform.Agents;
 using ShowVault.Platform.Organizations;
 using ShowVault.Platform.Venues;
+using ShowVault.Api.HostedSync;
 
 namespace ShowVault.Api.Data;
 
@@ -18,6 +19,7 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
     public DbSet<DesktopCatalogScan> DesktopCatalogScans => Set<DesktopCatalogScan>();
     public DbSet<DesktopCatalogScanCandidate> DesktopCatalogScanCandidates =>
         Set<DesktopCatalogScanCandidate>();
+    public DbSet<HostedSyncSession> HostedSyncSessions => Set<HostedSyncSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -162,6 +164,30 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne<Venue>().WithMany().HasForeignKey(candidate => candidate.VenueId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<HostedSyncSession>(entity =>
+        {
+            entity.ToTable("hosted_sync_sessions");
+            entity.HasKey(session => session.Id);
+            entity.Property(session => session.RecoveryPointId).HasMaxLength(64).IsRequired();
+            entity.Property(session => session.ManifestDigest).HasMaxLength(64).IsRequired();
+            entity.Property(session => session.ManifestJson).HasColumnType("jsonb").IsRequired();
+            entity.Property(session => session.Status).HasMaxLength(32).IsRequired();
+            entity.Property(session => session.ReceiptJson).HasColumnType("jsonb");
+            entity.Property(session => session.Revision).IsConcurrencyToken();
+            entity.HasIndex(session => new
+            {
+                session.OrganizationId,
+                session.VenueId,
+                session.RecoveryPointId
+            }).IsUnique();
+            entity.HasOne<Organization>().WithMany()
+                .HasForeignKey(session => session.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<Venue>().WithMany()
+                .HasForeignKey(session => session.VenueId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

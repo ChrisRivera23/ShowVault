@@ -12,11 +12,34 @@ import 'package:showvault_app/src/dashboard/dashboard_screen.dart';
 import 'package:showvault_app/src/local_recovery/local_directory_consent.dart';
 import 'package:showvault_app/src/local_recovery/local_engine_client.dart';
 import 'package:showvault_app/src/recovery/recovery_run.dart';
+import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
 import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
 
 class _SignedOutAuthService extends AuthService {
   @override
   Future<AuthSession?> restore() async => null;
+}
+
+class _SignedInAuthService extends AuthService {
+  @override
+  Future<AuthSession?> restore() async => const AuthSession(
+    accessToken: 'synthetic-token',
+    displayName: 'Synthetic Owner',
+  );
+}
+
+class _SyntheticApi extends ShowVaultApi {
+  _SyntheticApi() : super(baseUrl: 'https://synthetic.invalid');
+
+  @override
+  Future<RecoveryHistory> loadRecoveryHistory(String accessToken) async =>
+      const RecoveryHistory(
+        organizationId: '11111111-1111-1111-1111-111111111111',
+        organizationName: 'Synthetic Organization',
+        venueId: '22222222-2222-2222-2222-222222222222',
+        venueName: 'Synthetic Venue',
+        runs: [],
+      );
 }
 
 class _SyntheticScanner extends LocalCatalogScanner {
@@ -138,6 +161,57 @@ class _SuccessfulRestoreEngine extends _SuccessfulLocalEngine {
           totalBytes: 20,
           completedAt: DateTime.utc(2026, 8, 13),
           localStatus: 'restored',
+        ),
+      ),
+      cancel: () async {},
+    );
+  }
+}
+
+class _SuccessfulSyncEngine extends _SuccessfulRestoreEngine {
+  bool synchronized = false;
+
+  @override
+  Future<LocalVaultInspection> inspectVault(String selectedVault) async =>
+      LocalVaultInspection(
+        recoveryPoints: [
+          LocalRecoveryPointSummary(
+            recoveryPointId: 'a' * 64,
+            candidateKey: 'macos.serato-dj-pro.user-data',
+            productName: 'Serato DJ Pro',
+            fileCount: 2,
+            totalBytes: 20,
+            createdAt: DateTime.utc(2026, 8, 13),
+            localStatus: 'verified',
+            cloudStatus: synchronized ? 'synchronized' : 'queued',
+          ),
+        ],
+        queueAttentionCount: 0,
+        restoreAttentionCount: 0,
+      );
+
+  @override
+  LocalSyncOperation startSync({
+    required String selectedVault,
+    required String organizationId,
+    required String venueId,
+    required String accessToken,
+    required void Function(LocalSaveProgress progress) onProgress,
+  }) {
+    expect(selectedVault, '/synthetic/vault');
+    expect(organizationId, '11111111-1111-1111-1111-111111111111');
+    expect(venueId, '22222222-2222-2222-2222-222222222222');
+    expect(accessToken, 'synthetic-token');
+    onProgress(const LocalSaveProgress('uploading', 1, 2));
+    synchronized = true;
+    return LocalSyncOperation(
+      result: Future.value(
+        const LocalSyncResult(
+          synchronizedCount: 1,
+          retryScheduledCount: 0,
+          attentionCount: 0,
+          synchronizedBytes: 20,
+          cloudStatus: 'synchronized',
         ),
       ),
       cancel: () async {},
@@ -279,6 +353,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Open local vault'));
     await tester.pumpAndSettle();
+    expect(find.text('Synchronize'), findsNothing);
     await tester.ensureVisible(find.text('Restore'));
     await tester.tap(find.text('Restore'));
     await tester.pumpAndSettle();
@@ -290,6 +365,49 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Restored locally'), findsOneWidget);
+    expect(find.textContaining('/synthetic/'), findsNothing);
+  });
+
+  testWidgets('requires signed-in consent then refreshes synchronized status', (
+    tester,
+  ) async {
+    final engine = _SuccessfulSyncEngine();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(_SignedInAuthService()),
+          showVaultApiProvider.overrideWithValue(_SyntheticApi()),
+          localDirectoryConsentProvider.overrideWithValue(
+            const _SyntheticConsent(),
+          ),
+          localEngineClientProvider.overrideWithValue(engine),
+        ],
+        child: const ShowVaultApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open local vault'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('• Cloud queued'), findsOneWidget);
+    await tester.ensureVisible(find.text('Synchronize'));
+    await tester.tap(find.text('Synchronize'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('backup content and relative filenames'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('/synthetic/'), findsNothing);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(FilledButton, 'Synchronize'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Synchronized: 1'), findsOneWidget);
+    expect(find.textContaining('• Synchronized'), findsOneWidget);
     expect(find.textContaining('/synthetic/'), findsNothing);
   });
 

@@ -10,6 +10,7 @@ using ShowVault.Api.Data;
 using ShowVault.Api.Endpoints;
 using ShowVault.Api.Security;
 using ShowVault.AgentContracts;
+using ShowVault.Api.HostedSync;
 
 var builder = WebApplication.CreateBuilder(args);
 var auth0Domain = builder.Configuration["Auth0:Domain"]
@@ -25,6 +26,10 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<PlatformDbContext>(options =>
     options.UseNpgsql(platformConnectionString));
+if (builder.Environment.IsDevelopment())
+    builder.Services.AddSingleton<IHostedObjectStore, SyntheticHostedObjectStore>();
+else
+    builder.Services.AddSingleton<IHostedObjectStore, DisabledHostedObjectStore>();
 builder.Services
     .AddAuthentication(options =>
     {
@@ -115,6 +120,7 @@ app.MapAgentEnrollmentEndpoints();
 app.MapAgentCommunicationEndpoints();
 app.MapRecoveryHistoryEndpoints();
 app.MapRecoveryCandidateEndpoints();
+app.MapHostedSyncEndpoints();
 
 app.Run();
 

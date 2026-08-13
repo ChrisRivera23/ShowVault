@@ -60,6 +60,24 @@ internal sealed class LocalVaultQueueStore(string databasePath)
             );
             CREATE INDEX IF NOT EXISTS ix_local_restore_attempts_recovery
                 ON local_restore_attempts(recovery_point_id, updated_at DESC);
+            CREATE TABLE IF NOT EXISTS local_sync_attempts (
+                recovery_point_id TEXT PRIMARY KEY,
+                organization_id TEXT NOT NULL,
+                venue_id TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN
+                    ('synchronizing','retry_scheduled','attention','synchronized')),
+                attempt_count INTEGER NOT NULL,
+                next_retry_at TEXT NULL,
+                remote_manifest_sha256 TEXT NOT NULL,
+                remote_session_id TEXT NULL,
+                receipt_sha256 TEXT NULL,
+                completed_at TEXT NULL,
+                updated_at TEXT NOT NULL,
+                last_error_code TEXT NULL,
+                FOREIGN KEY(recovery_point_id) REFERENCES local_recovery_points(recovery_point_id)
+            );
+            CREATE INDEX IF NOT EXISTS ix_local_sync_attempts_status
+                ON local_sync_attempts(status, updated_at);
             """;
         await schema.ExecuteNonQueryAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -170,11 +188,16 @@ internal sealed class LocalVaultQueueStore(string databasePath)
         await using var connection = await OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT operation_id, recovery_point_id, candidate_key, product_name,
-                   package_relative_path, file_count, total_bytes, created_at
-            FROM local_recovery_points
-            WHERE status = 'queued'
-            ORDER BY created_at DESC
+            SELECT points.operation_id, points.recovery_point_id,
+                   points.candidate_key, points.product_name,
+                   points.package_relative_path, points.file_count,
+                   points.total_bytes, points.created_at,
+                   COALESCE(sync.status, 'queued')
+            FROM local_recovery_points AS points
+            LEFT JOIN local_sync_attempts AS sync
+              ON sync.recovery_point_id = points.recovery_point_id
+            WHERE points.status = 'queued'
+            ORDER BY points.created_at DESC
             LIMIT $limit;
             """;
         command.Parameters.AddWithValue("$limit", limit);
@@ -185,7 +208,8 @@ internal sealed class LocalVaultQueueStore(string databasePath)
             records.Add(new(
                 reader.GetString(0), reader.GetString(1), reader.GetString(2),
                 reader.GetString(3), reader.GetString(4), reader.GetInt32(5),
-                reader.GetInt64(6), DateTimeOffset.Parse(reader.GetString(7))));
+                reader.GetInt64(6), DateTimeOffset.Parse(reader.GetString(7)),
+                reader.GetString(8)));
         }
         return records;
     }
@@ -197,10 +221,16 @@ internal sealed class LocalVaultQueueStore(string databasePath)
         await using var connection = await OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT operation_id, recovery_point_id, candidate_key, product_name,
-                   package_relative_path, file_count, total_bytes, created_at
-            FROM local_recovery_points
-            WHERE status = 'queued' AND recovery_point_id = $recoveryPointId;
+            SELECT points.operation_id, points.recovery_point_id,
+                   points.candidate_key, points.product_name,
+                   points.package_relative_path, points.file_count,
+                   points.total_bytes, points.created_at,
+                   COALESCE(sync.status, 'queued')
+            FROM local_recovery_points AS points
+            LEFT JOIN local_sync_attempts AS sync
+              ON sync.recovery_point_id = points.recovery_point_id
+            WHERE points.status = 'queued'
+              AND points.recovery_point_id = $recoveryPointId;
             """;
         command.Parameters.AddWithValue("$recoveryPointId", recoveryPointId);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -208,7 +238,153 @@ internal sealed class LocalVaultQueueStore(string databasePath)
         return new(
             reader.GetString(0), reader.GetString(1), reader.GetString(2),
             reader.GetString(3), reader.GetString(4), reader.GetInt32(5),
-            reader.GetInt64(6), DateTimeOffset.Parse(reader.GetString(7)));
+            reader.GetInt64(6), DateTimeOffset.Parse(reader.GetString(7)),
+            reader.GetString(8));
+    }
+
+    public async Task<int> BeginSyncAsync(
+        string recoveryPointId,
+        Guid organizationId,
+        Guid venueId,
+        string remoteManifestSha256,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO local_sync_attempts
+                (recovery_point_id, organization_id, venue_id, status,
+                 attempt_count, remote_manifest_sha256, updated_at)
+            VALUES ($recoveryPointId, $organizationId, $venueId,
+                    'synchronizing', 1, $manifestSha256, $now)
+            ON CONFLICT(recovery_point_id) DO UPDATE SET
+                organization_id = excluded.organization_id,
+                venue_id = excluded.venue_id,
+                status = 'synchronizing',
+                attempt_count = local_sync_attempts.attempt_count + 1,
+                next_retry_at = NULL,
+                remote_manifest_sha256 = excluded.remote_manifest_sha256,
+                updated_at = excluded.updated_at,
+                last_error_code = NULL
+            WHERE local_sync_attempts.status != 'synchronized'
+            RETURNING attempt_count;
+            """;
+        command.Parameters.AddWithValue("$recoveryPointId", recoveryPointId);
+        command.Parameters.AddWithValue("$organizationId", organizationId.ToString("D"));
+        command.Parameters.AddWithValue("$venueId", venueId.ToString("D"));
+        command.Parameters.AddWithValue("$manifestSha256", remoteManifestSha256);
+        command.Parameters.AddWithValue("$now", Format(now));
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result is long attemptCount ? checked((int)attemptCount) : 1;
+    }
+
+    public async Task RecordSyncSessionAsync(
+        string recoveryPointId,
+        string sessionId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE local_sync_attempts
+            SET remote_session_id = $sessionId, updated_at = $now
+            WHERE recovery_point_id = $recoveryPointId
+              AND status = 'synchronizing';
+            """;
+        command.Parameters.AddWithValue("$recoveryPointId", recoveryPointId);
+        command.Parameters.AddWithValue("$sessionId", sessionId);
+        command.Parameters.AddWithValue("$now", Format(now));
+        if (await command.ExecuteNonQueryAsync(cancellationToken) != 1)
+            throw new LocalEngineException("The synchronization state changed unexpectedly.");
+    }
+
+    public Task<bool> RecordSyncRetryAsync(
+        string recoveryPointId,
+        string errorCode,
+        DateTimeOffset nextRetryAt,
+        DateTimeOffset now,
+        CancellationToken cancellationToken) =>
+        RecordSyncStateAsync(recoveryPointId, "retry_scheduled", errorCode,
+            nextRetryAt, now, cancellationToken);
+
+    public Task<bool> RecordSyncAttentionAsync(
+        string recoveryPointId,
+        string errorCode,
+        DateTimeOffset now,
+        CancellationToken cancellationToken) =>
+        RecordSyncStateAsync(recoveryPointId, "attention", errorCode,
+            null, now, cancellationToken);
+
+    public async Task CompleteSyncAsync(
+        string recoveryPointId,
+        string receiptSha256,
+        DateTimeOffset completedAt,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.Transaction = (SqliteTransaction)transaction;
+        command.CommandText = """
+            UPDATE local_sync_attempts
+            SET status = 'synchronized', receipt_sha256 = $receiptSha256,
+                completed_at = $completedAt, updated_at = $completedAt,
+                next_retry_at = NULL, last_error_code = NULL
+            WHERE recovery_point_id = $recoveryPointId
+              AND status = 'synchronizing';
+            """;
+        command.Parameters.AddWithValue("$recoveryPointId", recoveryPointId);
+        command.Parameters.AddWithValue("$receiptSha256", receiptSha256);
+        command.Parameters.AddWithValue("$completedAt", Format(completedAt));
+        if (await command.ExecuteNonQueryAsync(cancellationToken) != 1)
+            throw new LocalEngineException("The synchronization completion state changed unexpectedly.");
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private async Task<bool> RecordSyncStateAsync(
+        string recoveryPointId,
+        string status,
+        string errorCode,
+        DateTimeOffset? nextRetryAt,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE local_sync_attempts
+            SET status = $status, next_retry_at = $nextRetryAt,
+                updated_at = $now, last_error_code = $errorCode
+            WHERE recovery_point_id = $recoveryPointId
+              AND status = 'synchronizing';
+            """;
+        command.Parameters.AddWithValue("$recoveryPointId", recoveryPointId);
+        command.Parameters.AddWithValue("$status", status);
+        command.Parameters.AddWithValue("$nextRetryAt",
+            nextRetryAt is null ? DBNull.Value : Format(nextRetryAt.Value));
+        command.Parameters.AddWithValue("$now", Format(now));
+        command.Parameters.AddWithValue("$errorCode", errorCode);
+        return await command.ExecuteNonQueryAsync(cancellationToken) == 1;
+    }
+
+    public async Task RecordQueuedIntegrityFailureAsync(
+        string recoveryPointId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE local_recovery_points
+            SET status = 'failed', updated_at = $now,
+                last_error_code = 'sync_reverify_failed'
+            WHERE recovery_point_id = $recoveryPointId AND status = 'queued';
+            """;
+        command.Parameters.AddWithValue("$recoveryPointId", recoveryPointId);
+        command.Parameters.AddWithValue("$now", Format(now));
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     public async Task RecordRestoreStagingAsync(
@@ -413,8 +589,11 @@ internal sealed class LocalVaultQueueStore(string databasePath)
         await using var connection = await OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT COUNT(*) FROM local_recovery_points
-            WHERE status IN ('staging','verified','failed');
+            SELECT
+              (SELECT COUNT(*) FROM local_recovery_points
+               WHERE status IN ('staging','verified','failed')) +
+              (SELECT COUNT(*) FROM local_sync_attempts
+               WHERE status = 'attention');
             """;
         return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
     }
@@ -499,7 +678,8 @@ internal sealed record QueuedRecoveryPoint(
     string PackageRelativePath,
     int FileCount,
     long TotalBytes,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string CloudStatus);
 
 internal sealed record RepairableRecoveryPoint(
     string OperationId,

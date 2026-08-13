@@ -16,6 +16,21 @@ internal static class LocalRecoveryVerifier
         CancellationToken cancellationToken)
     {
         using var root = StableDirectoryTree.OpenReadOnlyNoFollowPath(packagePath);
+        var retained = await RetainVerifiedContentAsync(
+            root, expectedId, verifiedAt, limits, cancellationToken);
+        await using (retained.Snapshot)
+        {
+            return retained.Evidence;
+        }
+    }
+
+    internal static async Task<RetainedVerifiedPackage> RetainVerifiedContentAsync(
+        StableDirectoryTree root,
+        string expectedId,
+        DateTimeOffset verifiedAt,
+        LocalEngineLimits limits,
+        CancellationToken cancellationToken)
+    {
         var names = root.EnumerateNames();
         var expectedNames = names.Contains("verification.json", StringComparer.Ordinal)
             ? new[] { "content", "manifest.json", "summary.txt", "verification.json" }
@@ -60,27 +75,42 @@ internal static class LocalRecoveryVerifier
         }
 
         using var content = root.OpenDirectoryReadOnly("content");
-        await using var snapshot = await StableSourceSnapshot.CaptureBoundedAsync(
-            content.Path, limits.MaximumFileCount, limits.MaximumDirectoryCount,
+        var snapshot = await StableSourceSnapshot.CaptureBoundedAsync(
+            content, limits.MaximumFileCount, limits.MaximumDirectoryCount,
             limits.MaximumRelativePathLength, limits.MaximumFileBytes,
             limits.MaximumTotalBytes, cancellationToken);
-        var expected = manifest.Files.Select(file => new RecoveryPackageFile(
-            file.RelativePath, file.Size, file.Sha256)).ToArray();
-        snapshot.RequireExactFiles(expected);
-        snapshot.RequireNoEmptyDirectories();
-        await snapshot.ValidateStableAsync(rehashFiles: true, cancellationToken);
-        var totalBytes = manifest.Files.Sum(file => file.Size);
-        var evidenceSeed = JsonSerializer.SerializeToUtf8Bytes(new
+        try
         {
-            recoveryPointId = expectedId,
-            manifestSha256 = manifestHash,
-            verifiedFileCount = manifest.Files.Count,
-            verifiedBytes = totalBytes,
-            passed = true
-        }, JsonOptions);
-        return new(
-            "1.0", expectedId, manifestHash, verifiedAt, true,
-            manifest.Files.Count, totalBytes,
-            Convert.ToHexStringLower(SHA256.HashData(evidenceSeed)));
+            var expected = manifest.Files.Select(file => new RecoveryPackageFile(
+                file.RelativePath, file.Size, file.Sha256)).ToArray();
+            snapshot.RequireExactFiles(expected);
+            snapshot.RequireNoEmptyDirectories();
+            await snapshot.ValidateStableAtAsync(
+                root, "content", rehashFiles: true, cancellationToken);
+            var totalBytes = manifest.Files.Sum(file => file.Size);
+            var evidenceSeed = JsonSerializer.SerializeToUtf8Bytes(new
+            {
+                recoveryPointId = expectedId,
+                manifestSha256 = manifestHash,
+                verifiedFileCount = manifest.Files.Count,
+                verifiedBytes = totalBytes,
+                passed = true
+            }, JsonOptions);
+            var evidence = new LocalVerificationEvidence(
+                "1.0", expectedId, manifestHash, verifiedAt, true,
+                manifest.Files.Count, totalBytes,
+                Convert.ToHexStringLower(SHA256.HashData(evidenceSeed)));
+            return new(evidence, manifest, snapshot);
+        }
+        catch
+        {
+            await snapshot.DisposeAsync();
+            throw;
+        }
     }
 }
+
+internal sealed record RetainedVerifiedPackage(
+    LocalVerificationEvidence Evidence,
+    LocalRecoveryManifest Manifest,
+    StableSourceSnapshot Snapshot);
