@@ -129,6 +129,7 @@ public sealed class StripeBillingProviderTests
                 status = "active",
                 created = now,
                 cancel_at_period_end = false,
+                cancel_at = now + 2592000,
                 items = new
                 {
                     data = new[]
@@ -210,6 +211,7 @@ public sealed class StripeBillingProviderTests
         Assert.Equal("in_fixture", snapshot.InitialInvoiceId);
         Assert.Equal(BillingLicensePaymentState.Paid, snapshot.LicensePaymentState);
         Assert.Equal("active", snapshot.SubscriptionStatus);
+        Assert.True(snapshot.CancelAtPeriodEnd);
         Assert.Equal(64, snapshot.ProviderRevision.Length);
         Assert.All(handler.Requests, request =>
             Assert.Equal(StripeBillingProvider.SupportedApiVersion, request.StripeVersion));
