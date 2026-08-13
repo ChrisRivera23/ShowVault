@@ -22,3 +22,18 @@ internal sealed record LocalVerificationEvidence(
     int VerifiedFileCount,
     long VerifiedBytes,
     string EvidenceSha256);
+
+internal sealed record LocalRestoreIntent(
+    string FormatVersion,
+    string RecoveryPointId,
+    string PublicationChildName);
+
+internal sealed record LocalRestoreEvidence(
+    string FormatVersion,
+    string RecoveryPointId,
+    string ManifestSha256,
+    DateTimeOffset CompletedAt,
+    bool Passed,
+    int RestoredFileCount,
+    long RestoredBytes,
+    string EvidenceSha256);

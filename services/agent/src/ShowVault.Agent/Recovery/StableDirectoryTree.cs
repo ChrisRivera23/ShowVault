@@ -508,12 +508,21 @@ internal sealed class StableDirectoryTree : IDisposable
             }
         }
 
-        public static SafeFileHandle CreateRegularFileAt(SafeFileHandle parent, string name) =>
-            Wrap(openat(
+        public static SafeFileHandle CreateRegularFileAt(SafeFileHandle parent, string name)
+        {
+            var handle = Wrap(openat(
                 Fd(parent),
                 name,
                 ReadWrite | CreateFlag | ExclusiveFlag | NoFollowFlag | CloseOnExecFlag,
                 FileMode));
+            if (fchmod(Fd(handle), FileMode) != 0)
+            {
+                handle.Dispose();
+                throw Error("Could not secure a restore file.");
+            }
+
+            return handle;
+        }
 
         public static SafeFileHandle OpenRegularFileAt(SafeFileHandle parent, string name)
         {
@@ -688,6 +697,7 @@ internal sealed class StableDirectoryTree : IDisposable
         [DllImport("libc", SetLastError = true)] private static extern int renameat(int oldFd, string oldPath, int newFd, string newPath);
         [DllImport("libc", SetLastError = true)] private static extern int unlinkat(int fd, string path, int flags);
         [DllImport("libc", SetLastError = true)] private static extern int fstat(int fd, IntPtr stat);
+        [DllImport("libc", SetLastError = true)] private static extern int fchmod(int fd, uint mode);
         [DllImport("libc", SetLastError = true)] private static extern int dup(int fd);
         [DllImport("libc", SetLastError = true)] private static extern int close(int fd);
         [DllImport("libc", SetLastError = true)] private static extern IntPtr fdopendir(int fd);

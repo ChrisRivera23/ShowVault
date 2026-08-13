@@ -224,6 +224,18 @@ public sealed class LocalRecoveryEngine
         CancellationToken cancellationToken) =>
         SaveAsync(request, progress: null, cancellationToken);
 
+    public Task<LocalRestoreResult> RestoreAsync(
+        LocalRestoreRequest request,
+        IProgress<LocalRestoreProgress>? progress = null,
+        CancellationToken cancellationToken = default) =>
+        new LocalRestoreCoordinator(_limits, _timeProvider, _testHook)
+            .RestoreAsync(this, request, progress, cancellationToken);
+
+    public Task<LocalRestoreResult> RestoreAsync(
+        LocalRestoreRequest request,
+        CancellationToken cancellationToken) =>
+        RestoreAsync(request, progress: null, cancellationToken);
+
     public async Task<IReadOnlyList<LocalRecoveryPointSummary>> InspectVaultAsync(
         string selectedVault,
         CancellationToken cancellationToken = default) =>
@@ -256,7 +268,10 @@ public sealed class LocalRecoveryEngine
                 verified.VerifiedFileCount, verified.VerifiedBytes, record.CreatedAt,
                 "verified", "queued"));
         }
-        return new(summaries, await queue.CountAttentionAsync(cancellationToken));
+        return new(
+            summaries,
+            await queue.CountAttentionAsync(cancellationToken),
+            await queue.CountRestoreAttentionAsync(cancellationToken));
     }
 
     private async Task RepairInterruptedStateAsync(
@@ -604,7 +619,7 @@ public sealed class LocalRecoveryEngine
         }
     }
 
-    private static ulong GetLinkCount(FileStream stream)
+    internal static ulong GetLinkCount(FileStream stream)
     {
         if (OperatingSystem.IsWindows())
         {

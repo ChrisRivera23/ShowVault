@@ -15,5 +15,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/ShowVault.LocalEngine/ShowVault.LocalEngine.csproj" />
+    <ProjectReference Include="../../src/ShowVault.LocalEngine.Host/ShowVault.LocalEngine.Host.csproj"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

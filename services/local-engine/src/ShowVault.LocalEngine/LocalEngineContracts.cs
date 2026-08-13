@@ -18,6 +18,24 @@ public sealed record LocalSaveProgress(
     int CompletedUnits,
     int TotalUnits);
 
+public sealed record LocalRestoreRequest(
+    string RecoveryPointId,
+    string SelectedVault,
+    string SelectedTarget);
+
+public sealed record LocalRestoreResult(
+    string RecoveryPointId,
+    string RestoreEvidenceId,
+    int FileCount,
+    long TotalBytes,
+    DateTimeOffset CompletedAt,
+    string LocalStatus);
+
+public sealed record LocalRestoreProgress(
+    string Stage,
+    int CompletedUnits,
+    int TotalUnits);
+
 public sealed record LocalRecoveryPointSummary(
     string RecoveryPointId,
     string CandidateKey,
@@ -30,7 +48,8 @@ public sealed record LocalRecoveryPointSummary(
 
 public sealed record LocalVaultInspection(
     IReadOnlyList<LocalRecoveryPointSummary> RecoveryPoints,
-    int QueueAttentionCount);
+    int QueueAttentionCount,
+    int RestoreAttentionCount);
 
 public sealed record LocalEngineLimits(
     int MaximumFileCount = 10_000,

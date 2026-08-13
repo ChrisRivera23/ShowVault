@@ -10,6 +10,7 @@ internal static class LocalEngineHost
 
     public static async Task<int> RunAsync()
     {
+        string? requestedOperation = null;
         using var cancellation = new CancellationTokenSource();
         Console.CancelKeyPress += (_, eventArgs) =>
         {
@@ -39,6 +40,8 @@ internal static class LocalEngineHost
             {
                 return await ErrorAsync("invalid_request");
             }
+
+            requestedOperation = request.Operation;
 
             var engine = new LocalRecoveryEngine();
             switch (request.Operation)
@@ -72,6 +75,31 @@ internal static class LocalEngineHost
                         request.SelectedVault!, cancellation.Token);
                     Write(new HostEnvelope("result", summaries, null));
                     return 0;
+                case "restore" when Valid(request.RecoveryPointId) &&
+                                         ValidPath(request.SelectedVault) &&
+                                         ValidPath(request.SelectedTarget):
+                    {
+                        using var restoreCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                            cancellation.Token);
+                        var cancelMonitor = MonitorCancelAsync(restoreCancellation);
+                        var progress = new SynchronousProgress<LocalRestoreProgress>(value =>
+                            Write(new HostEnvelope("progress", value, null)));
+                        try
+                        {
+                            var result = await engine.RestoreAsync(
+                                new(request.RecoveryPointId!, request.SelectedVault!,
+                                    request.SelectedTarget!),
+                                progress,
+                                restoreCancellation.Token);
+                            Write(new HostEnvelope("result", result, null));
+                            return 0;
+                        }
+                        finally
+                        {
+                            restoreCancellation.Cancel();
+                            try { await cancelMonitor; } catch (OperationCanceledException) { }
+                        }
+                    }
                 default:
                     return await ErrorAsync("unsupported_operation");
             }
@@ -82,7 +110,8 @@ internal static class LocalEngineHost
         }
         catch (LocalEngineException)
         {
-            return await ErrorAsync("save_rejected");
+            return await ErrorAsync(requestedOperation == "restore"
+                ? "restore_rejected" : "save_rejected");
         }
         catch (Exception exception) when (
             exception is IOException or UnauthorizedAccessException or JsonException)
@@ -116,7 +145,8 @@ internal static class LocalEngineHost
         {
             var request = JsonSerializer.Deserialize<HostRequest>(line, JsonOptions);
             if (request?.Operation == "cancel" && request.CandidateKey is null &&
-                request.SelectedSource is null && request.SelectedVault is null)
+                request.SelectedSource is null && request.SelectedVault is null &&
+                request.RecoveryPointId is null && request.SelectedTarget is null)
             {
                 cancellation.Cancel();
             }
@@ -137,7 +167,9 @@ internal static class LocalEngineHost
         string? Operation,
         string? CandidateKey,
         string? SelectedSource,
-        string? SelectedVault);
+        string? SelectedVault,
+        string? RecoveryPointId,
+        string? SelectedTarget);
 
     private sealed record HostEnvelope(string Type, object? Payload, string? Code);
 

@@ -68,5 +68,7 @@ internal sealed class LocalVaultLayout : IDisposable
     public string QueueDatabasePath => Path.Combine(
         RootPath, "Upload Queue", QueueDatabaseName);
 
+    public string RestoreReportsPath => Path.Combine(RootPath, "Reports", "Restores");
+
     public void Dispose() => Root.Dispose();
 }

@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Xunit;
@@ -530,6 +532,420 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
             CreateEngine().InspectVaultAsync(Vault));
     }
 
+    [Fact]
+    public async Task Restore_publishes_verified_copy_and_path_free_durable_evidence()
+    {
+        var engine = CreateEngine();
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+        var target = Path.Combine(_root, "restore-sandbox");
+        Directory.CreateDirectory(target);
+
+        var result = await engine.RestoreAsync(new(saved.RecoveryPointId, Vault, target));
+
+        Assert.Equal("restored", result.LocalStatus);
+        Assert.Equal(saved.RecoveryPointId, result.RecoveryPointId);
+        Assert.Equal(2, result.FileCount);
+        Assert.Equal(64, result.RestoreEvidenceId.Length);
+        var published = Path.Combine(target, LocalRestoreCoordinator.PublicationName);
+        Assert.Equal("library", await File.ReadAllTextAsync(Path.Combine(published, "database V2")));
+        Assert.Equal("crate", await File.ReadAllTextAsync(
+            Path.Combine(published, "Subcrates", "fixture.crate")));
+        Assert.True(File.Exists(Path.Combine(
+            Vault, "Reports", "Restores", $"{result.RestoreEvidenceId}.json")));
+        var evidenceText = await File.ReadAllTextAsync(Path.Combine(
+            Vault, "Reports", "Restores", $"{result.RestoreEvidenceId}.json"));
+        Assert.DoesNotContain(target, evidenceText, StringComparison.Ordinal);
+        Assert.DoesNotContain(Vault, evidenceText, StringComparison.Ordinal);
+
+        var database = Path.Combine(Vault, "Upload Queue", LocalVaultLayout.QueueDatabaseName);
+        var databaseText = System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(database));
+        Assert.DoesNotContain(target, databaseText, StringComparison.Ordinal);
+        Assert.DoesNotContain(Vault, databaseText, StringComparison.Ordinal);
+        await using var connection = new SqliteConnection($"Data Source={database}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT status, evidence_id FROM local_restore_attempts;";
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal("completed", reader.GetString(0));
+        Assert.Equal(result.RestoreEvidenceId, reader.GetString(1));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task Restore_rejects_vault_target_overlap(int kind)
+    {
+        var engine = CreateEngine();
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+        var target = kind switch
+        {
+            0 => Vault,
+            1 => Path.Combine(Vault, "nested"),
+            _ => _root
+        };
+        Directory.CreateDirectory(target);
+
+        await Assert.ThrowsAsync<LocalEngineException>(() =>
+            engine.RestoreAsync(new(saved.RecoveryPointId, Vault, target)));
+
+        Assert.False(Directory.Exists(Path.Combine(target, LocalRestoreCoordinator.PublicationName)));
+    }
+
+    [Fact]
+    public async Task Restore_rejects_non_empty_or_linked_target_without_modifying_it()
+    {
+        var engine = CreateEngine();
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+        var target = Path.Combine(_root, "occupied");
+        Directory.CreateDirectory(target);
+        var operatorFile = Path.Combine(target, "operator-file");
+        await File.WriteAllTextAsync(operatorFile, "preserve");
+
+        await Assert.ThrowsAsync<LocalEngineException>(() =>
+            engine.RestoreAsync(new(saved.RecoveryPointId, Vault, target)));
+        Assert.Equal("preserve", await File.ReadAllTextAsync(operatorFile));
+
+        if (OperatingSystem.IsWindows()) return;
+        var real = Path.Combine(_root, "real-target");
+        var linked = Path.Combine(_root, "linked-target");
+        Directory.CreateDirectory(real);
+        Directory.CreateSymbolicLink(linked, real);
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            engine.RestoreAsync(new(saved.RecoveryPointId, Vault, linked)));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(real));
+    }
+
+    [Fact]
+    public async Task Restore_cancel_before_publication_removes_only_owned_staging()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var engine = CreateEngine(testHook: stage =>
+        {
+            if (stage == "restore_file_copied") cancellation.Cancel();
+        });
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+        var target = Path.Combine(_root, "cancel-target");
+        Directory.CreateDirectory(target);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            engine.RestoreAsync(new(saved.RecoveryPointId, Vault, target), cancellation.Token));
+
+        Assert.Empty(Directory.EnumerateFileSystemEntries(target));
+        await using var connection = new SqliteConnection(
+            $"Data Source={Path.Combine(Vault, "Upload Queue", LocalVaultLayout.QueueDatabaseName)}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT status FROM local_restore_attempts;";
+        Assert.Equal("cancelled", await command.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task Restore_reselect_recognizes_matching_published_copy()
+    {
+        var engine = CreateEngine();
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+        var target = Path.Combine(_root, "repeat-target");
+        Directory.CreateDirectory(target);
+        var first = await engine.RestoreAsync(new(saved.RecoveryPointId, Vault, target));
+
+        var retainedIntent = Path.Combine(
+            target, $".showvault-restore-{saved.RecoveryPointId}", "intent.json");
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+                File.GetUnixFileMode(Path.GetDirectoryName(retainedIntent)!));
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite,
+                File.GetUnixFileMode(retainedIntent));
+        }
+        Assert.Contains(saved.RecoveryPointId, await File.ReadAllTextAsync(retainedIntent),
+            StringComparison.Ordinal);
+
+        var second = await engine.RestoreAsync(new(saved.RecoveryPointId, Vault, target));
+
+        Assert.Equal(first.RecoveryPointId, second.RecoveryPointId);
+        Assert.Single(Directory.EnumerateDirectories(target), path =>
+            Path.GetFileName(path) == LocalRestoreCoordinator.PublicationName);
+    }
+
+    [Fact]
+    public async Task Restore_rejects_unverified_identity_and_tampered_package()
+    {
+        var engine = CreateEngine();
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+        var target = Path.Combine(_root, "verification-target");
+        Directory.CreateDirectory(target);
+
+        await Assert.ThrowsAsync<LocalEngineException>(() => engine.RestoreAsync(
+            new(new string('a', 64), Vault, target)));
+
+        var package = Assert.Single(Directory.EnumerateDirectories(
+            Path.Combine(Vault, "Backups", "Serato DJ Pro")));
+        var content = Path.Combine(package, "content", "database V2");
+        MakeWritable(content);
+        await File.WriteAllTextAsync(content, "tampered");
+        await Assert.ThrowsAnyAsync<Exception>(() => engine.RestoreAsync(
+            new(saved.RecoveryPointId, Vault, target)));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(target));
+    }
+
+    [Fact]
+    public async Task Restore_target_late_entry_is_preserved_and_prevents_publication()
+    {
+        var target = Path.Combine(_root, "late-entry-target");
+        Directory.CreateDirectory(target);
+        var lateEntry = Path.Combine(target, "operator-late-entry");
+        var engine = CreateEngine(testHook: stage =>
+        {
+            if (stage == "restore_file_copied" && !File.Exists(lateEntry))
+                File.WriteAllText(lateEntry, "preserve");
+        });
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+
+        await Assert.ThrowsAsync<LocalEngineException>(() => engine.RestoreAsync(
+            new(saved.RecoveryPointId, Vault, target)));
+
+        Assert.Equal("preserve", await File.ReadAllTextAsync(lateEntry));
+        Assert.False(Directory.Exists(Path.Combine(target, LocalRestoreCoordinator.PublicationName)));
+    }
+
+    [Fact]
+    public async Task Restore_failure_after_publication_rolls_back_exact_owned_child()
+    {
+        var target = Path.Combine(_root, "rollback-target");
+        Directory.CreateDirectory(target);
+        var engine = CreateEngine(testHook: stage =>
+        {
+            if (stage == "restore_published") throw new IOException("synthetic failure");
+        });
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+
+        await Assert.ThrowsAsync<LocalEngineException>(() => engine.RestoreAsync(
+            new(saved.RecoveryPointId, Vault, target)));
+
+        Assert.Empty(Directory.EnumerateFileSystemEntries(target));
+        await using var connection = new SqliteConnection(
+            $"Data Source={Path.Combine(Vault, "Upload Queue", LocalVaultLayout.QueueDatabaseName)}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT status FROM local_restore_attempts;";
+        Assert.Equal("failed", await command.ExecuteScalarAsync());
+        var inspection = await engine.InspectVaultStateAsync(Vault);
+        Assert.Equal(1, inspection.RestoreAttentionCount);
+    }
+
+    [Fact]
+    public async Task Restore_preserves_unknown_staging_and_conflicting_publication()
+    {
+        var engine = CreateEngine();
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+        var target = Path.Combine(_root, "unknown-stage-target");
+        Directory.CreateDirectory(target);
+        var stage = Path.Combine(target, $".showvault-restore-{saved.RecoveryPointId}");
+        Directory.CreateDirectory(stage);
+        var unknown = Path.Combine(stage, "operator-file");
+        await File.WriteAllTextAsync(unknown, "preserve");
+
+        await Assert.ThrowsAsync<LocalEngineException>(() => engine.RestoreAsync(
+            new(saved.RecoveryPointId, Vault, target)));
+
+        Assert.Equal("preserve", await File.ReadAllTextAsync(unknown));
+    }
+
+    [Fact]
+    public async Task Restore_reselect_rejects_mutated_copy_or_evidence()
+    {
+        var engine = CreateEngine();
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+        var target = Path.Combine(_root, "mutated-repeat-target");
+        Directory.CreateDirectory(target);
+        var restored = await engine.RestoreAsync(new(saved.RecoveryPointId, Vault, target));
+        var restoredFile = Path.Combine(
+            target, LocalRestoreCoordinator.PublicationName, "database V2");
+        await File.WriteAllTextAsync(restoredFile, "tampered");
+
+        await Assert.ThrowsAnyAsync<Exception>(() => engine.RestoreAsync(
+            new(saved.RecoveryPointId, Vault, target)));
+
+        await File.WriteAllTextAsync(restoredFile, "library");
+        var evidence = Path.Combine(
+            Vault, "Reports", "Restores", $"{restored.RestoreEvidenceId}.json");
+        MakeWritable(evidence);
+        await File.AppendAllTextAsync(evidence, " ");
+        await Assert.ThrowsAsync<LocalEngineException>(() => engine.RestoreAsync(
+            new(saved.RecoveryPointId, Vault, target)));
+    }
+
+    [Fact]
+    public async Task Restore_detects_package_mutation_during_copy()
+    {
+        string? packageContent = null;
+        var engine = CreateEngine(testHook: stage =>
+        {
+            if (stage != "restore_file_copied" || packageContent is null) return;
+            MakeWritable(packageContent);
+            File.WriteAllText(packageContent, "changed");
+            packageContent = null;
+        });
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+        var package = Assert.Single(Directory.EnumerateDirectories(
+            Path.Combine(Vault, "Backups", "Serato DJ Pro")));
+        packageContent = Path.Combine(package, "content", "database V2");
+        var target = Path.Combine(_root, "package-race-target");
+        Directory.CreateDirectory(target);
+
+        await Assert.ThrowsAnyAsync<Exception>(() => engine.RestoreAsync(
+            new(saved.RecoveryPointId, Vault, target)));
+
+        Assert.Empty(Directory.EnumerateFileSystemEntries(target));
+    }
+
+    [Fact]
+    public async Task Restore_detects_multiply_linked_staging_file()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var target = Path.Combine(_root, "hard-link-target");
+        Directory.CreateDirectory(target);
+        var linked = false;
+        string? recoveryPointId = null;
+        var engine = CreateEngine(testHook: stage =>
+        {
+            if (stage != "restore_file_copied" || linked || recoveryPointId is null) return;
+            var restored = Path.Combine(
+                target, $".showvault-restore-{recoveryPointId}", "restored");
+            var file = Directory.EnumerateFiles(restored, "*", SearchOption.AllDirectories).First();
+            Assert.Equal(0, CreateHardLink(file, Path.Combine(_root, "outside-hard-link")));
+            linked = true;
+        });
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+        recoveryPointId = saved.RecoveryPointId;
+
+        await Assert.ThrowsAsync<LocalEngineException>(() => engine.RestoreAsync(
+            new(saved.RecoveryPointId, Vault, target)));
+
+        Assert.Empty(Directory.EnumerateFileSystemEntries(target));
+    }
+
+    [Fact]
+    public async Task Restore_detects_selected_target_identity_swap_and_rolls_back_original()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var target = Path.Combine(_root, "swapped-target");
+        var original = $"{target}-original";
+        Directory.CreateDirectory(target);
+        var engine = CreateEngine(testHook: stage =>
+        {
+            if (stage != "restore_staging_verified" || Directory.Exists(original)) return;
+            Directory.Move(target, original);
+            Directory.CreateDirectory(target);
+        });
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+
+        await Assert.ThrowsAsync<LocalEngineException>(() => engine.RestoreAsync(
+            new(saved.RecoveryPointId, Vault, target)));
+
+        Assert.Empty(Directory.EnumerateFileSystemEntries(target));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(original));
+    }
+
+    [Fact]
+    public async Task Restore_cancellation_after_publication_finishes_durable_success()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var target = Path.Combine(_root, "late-cancel-target");
+        Directory.CreateDirectory(target);
+        var engine = CreateEngine(testHook: stage =>
+        {
+            if (stage == "restore_published") cancellation.Cancel();
+        });
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+
+        var restored = await engine.RestoreAsync(
+            new(saved.RecoveryPointId, Vault, target), cancellation.Token);
+
+        Assert.Equal("restored", restored.LocalStatus);
+        Assert.True(Directory.Exists(Path.Combine(target, LocalRestoreCoordinator.PublicationName)));
+    }
+
+    [Fact]
+    public async Task Packaged_host_restore_protocol_is_closed_and_path_free()
+    {
+        var engine = CreateEngine();
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+        var target = Path.Combine(_root, "host-target");
+        Directory.CreateDirectory(target);
+        var start = new ProcessStartInfo(HostExecutablePath())
+        {
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        using var process = Process.Start(start) ?? throw new InvalidOperationException();
+        await process.StandardInput.WriteLineAsync(JsonSerializer.Serialize(new
+        {
+            operation = "restore",
+            recoveryPointId = saved.RecoveryPointId,
+            selectedVault = Vault,
+            selectedTarget = target
+        }));
+        process.StandardInput.Close();
+        var output = await process.StandardOutput.ReadToEndAsync();
+        var error = await process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, process.ExitCode);
+        Assert.Empty(error);
+        Assert.Contains("\"type\":\"progress\"", output, StringComparison.Ordinal);
+        Assert.Contains("\"type\":\"result\"", output, StringComparison.Ordinal);
+        Assert.Contains("\"localStatus\":\"restored\"", output, StringComparison.Ordinal);
+        Assert.DoesNotContain(Vault, output, StringComparison.Ordinal);
+        Assert.DoesNotContain(target, output, StringComparison.Ordinal);
+        Assert.DoesNotContain(Source, output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Restore_reselect_repairs_owned_interrupted_stage_and_durable_state()
+    {
+        var engine = CreateEngine();
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+        var target = Path.Combine(_root, "restart-target");
+        Directory.CreateDirectory(target);
+        var stage = Path.Combine(target, $".showvault-restore-{saved.RecoveryPointId}");
+        Directory.CreateDirectory(Path.Combine(stage, "restored"));
+        await File.WriteAllBytesAsync(Path.Combine(stage, "intent.json"),
+            JsonSerializer.SerializeToUtf8Bytes(new LocalRestoreIntent(
+                "1.0", saved.RecoveryPointId, LocalRestoreCoordinator.PublicationName),
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        await File.WriteAllTextAsync(Path.Combine(stage, "restored", "partial"), "partial");
+        using (var layout = LocalVaultLayout.OpenOrCreate(Vault))
+        {
+            var queue = new LocalVaultQueueStore(layout.QueueDatabasePath);
+            await queue.InitializeAsync(TestContext.Current.CancellationToken);
+            await queue.RecordRestoreStagingAsync(
+                "0123456789abcdef0123456789abcdef", saved.RecoveryPointId,
+                saved.RecoveryPointId, saved.FileCount, saved.TotalBytes,
+                DateTimeOffset.UtcNow, TestContext.Current.CancellationToken);
+        }
+
+        var result = await engine.RestoreAsync(new(saved.RecoveryPointId, Vault, target));
+
+        Assert.Equal("restored", result.LocalStatus);
+        var inspection = await engine.InspectVaultStateAsync(Vault);
+        Assert.Equal(0, inspection.RestoreAttentionCount);
+        await using var connection = new SqliteConnection(
+            $"Data Source={Path.Combine(Vault, "Upload Queue", LocalVaultLayout.QueueDatabaseName)}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT status FROM local_restore_attempts ORDER BY created_at;";
+        var statuses = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync()) statuses.Add(reader.GetString(0));
+        Assert.Contains("failed", statuses);
+        Assert.Contains("completed", statuses);
+    }
+
     private LocalRecoveryEngine CreateEngine(
         LocalEngineLimits? limits = null,
         Action<string>? testHook = null)
@@ -590,6 +1006,12 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
         else
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
     }
+
+    private static string HostExecutablePath(
+        [CallerFilePath] string sourceFile = "") => Path.GetFullPath(Path.Combine(
+            Path.GetDirectoryName(sourceFile)!, "..", "..", "src",
+            "ShowVault.LocalEngine.Host", "bin", "Release", "net10.0",
+            OperatingSystem.IsWindows() ? "showvault-local-engine.exe" : "showvault-local-engine"));
 
     private sealed class FixedTimeProvider(DateTimeOffset value) : TimeProvider
     {

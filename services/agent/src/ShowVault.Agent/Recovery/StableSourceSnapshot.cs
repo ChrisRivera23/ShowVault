@@ -81,6 +81,36 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
             selectedRootDirectories: null,
             cancellationToken);
 
+    internal static async Task<StableSourceSnapshot> CaptureBoundedAsync(
+        StableDirectoryTree retainedRoot,
+        int maximumFileCount,
+        int maximumDirectoryCount,
+        int maximumRelativePathLength,
+        long maximumFileBytes,
+        long maximumTotalBytes,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(retainedRoot);
+        ValidateLimits(maximumFileCount, maximumDirectoryCount,
+            maximumRelativePathLength, maximumFileBytes, maximumTotalBytes);
+        var root = retainedRoot.Duplicate();
+        var snapshot = new StableSourceSnapshot(root.Path, root, null);
+        try
+        {
+            await snapshot.CaptureDirectoryAsync(
+                snapshot._directories[string.Empty], maximumFileCount,
+                maximumDirectoryCount, maximumRelativePathLength,
+                maximumFileBytes, maximumTotalBytes, null, cancellationToken);
+            await snapshot.ValidateStableAsync(rehashFiles: true, cancellationToken);
+            return snapshot;
+        }
+        catch
+        {
+            await snapshot.DisposeAsync();
+            throw;
+        }
+    }
+
     public static async Task<StableSourceSnapshot> CaptureSelectedRootDirectoriesAsync(
         string rootPath,
         IReadOnlySet<string> selectedRootDirectories,
@@ -120,30 +150,8 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
         IReadOnlySet<string>? selectedRootDirectories,
         CancellationToken cancellationToken)
     {
-        if (maximumFileCount < 1)
-        {
-            throw new ArgumentOutOfRangeException(nameof(maximumFileCount));
-        }
-
-        if (maximumDirectoryCount < 1)
-        {
-            throw new ArgumentOutOfRangeException(nameof(maximumDirectoryCount));
-        }
-
-        if (maximumRelativePathLength < 1)
-        {
-            throw new ArgumentOutOfRangeException(nameof(maximumRelativePathLength));
-        }
-
-        if (maximumFileBytes < 1)
-        {
-            throw new ArgumentOutOfRangeException(nameof(maximumFileBytes));
-        }
-
-        if (maximumTotalBytes < 1)
-        {
-            throw new ArgumentOutOfRangeException(nameof(maximumTotalBytes));
-        }
+        ValidateLimits(maximumFileCount, maximumDirectoryCount,
+            maximumRelativePathLength, maximumFileBytes, maximumTotalBytes);
 
         var normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootPath));
         var root = StableDirectoryTree.OpenReadOnlyNoFollowPath(normalizedRoot);
@@ -240,14 +248,35 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
             throw new IOException("Source root identity changed during capture.");
         }
 
+        await ValidateRetainedContentsAsync(rehashFiles, cancellationToken);
+    }
+
+    internal async Task ValidateStableAtAsync(
+        StableDirectoryTree parent,
+        string name,
+        bool rehashFiles,
+        CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_root.IsSameDirectoryAt(parent, name))
+        {
+            throw new IOException("Source root identity changed during capture.");
+        }
+
+        await ValidateRetainedContentsAsync(rehashFiles, cancellationToken);
+    }
+
+    private async Task ValidateRetainedContentsAsync(
+        bool rehashFiles,
+        CancellationToken cancellationToken)
+    {
         foreach (var directory in _directories.Values
                      .Where(directory => directory.Parent is not null)
                      .OrderBy(directory => directory.RelativePath, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!directory.Directory.IsSameDirectoryAt(
-                    directory.Parent!.Directory,
-                    directory.Name))
+                    directory.Parent!.Directory, directory.Name))
             {
                 throw new IOException("Source directory identity changed during capture.");
             }
@@ -278,8 +307,7 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!heldFile.Parent.Directory.IsSameFileAt(
-                    heldFile.Name,
-                    heldFile.Stream.SafeFileHandle) ||
+                    heldFile.Name, heldFile.Stream.SafeFileHandle) ||
                 heldFile.Stream.Length != heldFile.Metadata.Size)
             {
                 throw new IOException("Source file identity changed during capture.");
@@ -288,15 +316,27 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
             if (rehashFiles)
             {
                 var currentHash = await HashAsync(heldFile.Stream, cancellationToken);
-                if (!string.Equals(
-                        currentHash,
-                        heldFile.Metadata.Sha256,
+                if (!string.Equals(currentHash, heldFile.Metadata.Sha256,
                         StringComparison.OrdinalIgnoreCase))
                 {
                     throw new IOException("Source file content changed during capture.");
                 }
             }
         }
+    }
+
+    private static void ValidateLimits(
+        int maximumFileCount,
+        int maximumDirectoryCount,
+        int maximumRelativePathLength,
+        long maximumFileBytes,
+        long maximumTotalBytes)
+    {
+        if (maximumFileCount < 1) throw new ArgumentOutOfRangeException(nameof(maximumFileCount));
+        if (maximumDirectoryCount < 1) throw new ArgumentOutOfRangeException(nameof(maximumDirectoryCount));
+        if (maximumRelativePathLength < 1) throw new ArgumentOutOfRangeException(nameof(maximumRelativePathLength));
+        if (maximumFileBytes < 1) throw new ArgumentOutOfRangeException(nameof(maximumFileBytes));
+        if (maximumTotalBytes < 1) throw new ArgumentOutOfRangeException(nameof(maximumTotalBytes));
     }
 
     public async ValueTask DisposeAsync()
