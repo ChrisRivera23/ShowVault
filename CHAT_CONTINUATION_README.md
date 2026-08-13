@@ -319,3 +319,27 @@ Remote `main` remains `32c21cf`; the candidate and draft PR #37 remain
 `3f2496a`. No push, PR edit, rerun, ready transition, or merge occurred. The
 next bounded step is a separately authorized read-only source-update preflight
 for exact product `0e00171`.
+
+### Milestone 7 second-repair source-update preflight
+
+The Product Owner authorized the read-only preflight. GitHub readback confirms
+draft PR #37 remains exact at source `3f2496a` over `main` `32c21cf`, with its
+green pull-request run, API-failing push run, and no feedback or metadata
+additions. Repository permissions and merge policy remain unchanged; `main` has
+no returned protection document and the repository has zero rulesets.
+
+Reviewed product `0e00171` is a one-commit strict fast-forward whose parent is
+exact `3f2496a`. The prospective PR is 57 commits, 194 files, +29,288/-296. The
+approved future proposal uses an explicit lease requiring remote `3f2496a`,
+pushes exact `0e00171` rather than the documentation branch head, refreshes only
+the stale PR body from the pinned 5,807-byte proposal, verifies exact readback,
+and awaits both automatically triggered push and pull-request workflows. All
+four API/Flutter jobs must pass; no manual rerun is permitted.
+
+Exact facts, hashes, command, stop conditions, and sequence are in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_RACE2_SOURCE_UPDATE_PREFLIGHT_2026-08-13.md`;
+the replacement body is in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_RACE2_SOURCE_UPDATE_BODY_PROPOSAL_2026-08-13.md`.
+No remote or PR state changed. The next bounded step is the separately
+authorized exact source/body update and dual-workflow CI wait; ready transition
+and merge remain independent gates.
