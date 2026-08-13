@@ -12,12 +12,15 @@
   reopening
 - Milestone 3 controlled attended local Restore, fixed sandbox publication,
   path-free durable evidence, cancellation, attention, and reselect repair
+- Milestone 4 attended hosted synchronization protocol for freshly verified
+  local recovery points, durable path-free retry/receipt state, tenant-role
+  authorization, receipt-last completion, and synthetic end-to-end proof
 
 ## Next
 
-1. Hosted synchronization of verified local recovery points (milestone 4;
-   extraction/architecture complete, implementation separately gated)
-2. Account, role, subscription, quota, and billing administration
+1. Account, role, subscription, quota, and billing administration
+2. Production hosted-object provider, retention, migration, and operational
+   durability proof
 3. Separately authorized native packaging, installation, and equipment proof
 
 ## Deferred
