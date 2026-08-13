@@ -1,29 +1,35 @@
 # ShowVault active continuation handoff
 
-Read this file and
-`docs/LOCAL_FIRST_MILESTONE_1_IMPLEMENTATION_2026-08-13.md` before continuing
+Read this file, `docs/LOCAL_FIRST_PRODUCT_BIBLE.md`, and
+`docs/LOCAL_FIRST_MILESTONE_2_IMPLEMENTATION_2026-08-13.md` before continuing
 work from this branch.
 
 ## Current checkpoint — 2026-08-13
 
-- Branch: `codex/local-first-milestone-1`
-- Worktree: `/private/tmp/showvault-local-first-m1/worktree`
-- Exact foundation: `32c21cfbd51ea5f16bb5fe84c56f4efb125b1df4`
-- Implementation commits: `17d4410`, `323fe7c`, `ffdd40b`, `805a96c`
-- Evidence commit: `2058aba2e2682c66e53af43c784138116dec48df`
-- Product outcome: **Install → Scan this computer → Sign in for cloud service**
+- Branch: `codex/local-first-milestone-2`
+- Worktree: `/private/tmp/showvault-local-first-m2/worktree`
+- Exact authorized planning foundation:
+  `5c881f1910a40c989a8dd96afec4cbb054751e92`
+- Implementation head: `3a0492d5b6a0cb2fa379efd62c7abf51fc677865`
+- Evidence commit: `1b139c2`
+- Product outcome:
+  **Install → Scan this computer → Save locally → Sign in for cloud service**
 
-Milestone 1 is complete locally. Direct Scan checks only exact catalog
-candidates, keeps paths transient, submits only opaque server-allowlisted keys,
-stores empty scans, returns only the newest direct detections, and keeps those
-detections outside Agent decision/backup/verification/restore controls. The
-guarded personal beta requires all client, origin, server-environment,
-server-flag, identity, and remote-loopback conditions.
+Milestone 2 is complete locally. The desktop app keeps direct Scan and Auth0
+behavior, exposes Save only for exact detected user-data roots, obtains separate
+session-scoped source/vault consent, and provides path-free progress, Cancel,
+Verified locally, Cloud queued, Queue attention, and restart vault inspection.
 
-Validation passed: Flutter analysis and 21 tests; contracts 22; platform 15;
-Agent 291; API 19; EF no-pending-model gate; zero-warning API Release build;
-format, shell syntax, packaging negative guards, privacy/security review, and
-diff checks.
+One packaged, venue-neutral .NET local engine owns stable bounded capture,
+deterministic manifests, independent verification evidence, non-overwriting
+atomic publication, canonical vault layout, transactional SQLite state, full
+restart reverify, and reverify-or-quarantine repair. It has no network,
+arbitrary-command, Agent enrollment/identity, or service-lifecycle surface.
+
+Validation passed: local engine 41; Flutter 25; contracts 22; platform 15;
+Agent 291; API 19; EF model gate; zero-warning local-host, Agent, and API Release
+builds; format, plugin-generation, shell/project/plist, packaging-guard,
+process-contract, privacy/path-leak, and diff checks.
 
 ## Authorization boundary
 
@@ -33,13 +39,17 @@ install a meaningful native package, use equipment, access personal/customer/
 venue data, use cloud resources, release, deploy, or clean up destructively
 without new explicit authorization.
 
-No native-platform proof is claimed. macOS/Windows build, signing,
-notarization, installation, protocol activation, Gatekeeper, personal-Keychain,
-and end-to-end login remain unproven.
+No native-platform proof is claimed. macOS/Windows Flutter build, signing,
+sandbox/helper behavior, notarization, installation, upgrades, protocol
+activation, Gatekeeper, personal-Keychain, and end-to-end login remain
+unproven. Upload, restore UI, Recovery Confidence, dependency completeness,
+compatibility, and license portability remain outside milestone 2.
 
 ## Next gated decision
 
-Stop for Product Owner direction. The likely next product slice is local-first
-milestone 2 (local Save, immutable recovery points, manifests, verification
-evidence, and the durable upload queue), but no milestone-2 extraction contract
-or implementation authorization exists on this branch yet.
+Stop for Product Owner direction. A likely next slice is a bounded milestone-3
+extraction/reconstruction plan for upload synchronization or controlled local
+restore, but neither is authorized by this handoff. Before implementation,
+select one outcome, create its exact historical accounting and safety contract,
+and obtain explicit local implementation authorization. Preserve the current
+local commits and every external/native/data gate.
