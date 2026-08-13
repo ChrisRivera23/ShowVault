@@ -431,3 +431,26 @@ conditions are in
 `docs/LOCAL_FIRST_MILESTONE_7_PR_MERGE_PREFLIGHT_2026-08-13.md`. No external
 state changed. The merge remains separately authorized and must stop before any
 branch deletion, release, deployment, or provider/production/native action.
+
+### Milestone 7 merge and green mainline CI
+
+The Product Owner authorized the exact merge. The final drift gate matched the
+preflight, and the GitHub connector merged PR #37 once with method `merge`,
+expected head `0e00171`, and the explicit repository-conventional
+title/message. GitHub returned merge commit `210b050`.
+
+Final readback confirms PR #37 is closed/merged, `main` is exact `210b050`, the
+candidate ref remains exact `0e00171`, and the merge commit has exact parents
+`32c21cf` then `0e00171`. Its tree is exact `8e68dc9`, identical to the reviewed
+candidate, and its message is exact.
+
+Automatic push run `31716939349` completed successfully at the merge SHA. API
+job `94503923017` and Flutter job `94503922732` both passed. Only the inherited
+non-failing Node.js 20 deprecation annotations remain; no workflow was
+dispatched or rerun.
+
+Exact evidence is in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_MERGE_EVIDENCE_2026-08-13.md`. No branch was
+deleted, and no release, tag, deployment, provider/production mutation, or
+native operation occurred. Any cleanup or later operational action remains a
+separate gate.
