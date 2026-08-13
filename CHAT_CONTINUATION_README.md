@@ -291,3 +291,190 @@ state, GitHub, deployment, production enablement, Auth0/Stripe configuration,
 real-person data, and native proof remain unchanged and separately gated. The
 next bounded task is a mainline-disposition preflight before any movement or
 publication.
+
+### Milestone 7 second PR-CI race repair and review
+
+After exact source `3f2496a` was published, its pull-request workflow passed but
+the simultaneous push workflow failed the same invitation-concurrency test. The
+first repair covered post-write-conflict visibility but not the earlier window
+where a loser reads a pending invitation and then sees the winner's newly
+committed membership.
+
+The Product Owner authorized a second local-only repair and fresh review. Exact
+product `0e00171` clears the stale tracked read and routes an accepted invitation
+or newly visible membership through the bounded fresh-observation path. A
+deterministic database-boundary regression failed before the change and passes
+afterward, verifying HTTP 200 with exactly one membership and audit. All eight
+focused cases pass, and the original concurrency test passes 80/80 across four
+concurrent test processes.
+
+The complete gate passes: API 158, Platform 30, local engine 67, contracts 22,
+Agent 291, portal 15, and Flutter 32 tests; clean Flutter analysis and EF model
+consistency; five sequential zero-warning Release builds; formatting, diff, and
+focused credential scans. Fresh review found no actionable findings. Exact
+evidence is in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_CI_RACE2_REPAIR_REVIEW_2026-08-13.md`.
+
+Remote `main` remains `32c21cf`; the candidate and draft PR #37 remain
+`3f2496a`. No push, PR edit, rerun, ready transition, or merge occurred. The
+next bounded step is a separately authorized read-only source-update preflight
+for exact product `0e00171`.
+
+### Milestone 7 second-repair source-update preflight
+
+The Product Owner authorized the read-only preflight. GitHub readback confirms
+draft PR #37 remains exact at source `3f2496a` over `main` `32c21cf`, with its
+green pull-request run, API-failing push run, and no feedback or metadata
+additions. Repository permissions and merge policy remain unchanged; `main` has
+no returned protection document and the repository has zero rulesets.
+
+Reviewed product `0e00171` is a one-commit strict fast-forward whose parent is
+exact `3f2496a`. The prospective PR is 57 commits, 194 files, +29,288/-296. The
+approved future proposal uses an explicit lease requiring remote `3f2496a`,
+pushes exact `0e00171` rather than the documentation branch head, refreshes only
+the stale PR body from the pinned 5,807-byte proposal, verifies exact readback,
+and awaits both automatically triggered push and pull-request workflows. All
+four API/Flutter jobs must pass; no manual rerun is permitted.
+
+Exact facts, hashes, command, stop conditions, and sequence are in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_RACE2_SOURCE_UPDATE_PREFLIGHT_2026-08-13.md`;
+the replacement body is in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_RACE2_SOURCE_UPDATE_BODY_PROPOSAL_2026-08-13.md`.
+No remote or PR state changed. The next bounded step is the separately
+authorized exact source/body update and dual-workflow CI wait; ready transition
+and merge remain independent gates.
+
+### Milestone 7 second-repair publication and green dual CI
+
+The Product Owner authorized the exact source/body update. The explicit lease
+held, and the candidate plus draft PR #37 advanced by strict fast-forward from
+`3f2496a` to exact second-repair product `0e00171`. The PR body was replaced
+byte-for-byte with the pinned 5,807-byte proposal. Final readback confirms the
+unchanged base/title/draft state, 57 commits, 194 files, +29,288/-296, empty
+metadata/feedback, and GitHub mergeable state `clean`.
+
+Both required workflows triggered automatically and passed at exact `0e00171`.
+Push run `31716020102` passed API job `94500821235` and Flutter job
+`94500821182`. Pull-request run `31716026186` passed API job `94500840928` and
+Flutter job `94500841026`. All four current exact-head checks are green; only
+inherited non-failing Node.js deprecation annotations remain. No workflow was
+dispatched or rerun.
+
+Exact evidence is in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_RACE2_SOURCE_UPDATE_EVIDENCE_2026-08-13.md`.
+PR #37 remains draft. The next bounded step is a separately authorized
+read-only readiness preflight; ready transition and merge remain independent
+gates.
+
+### Milestone 7 PR readiness preflight
+
+The Product Owner authorized the read-only readiness preflight. Fresh connector
+and raw GitHub inspection confirms PR #37 remains open, unmerged, draft,
+mergeable, and `clean` at exact head `0e00171` over exact `main` `32c21cf`.
+Title/body/counts are exact, metadata and feedback remain empty, and there are
+no newer runs or ref updates.
+
+Both current-head workflows remain successful. Push run `31716020102` and
+pull-request run `31716026186` provide four green API/Flutter checks. Repository
+policy has no protection or ruleset requiring a submitted review; auto-merge is
+disabled. The complete local no-findings review and 583 .NET/32 Flutter gate
+remain pinned to the published product.
+
+Verdict: approved for a separately authorized transition of PR #37 from draft
+to ready for review only. Exact evidence, stop conditions, and the connector
+transition/readback sequence are in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_READINESS_PREFLIGHT_2026-08-13.md`. No external
+state changed. Ready transition does not authorize merge, metadata edits,
+reviewer requests, another push, workflow action, deployment, or provider/
+production/native operations.
+
+### Milestone 7 PR ready transition
+
+The Product Owner authorized the exact draft-to-ready transition. A final live
+gate matched the approved preflight: PR #37 was open, unmerged, draft,
+mergeable, and `clean` at exact head `0e00171` over exact `main` `32c21cf`,
+with exact title/body hashes, unchanged comparison counts, empty metadata and
+feedback, two successful workflows, and four successful checks.
+
+The GitHub connector marked only PR #37 ready for review. Post-transition
+connector and raw GitHub readback confirms it is open, unmerged, non-draft, and
+still `clean`, with every pinned ref/content/count value unchanged. No workflow
+was triggered; the same push and pull-request runs and all four API/Flutter
+checks remain successful. No manual workflow action occurred.
+
+Exact evidence is in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_READY_TRANSITION_EVIDENCE_2026-08-13.md`.
+No merge, auto-merge, reviewer request, metadata edit, push, deployment, or
+provider/production/native operation occurred. The next bounded step is a
+separately authorized read-only merge preflight; any merge remains a distinct
+later gate.
+
+### Milestone 7 PR merge preflight
+
+The Product Owner authorized the read-only merge preflight. Fresh connector and
+raw GitHub inspection confirms ready PR #37 remains open, unmerged, mergeable,
+and `clean` at exact head `0e00171` over exact `main` `32c21cf`. Title/body,
+comparison counts, empty metadata/feedback, both successful workflows, and all
+four successful API/Flutter checks remain exact. No newer activity appeared.
+
+Repository policy allows merge, squash, and rebase, but recent mainline history
+uses merge commits. There is no branch protection or ruleset, and no submitted
+review is required. A local merge calculation is conflict-free and produces
+tree `8e68dc9`, exactly matching the reviewed candidate. The approved proposal
+therefore uses the GitHub connector with merge method `merge`, expected head
+`0e00171`, and an explicit repository-conventional title/message. This
+preserves all 57 reviewed commits; squash would collapse them and rebase would
+rewrite them.
+
+Exact proposal, readback sequence, automatic mainline-CI wait, and stop
+conditions are in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_MERGE_PREFLIGHT_2026-08-13.md`. No external
+state changed. The merge remains separately authorized and must stop before any
+branch deletion, release, deployment, or provider/production/native action.
+
+### Milestone 7 merge and green mainline CI
+
+The Product Owner authorized the exact merge. The final drift gate matched the
+preflight, and the GitHub connector merged PR #37 once with method `merge`,
+expected head `0e00171`, and the explicit repository-conventional
+title/message. GitHub returned merge commit `210b050`.
+
+Final readback confirms PR #37 is closed/merged, `main` is exact `210b050`, the
+candidate ref remains exact `0e00171`, and the merge commit has exact parents
+`32c21cf` then `0e00171`. Its tree is exact `8e68dc9`, identical to the reviewed
+candidate, and its message is exact.
+
+Automatic push run `31716939349` completed successfully at the merge SHA. API
+job `94503923017` and Flutter job `94503922732` both passed. Only the inherited
+non-failing Node.js 20 deprecation annotations remain; no workflow was
+dispatched or rerun.
+
+Exact evidence is in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_MERGE_EVIDENCE_2026-08-13.md`. No branch was
+deleted, and no release, tag, deployment, provider/production mutation, or
+native operation occurred. Any cleanup or later operational action remains a
+separate gate.
+
+### Milestone 7 post-merge closeout preflight
+
+The Product Owner authorized the read-only closeout preflight. GitHub remains
+exact: PR #37 is merged, `main` is `210b050`, candidate is `0e00171`, and the
+merge-SHA push run plus API/Flutter checks remain successful with no newer
+activity.
+
+All nine milestone-7/account-portal milestone-7 worktrees are clean, but broad
+repository cleanup is unsafe: fourteen registered worktrees have uncommitted
+files, including the primary worktree's pre-existing `NEXT_CONVERSATION.md`.
+The primary and every dirty historical worktree are excluded from cleanup.
+
+The active evidence branch held seven local-only documentation commits across
+nine paths before this preflight. The local branch named like the remote
+candidate is also a different historical documentation SHA, so name-only branch
+operations are unsafe. Verdict: do not delete branches or worktrees yet.
+
+Exact inventory, hashes, preservation order, and stop conditions are in
+`docs/LOCAL_FIRST_MILESTONE_7_POST_MERGE_CLOSEOUT_PREFLIGHT_2026-08-13.md`.
+The next bounded step is a separately authorized read-only preflight for a new
+docs-only evidence branch and draft PR. Evidence publication and any eventual
+destructive cleanup remain distinct later gates; release, deployment, and
+provider/production/native operations remain excluded.
