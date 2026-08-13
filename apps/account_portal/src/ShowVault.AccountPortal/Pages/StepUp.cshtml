@@ -1,0 +1,4 @@
+@page
+@model ShowVault.AccountPortal.Pages.StepUpModel
+@{ ViewData["Title"] = "Confirm access"; }
+<h1>Confirm sensitive access</h1><p>Multi-factor authentication is required.</p><form method="post"><input type="hidden" asp-for="OrganizationId" /><button type="submit">Continue</button></form>

@@ -1,0 +1,422 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using ShowVault.Api.Contracts;
+using ShowVault.Api.Data;
+using ShowVault.Api.HostedSync;
+using ShowVault.Platform.Commercial;
+using ShowVault.Platform.Organizations;
+using ShowVault.Platform.Venues;
+using ShowVault.Api.Security;
+using LocalCatalogAuthorizer = ShowVault.LocalEngine.LocalCatalogAuthorizer;
+using LocalRecoveryEngine = ShowVault.LocalEngine.LocalRecoveryEngine;
+using LocalSyncEngine = ShowVault.LocalEngine.LocalSyncEngine;
+using LocalSaveRequest = ShowVault.LocalEngine.LocalSaveRequest;
+using LocalSyncRequest = ShowVault.LocalEngine.LocalSyncRequest;
+using Xunit;
+
+namespace ShowVault.Api.Tests;
+
+public sealed class HostedSyncTests(TenantApiFactory factory) : IClassFixture<TenantApiFactory>
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    [Fact]
+    public async Task Personal_beta_identity_cannot_use_hosted_sync()
+    {
+        var subject = $"personal-beta-{Guid.NewGuid():N}";
+        var tenant = await CreateTenantAsync(subject);
+        var beginRequest = BeginRequest(Encoding.UTF8.GetBytes("local-only backup"));
+        using var ordinary = Client(subject);
+        using var client = Client(subject,
+            PersonalBetaAuthenticationHandler.SchemeName);
+        var root = Root(tenant, beginRequest.Manifest.RecoveryPointId);
+        var directRoot = $"/api/v1/organizations/{tenant.OrganizationId}/venues/" +
+            $"{tenant.VenueId}";
+
+        Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync(
+            directRoot + "/computer-scans", new SubmitComputerScanRequest(
+                ["macos.serato-dj-pro.user-data"]))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,
+            (await client.GetAsync(directRoot + "/recovery-candidates")).StatusCode);
+
+        var ordinaryBegin = await ordinary.PostAsJsonAsync(root + "/begin", beginRequest);
+        Assert.Equal(HttpStatusCode.OK, ordinaryBegin.StatusCode);
+        var session = (await ordinaryBegin.Content.ReadFromJsonAsync<
+            ApiResponse<HostedSyncBeginResponse>>())!.Payload;
+        var path = Uri.EscapeDataString(beginRequest.Manifest.Files[0].RelativePath);
+
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await client.PostAsJsonAsync(root + "/begin", beginRequest)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(
+            root + $"/sessions/{session.SessionId}/files?path={path}")).StatusCode);
+        using var append = new HttpRequestMessage(HttpMethod.Put,
+            root + $"/sessions/{session.SessionId}/files?path={path}&offset=0")
+        {
+            Content = new ByteArrayContent(Encoding.UTF8.GetBytes("denied"))
+        };
+        append.Headers.Add("X-ShowVault-Chunk-Sha256", new string('a', 64));
+        append.Content.Headers.ContentType = new("application/octet-stream");
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await client.SendAsync(append)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(
+            root + $"/sessions/{session.SessionId}/commit", new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await client.GetAsync(root + "/receipt")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Owner_can_resume_identical_chunk_and_commit_receipt_last()
+    {
+        var tenant = await CreateTenantAsync("owner");
+        var content = Encoding.UTF8.GetBytes("synthetic backup");
+        var beginRequest = BeginRequest(content);
+        var client = Client("owner");
+        var root = Root(tenant, beginRequest.Manifest.RecoveryPointId);
+
+        var begin = await client.PostAsJsonAsync(root + "/begin", beginRequest);
+        Assert.Equal(HttpStatusCode.OK, begin.StatusCode);
+        var session = (await begin.Content.ReadFromJsonAsync<ApiResponse<HostedSyncBeginResponse>>())!
+            .Payload;
+        Assert.False(session.Completed);
+
+        var path = Uri.EscapeDataString(beginRequest.Manifest.Files[0].RelativePath);
+        var state = await client.GetFromJsonAsync<ApiResponse<HostedSyncFileStateResponse>>(
+            root + $"/sessions/{session.SessionId}/files?path={path}");
+        Assert.Equal(0, state!.Payload.NextOffset);
+
+        await PutChunkAsync(client, root, session.SessionId, path, 0, content);
+        await PutChunkAsync(client, root, session.SessionId, path, 0, content);
+        var conflictingBytes = Enumerable.Repeat((byte)'x', content.Length).ToArray();
+        using (var conflict = new HttpRequestMessage(HttpMethod.Put,
+            root + $"/sessions/{session.SessionId}/files?path={path}&offset=0")
+        {
+            Content = new ByteArrayContent(conflictingBytes)
+        })
+        {
+            conflict.Headers.Add("X-ShowVault-Chunk-Sha256",
+                Convert.ToHexStringLower(SHA256.HashData(conflictingBytes)));
+            conflict.Content.Headers.ContentType = new("application/octet-stream");
+            Assert.Equal(HttpStatusCode.Conflict,
+                (await client.SendAsync(conflict)).StatusCode);
+        }
+        var resumed = await client.GetFromJsonAsync<ApiResponse<HostedSyncFileStateResponse>>(
+            root + $"/sessions/{session.SessionId}/files?path={path}");
+        Assert.Equal(content.Length, resumed!.Payload.NextOffset);
+
+        var commit = await client.PostAsJsonAsync(
+            root + $"/sessions/{session.SessionId}/commit", new { });
+        var receipt = (await commit.Content.ReadFromJsonAsync<ApiResponse<HostedSyncReceipt>>())!
+            .Payload;
+        Assert.Equal(tenant.OrganizationId, receipt.OrganizationId);
+        Assert.Equal(tenant.VenueId, receipt.VenueId);
+        Assert.Equal(beginRequest.ManifestDigest, receipt.ManifestDigest);
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(content)),
+            Assert.Single(receipt.Objects).Sha256);
+
+        var repeated = await client.PostAsJsonAsync(
+            root + $"/sessions/{session.SessionId}/commit", new { });
+        Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
+        var fetched = await client.GetAsync(root + "/receipt");
+        Assert.Equal(HttpStatusCode.OK, fetched.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var usage = database.OrganizationStorageUsages.Single(value =>
+            value.OrganizationId == tenant.OrganizationId);
+        Assert.Equal(content.Length, usage.CommittedBytes);
+        Assert.Equal(0, usage.ReservedBytes);
+        Assert.Equal(HostedSyncReservationState.Committed,
+            database.HostedSyncReservations.Single(value =>
+                value.OrganizationId == tenant.OrganizationId).State);
+    }
+
+    [Fact]
+    public async Task Commit_rejects_missing_or_corrupt_content_without_receipt()
+    {
+        var tenant = await CreateTenantAsync("integrity-owner");
+        var request = BeginRequest(Encoding.UTF8.GetBytes("expected"));
+        var client = Client("integrity-owner");
+        var root = Root(tenant, request.Manifest.RecoveryPointId);
+        var begin = (await (await client.PostAsJsonAsync(root + "/begin", request))
+            .Content.ReadFromJsonAsync<ApiResponse<HostedSyncBeginResponse>>())!.Payload;
+
+        var commit = await client.PostAsJsonAsync(
+            root + $"/sessions/{begin.SessionId}/commit", new { });
+        Assert.Equal(HttpStatusCode.Conflict, commit.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(root + "/receipt")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Zero_byte_file_commits_without_a_chunk_request()
+    {
+        var tenant = await CreateTenantAsync("zero-owner");
+        var request = BeginRequest([]);
+        var client = Client("zero-owner");
+        var root = Root(tenant, request.Manifest.RecoveryPointId);
+        var begin = (await (await client.PostAsJsonAsync(root + "/begin", request))
+            .Content.ReadFromJsonAsync<ApiResponse<HostedSyncBeginResponse>>())!.Payload;
+
+        var commit = await client.PostAsJsonAsync(
+            root + $"/sessions/{begin.SessionId}/commit", new { });
+
+        Assert.Equal(HttpStatusCode.OK, commit.StatusCode);
+        var receipt = (await commit.Content.ReadFromJsonAsync<ApiResponse<HostedSyncReceipt>>())!
+            .Payload;
+        Assert.Equal(0, Assert.Single(receipt.Objects).Size);
+    }
+
+    [Fact]
+    public async Task Existing_reservation_can_commit_after_license_is_revoked()
+    {
+        var tenant = await CreateTenantAsync("revoked-after-begin-owner");
+        var content = Encoding.UTF8.GetBytes("accepted before revocation");
+        var request = BeginRequest(content);
+        var client = Client("revoked-after-begin-owner");
+        var root = Root(tenant, request.Manifest.RecoveryPointId);
+        var begin = (await (await client.PostAsJsonAsync(root + "/begin", request))
+            .Content.ReadFromJsonAsync<ApiResponse<HostedSyncBeginResponse>>())!.Payload;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            var license = database.CommercialLicenses.Single(value =>
+                value.OrganizationId == tenant.OrganizationId);
+            license.State = CommercialLicenseState.Revoked;
+            license.Revision++;
+            await database.SaveChangesAsync();
+        }
+        var path = Uri.EscapeDataString(request.Manifest.Files[0].RelativePath);
+        await PutChunkAsync(client, root, begin.SessionId, path, 0, content);
+
+        var commit = await client.PostAsJsonAsync(
+            root + $"/sessions/{begin.SessionId}/commit", new { });
+        var receipt = await client.GetAsync(root + "/receipt");
+
+        Assert.Equal(HttpStatusCode.OK, commit.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, receipt.StatusCode);
+        var deniedNew = BeginRequest(Encoding.UTF8.GetBytes("new point"));
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await client.PostAsJsonAsync(
+                Root(tenant, deniedNew.Manifest.RecoveryPointId) + "/begin", deniedNew)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Concurrent_commit_returns_one_immutable_winner_without_double_counting()
+    {
+        var tenant = await CreateTenantAsync("concurrent-commit-owner");
+        var content = Encoding.UTF8.GetBytes("concurrent immutable content");
+        var request = BeginRequest(content);
+        var client = Client("concurrent-commit-owner");
+        var root = Root(tenant, request.Manifest.RecoveryPointId);
+        var begin = (await (await client.PostAsJsonAsync(root + "/begin", request))
+            .Content.ReadFromJsonAsync<ApiResponse<HostedSyncBeginResponse>>())!.Payload;
+        var path = Uri.EscapeDataString(request.Manifest.Files[0].RelativePath);
+        await PutChunkAsync(client, root, begin.SessionId, path, 0, content);
+
+        var responses = await Task.WhenAll(
+            client.PostAsJsonAsync(root + $"/sessions/{begin.SessionId}/commit", new { }),
+            client.PostAsJsonAsync(root + $"/sessions/{begin.SessionId}/commit", new { }));
+
+        Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
+        using var scope = factory.Services.CreateScope();
+        var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var usage = database.OrganizationStorageUsages.Single(value =>
+            value.OrganizationId == tenant.OrganizationId);
+        Assert.Equal(content.Length, usage.CommittedBytes);
+        Assert.Equal(0, usage.ReservedBytes);
+        Assert.Single(database.CommercialAuditEvents.Where(value =>
+            value.OrganizationId == tenant.OrganizationId &&
+            value.Action == "hosted_sync_commit"));
+    }
+
+    [Theory]
+    [InlineData(OrganizationRole.Viewer)]
+    [InlineData(OrganizationRole.Technician)]
+    public async Task Read_only_roles_cannot_begin_sync(OrganizationRole role)
+    {
+        var subject = $"denied-{role}";
+        var tenant = await CreateTenantAsync("role-owner");
+        await AddMembershipAsync(tenant.OrganizationId, subject, role);
+        var request = BeginRequest(Encoding.UTF8.GetBytes("synthetic"));
+
+        var response = await Client(subject).PostAsJsonAsync(
+            Root(tenant, request.Manifest.RecoveryPointId) + "/begin", request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(OrganizationRole.Manager)]
+    [InlineData(OrganizationRole.Administrator)]
+    public async Task Management_roles_can_begin_sync(OrganizationRole role)
+    {
+        var subject = $"allowed-{role}";
+        var tenant = await CreateTenantAsync("management-owner");
+        await AddMembershipAsync(tenant.OrganizationId, subject, role);
+        var request = BeginRequest(Encoding.UTF8.GetBytes("synthetic"));
+
+        var response = await Client(subject).PostAsJsonAsync(
+            Root(tenant, request.Manifest.RecoveryPointId) + "/begin", request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Manifest_rejects_unsafe_paths_and_unapproved_metadata()
+    {
+        var tenant = await CreateTenantAsync("validation-owner");
+        var content = Encoding.UTF8.GetBytes("synthetic");
+        var valid = BeginRequest(content);
+        var unsafeManifest = valid.Manifest with
+        {
+            PluginId = "client.chosen",
+            Files = [valid.Manifest.Files[0] with { RelativePath = "../private" }]
+        };
+        var json = JsonSerializer.Serialize(unsafeManifest, JsonOptions);
+        var request = new HostedSyncBeginRequest(unsafeManifest,
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(json))));
+
+        var response = await Client("validation-owner").PostAsJsonAsync(
+            Root(tenant, request.Manifest.RecoveryPointId) + "/begin", request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Begin_rejects_extra_path_metadata_and_outsider_tenant_access()
+    {
+        var tenant = await CreateTenantAsync("closed-owner");
+        var request = BeginRequest(Encoding.UTF8.GetBytes("synthetic"));
+        var json = JsonSerializer.Serialize(request, JsonOptions);
+        json = json.Replace("\"manifestDigest\"", "\"sourcePath\":\"/private/customer\",\"manifestDigest\"",
+            StringComparison.Ordinal);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var root = Root(tenant, request.Manifest.RecoveryPointId);
+
+        var extra = await Client("closed-owner").PostAsync(root + "/begin", content);
+        var outsider = await Client("outsider").PostAsJsonAsync(root + "/begin", request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, extra.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, outsider.StatusCode);
+    }
+
+    [Fact]
+    public async Task Local_engine_to_api_synthetic_round_trip_records_synchronized_receipt()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "showvault-sync-e2e", Guid.NewGuid().ToString("N"));
+        var home = Path.Combine(root, "home");
+        var source = Path.Combine(home, "Music", "_Serato_");
+        var vault = Path.Combine(root, "vault");
+        Directory.CreateDirectory(source);
+        await File.WriteAllTextAsync(Path.Combine(source, "database V2"), "synthetic library");
+        try
+        {
+            var tenant = await CreateTenantAsync("e2e-owner");
+            var local = new LocalRecoveryEngine(
+                new LocalCatalogAuthorizer(new Dictionary<string, string>(), home));
+            var saved = await local.SaveAsync(new LocalSaveRequest(
+                "macos.serato-dj-pro.user-data", source, vault));
+            var client = Client("e2e-owner");
+            var result = await new LocalSyncEngine(client).SynchronizeAsync(new LocalSyncRequest(
+                vault, tenant.OrganizationId, tenant.VenueId, "synthetic-access-token",
+                client.BaseAddress!));
+
+            Assert.Equal(1, result.SynchronizedCount);
+            Assert.Equal(saved.TotalBytes, result.SynchronizedBytes);
+            var point = Assert.Single(await local.InspectVaultAsync(vault));
+            Assert.Equal("synchronized", point.CloudStatus);
+            var receipt = await client.GetAsync(Root(tenant, saved.RecoveryPointId) + "/receipt");
+            Assert.Equal(HttpStatusCode.OK, receipt.StatusCode);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private HttpClient Client(string subject, string? authenticationType = null)
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Subject", subject);
+        if (authenticationType is not null)
+            client.DefaultRequestHeaders.Add("X-Test-Authentication-Type", authenticationType);
+        return client;
+    }
+
+    private async Task<(Guid OrganizationId, Guid VenueId)> CreateTenantAsync(string subject)
+    {
+        using var scope = factory.Services.CreateScope();
+        var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var organization = Organization.Create("Synthetic", $"sync-{Guid.NewGuid():N}");
+        var venue = Venue.Create(organization.Id, "Synthetic Venue", "UTC");
+        database.Organizations.Add(organization);
+        database.Venues.Add(venue);
+        database.Memberships.Add(Membership.Create(organization.Id, subject,
+            OrganizationRole.Owner, DateTimeOffset.UtcNow));
+        var now = DateTimeOffset.UtcNow;
+        database.CommercialLicenses.Add(new CommercialLicense
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organization.Id,
+            LicenseTypeCode = "synthetic.perpetual",
+            State = CommercialLicenseState.Active,
+            EffectiveAt = now.AddDays(-1),
+            UpdatedAt = now
+        });
+        database.ServiceSubscriptions.Add(new ServiceSubscription
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organization.Id,
+            PlanCode = SyntheticCommercialPlanPolicyCatalog.PlanCode,
+            State = ServiceSubscriptionState.Active,
+            CurrentPeriodEndsAt = now.AddDays(30),
+            UpdatedAt = now
+        });
+        await database.SaveChangesAsync();
+        return (organization.Id, venue.Id);
+    }
+
+    private async Task AddMembershipAsync(Guid organizationId, string subject, OrganizationRole role)
+    {
+        using var scope = factory.Services.CreateScope();
+        var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        database.Memberships.Add(Membership.Create(
+            organizationId, subject, role, DateTimeOffset.UtcNow));
+        await database.SaveChangesAsync();
+    }
+
+    private static HostedSyncBeginRequest BeginRequest(byte[] content)
+    {
+        var contentDigest = Convert.ToHexStringLower(SHA256.HashData(content));
+        var localSeed = SHA256.HashData(Encoding.UTF8.GetBytes(Guid.NewGuid().ToString("N")));
+        var recoveryPointId = Convert.ToHexStringLower(localSeed);
+        var manifest = new HostedSyncManifest("1.0", recoveryPointId, recoveryPointId,
+            "macos.serato-dj-pro.user-data", "showvault.serato-dj-pro",
+            DateTimeOffset.Parse("2026-08-13T12:00:00Z"), 1, content.Length,
+            [new("Subcrates/synthetic.crate", content.Length, contentDigest)]);
+        var json = JsonSerializer.Serialize(manifest, JsonOptions);
+        return new(manifest,
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(json))));
+    }
+
+    private static async Task PutChunkAsync(HttpClient client, string root,
+        string sessionId, string path, long offset, byte[] bytes)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Put,
+            root + $"/sessions/{sessionId}/files?path={path}&offset={offset}")
+        {
+            Content = new ByteArrayContent(bytes)
+        };
+        request.Headers.Add("X-ShowVault-Chunk-Sha256",
+            Convert.ToHexStringLower(SHA256.HashData(bytes)));
+        request.Content.Headers.ContentType = new("application/octet-stream");
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    private static string Root((Guid OrganizationId, Guid VenueId) tenant, string recoveryPointId) =>
+        $"/api/v1/organizations/{tenant.OrganizationId}/venues/{tenant.VenueId}" +
+        $"/hosted-sync/{recoveryPointId}";
+}

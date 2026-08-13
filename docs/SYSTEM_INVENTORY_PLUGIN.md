@@ -4,7 +4,11 @@
 
 ## Command
 
-The compatibility control plane issues `CollectSystemInventory` with an empty JSON payload. This additive command advances the Agent protocol to version 1.1. The Agent stores the complete result in its local SQLite result table before emitting `JobCompleted`; retries remain idempotent because the command ID is reused as the outcome event ID. Completion uses the queue's required `Running` to `Completed` state transition.
+The repaired foundation already uses Agent protocol 1.1 for bounded legacy
+system inventory. The milestone-1 manifest made protocol 1.21 catalog-command
+reconstruction conditional. It was not required on this base and was therefore
+not imported. Customer desktop Scan remains completely independent of this
+legacy Agent command.
 
 ## Collected data
 

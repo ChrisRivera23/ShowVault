@@ -2,7 +2,9 @@
 
 ## Positioning
 
-ShowVault is an operating system for production infrastructure. Backup is one application inside a broader production-resilience platform. Its job is to let a production professional know—not merely hope—that an environment can be recovered.
+ShowVault is a recovery-first, local-first platform for production
+infrastructure. The customer promise begins with a simple desktop path:
+**Install → Scan this computer → Sign in for cloud service**.
 
 ## Users and markets
 
@@ -18,6 +20,10 @@ Primary users are AV technicians, technical directors, production managers, and 
 - Plugins use contracts and never write directly to the database.
 - Recovery never bypasses platform security.
 - Simple by default; advanced controls appear when needed.
+- Exact local paths and machine identity remain local unless a later,
+  explicitly bounded feature requires otherwise.
+- A direct desktop detection is never presented as approved, protected,
+  verified, backed up, or recoverable.
 
 ## Core workflow
 
@@ -25,6 +31,14 @@ Primary users are AV technicians, technical directors, production managers, and 
 - Backup: build a portable, versioned package rather than merely copying files.
 - Verify: check integrity, dependencies, compatibility, and recoverability.
 - Restore: produce a recovery plan and coordinate a secure, auditable recovery.
+
+## Current milestone
+
+Milestone 1 provides a signed-out/offline direct desktop scan of exact approved
+catalog candidates. It performs no unrestricted application enumeration,
+content reads, network inspection, Agent installation, or Agent enrollment.
+When signed in, only opaque candidate keys can be submitted to an allowlisted,
+manager-authorized organization/venue endpoint.
 
 ## MVP navigation
 

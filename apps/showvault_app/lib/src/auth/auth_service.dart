@@ -83,12 +83,24 @@ class AuthService {
   AuthSession? _memorySession;
 
   Future<AuthSession?> restore() async {
+    if (AppConfig.personalBetaBypassAuth) {
+      return const AuthSession(
+        accessToken: AppConfig.personalBetaAccessToken,
+        displayName: 'Personal beta',
+      );
+    }
     if (!_hasAuth0Client) return null;
     if (_platform.isWindows || _platform.isMacOS) return _memorySession;
     return _client.restoreCredentials();
   }
 
   Future<AuthSession> login() async {
+    if (AppConfig.personalBetaBypassAuth) {
+      return const AuthSession(
+        accessToken: AppConfig.personalBetaAccessToken,
+        displayName: 'Personal beta',
+      );
+    }
     if (_platform.isWindows) {
       _memorySession = await _client.loginWindows();
       return _memorySession!;
@@ -100,6 +112,7 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    if (AppConfig.personalBetaBypassAuth) return;
     if (_platform.isWindows) {
       await _client.logoutWindows();
       _memorySession = null;

@@ -1,23 +1,39 @@
 # Roadmap
 
-## Current: Sprint 1 — Foundation
+## Completed locally
 
-- Repository and solution foundation
-- API configuration, logging, health checks, and error contracts
-- Flutter shell, theme, routing, and dashboard
-- PostgreSQL development environment
-- Foundational tests and CI
+- Exact-candidate, signed-out desktop Scan
+- Tenant-scoped direct-scan persistence and newest-scan semantics
+- Opaque, independently server-allowlisted candidate keys
+- Guarded loopback-only personal-beta authentication scaffolding
+- Ad hoc macOS personal-test packaging script (not signed or notarized)
+- Milestone 2 exact user-data Save, immutable verified recovery points,
+  durable verified-only queue, quarantine/repair, and source-independent vault
+  reopening
+- Milestone 3 controlled attended local Restore, fixed sandbox publication,
+  path-free durable evidence, cancellation, attention, and reselect repair
+- Milestone 4 attended hosted synchronization protocol for freshly verified
+  local recovery points, durable path-free retry/receipt state, tenant-role
+  authorization, receipt-last completion, and synthetic end-to-end proof
+- Milestone 5 provider-independent license/subscription projection, Owner-only
+  plan/storage view, atomic organization-wide hosted-sync quota reservation,
+  exactly-once usage accounting, and minimized audit evidence
+- Milestone 6 local provider-billing contract: Owner-only hosted Checkout and
+  Portal session seams, durable idempotent purchase attempts, exact raw-body
+  signed event inbox, current-state reconciliation, refund/dispute attention,
+  normalized projections, and Flutter Plan-and-storage actions; production
+  provider/catalog remain disabled
 
 ## Next
 
-1. Authentication and session infrastructure
-2. Organization, venue, and workspace model
-3. Discovery contracts and immutable snapshots
-4. Backup package creation and storage abstraction
-5. Verification and Recovery Confidence Score
-6. Guided restore and recovery execution
-7. Plugin SDK and initial production plugins
-8. Internal testing, beta, and public release
+1. Separately authorized Stripe sandbox/account configuration and operational
+   proof for the disabled Milestone 6 provider seam
+2. ShowVault-owned customer account portal with Owner-managed, email-free
+   invitation and non-Owner membership/role lifecycle
+3. Separately gated internal ShowVault support administration
+4. Production hosted-object provider, retention, migration, and operational
+   durability proof
+5. Separately authorized native packaging, installation, and equipment proof
 
 ## Deferred
 

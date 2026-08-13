@@ -3,39 +3,624 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:showvault_app/src/api/showvault_api.dart';
 import 'package:showvault_app/src/auth/auth_provider.dart';
 import 'package:showvault_app/src/config/app_config.dart';
+import 'package:showvault_app/src/local_recovery/local_directory_consent.dart';
+import 'package:showvault_app/src/local_recovery/local_engine_client.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
 import 'package:showvault_app/src/recovery/recovery_run.dart';
+import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!AppConfig.hasAuth0Client) return const _ConfigurationRequired();
-    return ref.watch(authSessionProvider).when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, _) => const _AuthPrompt(hasError: true),
-      data: (session) => session == null
-          ? const _AuthPrompt()
-          : ref.watch(recoveryHistoryProvider).when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, _) => const _LoadError(),
-              data: (history) => RecoveryHistoryView(
+    final auth = ref.watch(authSessionProvider);
+    final session = auth.valueOrNull;
+    final history = session == null
+        ? null
+        : ref.watch(recoveryHistoryProvider).valueOrNull;
+    return Column(
+      children: [
+        Flexible(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+              child: _DesktopScanCard(
+                accessToken: session?.accessToken,
                 history: history,
-                onSignOut: () =>
-                    ref.read(authSessionProvider.notifier).logout(),
               ),
             ),
+          ),
+        ),
+        Expanded(
+          child: !AppConfig.hasAuth0Client && !AppConfig.personalBetaBypassAuth
+              ? const _ConfigurationRequired()
+              : auth.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (_, _) => const SingleChildScrollView(
+                    child: _AuthPrompt(hasError: true),
+                  ),
+                  data: (currentSession) => currentSession == null
+                      ? const SingleChildScrollView(child: _AuthPrompt())
+                      : ref
+                            .watch(recoveryHistoryProvider)
+                            .when(
+                              loading: () => const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                              error: (_, _) => const _LoadError(),
+                              data: (currentHistory) => RecoveryHistoryView(
+                                history: currentHistory,
+                                onSignOut: AppConfig.personalBetaBypassAuth
+                                    ? null
+                                    : () => ref
+                                          .read(authSessionProvider.notifier)
+                                          .logout(),
+                              ),
+                            ),
+                ),
+        ),
+      ],
     );
   }
 }
 
+class _DesktopScanCard extends ConsumerStatefulWidget {
+  const _DesktopScanCard({this.accessToken, this.history});
+
+  final String? accessToken;
+  final RecoveryHistory? history;
+
+  @override
+  ConsumerState<_DesktopScanCard> createState() => _DesktopScanCardState();
+}
+
+class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
+  List<LocalCatalogFinding>? _findings;
+  bool _scanning = false;
+  bool _openingVault = false;
+  LocalSaveOperation? _saveOperation;
+  LocalSaveProgress? _saveProgress;
+  LocalSaveResult? _saveResult;
+  List<LocalRecoveryPointSummary>? _vaultPoints;
+  String? _selectedVault;
+  LocalRestoreOperation? _restoreOperation;
+  LocalSaveProgress? _restoreProgress;
+  LocalRestoreResult? _restoreResult;
+  LocalSyncOperation? _syncOperation;
+  LocalSaveProgress? _syncProgress;
+  LocalSyncResult? _syncResult;
+  int _queueAttentionCount = 0;
+  int _restoreAttentionCount = 0;
+  String? _localError;
+  String? _cloudError;
+
+  Future<void> _scan() async {
+    setState(() {
+      _scanning = true;
+      _cloudError = null;
+    });
+    final findings = await ref.read(localCatalogScannerProvider).scanFindings();
+    if (!mounted) return;
+    setState(() {
+      _findings = findings;
+      _scanning = false;
+    });
+
+    final token = widget.accessToken;
+    final history = widget.history;
+    if (token == null || history == null || history.venueId.isEmpty) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .submitComputerScan(
+            accessToken: token,
+            history: history,
+            candidateKeys: findings
+                .map((finding) => finding.candidateKey)
+                .toList(),
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _cloudError = '$error');
+    }
+  }
+
+  Future<void> _save(LocalCatalogFinding finding) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Save ${finding.productName} user data?'),
+        content: const Text(
+          'You will choose the exact detected source, then a separate local vault. '
+          'ShowVault will copy and verify locally; no upload starts.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Choose folders'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final consent = ref.read(localDirectoryConsentProvider);
+    final source = await consent.selectExactSource();
+    if (source == null || !mounted) return;
+    final vault = await consent.selectVault();
+    if (vault == null || !mounted) return;
+    setState(() {
+      _localError = null;
+      _saveResult = null;
+      _saveProgress = const LocalSaveProgress('starting', 0, 1);
+    });
+    final operation = ref
+        .read(localEngineClientProvider)
+        .startSave(
+          candidateKey: finding.candidateKey,
+          selectedSource: source,
+          selectedVault: vault,
+          onProgress: (progress) {
+            if (mounted) setState(() => _saveProgress = progress);
+          },
+        );
+    setState(() => _saveOperation = operation);
+    try {
+      final result = await operation.result;
+      if (!mounted) return;
+      setState(() => _saveResult = result);
+    } on LocalEngineClientException catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _localError = error.code == 'cancelled'
+            ? 'Save cancelled. No recovery point was published.'
+            : 'Local Save could not complete safely. Check the selected folders and try again.',
+      );
+    } finally {
+      if (mounted) setState(() => _saveOperation = null);
+    }
+  }
+
+  Future<void> _cancelSave() async {
+    await _saveOperation?.cancel();
+  }
+
+  Future<void> _openVault() async {
+    final selected = await ref
+        .read(localDirectoryConsentProvider)
+        .selectVault();
+    if (selected == null || !mounted) return;
+    setState(() {
+      _openingVault = true;
+      _localError = null;
+    });
+    try {
+      final inspection = await ref
+          .read(localEngineClientProvider)
+          .inspectVault(selected);
+      if (mounted) {
+        setState(() {
+          _selectedVault = selected;
+          _vaultPoints = inspection.recoveryPoints;
+          _queueAttentionCount = inspection.queueAttentionCount;
+          _restoreAttentionCount = inspection.restoreAttentionCount;
+        });
+      }
+    } on LocalEngineClientException {
+      if (mounted) {
+        setState(
+          () => _localError =
+              'The local vault needs attention. Select a valid ShowVault Pro vault or restore its verified evidence.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _openingVault = false);
+    }
+  }
+
+  Future<void> _restore(LocalRecoveryPointSummary point) async {
+    final vault = _selectedVault;
+    if (vault == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Restore ${point.productName} files?'),
+        content: const Text(
+          'ShowVault will copy verified files into a separate empty sandbox. '
+          'It will not load them into a running application or device.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Choose sandbox'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final target = await ref
+        .read(localDirectoryConsentProvider)
+        .selectRestoreTarget();
+    if (target == null || !mounted) return;
+    setState(() {
+      _localError = null;
+      _restoreResult = null;
+      _restoreProgress = const LocalSaveProgress('starting_restore', 0, 1);
+    });
+    final operation = ref
+        .read(localEngineClientProvider)
+        .startRestore(
+          recoveryPointId: point.recoveryPointId,
+          selectedVault: vault,
+          selectedTarget: target,
+          onProgress: (progress) {
+            if (mounted) setState(() => _restoreProgress = progress);
+          },
+        );
+    setState(() => _restoreOperation = operation);
+    try {
+      final result = await operation.result;
+      if (mounted) setState(() => _restoreResult = result);
+    } on LocalEngineClientException catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _localError = error.code == 'cancelled'
+            ? 'Restore cancelled before publication.'
+            : 'Restore needs attention. No unverified result was reported.',
+      );
+    } finally {
+      if (mounted) setState(() => _restoreOperation = null);
+    }
+  }
+
+  Future<void> _synchronize() async {
+    final vault = _selectedVault;
+    final token = widget.accessToken;
+    final history = widget.history;
+    if (vault == null ||
+        token == null ||
+        history == null ||
+        history.organizationId.isEmpty ||
+        history.venueId.isEmpty) {
+      return;
+    }
+    final queued = _vaultPoints!
+        .where((point) => point.cloudStatus != 'synchronized')
+        .toList(growable: false);
+    final bytes = queued.fold<int>(
+      0,
+      (total, point) => total + point.totalBytes,
+    );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Synchronize verified recovery points?'),
+        content: Text(
+          'ShowVault will upload ${queued.length} verified recovery point(s) '
+          '($bytes bytes), including backup content and relative filenames, '
+          'to this venue. Local Save and Restore remain available offline.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Synchronize'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _localError = null;
+      _syncResult = null;
+      _syncProgress = const LocalSaveProgress('starting_sync', 0, 1);
+    });
+    final operation = ref
+        .read(localEngineClientProvider)
+        .startSync(
+          selectedVault: vault,
+          organizationId: history.organizationId,
+          venueId: history.venueId,
+          accessToken: token,
+          onProgress: (progress) {
+            if (mounted) setState(() => _syncProgress = progress);
+          },
+        );
+    setState(() => _syncOperation = operation);
+    try {
+      final result = await operation.result;
+      final inspection = await ref
+          .read(localEngineClientProvider)
+          .inspectVault(vault);
+      if (!mounted) return;
+      setState(() {
+        _syncResult = result;
+        _syncProgress = null;
+        _vaultPoints = inspection.recoveryPoints;
+        _queueAttentionCount = inspection.queueAttentionCount;
+      });
+    } on LocalEngineClientException catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _localError = error.code == 'cancelled'
+            ? 'Synchronization cancelled. Verified local recovery points were kept.'
+            : 'Synchronization needs attention. Verified local recovery points were kept.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _syncOperation = null;
+          if (_syncResult == null) _syncProgress = null;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.computer_outlined),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Scan this computer',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const Text(
+                      'Checks only exact ShowVault catalog locations. Paths stay in memory on this computer.',
+                    ),
+                    if (_findings != null)
+                      Text(
+                        '${_findings!.length} recognized candidate(s) detected.',
+                      ),
+                    if (_cloudError != null)
+                      Text(
+                        'Cloud submission failed; local findings were kept.',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              FilledButton.icon(
+                onPressed:
+                    _scanning ||
+                        _saveOperation != null ||
+                        _restoreOperation != null
+                    ? null
+                    : _scan,
+                icon: const Icon(Icons.search),
+                label: Text(_scanning ? 'Scanning…' : 'Scan'),
+              ),
+            ],
+          ),
+          if (_findings?.any((finding) => finding.canSave) ?? false) ...[
+            const Divider(height: 28),
+            for (final finding in _findings!.where(
+              (finding) => finding.canSave,
+            ))
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.folder_copy_outlined),
+                title: Text('${finding.productName} user data'),
+                subtitle: const Text(
+                  'Detected locally • exact folder consent required',
+                ),
+                trailing: FilledButton(
+                  onPressed: _saveOperation == null
+                      ? () => _save(finding)
+                      : null,
+                  child: const Text('Save'),
+                ),
+              ),
+          ],
+          if (_saveOperation != null || _saveProgress != null) ...[
+            const Divider(height: 28),
+            Text(_progressLabel(_saveProgress)),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: _progressValue(_saveProgress)),
+            if (_saveOperation != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _cancelSave,
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Cancel'),
+                ),
+              ),
+          ],
+          if (_saveResult != null) ...[
+            const Divider(height: 28),
+            const Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Chip(
+                  avatar: Icon(Icons.verified_outlined),
+                  label: Text('Verified locally'),
+                ),
+                Chip(
+                  avatar: Icon(Icons.cloud_queue_outlined),
+                  label: Text('Cloud queued'),
+                ),
+              ],
+            ),
+          ],
+          if (_vaultPoints != null)
+            if (_vaultPoints!.isEmpty)
+              const Text('No verified local recovery points found.')
+            else ...[
+              Text(
+                '${_vaultPoints!.length} verified local recovery point(s) available.',
+              ),
+              for (final point in _vaultPoints!)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.restore_outlined),
+                  title: Text(point.productName),
+                  subtitle: Text(
+                    '${point.fileCount} verified file(s) • ${_cloudLabel(point.cloudStatus)}',
+                  ),
+                  trailing: FilledButton.tonal(
+                    onPressed:
+                        _saveOperation == null && _restoreOperation == null
+                        ? () => _restore(point)
+                        : null,
+                    child: const Text('Restore'),
+                  ),
+                ),
+            ],
+          if (_canSynchronize) ...[
+            const Divider(height: 28),
+            FilledButton.icon(
+              onPressed:
+                  _syncOperation == null &&
+                      _saveOperation == null &&
+                      _restoreOperation == null
+                  ? _synchronize
+                  : null,
+              icon: const Icon(Icons.cloud_upload_outlined),
+              label: const Text('Synchronize'),
+            ),
+          ],
+          if (_syncOperation != null || _syncProgress != null) ...[
+            const SizedBox(height: 12),
+            const Text('Synchronizing verified recovery points…'),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: _progressValue(_syncProgress)),
+            if (_syncOperation != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _syncOperation?.cancel,
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Cancel synchronization'),
+                ),
+              ),
+          ],
+          if (_syncResult?.synchronizedCount case final count? when count > 0)
+            Chip(
+              avatar: const Icon(Icons.cloud_done_outlined),
+              label: Text('Synchronized: $count'),
+            ),
+          if (_restoreOperation != null || _restoreProgress != null) ...[
+            const Divider(height: 28),
+            Text(_restoreProgressLabel(_restoreProgress)),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: _progressValue(_restoreProgress)),
+            if (_restoreOperation != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _restoreOperation?.cancel,
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Cancel Restore'),
+                ),
+              ),
+          ],
+          if (_restoreResult != null)
+            const Chip(
+              avatar: Icon(Icons.restore_page_outlined),
+              label: Text('Restored locally'),
+            ),
+          if (_queueAttentionCount > 0)
+            Chip(
+              avatar: const Icon(Icons.error_outline),
+              label: Text('Queue attention: $_queueAttentionCount'),
+            ),
+          if (_restoreAttentionCount > 0)
+            Chip(
+              avatar: const Icon(Icons.restore_outlined),
+              label: Text('Restore attention: $_restoreAttentionCount'),
+            ),
+          if (_localError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                _localError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed:
+                  _openingVault ||
+                      _saveOperation != null ||
+                      _restoreOperation != null
+                  ? null
+                  : _openVault,
+              icon: const Icon(Icons.folder_open_outlined),
+              label: Text(_openingVault ? 'Opening…' : 'Open local vault'),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  static String _progressLabel(LocalSaveProgress? progress) =>
+      switch (progress?.stage) {
+        'enumerating' => 'Checking the selected source…',
+        'copying' => 'Copying bounded local content…',
+        'verifying' => 'Verifying local recovery evidence…',
+        'publishing' => 'Publishing an immutable recovery point…',
+        'queued' => 'Recording the verified cloud queue entry…',
+        _ => 'Starting local Save…',
+      };
+
+  static double? _progressValue(LocalSaveProgress? progress) {
+    if (progress == null || progress.totalUnits <= 0) return null;
+    return (progress.completedUnits / progress.totalUnits).clamp(0, 1);
+  }
+
+  static String _restoreProgressLabel(LocalSaveProgress? progress) =>
+      switch (progress?.stage) {
+        'verifying_package' => 'Reverifying the local recovery point…',
+        'copying' => 'Copying verified files into the Restore sandbox…',
+        'publishing' => 'Publishing the restored copy…',
+        'completed' => 'Recording path-free Restore evidence…',
+        _ => 'Starting local Restore…',
+      };
+
+  bool get _canSynchronize {
+    final history = widget.history;
+    return widget.accessToken != null &&
+        _selectedVault != null &&
+        history != null &&
+        history.organizationId.isNotEmpty &&
+        history.venueId.isNotEmpty &&
+        (_vaultPoints?.any((point) => point.cloudStatus != 'synchronized') ??
+            false);
+  }
+}
+
 class RecoveryHistoryView extends StatelessWidget {
-  const RecoveryHistoryView({
-    required this.history,
-    this.onSignOut,
-    super.key,
-  });
+  const RecoveryHistoryView({required this.history, this.onSignOut, super.key});
 
   final RecoveryHistory history;
   final VoidCallback? onSignOut;
@@ -106,6 +691,14 @@ class _ConfigurationRequired extends StatelessWidget {
         'Configure the public native Client ID before connecting this app. See the Flutter app README for the complete command.',
   );
 }
+
+String _cloudLabel(String status) => switch (status) {
+  'synchronizing' => 'Synchronizing',
+  'retry_scheduled' => 'Retry scheduled',
+  'attention' => 'Sync attention',
+  'synchronized' => 'Synchronized',
+  _ => 'Cloud queued',
+};
 
 class _AuthPrompt extends ConsumerWidget {
   const _AuthPrompt({this.hasError = false});
@@ -247,7 +840,7 @@ class _CenteredCard extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 560),
       child: Card(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -422,7 +1015,10 @@ class _StageCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 3),
-                  Text(content.$3, style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    content.$3,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                   const SizedBox(height: 4),
                   Text(status.$2, style: TextStyle(color: status.$3)),
                 ],
@@ -450,9 +1046,6 @@ class _StatusBadge extends StatelessWidget {
       RecoveryRunStatus.failed => (Icons.error_outline, 'Failed'),
       RecoveryRunStatus.expired => (Icons.timer_off_outlined, 'Expired'),
     };
-    return Chip(
-      avatar: Icon(content.$1, size: 17),
-      label: Text(content.$2),
-    );
+    return Chip(avatar: Icon(content.$1, size: 17), label: Text(content.$2));
   }
 }

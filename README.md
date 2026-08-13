@@ -1,6 +1,22 @@
 # ShowVault
 
-ShowVault is a venue-resilience platform that inventories production systems, creates verified recovery packages, and proves that critical show infrastructure can be restored.
+ShowVault is a local-first venue-resilience platform built around **Scan → Backup → Verify → Restore**.
+
+The current customer desktop outcome is intentionally small:
+
+> Install → Scan this computer → Save locally → Sign in for cloud service
+
+Milestone 3 preserves exact catalog scanning and signed-out/offline Save, then
+adds attended signed-out/offline Restore for freshly verified points. A
+packaged, closed-operation .NET local engine performs bounded stable capture,
+independent verification, immutable local publication, a durable verified-only
+SQLite queue, fixed-child sandbox Restore, and path-free Restore evidence.
+Exact paths stay local
+and transient; only opaque allowlisted candidate keys may enter cloud-facing
+requests. The customer flow does not install or enroll a Venue Agent.
+
+See `docs/LOCAL_FIRST_PRODUCT_BIBLE.md` and
+`docs/LOCAL_SAVE_AND_VAULT.md` for the authoritative current boundary.
 
 The first product promise is intentionally focused:
 
@@ -8,7 +24,10 @@ The first product promise is intentionally focused:
 
 ## Current status
 
-ShowVault is in Sprint 1: Architecture and Foundation.
+ShowVault has completed the bounded local-first milestone-3 source
+reconstruction on top of milestone 1. Native packaging,
+installation, signing, protocol activation, and real-equipment proof remain
+separate gates and are not claimed here.
 
 Completed:
 
@@ -55,10 +74,20 @@ Completed:
 - Flutter native runners now exist for Android, iOS, macOS, and Windows under the shared `com.showvault.app` identity.
 - The Flutter client uses Auth0 Universal Login, restores mobile sessions, keeps macOS/Windows operator sessions in memory, and requests the ShowVault API audience.
 - Authenticated Flutter loading discovers the operator's first accessible organization and venue and renders only live tenant-scoped recovery history with truthful empty and status states; synthetic evidence is never substituted.
+- Signed-out/offline desktop Save accepts only exact detected user-data roots and independently selected vaults.
+- The packaged local engine rejects links, overlap, mounted subtrees, hard links, unsupported entries, unstable topology/content, and bounded-resource violations.
+- Verified recovery points contain deterministic manifests and verification evidence and are published without overwrite.
+- The local SQLite state machine queues only a freshly reverified package and surfaces failed durable state as Queue attention.
+- Restart vault inspection rehashes packages from the vault without rescanning the source.
+- Freshly verified local points can be restored while signed out/offline into
+  an independently selected empty sandbox.
+- Restore retains package/target identities, publishes one fixed child,
+  reverifies it, persists path-free evidence, and surfaces ambiguous state as
+  Restore attention without loading an application or device.
 
-Current development branch:
+Current local development branch:
 
-- `codex/flutter-auth0-live-history` — native Flutter runners, Auth0 client sign-in, and live recovery-history loading.
+- `codex/local-first-milestone-3` — controlled local Restore and path-free durable evidence.
 
 The Auth0 Native application is registered. Windows callback forwarding and installer protocol registration still need to be implemented and proven together. Membership administration, user-requested command cancellation, digital signatures, NAS/cloud storage, and persistent control-plane package records have not been implemented yet.
 

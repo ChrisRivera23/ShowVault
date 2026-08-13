@@ -10,6 +10,12 @@ using ShowVault.Api.Data;
 using ShowVault.Api.Endpoints;
 using ShowVault.Api.Security;
 using ShowVault.AgentContracts;
+using ShowVault.Api.HostedSync;
+using ShowVault.Api.Commercial;
+using ShowVault.Platform.Commercial;
+using ShowVault.Api.Billing;
+using ShowVault.Api.Authorization;
+using ShowVault.Api.Account;
 
 var builder = WebApplication.CreateBuilder(args);
 var auth0Domain = builder.Configuration["Auth0:Domain"]
@@ -23,11 +29,53 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<CommercialStateService>();
+builder.Services.AddScoped<MembershipAuthorizationService>();
+builder.Services.Configure<AccountInvitationOptions>(
+    builder.Configuration.GetSection(AccountInvitationOptions.SectionName));
+builder.Services.AddSingleton<InvitationTokenService>();
+builder.Services.AddSingleton<MembershipStepUpAuthorization>();
+builder.Services.AddScoped<AccountAdministrationService>();
+builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection(BillingOptions.SectionName));
+builder.Services.Configure<StripeApiOptions>(builder.Configuration.GetSection(StripeApiOptions.SectionName));
+builder.Services.Configure<BillingOfferingOptions>(builder.Configuration.GetSection(BillingOfferingOptions.SectionName));
+builder.Services.Configure<StripeWebhookOptions>(builder.Configuration.GetSection(StripeWebhookOptions.SectionName));
+builder.Services.AddHttpClient<StripeBillingProvider>().RemoveAllLoggers();
+builder.Services.AddTransient<IBillingProvider>(services =>
+    services.GetRequiredService<StripeBillingProvider>());
+builder.Services.AddSingleton<IBillingOfferingCatalog, ConfiguredBillingOfferingCatalog>();
+builder.Services.AddSingleton<IStripeWebhookSignatureVerifier, StripeWebhookSignatureVerifier>();
+builder.Services.AddScoped<BillingService>();
+builder.Services.AddScoped<BillingReconciliationService>();
+builder.Services.AddHostedService<BillingReconciliationWorker>();
 builder.Services.AddDbContext<PlatformDbContext>(options =>
     options.UseNpgsql(platformConnectionString));
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddSingleton<IHostedObjectStore, SyntheticHostedObjectStore>();
+    builder.Services.AddSingleton<ICommercialPlanPolicyCatalog,
+        SyntheticCommercialPlanPolicyCatalog>();
+}
+else
+{
+    builder.Services.AddSingleton<IHostedObjectStore, DisabledHostedObjectStore>();
+    builder.Services.AddSingleton<ICommercialPlanPolicyCatalog,
+        DisabledCommercialPlanPolicyCatalog>();
+}
 builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = "ShowVault-User";
+        options.DefaultChallengeScheme = "ShowVault-User";
+    })
+    .AddPolicyScheme("ShowVault-User", "ShowVault user authentication", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+            PersonalBetaAuthenticationHandler.IsPersonalBetaRequest(context.Request)
+                ? PersonalBetaAuthenticationHandler.SchemeName
+                : JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
     {
         options.Authority = $"https://{auth0Domain.TrimEnd('/')}";
         options.Audience = auth0Audience;
@@ -37,7 +85,10 @@ builder.Services
             NameClaimType = "name",
             RoleClaimType = "roles"
         };
-    });
+    })
+    .AddScheme<AuthenticationSchemeOptions, PersonalBetaAuthenticationHandler>(
+        PersonalBetaAuthenticationHandler.SchemeName,
+        _ => { });
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, AgentAuthenticationHandler>(
         AgentAuthenticationHandler.SchemeName,
@@ -48,6 +99,28 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("agent-enrollment", context =>
         RateLimitPartition.GetFixedWindowLimiter(
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.AddPolicy("invitation-accept", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            $"{context.User.FindFirstValue("sub") ?? "unknown"}|" +
+            $"{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.AddPolicy("account-mutation", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            $"{context.User.FindFirstValue("sub") ?? "unknown"}|" +
+            $"{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}",
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
@@ -100,6 +173,11 @@ app.MapTenantEndpoints();
 app.MapAgentEnrollmentEndpoints();
 app.MapAgentCommunicationEndpoints();
 app.MapRecoveryHistoryEndpoints();
+app.MapRecoveryCandidateEndpoints();
+app.MapHostedSyncEndpoints();
+app.MapCommercialEndpoints();
+app.MapBillingEndpoints();
+app.MapAccountEndpoints();
 
 app.Run();
 

@@ -52,6 +52,33 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
+find_program(DOTNET_EXECUTABLE dotnet REQUIRED)
+set(LOCAL_ENGINE_PROJECT
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../../services/local-engine/src/ShowVault.LocalEngine.Host/ShowVault.LocalEngine.Host.csproj")
+set(SYNC_ENGINE_PROJECT
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../../services/local-engine/src/ShowVault.SyncEngine.Host/ShowVault.SyncEngine.Host.csproj")
+set(LOCAL_ENGINE_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/local-engine")
+add_custom_target(local_engine_host ALL
+  COMMAND "${DOTNET_EXECUTABLE}" publish "${LOCAL_ENGINE_PROJECT}"
+    --configuration Release
+    --runtime win-x64
+    --self-contained true
+    -p:PublishSingleFile=true
+    -p:IncludeNativeLibrariesForSelfExtract=true
+    --output "${LOCAL_ENGINE_OUTPUT}"
+  COMMAND "${DOTNET_EXECUTABLE}" publish "${SYNC_ENGINE_PROJECT}"
+    --configuration Release
+    --runtime win-x64
+    --self-contained true
+    -p:PublishSingleFile=true
+    -p:IncludeNativeLibrariesForSelfExtract=true
+    --output "${LOCAL_ENGINE_OUTPUT}"
+  BYPRODUCTS
+    "${LOCAL_ENGINE_OUTPUT}/showvault-local-engine.exe"
+    "${LOCAL_ENGINE_OUTPUT}/showvault-sync-engine.exe"
+  VERBATIM)
+add_dependencies(${BINARY_NAME} local_engine_host)
+
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
@@ -74,6 +101,9 @@ set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
+
+install(DIRECTORY "${LOCAL_ENGINE_OUTPUT}/"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/local-engine" COMPONENT Runtime)
 
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   COMPONENT Runtime)

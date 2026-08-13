@@ -1,6 +1,39 @@
 # ShowVault native client
 
-The shared Flutter client targets Android, iOS, macOS, and Windows. It uses Auth0 Universal Login and loads tenant-scoped recovery history from the ShowVault control plane; no preview recovery records are bundled.
+The shared Flutter client targets Android, iOS, macOS, and Windows. It uses Auth0 Universal Login and loads tenant-scoped recovery history from the ShowVault control plane; no preview recovery records are bundled. On macOS and Windows, direct Scan and local Save remain available while signed out and offline.
+
+## Local Save
+
+Scan checks exact closed-catalog locations. Only detected user-data roots show
+**Save**. The user confirms, selects the exact source and a separate vault with
+native directory pickers, and can cancel while the packaged .NET local engine
+captures and verifies. The UI never renders selected paths. It reports
+**Verified locally**, **Cloud queued**, and **Queue attention** separately.
+
+After **Open local vault** freshly reverifies a point, **Restore** confirms a
+copy-only warning and obtains independent native consent for an existing empty
+sandbox. The packaged engine publishes only `ShowVault Restored Files`, then
+rehashes it and commits path-free evidence before **Restored locally** appears.
+Cancel remains available before publication; interrupted or ambiguous state is
+preserved as **Restore attention**. Restore remains signed-out/offline and does
+not load a running application or device.
+
+When signed in with a tenant-scoped venue, an opened vault with queued verified
+points shows **Synchronize**. The consent dialog discloses the bounded byte
+count and that backup content and relative filenames will be uploaded. A
+separate packaged .NET synchronization host freshly verifies and retains the
+exact local files, supports Cancel and resumable chunks, verifies the immutable
+hosted receipt, and only then records **Synchronized** in the vault database.
+Tokens remain in process memory. Hosted failure leaves Save, inspection, and
+Restore offline and unchanged.
+
+The desktop build configuration publishes two hosts into a private
+`local-engine` bundle directory. The network-free local host accepts only Save,
+vault inspection, Restore, and in-process Cancel JSON records. The separate
+sync host accepts only one tenant-scoped Synchronize operation and in-process
+Cancel over standard input/output; it has no arbitrary-command surface. Native
+build, signing, sandbox, installation, and
+real-data proof remain gated and are not implied by source-level validation.
 
 ## Auth0 application
 
@@ -36,6 +69,7 @@ Override `AUTH0_CLIENT_ID`, `AUTH0_DOMAIN`, and `AUTH0_AUDIENCE` only when targe
 ```bash
 flutter analyze
 flutter test
+dotnet test ../../services/local-engine/tests/ShowVault.LocalEngine.Tests/ShowVault.LocalEngine.Tests.csproj
 c++ -std=c++17 -Wall -Wextra -Werror \
   windows/runner/auth_callback_protocol.cpp \
   windows/runner/auth_callback_protocol_test.cpp \
@@ -45,3 +79,16 @@ flutter build macos --debug
 ```
 
 A macOS build requires full Xcode, not only the Command Line Tools. The portable callback test validates URI acceptance but does not replace a native Windows runner build or installed protocol activation proof.
+
+## Personal-test macOS package
+
+`./packaging/macos/build-app.sh /tmp/showvault-macos-personal-test` creates an
+ad hoc, unnotarized personal-test app and checksum in a new absolute output
+directory. It is not a distribution artifact.
+
+The optional `--personal-beta-no-login` switch is accepted only with an
+explicit loopback HTTP origin. The matching API must run in Development with
+`PersonalBeta__BypassAuthentication=true` and a bounded existing
+`PersonalBeta__IdentitySubject`. The server also requires the request itself to
+come from loopback. Never use this bypass for customer, venue, or production
+operation.

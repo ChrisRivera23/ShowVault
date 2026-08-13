@@ -6,12 +6,18 @@ import 'package:showvault_app/src/recovery/recovery_run.dart';
 
 class RecoveryHistory {
   const RecoveryHistory({
+    this.organizationId = '',
     required this.organizationName,
+    this.organizationRole = '',
+    this.venueId = '',
     required this.venueName,
     required this.runs,
   });
 
+  final String organizationId;
   final String organizationName;
+  final String organizationRole;
+  final String venueId;
   final String venueName;
   final List<RecoveryRun> runs;
 }
@@ -36,7 +42,9 @@ class ShowVaultApi {
     final organizations = await _getList('/api/v1/organizations', accessToken);
     if (organizations.isEmpty) {
       return const RecoveryHistory(
+        organizationId: '',
         organizationName: 'No organization',
+        venueId: '',
         venueName: 'No venue',
         runs: [],
       );
@@ -50,7 +58,10 @@ class ShowVaultApi {
     );
     if (venues.isEmpty) {
       return RecoveryHistory(
+        organizationId: organizationId,
         organizationName: organization['name']! as String,
+        organizationRole: organization['role']! as String,
+        venueId: '',
         venueName: 'No venue',
         runs: const [],
       );
@@ -62,10 +73,131 @@ class ShowVaultApi {
       accessToken,
     );
     return RecoveryHistory(
+      organizationId: organizationId,
       organizationName: organization['name']! as String,
+      organizationRole: organization['role']! as String,
+      venueId: venue['id']! as String,
       venueName: venue['name']! as String,
       runs: runs.map(RecoveryRun.fromJson).toList(growable: false),
     );
+  }
+
+  Future<OrganizationPlan> loadOrganizationPlan({
+    required String accessToken,
+    required String organizationId,
+  }) async {
+    if (accessToken.trim().isEmpty || organizationId.trim().isEmpty) {
+      throw ArgumentError('An access token and organization are required.');
+    }
+    final response = await _client.get(
+      _baseUri.resolve('/api/v1/organizations/$organizationId/plan'),
+      headers: {'Authorization': 'Bearer $accessToken'},
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    return OrganizationPlan.fromJson(body['payload']! as Map<String, Object?>);
+  }
+
+  Future<BillingOffering?> loadBillingOffering({
+    required String accessToken,
+    required String organizationId,
+  }) async {
+    final response = await _authorized(
+      'GET',
+      '/api/v1/organizations/$organizationId/billing/offering',
+      accessToken,
+    );
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    final payload = body['payload'];
+    return payload is Map<String, Object?>
+        ? BillingOffering.fromJson(payload)
+        : null;
+  }
+
+  Future<BillingHostedSession> createCheckoutSession({
+    required String accessToken,
+    required String organizationId,
+    required String offeringCode,
+  }) async {
+    final response = await _authorized(
+      'POST',
+      '/api/v1/organizations/$organizationId/billing/checkout-sessions',
+      accessToken,
+      body: {'offeringCode': offeringCode},
+    );
+    return _billingSession(response);
+  }
+
+  Future<BillingHostedSession> createPortalSession({
+    required String accessToken,
+    required String organizationId,
+  }) async => _billingSession(
+    await _authorized(
+      'POST',
+      '/api/v1/organizations/$organizationId/billing/portal-sessions',
+      accessToken,
+    ),
+  );
+
+  Future<http.Response> _authorized(
+    String method,
+    String path,
+    String accessToken, {
+    Map<String, Object?>? body,
+  }) async {
+    if (accessToken.trim().isEmpty) {
+      throw ArgumentError('An access token is required.');
+    }
+    final headers = <String, String>{
+      'Authorization': 'Bearer $accessToken',
+      if (body != null) 'Content-Type': 'application/json',
+    };
+    final response = method == 'GET'
+        ? await _client.get(_baseUri.resolve(path), headers: headers)
+        : await _client.post(
+            _baseUri.resolve(path),
+            headers: headers,
+            body: body == null ? null : jsonEncode(body),
+          );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    return response;
+  }
+
+  static BillingHostedSession _billingSession(http.Response response) {
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    return BillingHostedSession.fromJson(
+      body['payload']! as Map<String, Object?>,
+    );
+  }
+
+  Future<int> submitComputerScan({
+    required String accessToken,
+    required RecoveryHistory history,
+    required List<String> candidateKeys,
+  }) async {
+    if (history.organizationId.isEmpty || history.venueId.isEmpty) {
+      throw ArgumentError('A tenant-scoped venue is required.');
+    }
+    final response = await _client.post(
+      _baseUri.resolve(
+        '/api/v1/organizations/${history.organizationId}'
+        '/venues/${history.venueId}/computer-scans',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'candidateKeys': candidateKeys}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    return (body['payload']! as Map<String, Object?>)['candidateCount']! as int;
   }
 
   Future<List<Map<String, Object?>>> _getList(
@@ -88,8 +220,15 @@ class ShowVaultApi {
 
   static Uri _parseBaseUri(String value) {
     final uri = Uri.tryParse(value);
+    final secureOrigin = uri?.scheme == 'https';
+    final guardedLoopback =
+        uri?.scheme == 'http' &&
+        AppConfig.personalBetaBypassAuth &&
+        (uri?.host == 'localhost' ||
+            uri?.host == '127.0.0.1' ||
+            uri?.host == '::1');
     if (uri == null ||
-        uri.scheme != 'https' ||
+        (!secureOrigin && !guardedLoopback) ||
         !uri.hasAuthority ||
         uri.host.isEmpty ||
         uri.userInfo.isNotEmpty ||
@@ -104,6 +243,87 @@ class ShowVaultApi {
     }
     return uri;
   }
+}
+
+class BillingOffering {
+  const BillingOffering({
+    required this.code,
+    required this.displayName,
+    required this.hasBillingAccount,
+  });
+
+  factory BillingOffering.fromJson(Map<String, Object?> json) =>
+      BillingOffering(
+        code: json['code']! as String,
+        displayName: json['displayName']! as String,
+        hasBillingAccount: json['hasBillingAccount']! as bool,
+      );
+
+  final String code;
+  final String displayName;
+  final bool hasBillingAccount;
+}
+
+class BillingHostedSession {
+  const BillingHostedSession({
+    required this.url,
+    required this.expiresAt,
+    required this.status,
+  });
+
+  factory BillingHostedSession.fromJson(Map<String, Object?> json) =>
+      BillingHostedSession(
+        url: Uri.parse(json['url']! as String),
+        expiresAt: DateTime.parse(json['expiresAt']! as String),
+        status: json['status']! as String,
+      );
+
+  final Uri url;
+  final DateTime expiresAt;
+  final String status;
+}
+
+class OrganizationPlan {
+  const OrganizationPlan({
+    required this.planCode,
+    required this.licenseStatus,
+    required this.subscriptionStatus,
+    required this.currentPeriodEndsAt,
+    required this.graceEndsAt,
+    required this.logicalStorageLimitBytes,
+    required this.committedBytes,
+    required this.reservedBytes,
+    required this.eligible,
+    required this.reasonCode,
+  });
+
+  factory OrganizationPlan.fromJson(Map<String, Object?> json) =>
+      OrganizationPlan(
+        planCode: json['planCode'] as String?,
+        licenseStatus: json['licenseStatus']! as String,
+        subscriptionStatus: json['subscriptionStatus']! as String,
+        currentPeriodEndsAt: _date(json['currentPeriodEndsAt']),
+        graceEndsAt: _date(json['graceEndsAt']),
+        logicalStorageLimitBytes: json['logicalStorageLimitBytes']! as int,
+        committedBytes: json['committedBytes']! as int,
+        reservedBytes: json['reservedBytes']! as int,
+        eligible: json['eligible']! as bool,
+        reasonCode: json['reasonCode']! as String,
+      );
+
+  final String? planCode;
+  final String licenseStatus;
+  final String subscriptionStatus;
+  final DateTime? currentPeriodEndsAt;
+  final DateTime? graceEndsAt;
+  final int logicalStorageLimitBytes;
+  final int committedBytes;
+  final int reservedBytes;
+  final bool eligible;
+  final String reasonCode;
+
+  static DateTime? _date(Object? value) =>
+      value is String ? DateTime.parse(value) : null;
 }
 
 class ShowVaultApiException implements Exception {

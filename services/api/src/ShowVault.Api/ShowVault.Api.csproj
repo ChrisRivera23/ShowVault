@@ -17,4 +17,7 @@
     <ProjectReference Include="../../../contracts/src/ShowVault.AgentContracts/ShowVault.AgentContracts.csproj" />
     <ProjectReference Include="../../../platform/src/ShowVault.Platform/ShowVault.Platform.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ShowVault.Api.Tests" />
+  </ItemGroup>
 </Project>

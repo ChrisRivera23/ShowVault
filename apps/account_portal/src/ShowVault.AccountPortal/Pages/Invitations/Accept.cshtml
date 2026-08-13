@@ -1,0 +1,6 @@
+@page
+@model ShowVault.AccountPortal.Pages.Invitations.AcceptModel
+@{ ViewData["Title"] = "Accept invitation"; }
+<h1>Accept an invitation</h1>
+<form method="post"><div asp-validation-summary="All"></div><label>Invitation code <input asp-for="InvitationCode" autocomplete="off" maxlength="64" required /></label><button type="submit">Accept</button></form>
+@if (Model.Accepted) { <p>Invitation accepted.</p> }

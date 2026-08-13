@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -25,6 +27,7 @@ void main() {
     final history = await api.loadRecoveryHistory('access-token');
 
     expect(history.organizationName, 'ShowVault');
+    expect(history.organizationRole, 'owner');
     expect(history.venueName, 'Main Stage');
     expect(history.runs.single.agentName, 'Control Agent');
     expect(requestedPaths, [
@@ -32,6 +35,71 @@ void main() {
       '/api/v1/organizations/org-id/venues',
       '/api/v1/organizations/org-id/venues/venue-id/recovery-runs',
     ]);
+  });
+
+  test('loads only the minimized owner plan projection', () async {
+    late http.Request captured;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(
+          '{"payload":{"planCode":"synthetic.standard","licenseStatus":"active",'
+          '"subscriptionStatus":"past_due","currentPeriodEndsAt":null,'
+          '"graceEndsAt":"2026-08-20T00:00:00Z","logicalStorageLimitBytes":104857600,'
+          '"committedBytes":1024,"reservedBytes":512,"eligible":true,'
+          '"reasonCode":"eligible"}}',
+          200,
+        );
+      }),
+      baseUrl: 'https://api.showvault.test',
+    );
+
+    final plan = await api.loadOrganizationPlan(
+      accessToken: 'access-token',
+      organizationId: 'org-id',
+    );
+
+    expect(captured.url.path, '/api/v1/organizations/org-id/plan');
+    expect(captured.headers['Authorization'], 'Bearer access-token');
+    expect(plan.planCode, 'synthetic.standard');
+    expect(plan.subscriptionStatus, 'past_due');
+    expect(plan.graceEndsAt, DateTime.utc(2026, 8, 20));
+    expect(plan.committedBytes, 1024);
+    expect(plan.reservedBytes, 512);
+    expect(plan.eligible, isTrue);
+  });
+
+  test('requests hosted billing with only the internal offering code', () async {
+    late http.Request captured;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(
+          '{"payload":{"attemptId":"01900000-0000-7000-8000-000000000001",'
+          '"url":"https://checkout.stripe.test/session/fixture",'
+          '"expiresAt":"2026-08-13T12:30:00Z","status":"payment_processing"}}',
+          200,
+        );
+      }),
+      baseUrl: 'https://api.showvault.test',
+    );
+
+    final session = await api.createCheckoutSession(
+      accessToken: 'access-token',
+      organizationId: 'org-id',
+      offeringCode: 'showvault-standard',
+    );
+
+    expect(captured.method, 'POST');
+    expect(
+      captured.url.path,
+      '/api/v1/organizations/org-id/billing/checkout-sessions',
+    );
+    expect(jsonDecode(captured.body), {'offeringCode': 'showvault-standard'});
+    expect(captured.body, isNot(contains('price_')));
+    expect(captured.body, isNot(contains('customer')));
+    expect(session.url.scheme, 'https');
+    expect(session.status, 'payment_processing');
   });
 
   test('rejects an insecure API origin before sending an access token', () {
@@ -60,5 +128,46 @@ void main() {
 
     await expectLater(api.loadRecoveryHistory('   '), throwsArgumentError);
     expect(requestSent, isFalse);
+  });
+
+  test('submits only opaque direct scan candidate keys', () async {
+    late http.Request captured;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(
+          '{"payload":{"scanId":"scan-id","candidateCount":2,"completedAt":"2026-08-13T00:00:00Z"}}',
+          201,
+        );
+      }),
+      baseUrl: 'https://api.showvault.test',
+    );
+    const history = RecoveryHistory(
+      organizationId: 'org-id',
+      organizationName: 'ShowVault',
+      venueId: 'venue-id',
+      venueName: 'Test Venue',
+      runs: [],
+    );
+
+    final count = await api.submitComputerScan(
+      accessToken: 'access-token',
+      history: history,
+      candidateKeys: const [
+        'macos.resolume-arena.application',
+        'macos.serato-dj-pro.user-data',
+      ],
+    );
+
+    expect(count, 2);
+    expect(captured.method, 'POST');
+    expect(
+      captured.url.path,
+      '/api/v1/organizations/org-id/venues/venue-id/computer-scans',
+    );
+    expect(captured.headers['Authorization'], 'Bearer access-token');
+    final body = jsonDecode(captured.body) as Map<String, Object?>;
+    expect(body.keys, ['candidateKeys']);
+    expect(captured.body, isNot(contains('/Applications')));
   });
 }
