@@ -45,3 +45,16 @@ flutter build macos --debug
 ```
 
 A macOS build requires full Xcode, not only the Command Line Tools. The portable callback test validates URI acceptance but does not replace a native Windows runner build or installed protocol activation proof.
+
+## Personal-test macOS package
+
+`./packaging/macos/build-app.sh /tmp/showvault-macos-personal-test` creates an
+ad hoc, unnotarized personal-test app and checksum in a new absolute output
+directory. It is not a distribution artifact.
+
+The optional `--personal-beta-no-login` switch is accepted only with an
+explicit loopback HTTP origin. The matching API must run in Development with
+`PersonalBeta__BypassAuthentication=true` and a bounded existing
+`PersonalBeta__IdentitySubject`. The server also requires the request itself to
+come from loopback. Never use this bypass for customer, venue, or production
+operation.

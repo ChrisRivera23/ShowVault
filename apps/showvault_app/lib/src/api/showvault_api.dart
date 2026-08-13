@@ -124,8 +124,15 @@ class ShowVaultApi {
 
   static Uri _parseBaseUri(String value) {
     final uri = Uri.tryParse(value);
+    final secureOrigin = uri?.scheme == 'https';
+    final guardedLoopback =
+        uri?.scheme == 'http' &&
+        AppConfig.personalBetaBypassAuth &&
+        (uri?.host == 'localhost' ||
+            uri?.host == '127.0.0.1' ||
+            uri?.host == '::1');
     if (uri == null ||
-        uri.scheme != 'https' ||
+        (!secureOrigin && !guardedLoopback) ||
         !uri.hasAuthority ||
         uri.host.isEmpty ||
         uri.userInfo.isNotEmpty ||

@@ -27,7 +27,7 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ),
         Expanded(
-          child: !AppConfig.hasAuth0Client
+          child: !AppConfig.hasAuth0Client && !AppConfig.personalBetaBypassAuth
               ? const _ConfigurationRequired()
               : auth.when(
                   loading: () =>
@@ -46,9 +46,11 @@ class DashboardScreen extends ConsumerWidget {
                               error: (_, _) => const _LoadError(),
                               data: (currentHistory) => RecoveryHistoryView(
                                 history: currentHistory,
-                                onSignOut: () => ref
-                                    .read(authSessionProvider.notifier)
-                                    .logout(),
+                                onSignOut: AppConfig.personalBetaBypassAuth
+                                    ? null
+                                    : () => ref
+                                          .read(authSessionProvider.notifier)
+                                          .logout(),
                               ),
                             ),
                 ),
