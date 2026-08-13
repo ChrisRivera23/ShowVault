@@ -164,7 +164,10 @@ public sealed class StripeBillingProviderTests
                     type = "subscription_details",
                     subscription_details = new { subscription = "sub_fixture" }
                 },
-                payments = new
+                status_transitions = new { paid_at = now }
+            })),
+            "/v1/invoice_payments?invoice=in_fixture&limit=10" => Ok(
+                JsonSerializer.Serialize(new
                 {
                     data = new[]
                     {
@@ -177,9 +180,7 @@ public sealed class StripeBillingProviderTests
                         }
                     },
                     has_more = false
-                },
-                status_transitions = new { paid_at = now }
-            })),
+                })),
             "/v1/invoices/in_fixture/lines?limit=100" => Ok(
                 "{\"data\":[{\"price\":{\"id\":\"price_recurring_fixture\"}},{\"pricing\":{\"price_details\":{\"price\":\"price_license_fixture\"}}}],\"has_more\":false}"),
             "/v1/payment_intents/pi_fixture" => Ok(

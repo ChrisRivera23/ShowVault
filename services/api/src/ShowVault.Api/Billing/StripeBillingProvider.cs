@@ -220,8 +220,11 @@ public sealed class StripeBillingProvider(
     private async Task<JsonElement?> InitialChargeAsync(JsonElement invoice,
         CancellationToken cancellationToken)
     {
-        if (!invoice.TryGetProperty("payments", out var payments) ||
-            payments.GetProperty("has_more").GetBoolean()) return null;
+        var invoiceId = RequiredString(invoice, "id", 255);
+        using var invoicePayments = await GetAsync(
+            $"v1/invoice_payments?invoice={Escape(invoiceId)}&limit=10", cancellationToken);
+        var payments = invoicePayments.RootElement;
+        if (payments.GetProperty("has_more").GetBoolean()) return null;
         var paymentIntentIds = payments.GetProperty("data").EnumerateArray()
             .Where(value => string.Equals(OptionalString(value.GetProperty("payment"), "type"),
                 "payment_intent", StringComparison.Ordinal))
