@@ -83,17 +83,17 @@ public sealed class CommercialEntitlementTests
     private static CommercialLicense License(
         CommercialLicenseState state = CommercialLicenseState.Active,
         DateTimeOffset? effectiveAt = null) => new()
-    {
-        State = state,
-        EffectiveAt = effectiveAt ?? Now.AddDays(-1)
-    };
+        {
+            State = state,
+            EffectiveAt = effectiveAt ?? Now.AddDays(-1)
+        };
 
     private static ServiceSubscription Subscription(
         ServiceSubscriptionState state = ServiceSubscriptionState.Active,
         DateTimeOffset? graceEndsAt = null) => new()
-    {
-        State = state,
-        PlanCode = SyntheticCommercialPlanPolicyCatalog.PlanCode,
-        GraceEndsAt = graceEndsAt
-    };
+        {
+            State = state,
+            PlanCode = SyntheticCommercialPlanPolicyCatalog.PlanCode,
+            GraceEndsAt = graceEndsAt
+        };
 }

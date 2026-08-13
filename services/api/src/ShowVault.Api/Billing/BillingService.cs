@@ -239,7 +239,8 @@ public sealed class BillingReconciliationService(
             value.OrganizationId == snapshot.OrganizationId, cancellationToken);
         license ??= new CommercialLicense
         {
-            Id = Guid.CreateVersion7(now), OrganizationId = snapshot.OrganizationId,
+            Id = Guid.CreateVersion7(now),
+            OrganizationId = snapshot.OrganizationId,
             LicenseTypeCode = offering.LicenseTypeCode
         };
         if (database.Entry(license).State == EntityState.Detached)
@@ -261,7 +262,8 @@ public sealed class BillingReconciliationService(
             value.OrganizationId == snapshot.OrganizationId, cancellationToken);
         subscription ??= new ServiceSubscription
         {
-            Id = Guid.CreateVersion7(now), OrganizationId = snapshot.OrganizationId,
+            Id = Guid.CreateVersion7(now),
+            OrganizationId = snapshot.OrganizationId,
             PlanCode = offering.PlanCode
         };
         if (database.Entry(subscription).State == EntityState.Detached)
@@ -301,11 +303,13 @@ public sealed class BillingReconciliationService(
             BillingEventProcessingState.Attention, attentionReason ?? "projection_updated");
         database.CommercialAuditEvents.Add(new CommercialAuditEvent
         {
-            Id = Guid.CreateVersion7(now), OrganizationId = snapshot.OrganizationId,
+            Id = Guid.CreateVersion7(now),
+            OrganizationId = snapshot.OrganizationId,
             Action = "billing_projection_reconciled",
             Outcome = attentionReason is null ? "updated" : "attention",
             ReasonCode = attentionReason ?? "provider_state_current",
-            CorrelationId = receipt.Id.ToString("N"), PolicyVersion = offering.PolicyVersion,
+            CorrelationId = receipt.Id.ToString("N"),
+            PolicyVersion = offering.PolicyVersion,
             OccurredAt = now
         });
         await database.SaveChangesAsync(cancellationToken);
@@ -320,8 +324,10 @@ public sealed class BillingReconciliationService(
         var now = timeProvider.GetUtcNow();
         database.BillingAttentions.Add(new BillingAttention
         {
-            Id = Guid.CreateVersion7(now), OrganizationId = organizationId,
-            ReasonCode = reason, OpenedAt = now
+            Id = Guid.CreateVersion7(now),
+            OrganizationId = organizationId,
+            ReasonCode = reason,
+            OpenedAt = now
         });
     }
 
