@@ -15,19 +15,19 @@
 - Milestone 4 attended hosted synchronization protocol for freshly verified
   local recovery points, durable path-free retry/receipt state, tenant-role
   authorization, receipt-last completion, and synthetic end-to-end proof
+- Milestone 5 provider-independent license/subscription projection, Owner-only
+  plan/storage view, atomic organization-wide hosted-sync quota reservation,
+  exactly-once usage accounting, and minimized audit evidence
 
 ## Next
 
-1. Milestone 5 provider-independent license/subscription projection,
-   Owner-only plan/storage view, and atomic hosted-sync quota enforcement
-   (extraction and architecture complete; implementation separately gated)
-2. Provider-backed billing, signed webhooks, customer account portal, and
+1. Provider-backed billing, signed webhooks, customer account portal, and
    financial lifecycle policy
-3. Membership/invitation lifecycle, role administration, and internal support
+2. Membership/invitation lifecycle, role administration, and internal support
    administration
-4. Production hosted-object provider, retention, migration, and operational
+3. Production hosted-object provider, retention, migration, and operational
    durability proof
-5. Separately authorized native packaging, installation, and equipment proof
+4. Separately authorized native packaging, installation, and equipment proof
 
 ## Deferred
 

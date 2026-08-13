@@ -16,7 +16,8 @@ namespace ShowVault.Api.Tests;
 
 public sealed class TenantApiFactory : WebApplicationFactory<Program>
 {
-    private readonly SqliteConnection _connection = new("Data Source=:memory:");
+    private readonly SqliteConnection _connection = new(
+        $"Data Source=showvault-{Guid.NewGuid():N};Mode=Memory;Cache=Shared;Default Timeout=30");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -26,7 +27,8 @@ public sealed class TenantApiFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<DbContextOptions<PlatformDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<PlatformDbContext>>();
-            services.AddDbContext<PlatformDbContext>(options => options.UseSqlite(_connection));
+            services.AddDbContext<PlatformDbContext>(options =>
+                options.UseSqlite(_connection.ConnectionString));
 
             services.AddAuthentication(options =>
             {
