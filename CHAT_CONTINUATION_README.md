@@ -86,6 +86,27 @@ available browser had an authenticated Stripe session; Chrome was left at the
 Stripe login page for user handoff. No Stripe account resource or API call has
 occurred.
 
+## Account portal milestone 7 extraction checkpoint
+
+- Branch: `codex/account-portal-extraction`
+- Worktree: `/private/tmp/showvault-account-portal-extraction`
+- Exact base: `d468f38588d7ee760bbb2926b80d4e24268a7abd`
+
+After the Stripe authentication blocker repeated, the Product Owner repeatedly
+directed ShowVault to start the next task/step. That direction is applied only
+to the safe local extraction of roadmap item 2. The proposed first bounded
+slice is a separate ShowVault-owned account website with active Owner authority,
+email-free single-use invitation codes, non-Owner membership/role lifecycle,
+centralized active-membership enforcement, fresh step-up requirements, and
+minimized append-only account audit. Internal ShowVault staff Admin is split
+into a later trust domain.
+
+The exact current foundation, proposed state machine/API/surface boundaries,
+adversarial proof matrix, privacy limits, and remaining decisions are in
+`docs/ACCOUNT_PORTAL_MILESTONE_7_EXTRACTION_2026-08-13.md`. No product source,
+migration, Auth0 tenant, provider, deployment, personal data, or external state
+was changed by this extraction.
+
 ## Authorization boundary
 
 The Product Owner subsequently authorized the bounded Stripe sandbox/account
@@ -105,13 +126,14 @@ up destructively without new explicit authorization.
 
 ## Next gated decision
 
-Ask the Product Owner to sign in through the handed-off Chrome Stripe tab and
-confirm or replace the proposed sandbox fixture. Then resume the already
-authorized sandbox provisioning. A public webhook proof also requires either a
-separately authorized deployment or an explicitly approved Stripe CLI install
-and forwarding session. A ShowVault-owned account website, membership/role
-administration, internal staff Admin, production hosted-object storage, and
-native proof remain independently gated.
+Two independent next actions are available. Stripe sandbox proof can resume
+after the Product Owner signs in through the handed-off Chrome tab; a public
+webhook proof additionally requires a separately authorized deployment or
+Stripe CLI install/forwarding session. The safe local roadmap action is a
+separately authorized reconstruction/architecture review of account-portal
+milestone 7; product implementation remains gated after that review. Internal
+staff Admin, production hosted-object storage, and native proof remain
+independently gated.
 
 The existing `NEXT_CONVERSATION.md` in the user's primary worktree is outside
 this branch and was not added or changed.

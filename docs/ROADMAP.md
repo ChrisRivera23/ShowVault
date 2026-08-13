@@ -28,11 +28,12 @@
 
 1. Separately authorized Stripe sandbox/account configuration and operational
    proof for the disabled Milestone 6 provider seam
-2. ShowVault-owned customer account portal, membership/invitation lifecycle,
-   role administration, and internal support administration
-3. Production hosted-object provider, retention, migration, and operational
+2. ShowVault-owned customer account portal with Owner-managed, email-free
+   invitation and non-Owner membership/role lifecycle
+3. Separately gated internal ShowVault support administration
+4. Production hosted-object provider, retention, migration, and operational
    durability proof
-4. Separately authorized native packaging, installation, and equipment proof
+5. Separately authorized native packaging, installation, and equipment proof
 
 ## Deferred
 
