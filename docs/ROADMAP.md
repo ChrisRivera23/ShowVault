@@ -18,10 +18,16 @@
 
 ## Next
 
-1. Account, role, subscription, quota, and billing administration
-2. Production hosted-object provider, retention, migration, and operational
+1. Milestone 5 provider-independent license/subscription projection,
+   Owner-only plan/storage view, and atomic hosted-sync quota enforcement
+   (extraction and architecture complete; implementation separately gated)
+2. Provider-backed billing, signed webhooks, customer account portal, and
+   financial lifecycle policy
+3. Membership/invitation lifecycle, role administration, and internal support
+   administration
+4. Production hosted-object provider, retention, migration, and operational
    durability proof
-3. Separately authorized native packaging, installation, and equipment proof
+5. Separately authorized native packaging, installation, and equipment proof
 
 ## Deferred
 
