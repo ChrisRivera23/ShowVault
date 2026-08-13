@@ -15,8 +15,10 @@
 
 ## Next
 
-1. Hosted synchronization and account/billing administration
-2. Separately authorized native packaging, installation, and equipment proof
+1. Hosted synchronization of verified local recovery points (milestone 4;
+   extraction/architecture complete, implementation separately gated)
+2. Account, role, subscription, quota, and billing administration
+3. Separately authorized native packaging, installation, and equipment proof
 
 ## Deferred
 
