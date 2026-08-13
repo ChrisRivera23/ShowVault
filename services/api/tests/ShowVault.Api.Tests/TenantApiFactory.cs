@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ShowVault.Api.Data;
 using ShowVault.Api.Billing;
+using ShowVault.Api.Account;
 using ShowVault.Platform.Billing;
 
 namespace ShowVault.Api.Tests;
@@ -48,6 +49,22 @@ public sealed class TenantApiFactory : WebApplicationFactory<Program>
             {
                 options.EndpointSecrets = ["whsec_local_fixture_only"];
                 options.TimestampToleranceSeconds = 300;
+            });
+            services.PostConfigure<AccountInvitationOptions>(options =>
+            {
+                options.Enabled = true;
+                options.LifetimeHours = 168;
+                options.ActiveKeyId = "fixture-active";
+                options.Keys =
+                [
+                    new AccountInvitationKeyOptions
+                    {
+                        Id = "fixture-active",
+                        SecretBase64 = Convert.ToBase64String(Enumerable.Range(1, 32)
+                            .Select(value => (byte)value).ToArray())
+                    }
+                ];
+                options.MaximumCodeBytes = 64;
             });
 
             services.AddAuthentication(options =>
@@ -145,9 +162,15 @@ internal sealed class TestAuthenticationHandler(
         var authenticationType = Request.Headers.TryGetValue("X-Test-Authentication-Type",
             out var requestedType) && !string.IsNullOrWhiteSpace(requestedType)
             ? requestedType.ToString() : SchemeName;
-        var identity = new ClaimsIdentity(
-            [new Claim("sub", subject.ToString())],
-            authenticationType);
+        var claims = new List<Claim> { new("sub", subject.ToString()) };
+        if (Request.Headers.TryGetValue("X-Test-Scope", out var scope))
+            claims.Add(new Claim("scope", scope.ToString()));
+        if (Request.Headers.TryGetValue("X-Test-Mfa", out var mfa))
+            claims.Add(new Claim(
+                "https://showvault.app/authentication_methods", mfa.ToString()));
+        if (Request.Headers.TryGetValue("X-Test-Iat", out var issuedAt))
+            claims.Add(new Claim("iat", issuedAt.ToString()));
+        var identity = new ClaimsIdentity(claims, authenticationType);
         var ticket = new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName);
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }

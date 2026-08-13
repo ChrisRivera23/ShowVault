@@ -15,6 +15,7 @@ using ShowVault.Api.Commercial;
 using ShowVault.Platform.Commercial;
 using ShowVault.Api.Billing;
 using ShowVault.Api.Authorization;
+using ShowVault.Api.Account;
 
 var builder = WebApplication.CreateBuilder(args);
 var auth0Domain = builder.Configuration["Auth0:Domain"]
@@ -30,6 +31,11 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CommercialStateService>();
 builder.Services.AddScoped<MembershipAuthorizationService>();
+builder.Services.Configure<AccountInvitationOptions>(
+    builder.Configuration.GetSection(AccountInvitationOptions.SectionName));
+builder.Services.AddSingleton<InvitationTokenService>();
+builder.Services.AddSingleton<MembershipStepUpAuthorization>();
+builder.Services.AddScoped<AccountAdministrationService>();
 builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection(BillingOptions.SectionName));
 builder.Services.Configure<StripeApiOptions>(builder.Configuration.GetSection(StripeApiOptions.SectionName));
 builder.Services.Configure<BillingOfferingOptions>(builder.Configuration.GetSection(BillingOfferingOptions.SectionName));
@@ -100,6 +106,28 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
+    options.AddPolicy("invitation-accept", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            $"{context.User.FindFirstValue("sub") ?? "unknown"}|" +
+            $"{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.AddPolicy("account-mutation", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            $"{context.User.FindFirstValue("sub") ?? "unknown"}|" +
+            $"{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
@@ -149,6 +177,7 @@ app.MapRecoveryCandidateEndpoints();
 app.MapHostedSyncEndpoints();
 app.MapCommercialEndpoints();
 app.MapBillingEndpoints();
+app.MapAccountEndpoints();
 
 app.Run();
 
