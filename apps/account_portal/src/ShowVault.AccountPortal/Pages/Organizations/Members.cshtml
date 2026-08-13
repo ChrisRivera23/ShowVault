@@ -1,0 +1,35 @@
+@page "{organizationId:guid}"
+@model ShowVault.AccountPortal.Pages.Organizations.MembersModel
+@{ ViewData["Title"] = "Members"; }
+<h1>Members and invitations</h1>
+@if (Model.InvitationCode is not null)
+{
+  <section aria-label="New invitation code"><p>Copy this code now. It will not be shown again.</p><output id="invitation-code">@Model.InvitationCode</output><button type="button" data-copy-target="invitation-code">Copy code</button></section>
+}
+<table><thead><tr><th>Label</th><th>Role</th><th>State</th><th>Action</th></tr></thead><tbody>
+@foreach (var member in Model.Members)
+{
+  <tr><td>@(member.DisplayLabel ?? "Member")</td><td>@member.Role</td><td>@member.State</td><td>
+  @if (member.Role != "owner")
+  {
+    <form method="post" asp-page-handler="Mutate">
+      <input type="hidden" name="organizationId" value="@Model.OrganizationId" />
+      <input type="hidden" name="membershipId" value="@member.Id" />
+      <input type="hidden" name="revision" value="@member.Revision" />
+      <select name="action"><option value="change_role">Change role</option><option value="suspend">Suspend</option><option value="restore">Restore</option><option value="revoke">Revoke</option></select>
+      <select name="role"><option value="viewer">Viewer</option><option value="technician">Technician</option><option value="manager">Manager</option><option value="administrator">Administrator</option></select>
+      <button type="submit">Apply</button>
+    </form>
+  }
+  </td></tr>
+}
+</tbody></table>
+<h2>Create invitation</h2>
+<form method="post" asp-page-handler="Create">
+  <input type="hidden" name="organizationId" value="@Model.OrganizationId" />
+  <label>Display label <input name="displayLabel" maxlength="80" required /></label>
+  <label>Role <select name="role"><option value="viewer">Viewer</option><option value="technician">Technician</option><option value="manager">Manager</option><option value="administrator">Administrator</option></select></label>
+  <button type="submit">Create code</button>
+</form>
+<h2>Invitations</h2><ul>@foreach (var invitation in Model.Invitations) { <li>@invitation.DisplayLabel · @invitation.Role · @invitation.State @if (invitation.State == "pending") { <form method="post" asp-page-handler="RevokeInvitation"><input type="hidden" name="organizationId" value="@Model.OrganizationId" /><input type="hidden" name="invitationId" value="@invitation.Id" /><button type="submit">Revoke</button></form> }</li> }</ul>
+<script src="~/js/site.js" defer></script>

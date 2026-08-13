@@ -1,0 +1,10 @@
+:root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; background: #101419; color: #f5f7fa; }
+body { max-width: 72rem; margin: 0 auto; padding: 1.5rem; }
+header { padding-bottom: 1rem; border-bottom: 1px solid #3a4654; }
+main { padding-block: 2rem; }
+a { color: #8ed6ff; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: .65rem; border-bottom: 1px solid #3a4654; text-align: left; }
+form { display: flex; gap: .75rem; align-items: end; flex-wrap: wrap; margin-block: 1rem; }
+input, select, button { font: inherit; padding: .55rem; }
+output { display: block; padding: 1rem; background: #202934; font-family: ui-monospace, monospace; overflow-wrap: anywhere; }

@@ -1,0 +1,10 @@
+@page
+@model ShowVault.AccountPortal.Pages.Organizations.SelectModel
+@{ ViewData["Title"] = "Organizations"; }
+<h1>Organizations</h1>
+<ul>
+@foreach (var organization in Model.Organizations)
+{
+  <li><a asp-page="/Organizations/Members" asp-route-organizationId="@organization.Id">@organization.Name</a> <span>@organization.Role</span></li>
+}
+</ul>

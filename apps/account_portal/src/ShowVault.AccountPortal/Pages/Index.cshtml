@@ -1,0 +1,12 @@
+@page
+@model ShowVault.AccountPortal.Pages.IndexModel
+@{ ViewData["Title"] = "Account"; }
+<h1>ShowVault account</h1>
+@if (User.Identity?.IsAuthenticated == true)
+{
+  <p><a asp-page="/Organizations/Select">Select an organization</a></p>
+}
+else
+{
+  <form method="post"><button type="submit">Sign in</button></form>
+}
