@@ -8,10 +8,16 @@ import 'package:showvault_app/src/auth/auth_service.dart';
 import 'package:showvault_app/src/auth/auth_session.dart';
 import 'package:showvault_app/src/dashboard/dashboard_screen.dart';
 import 'package:showvault_app/src/recovery/recovery_run.dart';
+import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
 
 class _SignedOutAuthService extends AuthService {
   @override
   Future<AuthSession?> restore() async => null;
+}
+
+class _SyntheticScanner extends LocalCatalogScanner {
+  @override
+  Future<List<String>> scan() async => ['macos.resolume-arena.application'];
 }
 
 void main() {
@@ -28,7 +34,28 @@ void main() {
 
     expect(find.text('Sign in to ShowVault'), findsOneWidget);
     expect(find.text('Sign in with Auth0'), findsOneWidget);
+    expect(find.text('Scan this computer'), findsOneWidget);
     expect(find.text('Recovery loop proven'), findsNothing);
+  });
+
+  testWidgets('keeps direct scan available while signed out', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(_SignedOutAuthService()),
+          localCatalogScannerProvider.overrideWithValue(_SyntheticScanner()),
+        ],
+        child: const ShowVaultApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Scan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 recognized candidate(s) detected.'), findsOneWidget);
+    expect(find.textContaining('Agent'), findsNothing);
+    expect(find.textContaining('enrollment'), findsNothing);
   });
 
   testWidgets('shows an honest empty live recovery history', (tester) async {

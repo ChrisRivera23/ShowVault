@@ -5,37 +5,151 @@ import 'package:showvault_app/src/auth/auth_provider.dart';
 import 'package:showvault_app/src/config/app_config.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
 import 'package:showvault_app/src/recovery/recovery_run.dart';
+import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!AppConfig.hasAuth0Client) return const _ConfigurationRequired();
-    return ref.watch(authSessionProvider).when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, _) => const _AuthPrompt(hasError: true),
-      data: (session) => session == null
-          ? const _AuthPrompt()
-          : ref.watch(recoveryHistoryProvider).when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, _) => const _LoadError(),
-              data: (history) => RecoveryHistoryView(
-                history: history,
-                onSignOut: () =>
-                    ref.read(authSessionProvider.notifier).logout(),
-              ),
-            ),
+    final auth = ref.watch(authSessionProvider);
+    final session = auth.valueOrNull;
+    final history = session == null
+        ? null
+        : ref.watch(recoveryHistoryProvider).valueOrNull;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          child: _DesktopScanCard(
+            accessToken: session?.accessToken,
+            history: history,
+          ),
+        ),
+        Expanded(
+          child: !AppConfig.hasAuth0Client
+              ? const _ConfigurationRequired()
+              : auth.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (_, _) => const SingleChildScrollView(
+                    child: _AuthPrompt(hasError: true),
+                  ),
+                  data: (currentSession) => currentSession == null
+                      ? const SingleChildScrollView(child: _AuthPrompt())
+                      : ref
+                            .watch(recoveryHistoryProvider)
+                            .when(
+                              loading: () => const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                              error: (_, _) => const _LoadError(),
+                              data: (currentHistory) => RecoveryHistoryView(
+                                history: currentHistory,
+                                onSignOut: () => ref
+                                    .read(authSessionProvider.notifier)
+                                    .logout(),
+                              ),
+                            ),
+                ),
+        ),
+      ],
     );
   }
 }
 
+class _DesktopScanCard extends ConsumerStatefulWidget {
+  const _DesktopScanCard({this.accessToken, this.history});
+
+  final String? accessToken;
+  final RecoveryHistory? history;
+
+  @override
+  ConsumerState<_DesktopScanCard> createState() => _DesktopScanCardState();
+}
+
+class _DesktopScanCardState extends ConsumerState<_DesktopScanCard> {
+  List<String>? _findings;
+  bool _scanning = false;
+  String? _cloudError;
+
+  Future<void> _scan() async {
+    setState(() {
+      _scanning = true;
+      _cloudError = null;
+    });
+    final findings = await ref.read(localCatalogScannerProvider).scan();
+    if (!mounted) return;
+    setState(() {
+      _findings = findings;
+      _scanning = false;
+    });
+
+    final token = widget.accessToken;
+    final history = widget.history;
+    if (token == null || history == null || history.venueId.isEmpty) return;
+    try {
+      await ref
+          .read(showVaultApiProvider)
+          .submitComputerScan(
+            accessToken: token,
+            history: history,
+            candidateKeys: findings,
+          );
+      ref.invalidate(recoveryHistoryProvider);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _cloudError = '$error');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          const Icon(Icons.computer_outlined),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Scan this computer',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const Text(
+                  'Checks only exact ShowVault catalog locations. Paths stay in memory on this computer.',
+                ),
+                if (_findings != null)
+                  Text(
+                    '${_findings!.length} recognized candidate(s) detected.',
+                  ),
+                if (_cloudError != null)
+                  Text(
+                    'Cloud submission failed; local findings were kept.',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          FilledButton.icon(
+            onPressed: _scanning ? null : _scan,
+            icon: const Icon(Icons.search),
+            label: Text(_scanning ? 'Scanning…' : 'Scan'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class RecoveryHistoryView extends StatelessWidget {
-  const RecoveryHistoryView({
-    required this.history,
-    this.onSignOut,
-    super.key,
-  });
+  const RecoveryHistoryView({required this.history, this.onSignOut, super.key});
 
   final RecoveryHistory history;
   final VoidCallback? onSignOut;
@@ -247,7 +361,7 @@ class _CenteredCard extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 560),
       child: Card(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -422,7 +536,10 @@ class _StageCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 3),
-                  Text(content.$3, style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    content.$3,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                   const SizedBox(height: 4),
                   Text(status.$2, style: TextStyle(color: status.$3)),
                 ],
@@ -450,9 +567,6 @@ class _StatusBadge extends StatelessWidget {
       RecoveryRunStatus.failed => (Icons.error_outline, 'Failed'),
       RecoveryRunStatus.expired => (Icons.timer_off_outlined, 'Expired'),
     };
-    return Chip(
-      avatar: Icon(content.$1, size: 17),
-      label: Text(content.$2),
-    );
+    return Chip(avatar: Icon(content.$1, size: 17), label: Text(content.$2));
   }
 }

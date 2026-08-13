@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -60,5 +62,46 @@ void main() {
 
     await expectLater(api.loadRecoveryHistory('   '), throwsArgumentError);
     expect(requestSent, isFalse);
+  });
+
+  test('submits only opaque direct scan candidate keys', () async {
+    late http.Request captured;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(
+          '{"payload":{"scanId":"scan-id","candidateCount":2,"completedAt":"2026-08-13T00:00:00Z"}}',
+          201,
+        );
+      }),
+      baseUrl: 'https://api.showvault.test',
+    );
+    const history = RecoveryHistory(
+      organizationId: 'org-id',
+      organizationName: 'ShowVault',
+      venueId: 'venue-id',
+      venueName: 'Test Venue',
+      runs: [],
+    );
+
+    final count = await api.submitComputerScan(
+      accessToken: 'access-token',
+      history: history,
+      candidateKeys: const [
+        'macos.resolume-arena.application',
+        'macos.serato-dj-pro.user-data',
+      ],
+    );
+
+    expect(count, 2);
+    expect(captured.method, 'POST');
+    expect(
+      captured.url.path,
+      '/api/v1/organizations/org-id/venues/venue-id/computer-scans',
+    );
+    expect(captured.headers['Authorization'], 'Bearer access-token');
+    final body = jsonDecode(captured.body) as Map<String, Object?>;
+    expect(body.keys, ['candidateKeys']);
+    expect(captured.body, isNot(contains('/Applications')));
   });
 }
