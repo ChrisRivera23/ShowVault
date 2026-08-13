@@ -291,3 +291,31 @@ state, GitHub, deployment, production enablement, Auth0/Stripe configuration,
 real-person data, and native proof remain unchanged and separately gated. The
 next bounded task is a mainline-disposition preflight before any movement or
 publication.
+
+### Milestone 7 second PR-CI race repair and review
+
+After exact source `3f2496a` was published, its pull-request workflow passed but
+the simultaneous push workflow failed the same invitation-concurrency test. The
+first repair covered post-write-conflict visibility but not the earlier window
+where a loser reads a pending invitation and then sees the winner's newly
+committed membership.
+
+The Product Owner authorized a second local-only repair and fresh review. Exact
+product `0e00171` clears the stale tracked read and routes an accepted invitation
+or newly visible membership through the bounded fresh-observation path. A
+deterministic database-boundary regression failed before the change and passes
+afterward, verifying HTTP 200 with exactly one membership and audit. All eight
+focused cases pass, and the original concurrency test passes 80/80 across four
+concurrent test processes.
+
+The complete gate passes: API 158, Platform 30, local engine 67, contracts 22,
+Agent 291, portal 15, and Flutter 32 tests; clean Flutter analysis and EF model
+consistency; five sequential zero-warning Release builds; formatting, diff, and
+focused credential scans. Fresh review found no actionable findings. Exact
+evidence is in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_CI_RACE2_REPAIR_REVIEW_2026-08-13.md`.
+
+Remote `main` remains `32c21cf`; the candidate and draft PR #37 remain
+`3f2496a`. No push, PR edit, rerun, ready transition, or merge occurred. The
+next bounded step is a separately authorized read-only source-update preflight
+for exact product `0e00171`.
