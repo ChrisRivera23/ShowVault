@@ -432,6 +432,8 @@ public sealed class RecoveryPackageWriter
                 {
                     YamahaDm3SettingsExportDiscoveryPlugin.PluginId =>
                         $"The package also preserves these opaque DM3 companion formats: {string.Join(", ", companionFormats)}. .DM3S scenes and .DM3P presets do not prove that the .DM3F settings export is complete or compatible.",
+                    YamahaProVisionaireDesignProjectDiscoveryPlugin.PluginId =>
+                        $"The package also preserves these opaque Control PLUS controller formats: {string.Join(", ", companionFormats)}. A separately created .pvksk controller may support a DME5/DME3 Custom Control Panel workflow, but it does not prove the DME model, controller transfer, .pvd project completeness, or hardware, firmware, software, browser, or network compatibility.",
                     YamahaProVisionaireControlDiscoveryPlugin.PluginId =>
                         $"The package also preserves these opaque ProVisionaire Kiosk controller formats: {string.Join(", ", companionFormats)}. A .pvksk controller export does not replace or prove the completeness or compatibility of the editable .pvcppj project.",
                     YamahaTfSettingsExportDiscoveryPlugin.PluginId =>
