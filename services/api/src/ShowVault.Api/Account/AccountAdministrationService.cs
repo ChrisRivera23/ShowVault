@@ -27,6 +27,10 @@ public sealed record AccountResult<T>(AccountResultKind Kind, T? Value = default
     public static AccountResult<T> Failure(AccountResultKind kind) => new(kind);
 }
 
+internal readonly record struct AcceptedInvitationObservation(
+    bool IsConclusive,
+    AccountResult<AcceptedAccountInvitation> Result);
+
 public sealed class AccountAdministrationService(
     PlatformDbContext database,
     MembershipAuthorizationService authorization,
@@ -36,6 +40,14 @@ public sealed class AccountAdministrationService(
     TimeProvider timeProvider)
 {
     private const string PolicyVersion = "account-v1";
+    private static readonly TimeSpan[] AcceptedInvitationResumeDelays =
+    [
+        TimeSpan.FromMilliseconds(10),
+        TimeSpan.FromMilliseconds(20),
+        TimeSpan.FromMilliseconds(40),
+        TimeSpan.FromMilliseconds(80),
+        TimeSpan.FromMilliseconds(160)
+    ];
 
     public async Task<AccountResult<IReadOnlyList<AccountMemberSummary>>> ListMembersAsync(
         Guid organizationId, ClaimsPrincipal user, CancellationToken cancellationToken)
@@ -347,21 +359,51 @@ public sealed class AccountAdministrationService(
     private async Task<AccountResult<AcceptedAccountInvitation>> ResumeAcceptedInvitationAsync(
         Guid invitationId, string subject, CancellationToken cancellationToken)
     {
-        var winner = await database.OrganizationInvitations.AsNoTracking()
-            .SingleOrDefaultAsync(value => value.Id == invitationId, cancellationToken);
-        if (winner?.State != OrganizationInvitationState.Accepted ||
-            winner.AcceptedBySubject != subject || winner.AcceptedMembershipId is not { } membershipId)
-            return AccountResult<AcceptedAccountInvitation>.Failure(
-                AccountResultKind.InvitationUnavailable);
-        var membership = await database.Memberships.AsNoTracking().SingleOrDefaultAsync(value =>
-            value.Id == membershipId && value.OrganizationId == winner.OrganizationId &&
-            value.IdentitySubject == subject, cancellationToken);
-        return membership is null
-            ? AccountResult<AcceptedAccountInvitation>.Failure(
-                AccountResultKind.InvitationUnavailable)
-            : AccountResult<AcceptedAccountInvitation>.Success(
-                new AcceptedAccountInvitation(Summary(membership, subject)));
+        return await RetryAcceptedInvitationObservationAsync(async token =>
+        {
+            var winner = await database.OrganizationInvitations.AsNoTracking()
+                .SingleOrDefaultAsync(value => value.Id == invitationId, token);
+            if (winner is null || winner.State == OrganizationInvitationState.Pending)
+                return InconclusiveInvitationObservation();
+            if (winner.State != OrganizationInvitationState.Accepted ||
+                winner.AcceptedBySubject != subject ||
+                winner.AcceptedMembershipId is not { } membershipId)
+                return ConclusiveInvitationUnavailable();
+            var membership = await database.Memberships.AsNoTracking()
+                .SingleOrDefaultAsync(value =>
+                    value.Id == membershipId && value.OrganizationId == winner.OrganizationId &&
+                    value.IdentitySubject == subject, token);
+            return membership is null
+                ? InconclusiveInvitationObservation()
+                : new AcceptedInvitationObservation(true,
+                    AccountResult<AcceptedAccountInvitation>.Success(
+                        new AcceptedAccountInvitation(Summary(membership, subject))));
+        }, timeProvider, AcceptedInvitationResumeDelays, cancellationToken);
     }
+
+    internal static async Task<AccountResult<AcceptedAccountInvitation>>
+        RetryAcceptedInvitationObservationAsync(
+            Func<CancellationToken, Task<AcceptedInvitationObservation>> observe,
+            TimeProvider timeProvider,
+            IReadOnlyList<TimeSpan> retryDelays,
+            CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            var observation = await observe(cancellationToken);
+            if (observation.IsConclusive || attempt == retryDelays.Count)
+                return observation.Result;
+            await Task.Delay(retryDelays[attempt], timeProvider, cancellationToken);
+        }
+    }
+
+    private static AcceptedInvitationObservation InconclusiveInvitationObservation() =>
+        new(false, AccountResult<AcceptedAccountInvitation>.Failure(
+            AccountResultKind.InvitationUnavailable));
+
+    private static AcceptedInvitationObservation ConclusiveInvitationUnavailable() =>
+        new(true, AccountResult<AcceptedAccountInvitation>.Failure(
+            AccountResultKind.InvitationUnavailable));
 
     private static AccountMemberSummary Summary(Membership member, string currentSubject) => new(
         member.Id, member.DisplayLabel, Lower(member.Role), Lower(member.State),

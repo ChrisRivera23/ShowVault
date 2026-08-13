@@ -14,6 +14,71 @@ namespace ShowVault.Api.Tests;
 public sealed class AccountAdversarialTests(TenantApiFactory factory)
     : IClassFixture<TenantApiFactory>
 {
+    [Fact]
+    public async Task Acceptance_conflict_retries_incomplete_winner_visibility()
+    {
+        var accepted = new AcceptedAccountInvitation(new AccountMemberSummary(
+            Guid.NewGuid(), "Recovered", "viewer", "active", true,
+            DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 1));
+        var observations = new Queue<AcceptedInvitationObservation>(
+        [
+            new(false, AccountResult<AcceptedAccountInvitation>.Failure(
+                AccountResultKind.InvitationUnavailable)),
+            new(false, AccountResult<AcceptedAccountInvitation>.Failure(
+                AccountResultKind.InvitationUnavailable)),
+            new(true, AccountResult<AcceptedAccountInvitation>.Success(accepted))
+        ]);
+        var attempts = 0;
+
+        var result = await AccountAdministrationService
+            .RetryAcceptedInvitationObservationAsync(_ =>
+            {
+                attempts++;
+                return Task.FromResult(observations.Dequeue());
+            }, TimeProvider.System, [TimeSpan.Zero, TimeSpan.Zero], CancellationToken.None);
+
+        Assert.Equal(AccountResultKind.Success, result.Kind);
+        Assert.Equal(accepted, result.Value);
+        Assert.Equal(3, attempts);
+    }
+
+    [Fact]
+    public async Task Acceptance_conflict_does_not_retry_a_different_subject_winner()
+    {
+        var attempts = 0;
+
+        var result = await AccountAdministrationService
+            .RetryAcceptedInvitationObservationAsync(_ =>
+            {
+                attempts++;
+                return Task.FromResult(new AcceptedInvitationObservation(true,
+                    AccountResult<AcceptedAccountInvitation>.Failure(
+                        AccountResultKind.InvitationUnavailable)));
+            }, TimeProvider.System, [TimeSpan.Zero], CancellationToken.None);
+
+        Assert.Equal(AccountResultKind.InvitationUnavailable, result.Kind);
+        Assert.Equal(1, attempts);
+    }
+
+    [Fact]
+    public async Task Acceptance_conflict_visibility_retry_is_bounded()
+    {
+        var attempts = 0;
+
+        var result = await AccountAdministrationService
+            .RetryAcceptedInvitationObservationAsync(_ =>
+            {
+                attempts++;
+                return Task.FromResult(new AcceptedInvitationObservation(false,
+                    AccountResult<AcceptedAccountInvitation>.Failure(
+                        AccountResultKind.InvitationUnavailable)));
+            }, TimeProvider.System,
+            [TimeSpan.Zero, TimeSpan.Zero, TimeSpan.Zero], CancellationToken.None);
+
+        Assert.Equal(AccountResultKind.InvitationUnavailable, result.Kind);
+        Assert.Equal(4, attempts);
+    }
+
     [Theory]
     [InlineData(OrganizationRole.Viewer)]
     [InlineData(OrganizationRole.Technician)]
