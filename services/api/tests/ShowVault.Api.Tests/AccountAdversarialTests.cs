@@ -58,6 +58,21 @@ public sealed class AccountAdversarialTests(TenantApiFactory factory)
     }
 
     [Fact]
+    public async Task Malformed_invitation_code_is_rejected_before_any_database_query()
+    {
+        using var client = Client(Subject("malformed-code"));
+        _ = await client.GetAsync("/health/ready");
+        factory.Commands.Reset();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/account/invitations/accept",
+            new { invitationCode = "not-a-valid-code" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(0, factory.Commands.ReaderCommands);
+    }
+
+    [Fact]
     public async Task Invitation_revocation_and_cross_tenant_ids_are_closed()
     {
         var firstOwner = Subject("first-owner");

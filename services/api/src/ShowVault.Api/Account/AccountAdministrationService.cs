@@ -184,12 +184,12 @@ public sealed class AccountAdministrationService(
             return AccountResult<AcceptedAccountInvitation>.Failure(AccountResultKind.Unauthorized);
         if (HumanIdentity.IsPersonalBeta(user))
             return AccountResult<AcceptedAccountInvitation>.Failure(AccountResultKind.Forbidden);
-        if (!await HasCompleteKeyRingAsync(cancellationToken))
-            return AccountResult<AcceptedAccountInvitation>.Failure(AccountResultKind.FeatureUnavailable);
         var candidates = tokens.CandidateDigests(code);
         if (candidates.Count == 0)
             return AccountResult<AcceptedAccountInvitation>.Failure(
                 AccountResultKind.InvitationUnavailable);
+        if (!await HasCompleteKeyRingAsync(cancellationToken))
+            return AccountResult<AcceptedAccountInvitation>.Failure(AccountResultKind.FeatureUnavailable);
 
         OrganizationInvitation? invitation = null;
         foreach (var candidate in candidates)

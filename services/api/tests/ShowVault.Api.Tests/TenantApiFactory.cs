@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Data.Common;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
@@ -6,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -20,6 +22,7 @@ namespace ShowVault.Api.Tests;
 public sealed class TenantApiFactory : WebApplicationFactory<Program>
 {
     public SyntheticBillingProvider BillingProvider { get; } = new();
+    public CountingCommandInterceptor Commands { get; } = new();
     private readonly SqliteConnection _connection = new(
         $"Data Source=showvault-{Guid.NewGuid():N};Mode=Memory;Cache=Shared;Default Timeout=30");
 
@@ -32,7 +35,7 @@ public sealed class TenantApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<DbContextOptions<PlatformDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<PlatformDbContext>>();
             services.AddDbContext<PlatformDbContext>(options =>
-                options.UseSqlite(_connection.ConnectionString));
+                options.UseSqlite(_connection.ConnectionString).AddInterceptors(Commands));
             services.RemoveAll<IBillingProvider>();
             services.RemoveAll<IBillingOfferingCatalog>();
             services.AddSingleton<IBillingProvider>(BillingProvider);
@@ -91,6 +94,22 @@ public sealed class TenantApiFactory : WebApplicationFactory<Program>
         {
             _connection.Dispose();
         }
+    }
+}
+
+public sealed class CountingCommandInterceptor : DbCommandInterceptor
+{
+    private int _readerCommands;
+    public int ReaderCommands => Volatile.Read(ref _readerCommands);
+    public int Reset() => Interlocked.Exchange(ref _readerCommands, 0);
+
+    public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+        DbCommand command, CommandEventData eventData,
+        InterceptionResult<DbDataReader> result,
+        CancellationToken cancellationToken = default)
+    {
+        Interlocked.Increment(ref _readerCommands);
+        return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
     }
 }
 

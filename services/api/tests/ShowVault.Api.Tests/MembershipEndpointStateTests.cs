@@ -23,6 +23,60 @@ public sealed class MembershipEndpointStateTests(TenantApiFactory factory)
         AccountAdministration
     }
 
+    public static IEnumerable<object[]> ActiveRoleCases =>
+        from Surface surface in Enum.GetValues<Surface>()
+        from OrganizationRole role in Enum.GetValues<OrganizationRole>()
+        select new object[] { surface, role };
+
+    [Theory]
+    [MemberData(nameof(ActiveRoleCases))]
+    public async Task Every_endpoint_module_enforces_the_complete_active_role_matrix(
+        Surface surface, OrganizationRole role)
+    {
+        var subject = $"auth0|active-{surface}-{role}-{Guid.NewGuid():N}";
+        var fixture = await SeedAsync(subject, role);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Subject", subject);
+
+        var response = await SendAsync(client, surface, fixture);
+
+        if (RoleAllows(surface, role))
+        {
+            Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+        else
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+    }
+
+    [Theory]
+    [InlineData(Surface.Tenant)]
+    [InlineData(Surface.RecoveryCandidates)]
+    [InlineData(Surface.RecoveryHistory)]
+    [InlineData(Surface.AgentEnrollment)]
+    [InlineData(Surface.CommercialPlan)]
+    [InlineData(Surface.Billing)]
+    [InlineData(Surface.HostedSync)]
+    [InlineData(Surface.AccountAdministration)]
+    public async Task Every_endpoint_module_denies_wrong_tenant_or_venue_ids(Surface surface)
+    {
+        var subject = $"auth0|mismatch-{surface}-{Guid.NewGuid():N}";
+        var own = await SeedAsync(subject, OrganizationRole.Owner);
+        var other = await SeedAsync($"auth0|other-{Guid.NewGuid():N}", OrganizationRole.Owner);
+        var target = surface is Surface.RecoveryCandidates or Surface.RecoveryHistory or
+            Surface.AgentEnrollment or Surface.HostedSync
+            ? new Fixture(own.OrganizationId, other.VenueId, own.MembershipId)
+            : other;
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Test-Subject", subject);
+
+        var response = await SendAsync(client, surface, target);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     [Theory]
     [InlineData(Surface.Tenant, MembershipState.Suspended)]
     [InlineData(Surface.Tenant, MembershipState.Revoked)]
@@ -102,6 +156,15 @@ public sealed class MembershipEndpointStateTests(TenantApiFactory factory)
                 $"/api/v1/organizations/{fixture.OrganizationId}/account/members"),
             _ => throw new ArgumentOutOfRangeException(nameof(surface))
         };
+
+    private static bool RoleAllows(Surface surface, OrganizationRole role) => surface switch
+    {
+        Surface.Tenant or Surface.RecoveryCandidates or Surface.RecoveryHistory => true,
+        Surface.AgentEnrollment or Surface.HostedSync => role.CanManageVenues(),
+        Surface.CommercialPlan or Surface.Billing or Surface.AccountAdministration =>
+            role == OrganizationRole.Owner,
+        _ => false
+    };
 
     private async Task<Fixture> SeedAsync(string subject, OrganizationRole role)
     {

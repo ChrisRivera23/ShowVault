@@ -154,13 +154,20 @@ public sealed class PortalSecurityTests
             AllowAutoRedirect = false,
             BaseAddress = new Uri("https://account.showvault.test/")
         });
-        var challenge = await client.GetAsync("/Organizations/Select");
+        using var challengeRequest = new HttpRequestMessage(
+            HttpMethod.Get, "/Organizations/Select");
+        challengeRequest.Headers.Add("X-Forwarded-Host", "evil.showvault.test");
+        var challenge = await client.SendAsync(challengeRequest);
 
         Assert.Equal(HttpStatusCode.Redirect, challenge.StatusCode);
         var location = Assert.IsType<Uri>(challenge.Headers.Location);
         var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(location.Query);
         Assert.Equal("https://api.showvault.test", query["audience"]);
         Assert.Equal("code", query["response_type"]);
+        Assert.Equal("https://account.showvault.test/signin-oidc", query["redirect_uri"]);
+        Assert.Equal(["openid", "profile"], query["scope"].ToString().Split(' '));
+        Assert.DoesNotContain("offline_access", query["scope"].ToString(),
+            StringComparison.Ordinal);
         Assert.Equal("S256", query["code_challenge_method"]);
         Assert.False(string.IsNullOrWhiteSpace(query["code_challenge"]));
         Assert.False(string.IsNullOrWhiteSpace(query["state"]));
@@ -168,31 +175,42 @@ public sealed class PortalSecurityTests
     }
 
     [Fact]
-    public async Task Step_up_redirect_event_preserves_audience_and_requests_fresh_mfa()
+    public async Task Actual_step_up_challenge_preserves_oidc_contract_and_requests_fresh_mfa()
     {
         await using var factory = new EnabledPortalFactory();
-        var options = factory.Services.GetRequiredService<
-            IOptionsMonitor<OpenIdConnectOptions>>().Get(
-                OpenIdConnectDefaults.AuthenticationScheme);
-        var properties = new AuthenticationProperties();
-        properties.Items["showvault_step_up"] = "1";
-        var redirect = new RedirectContext(new DefaultHttpContext(),
-            new AuthenticationScheme(OpenIdConnectDefaults.AuthenticationScheme,
-                OpenIdConnectDefaults.AuthenticationScheme,
-                typeof(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectHandler)),
-            options, properties)
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
-            ProtocolMessage = new OpenIdConnectMessage()
-        };
+            AllowAutoRedirect = false,
+            HandleCookies = true,
+            BaseAddress = new Uri("https://account.showvault.test/")
+        });
+        client.DefaultRequestHeaders.Add("X-Portal-Test-Auth", "1");
+        var organizationId = factory.Api.OrganizationId;
+        var html = await client.GetStringAsync($"/StepUp?organizationId={organizationId}");
 
-        await options.Events.RedirectToIdentityProvider(redirect);
+        var challenge = await client.PostAsync($"/StepUp?organizationId={organizationId}",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = AntiforgeryToken(html),
+                ["OrganizationId"] = organizationId.ToString()
+            }));
 
-        Assert.Equal("https://api.showvault.test",
-            redirect.ProtocolMessage.GetParameter("audience"));
-        Assert.Equal("openid profile manage:members", redirect.ProtocolMessage.Scope);
+        Assert.Equal(HttpStatusCode.Redirect, challenge.StatusCode);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(
+            challenge.Headers.Location!.Query);
+        Assert.Equal("https://api.showvault.test", query["audience"]);
+        Assert.Equal(["openid", "profile", "manage:members"],
+            query["scope"].ToString().Split(' '));
+        Assert.DoesNotContain("offline_access", query["scope"].ToString(),
+            StringComparison.Ordinal);
         Assert.Equal("http://schemas.openid.net/pape/policies/2007/06/multi-factor",
-            redirect.ProtocolMessage.AcrValues);
-        Assert.Equal("0", redirect.ProtocolMessage.MaxAge);
+            query["acr_values"]);
+        Assert.Equal("0", query["max_age"]);
+        Assert.Equal("https://account.showvault.test/signin-oidc", query["redirect_uri"]);
+        Assert.Equal("S256", query["code_challenge_method"]);
+        Assert.False(string.IsNullOrWhiteSpace(query["code_challenge"]));
+        Assert.False(string.IsNullOrWhiteSpace(query["state"]));
+        Assert.False(string.IsNullOrWhiteSpace(query["nonce"]));
     }
 
     [Fact]

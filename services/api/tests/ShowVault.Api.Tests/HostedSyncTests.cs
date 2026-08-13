@@ -30,6 +30,7 @@ public sealed class HostedSyncTests(TenantApiFactory factory) : IClassFixture<Te
         var subject = $"personal-beta-{Guid.NewGuid():N}";
         var tenant = await CreateTenantAsync(subject);
         var beginRequest = BeginRequest(Encoding.UTF8.GetBytes("local-only backup"));
+        using var ordinary = Client(subject);
         using var client = Client(subject,
             PersonalBetaAuthenticationHandler.SchemeName);
         var root = Root(tenant, beginRequest.Manifest.RecoveryPointId);
@@ -42,8 +43,27 @@ public sealed class HostedSyncTests(TenantApiFactory factory) : IClassFixture<Te
         Assert.Equal(HttpStatusCode.OK,
             (await client.GetAsync(directRoot + "/recovery-candidates")).StatusCode);
 
+        var ordinaryBegin = await ordinary.PostAsJsonAsync(root + "/begin", beginRequest);
+        Assert.Equal(HttpStatusCode.OK, ordinaryBegin.StatusCode);
+        var session = (await ordinaryBegin.Content.ReadFromJsonAsync<
+            ApiResponse<HostedSyncBeginResponse>>())!.Payload;
+        var path = Uri.EscapeDataString(beginRequest.Manifest.Files[0].RelativePath);
+
         Assert.Equal(HttpStatusCode.Forbidden,
             (await client.PostAsJsonAsync(root + "/begin", beginRequest)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(
+            root + $"/sessions/{session.SessionId}/files?path={path}")).StatusCode);
+        using var append = new HttpRequestMessage(HttpMethod.Put,
+            root + $"/sessions/{session.SessionId}/files?path={path}&offset=0")
+        {
+            Content = new ByteArrayContent(Encoding.UTF8.GetBytes("denied"))
+        };
+        append.Headers.Add("X-ShowVault-Chunk-Sha256", new string('a', 64));
+        append.Content.Headers.ContentType = new("application/octet-stream");
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await client.SendAsync(append)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(
+            root + $"/sessions/{session.SessionId}/commit", new { })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await client.GetAsync(root + "/receipt")).StatusCode);
     }
