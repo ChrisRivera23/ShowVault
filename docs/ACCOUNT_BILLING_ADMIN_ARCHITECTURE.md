@@ -132,3 +132,30 @@ They will require explicit membership lifecycle, suspension, step-up approval,
 staff roles, immutable support auditing, payment-provider redirects, retention,
 export, refund/chargeback, and deletion policies. Provider dashboards should
 remain the source for sensitive payment and identity-provider operations.
+
+## Milestone 6 Stripe-hosted funnel
+
+The first provider-backed slice uses Stripe-hosted Checkout and Billing Portal
+from the existing Owner-only desktop Settings surface. ShowVault creates those
+sessions server-side from a closed internal offering catalog and fixed return
+origins. The desktop never submits Price or Customer IDs, collects payment
+details, or treats a return redirect as purchase authority.
+
+Provider facts stay in separate server-only organization/environment bindings,
+purchase attempts, minimal signed-event receipts, and reconciliation cursors.
+Verify each webhook against its exact raw body before parsing; deduplicate it
+durably; then retrieve current provider objects through a narrow adapter before
+transactionally changing `CommercialLicense` or `ServiceSubscription`. Do not
+persist raw provider payloads or ephemeral Checkout/Portal URLs.
+
+One approved subscription-mode Checkout offering may contain one recurring
+Price and one one-time license Price. The license remains pending until the
+exact initial invoice is proven paid. Redirect completion and metadata alone
+grant nothing. With no separately approved grace duration, `past_due` has no
+implicit grace and denies new hosted reservations.
+
+Cancellation, refund, dispute, payment failure, or unsupported provider state
+must deny or enter bounded billing attention without deleting backups,
+releasing quota, or stranding an already reserved hosted session. Full
+ShowVault customer-account pages, staff Admin, role changes, financial support
+actions, final prices/taxes, and live provider operations remain later slices.

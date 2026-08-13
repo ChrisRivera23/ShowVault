@@ -21,10 +21,11 @@
 
 ## Next
 
-1. Provider-backed billing, signed webhooks, customer account portal, and
-   financial lifecycle policy
-2. Membership/invitation lifecycle, role administration, and internal support
-   administration
+1. Milestone 6 Stripe-hosted Checkout/Billing Portal and signed reconciled
+   commercial projection (extraction and architecture complete;
+   implementation separately gated)
+2. ShowVault-owned customer account portal, membership/invitation lifecycle,
+   role administration, and internal support administration
 3. Production hosted-object provider, retention, migration, and operational
    durability proof
 4. Separately authorized native packaging, installation, and equipment proof
