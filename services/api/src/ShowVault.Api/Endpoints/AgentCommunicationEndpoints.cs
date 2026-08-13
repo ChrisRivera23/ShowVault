@@ -1,12 +1,12 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using ShowVault.Api.Authorization;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
 using ShowVault.Api.Security;
 using ShowVault.AgentContracts;
 using ShowVault.Platform.Agents;
-using ShowVault.Platform.Organizations;
 
 namespace ShowVault.Api.Endpoints;
 
@@ -99,31 +99,12 @@ public static class AgentCommunicationEndpoints
         ClaimsPrincipal user,
         HttpContext context,
         PlatformDbContext database,
+        MembershipAuthorizationService authorization,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
-        var subject = user.FindFirstValue("sub");
-        var authorized = !string.IsNullOrWhiteSpace(subject) &&
-            await database.VenueAgents
-                .Where(agent => agent.Id == agentId &&
-                    agent.VenueId == venueId &&
-                    agent.RevokedAt == null)
-                .Join(
-                    database.Venues.Where(venue =>
-                        venue.Id == venueId && venue.OrganizationId == organizationId),
-                    agent => agent.VenueId,
-                    venue => venue.Id,
-                    (_, venue) => venue.OrganizationId)
-                .Join(
-                    database.Memberships.Where(membership =>
-                        membership.IdentitySubject == subject &&
-                        (membership.Role == OrganizationRole.Manager ||
-                         membership.Role == OrganizationRole.Administrator ||
-                         membership.Role == OrganizationRole.Owner)),
-                    candidateOrganizationId => candidateOrganizationId,
-                    membership => membership.OrganizationId,
-                    (_, _) => true)
-                .AnyAsync(cancellationToken);
+        var authorized = await authorization.CanManageAgentAsync(
+            organizationId, venueId, agentId, user, cancellationToken);
         if (!authorized)
         {
             return Results.Forbid();

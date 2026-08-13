@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ShowVault.Api.Authorization;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
 using ShowVault.Platform.Organizations;
@@ -28,12 +29,17 @@ public static class TenantEndpoints
         ClaimsPrincipal user,
         HttpContext context,
         PlatformDbContext database,
+        TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
-        var subject = user.FindFirstValue("sub");
-        if (string.IsNullOrWhiteSpace(subject))
+        var subject = HumanIdentity.Subject(user);
+        if (subject is null)
         {
             return Results.Unauthorized();
+        }
+        if (HumanIdentity.IsPersonalBeta(user))
+        {
+            return Results.Forbid();
         }
 
         Organization organization;
@@ -50,7 +56,8 @@ public static class TenantEndpoints
         database.Memberships.Add(Membership.Create(
             organization.Id,
             subject,
-            OrganizationRole.Owner));
+            OrganizationRole.Owner,
+            timeProvider.GetUtcNow()));
 
         try
         {
@@ -78,32 +85,24 @@ public static class TenantEndpoints
     private static async Task<IResult> ListOrganizationsAsync(
         ClaimsPrincipal user,
         HttpContext context,
-        PlatformDbContext database,
+        MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
-        var subject = user.FindFirstValue("sub");
-        if (string.IsNullOrWhiteSpace(subject))
+        if (HumanIdentity.Subject(user) is null)
         {
             return Results.Unauthorized();
         }
 
-        var accessibleOrganizations = await database.Memberships
-            .Where(membership => membership.IdentitySubject == subject)
-            .Join(
-                database.Organizations,
-                membership => membership.OrganizationId,
-                organization => organization.Id,
-                (membership, organization) => new { membership, organization })
-            .OrderBy(result => result.organization.Name)
-            .Select(result => new OrganizationSummary(
-                result.organization.Id,
-                result.organization.Name,
-                result.organization.Slug,
-                result.membership.Role == OrganizationRole.Owner ? "owner" :
-                result.membership.Role == OrganizationRole.Administrator ? "administrator" :
-                result.membership.Role == OrganizationRole.Manager ? "manager" :
-                result.membership.Role == OrganizationRole.Technician ? "technician" : "viewer"))
-            .ToListAsync(cancellationToken);
+        var activeOrganizations = await authorization.ListActiveOrganizationsAsync(
+            user, cancellationToken);
+        var accessibleOrganizations = activeOrganizations.Select(result => new OrganizationSummary(
+            result.Id,
+            result.Name,
+            result.Slug,
+            result.Role == OrganizationRole.Owner ? "owner" :
+            result.Role == OrganizationRole.Administrator ? "administrator" :
+            result.Role == OrganizationRole.Manager ? "manager" :
+            result.Role == OrganizationRole.Technician ? "technician" : "viewer")).ToList();
 
         return Results.Ok(ApiResponse<IReadOnlyList<OrganizationSummary>>.Success(
             accessibleOrganizations,
@@ -116,13 +115,11 @@ public static class TenantEndpoints
         ClaimsPrincipal user,
         HttpContext context,
         PlatformDbContext database,
+        MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
-        var membership = await FindMembershipAsync(
-            database,
-            organizationId,
-            user,
-            cancellationToken);
+        var membership = await authorization.FindActiveAsync(
+            organizationId, user, cancellationToken);
         if (membership is null || !membership.Role.CanManageVenues())
         {
             return Results.Forbid();
@@ -156,13 +153,11 @@ public static class TenantEndpoints
         ClaimsPrincipal user,
         HttpContext context,
         PlatformDbContext database,
+        MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
-        var membership = await FindMembershipAsync(
-            database,
-            organizationId,
-            user,
-            cancellationToken);
+        var membership = await authorization.FindActiveAsync(
+            organizationId, user, cancellationToken);
         if (membership is null)
         {
             return Results.Forbid();
@@ -181,24 +176,6 @@ public static class TenantEndpoints
         return Results.Ok(ApiResponse<IReadOnlyList<VenueSummary>>.Success(
             venues,
             context.TraceIdentifier));
-    }
-
-    private static Task<Membership?> FindMembershipAsync(
-        PlatformDbContext database,
-        Guid organizationId,
-        ClaimsPrincipal user,
-        CancellationToken cancellationToken)
-    {
-        var subject = user.FindFirstValue("sub");
-        if (string.IsNullOrWhiteSpace(subject))
-        {
-            return Task.FromResult<Membership?>(null);
-        }
-
-        return database.Memberships.SingleOrDefaultAsync(
-            membership => membership.OrganizationId == organizationId &&
-                membership.IdentitySubject == subject,
-            cancellationToken);
     }
 
     private static IResult ValidationProblem(ArgumentException exception, string fallbackKey) =>

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using ShowVault.Api.Authorization;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
 using ShowVault.Api.Recovery;
@@ -25,20 +26,11 @@ public static class RecoveryHistoryEndpoints
         ClaimsPrincipal user,
         HttpContext context,
         PlatformDbContext database,
+        MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
-        var subject = user.FindFirstValue("sub");
-        var authorized = !string.IsNullOrWhiteSpace(subject) &&
-            await database.Venues
-                .Where(venue => venue.Id == venueId && venue.OrganizationId == organizationId)
-                .Join(
-                    database.Memberships.Where(membership =>
-                        membership.OrganizationId == organizationId &&
-                        membership.IdentitySubject == subject),
-                    venue => venue.OrganizationId,
-                    membership => membership.OrganizationId,
-                    (_, _) => true)
-                .AnyAsync(cancellationToken);
+        var authorized = await authorization.HasVenueAccessAsync(
+            organizationId, venueId, user, false, cancellationToken);
         if (!authorized)
         {
             return Results.Forbid();

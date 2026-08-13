@@ -14,6 +14,7 @@ using ShowVault.Api.HostedSync;
 using ShowVault.Api.Commercial;
 using ShowVault.Platform.Commercial;
 using ShowVault.Api.Billing;
+using ShowVault.Api.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 var auth0Domain = builder.Configuration["Auth0:Domain"]
@@ -28,6 +29,7 @@ builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CommercialStateService>();
+builder.Services.AddScoped<MembershipAuthorizationService>();
 builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection(BillingOptions.SectionName));
 builder.Services.Configure<StripeApiOptions>(builder.Configuration.GetSection(StripeApiOptions.SectionName));
 builder.Services.Configure<BillingOfferingOptions>(builder.Configuration.GetSection(BillingOfferingOptions.SectionName));

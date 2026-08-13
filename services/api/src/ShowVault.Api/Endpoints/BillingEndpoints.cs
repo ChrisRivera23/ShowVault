@@ -5,12 +5,11 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using ShowVault.Api.Authorization;
 using ShowVault.Api.Billing;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
-using ShowVault.Api.Security;
 using ShowVault.Platform.Billing;
-using ShowVault.Platform.Organizations;
 
 public static class BillingEndpoints
 {
@@ -38,9 +37,10 @@ public static class BillingEndpoints
 
     private static async Task<IResult> GetOfferingAsync(Guid organizationId,
         ClaimsPrincipal user, HttpContext context, PlatformDbContext database,
-        BillingService billing, CancellationToken cancellationToken)
+        BillingService billing, MembershipAuthorizationService authorization,
+        CancellationToken cancellationToken)
     {
-        if (!await IsOwnerAsync(organizationId, user, database, cancellationToken))
+        if (!await authorization.IsOwnerAsync(organizationId, user, cancellationToken))
             return OwnerFailure(user);
         return Results.Ok(ApiResponse<BillingOfferingSummary?>.Success(
             await billing.CurrentOfferingAsync(organizationId, cancellationToken),
@@ -50,10 +50,11 @@ public static class BillingEndpoints
     private static async Task<IResult> CreateCheckoutAsync(Guid organizationId,
         BillingCheckoutRequest request, ClaimsPrincipal user, HttpContext context,
         PlatformDbContext database, BillingService billing,
+        MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
-        if (IsPersonalBeta(user)) return Results.Forbid();
-        if (!await IsOwnerAsync(organizationId, user, database, cancellationToken))
+        if (HumanIdentity.IsPersonalBeta(user)) return Results.Forbid();
+        if (!await authorization.IsOwnerAsync(organizationId, user, cancellationToken))
             return OwnerFailure(user);
         if (string.IsNullOrWhiteSpace(request.OfferingCode) || request.OfferingCode.Length > 80)
             return Results.BadRequest();
@@ -73,10 +74,11 @@ public static class BillingEndpoints
 
     private static async Task<IResult> CreatePortalAsync(Guid organizationId,
         ClaimsPrincipal user, HttpContext context, PlatformDbContext database,
-        BillingService billing, CancellationToken cancellationToken)
+        BillingService billing, MembershipAuthorizationService authorization,
+        CancellationToken cancellationToken)
     {
-        if (IsPersonalBeta(user)) return Results.Forbid();
-        if (!await IsOwnerAsync(organizationId, user, database, cancellationToken))
+        if (HumanIdentity.IsPersonalBeta(user)) return Results.Forbid();
+        if (!await authorization.IsOwnerAsync(organizationId, user, cancellationToken))
             return OwnerFailure(user);
         var session = await billing.CreatePortalAsync(organizationId, cancellationToken);
         await RecordOwnerAuditAsync(database, organizationId,
@@ -132,8 +134,10 @@ public static class BillingEndpoints
         if (existing is not null) return Results.Ok();
         var receipt = new BillingEventReceipt
         {
-            Id = Guid.CreateVersion7(now), Environment = environment,
-            ProviderEventId = eventValue.Id, EventType = eventValue.Type,
+            Id = Guid.CreateVersion7(now),
+            Environment = environment,
+            ProviderEventId = eventValue.Id,
+            EventType = eventValue.Type,
             ProviderObjectId = eventValue.ObjectId,
             ProviderCreatedAt = DateTimeOffset.FromUnixTimeSeconds(eventValue.Created),
             ApiVersion = eventValue.ApiVersion,
@@ -159,7 +163,7 @@ public static class BillingEndpoints
     private static StripeEvent ParseEvent(byte[] body)
     {
         using var document = JsonDocument.Parse(body, new JsonDocumentOptions
-            { MaxDepth = 16, CommentHandling = JsonCommentHandling.Disallow });
+        { MaxDepth = 16, CommentHandling = JsonCommentHandling.Disallow });
         var root = document.RootElement;
         var id = Required(root, "id", 255);
         var type = Required(root, "type", 100);
@@ -180,21 +184,8 @@ public static class BillingEndpoints
         return value;
     }
 
-    private static async Task<bool> IsOwnerAsync(Guid organizationId, ClaimsPrincipal user,
-        PlatformDbContext database, CancellationToken cancellationToken)
-    {
-        var subject = user.FindFirstValue("sub");
-        return !string.IsNullOrWhiteSpace(subject) &&
-            await database.Memberships.AnyAsync(value =>
-                value.OrganizationId == organizationId && value.IdentitySubject == subject &&
-                value.Role == OrganizationRole.Owner, cancellationToken);
-    }
-
-    private static bool IsPersonalBeta(ClaimsPrincipal user) =>
-        user.Identities.Any(identity => identity.IsAuthenticated &&
-            identity.AuthenticationType == PersonalBetaAuthenticationHandler.SchemeName);
     private static IResult OwnerFailure(ClaimsPrincipal user) =>
-        string.IsNullOrWhiteSpace(user.FindFirstValue("sub")) ? Results.Unauthorized() :
+        HumanIdentity.Subject(user) is null ? Results.Unauthorized() :
             Results.Forbid();
 
     private static async Task RecordOwnerAuditAsync(PlatformDbContext database,
@@ -204,10 +195,15 @@ public static class BillingEndpoints
         var now = DateTimeOffset.UtcNow;
         database.CommercialAuditEvents.Add(new()
         {
-            Id = Guid.CreateVersion7(now), OrganizationId = organizationId,
-            ActorSubject = actor, Action = action, Outcome = outcome,
-            ReasonCode = reason, CorrelationId = correlationId,
-            PolicyVersion = "billing-1", OccurredAt = now
+            Id = Guid.CreateVersion7(now),
+            OrganizationId = organizationId,
+            ActorSubject = actor,
+            Action = action,
+            Outcome = outcome,
+            ReasonCode = reason,
+            CorrelationId = correlationId,
+            PolicyVersion = "billing-1",
+            OccurredAt = now
         });
         await database.SaveChangesAsync(cancellationToken);
     }

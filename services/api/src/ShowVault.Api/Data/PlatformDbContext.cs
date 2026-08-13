@@ -13,6 +13,8 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
 {
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<Membership> Memberships => Set<Membership>();
+    public DbSet<OrganizationInvitation> OrganizationInvitations => Set<OrganizationInvitation>();
+    public DbSet<AccountAuditEvent> AccountAuditEvents => Set<AccountAuditEvent>();
     public DbSet<Venue> Venues => Set<Venue>();
     public DbSet<AgentEnrollment> AgentEnrollments => Set<AgentEnrollment>();
     public DbSet<VenueAgent> VenueAgents => Set<VenueAgent>();
@@ -37,8 +39,10 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
         CancellationToken cancellationToken = default)
     {
         if (ChangeTracker.Entries<CommercialAuditEvent>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted) ||
+            ChangeTracker.Entries<AccountAuditEvent>().Any(entry =>
                 entry.State is EntityState.Modified or EntityState.Deleted))
-            throw new InvalidOperationException("Commercial audit events are append-only.");
+            throw new InvalidOperationException("Audit events are append-only.");
         return base.SaveChangesAsync(cancellationToken);
     }
 
@@ -56,11 +60,16 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
 
         modelBuilder.Entity<Membership>(entity =>
         {
-            entity.ToTable("memberships");
+            entity.ToTable("memberships", table => table.HasCheckConstraint(
+                "CK_memberships_state", "\"State\" IN ('Active', 'Suspended', 'Revoked')"));
             entity.HasKey(membership => membership.Id);
             entity.Property(membership => membership.IdentitySubject).HasMaxLength(255).IsRequired();
+            entity.Property(membership => membership.DisplayLabel).HasMaxLength(80);
             entity.Property(membership => membership.Role).HasConversion<string>().HasMaxLength(32);
+            entity.Property(membership => membership.State).HasConversion<string>().HasMaxLength(32);
             entity.Property(membership => membership.CreatedAt).IsRequired();
+            entity.Property(membership => membership.UpdatedAt).IsRequired();
+            entity.Property(membership => membership.Revision).IsConcurrencyToken();
             entity.HasIndex(membership => new
             {
                 membership.OrganizationId,
@@ -69,7 +78,60 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.HasOne<Organization>()
                 .WithMany()
                 .HasForeignKey(membership => membership.OrganizationId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<OrganizationInvitation>(entity =>
+        {
+            entity.ToTable("organization_invitations", table =>
+            {
+                table.HasCheckConstraint("CK_organization_invitations_state",
+                    "\"State\" IN ('Pending', 'Accepted', 'Revoked', 'Expired')");
+                table.HasCheckConstraint("CK_organization_invitations_role",
+                    "\"Role\" IN ('Viewer', 'Technician', 'Manager', 'Administrator')");
+            });
+            entity.HasKey(invitation => invitation.Id);
+            entity.Property(invitation => invitation.DisplayLabel).HasMaxLength(80).IsRequired();
+            entity.Property(invitation => invitation.Role).HasConversion<string>().HasMaxLength(32);
+            entity.Property(invitation => invitation.TokenDigest).HasMaxLength(32).IsRequired();
+            entity.Property(invitation => invitation.TokenKeyId).HasMaxLength(80).IsRequired();
+            entity.Property(invitation => invitation.State).HasConversion<string>().HasMaxLength(32);
+            entity.Property(invitation => invitation.CreatedBySubject).HasMaxLength(255).IsRequired();
+            entity.Property(invitation => invitation.AcceptedBySubject).HasMaxLength(255);
+            entity.Property(invitation => invitation.Revision).IsConcurrencyToken();
+            entity.HasIndex(invitation => invitation.TokenDigest).IsUnique();
+            entity.HasIndex(invitation => new
+            {
+                invitation.OrganizationId,
+                invitation.State,
+                invitation.ExpiresAt
+            });
+            entity.HasOne<Organization>().WithMany()
+                .HasForeignKey(invitation => invitation.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AccountAuditEvent>(entity =>
+        {
+            entity.ToTable("account_audit_events");
+            entity.HasKey(audit => audit.Id);
+            entity.Property(audit => audit.ActorSubject).HasMaxLength(255).IsRequired();
+            entity.Property(audit => audit.TargetEntityType).HasMaxLength(40).IsRequired();
+            entity.Property(audit => audit.Action).HasMaxLength(80).IsRequired();
+            entity.Property(audit => audit.Outcome).HasMaxLength(32).IsRequired();
+            entity.Property(audit => audit.ReasonCode).HasMaxLength(80).IsRequired();
+            entity.Property(audit => audit.CorrelationId).HasMaxLength(100).IsRequired();
+            entity.Property(audit => audit.PolicyVersion).HasMaxLength(40).IsRequired();
+            entity.HasIndex(audit => new { audit.OrganizationId, audit.Action, audit.OccurredAt });
+            entity.HasIndex(audit => new
+            {
+                audit.OrganizationId,
+                audit.TargetEntityType,
+                audit.TargetEntityId
+            });
+            entity.HasOne<Organization>().WithMany()
+                .HasForeignKey(audit => audit.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Venue>(entity =>
@@ -304,11 +366,11 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.Property(binding => binding.ProviderRevision).HasMaxLength(120);
             entity.Property(binding => binding.Revision).IsConcurrencyToken();
             entity.HasIndex(binding => new
-                { binding.Provider, binding.Environment, binding.ProviderCustomerId }).IsUnique();
+            { binding.Provider, binding.Environment, binding.ProviderCustomerId }).IsUnique();
             entity.HasIndex(binding => new
-                { binding.Provider, binding.Environment, binding.ProviderSubscriptionId }).IsUnique();
+            { binding.Provider, binding.Environment, binding.ProviderSubscriptionId }).IsUnique();
             entity.HasIndex(binding => new
-                { binding.Provider, binding.Environment, binding.InitialInvoiceId }).IsUnique();
+            { binding.Provider, binding.Environment, binding.InitialInvoiceId }).IsUnique();
             entity.HasOne<Organization>().WithOne()
                 .HasForeignKey<BillingAccountBinding>(binding => binding.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -327,7 +389,7 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.Property(attempt => attempt.Revision).IsConcurrencyToken();
             entity.HasIndex(attempt => new { attempt.OrganizationId, attempt.ActiveSlot }).IsUnique();
             entity.HasIndex(attempt => new
-                { attempt.Provider, attempt.Environment, attempt.ProviderSessionId }).IsUnique();
+            { attempt.Provider, attempt.Environment, attempt.ProviderSessionId }).IsUnique();
             entity.HasOne<Organization>().WithMany()
                 .HasForeignKey(attempt => attempt.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -348,7 +410,7 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.Property(receipt => receipt.OutcomeCode).HasMaxLength(80).IsRequired();
             entity.Property(receipt => receipt.Revision).IsConcurrencyToken();
             entity.HasIndex(receipt => new
-                { receipt.Provider, receipt.Environment, receipt.ProviderEventId }).IsUnique();
+            { receipt.Provider, receipt.Environment, receipt.ProviderEventId }).IsUnique();
             entity.HasIndex(receipt => new { receipt.State, receipt.ReceivedAt });
         });
 

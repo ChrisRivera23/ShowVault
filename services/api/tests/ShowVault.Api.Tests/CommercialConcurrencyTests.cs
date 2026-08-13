@@ -28,7 +28,8 @@ public sealed class CommercialConcurrencyTests
                 await seed.Database.EnsureCreatedAsync();
                 var now = DateTimeOffset.UtcNow;
                 seed.AddRange(organization, venue,
-                    Membership.Create(organization.Id, "owner", OrganizationRole.Owner),
+                    Membership.Create(organization.Id, "owner", OrganizationRole.Owner,
+                        DateTimeOffset.UtcNow),
                     new CommercialLicense
                     {
                         Id = Guid.NewGuid(),

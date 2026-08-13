@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using ShowVault.Api.Authorization;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
 using ShowVault.Platform.Agents;
@@ -40,10 +41,12 @@ public static class RecoveryCandidateEndpoints
         ClaimsPrincipal user,
         HttpContext context,
         PlatformDbContext database,
+        MembershipAuthorizationService authorization,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
-        if (!await HasVenueAccessAsync(database, organizationId, venueId, user, true, cancellationToken))
+        if (!await authorization.HasVenueAccessAsync(
+                organizationId, venueId, user, true, cancellationToken))
         {
             return Results.Forbid();
         }
@@ -80,9 +83,11 @@ public static class RecoveryCandidateEndpoints
         ClaimsPrincipal user,
         HttpContext context,
         PlatformDbContext database,
+        MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
-        if (!await HasVenueAccessAsync(database, organizationId, venueId, user, false, cancellationToken))
+        if (!await authorization.HasVenueAccessAsync(
+                organizationId, venueId, user, false, cancellationToken))
         {
             return Results.Forbid();
         }
@@ -107,23 +112,4 @@ public static class RecoveryCandidateEndpoints
             results, context.TraceIdentifier));
     }
 
-    private static async Task<bool> HasVenueAccessAsync(
-        PlatformDbContext database,
-        Guid organizationId,
-        Guid venueId,
-        ClaimsPrincipal user,
-        bool requireManager,
-        CancellationToken cancellationToken)
-    {
-        var subject = user.FindFirstValue("sub");
-        if (string.IsNullOrWhiteSpace(subject)) return false;
-        return await database.Memberships.AnyAsync(membership =>
-            membership.OrganizationId == organizationId &&
-            membership.IdentitySubject == subject &&
-            (!requireManager || membership.Role == ShowVault.Platform.Organizations.OrganizationRole.Manager ||
-                membership.Role == ShowVault.Platform.Organizations.OrganizationRole.Administrator ||
-                membership.Role == ShowVault.Platform.Organizations.OrganizationRole.Owner) &&
-            database.Venues.Any(venue => venue.Id == venueId && venue.OrganizationId == organizationId),
-            cancellationToken);
-    }
 }

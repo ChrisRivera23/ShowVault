@@ -300,7 +300,7 @@ public sealed class BillingTests(TenantApiFactory factory) : IClassFixture<Tenan
         var organization = Organization.Create("Billing fixture", $"billing-{Guid.NewGuid():N}");
         database.Organizations.Add(organization);
         database.Memberships.Add(Membership.Create(organization.Id, subject,
-            OrganizationRole.Owner));
+            OrganizationRole.Owner, DateTimeOffset.UtcNow));
         await database.SaveChangesAsync();
         return organization.Id;
     }

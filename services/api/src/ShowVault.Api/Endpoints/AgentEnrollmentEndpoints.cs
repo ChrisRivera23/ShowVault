@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using ShowVault.Api.Authorization;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
 using ShowVault.Api.Security;
@@ -48,17 +49,14 @@ public static class AgentEnrollmentEndpoints
         ClaimsPrincipal user,
         HttpContext context,
         PlatformDbContext database,
+        MembershipAuthorizationService authorization,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
-        var subject = user.FindFirstValue("sub");
-        if (string.IsNullOrWhiteSpace(subject) ||
-            !await CanManageVenueAsync(
-                database,
-                organizationId,
-                venueId,
-                subject,
-                cancellationToken))
+        var subject = HumanIdentity.Subject(user);
+        if (subject is null ||
+            !await authorization.HasVenueAccessAsync(
+                organizationId, venueId, user, true, cancellationToken))
         {
             return Results.Forbid();
         }
@@ -283,17 +281,12 @@ public static class AgentEnrollmentEndpoints
         Guid agentId,
         ClaimsPrincipal user,
         PlatformDbContext database,
+        MembershipAuthorizationService authorization,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
-        var subject = user.FindFirstValue("sub");
-        if (string.IsNullOrWhiteSpace(subject) ||
-            !await CanManageVenueAsync(
-                database,
-                organizationId,
-                venueId,
-                subject,
-                cancellationToken))
+        if (!await authorization.HasVenueAccessAsync(
+                organizationId, venueId, user, true, cancellationToken))
         {
             return Results.Forbid();
         }
@@ -311,23 +304,4 @@ public static class AgentEnrollmentEndpoints
         return Results.NoContent();
     }
 
-    private static Task<bool> CanManageVenueAsync(
-        PlatformDbContext database,
-        Guid organizationId,
-        Guid venueId,
-        string subject,
-        CancellationToken cancellationToken) =>
-        database.Venues
-            .Where(venue => venue.Id == venueId && venue.OrganizationId == organizationId)
-            .Join(
-                database.Memberships.Where(membership =>
-                    membership.OrganizationId == organizationId &&
-                    membership.IdentitySubject == subject),
-                venue => venue.OrganizationId,
-                membership => membership.OrganizationId,
-                (_, membership) => membership.Role)
-            .AnyAsync(role => role == OrganizationRole.Manager ||
-                role == OrganizationRole.Administrator ||
-                role == OrganizationRole.Owner,
-                cancellationToken);
 }

@@ -31,7 +31,8 @@ public sealed class OrganizationTests
         var membership = Membership.Create(
             organizationId,
             "auth0|user-123",
-            OrganizationRole.Owner);
+            OrganizationRole.Owner,
+            DateTimeOffset.Parse("2026-08-13T12:00:00Z"));
 
         Assert.Equal(organizationId, membership.OrganizationId);
         Assert.Equal("auth0|user-123", membership.IdentitySubject);

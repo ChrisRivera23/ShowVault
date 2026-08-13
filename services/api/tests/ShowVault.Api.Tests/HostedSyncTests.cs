@@ -307,7 +307,7 @@ public sealed class HostedSyncTests(TenantApiFactory factory) : IClassFixture<Te
         database.Organizations.Add(organization);
         database.Venues.Add(venue);
         database.Memberships.Add(Membership.Create(organization.Id, subject,
-            OrganizationRole.Owner));
+            OrganizationRole.Owner, DateTimeOffset.UtcNow));
         var now = DateTimeOffset.UtcNow;
         database.CommercialLicenses.Add(new CommercialLicense
         {
@@ -335,7 +335,8 @@ public sealed class HostedSyncTests(TenantApiFactory factory) : IClassFixture<Te
     {
         using var scope = factory.Services.CreateScope();
         var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
-        database.Memberships.Add(Membership.Create(organizationId, subject, role));
+        database.Memberships.Add(Membership.Create(
+            organizationId, subject, role, DateTimeOffset.UtcNow));
         await database.SaveChangesAsync();
     }
 

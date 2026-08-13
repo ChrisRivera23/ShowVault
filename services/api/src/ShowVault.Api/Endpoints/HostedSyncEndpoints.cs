@@ -3,11 +3,11 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using ShowVault.Api.Authorization;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
 using ShowVault.Api.HostedSync;
 using ShowVault.Api.Commercial;
-using ShowVault.Platform.Organizations;
 
 namespace ShowVault.Api.Endpoints;
 
@@ -33,10 +33,11 @@ public static class HostedSyncEndpoints
         Guid organizationId, Guid venueId, string recoveryPointId,
         JsonElement requestBody, ClaimsPrincipal user, HttpContext context,
         PlatformDbContext database, IHostedObjectStore store, TimeProvider timeProvider,
-        CommercialStateService commercial,
+        CommercialStateService commercial, MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
-        if (!await CanWriteAsync(database, organizationId, venueId, user, cancellationToken))
+        if (!await authorization.HasVenueAccessAsync(
+                organizationId, venueId, user, true, cancellationToken))
             return Results.Forbid();
         if (!store.IsAvailable) return Results.StatusCode(503);
         HostedSyncBeginRequest request;
@@ -89,10 +90,11 @@ public static class HostedSyncEndpoints
         Guid organizationId, Guid venueId, string recoveryPointId, Guid sessionId,
         string path, ClaimsPrincipal user, HttpContext context,
         PlatformDbContext database, IHostedObjectStore store,
+        MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
         var access = await GetSessionAsync(database, organizationId, venueId,
-            recoveryPointId, sessionId, user, cancellationToken);
+            recoveryPointId, sessionId, user, authorization, cancellationToken);
         if (access is null) return Results.Forbid();
         var manifest = ParseManifest(access.ManifestJson);
         if (!manifest.Files.Any(file => file.RelativePath == path)) return Results.BadRequest();
@@ -110,10 +112,11 @@ public static class HostedSyncEndpoints
         Guid organizationId, Guid venueId, string recoveryPointId, Guid sessionId,
         string path, long offset, HttpRequest request, ClaimsPrincipal user,
         PlatformDbContext database, IHostedObjectStore store,
+        MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
         var session = await GetSessionAsync(database, organizationId, venueId,
-            recoveryPointId, sessionId, user, cancellationToken);
+            recoveryPointId, sessionId, user, authorization, cancellationToken);
         if (session is null) return Results.Forbid();
         if (session.Status != "uploading" || offset < 0 ||
             request.ContentLength is null or < 1 or > HostedSyncValidator.MaximumChunkBytes ||
@@ -140,10 +143,11 @@ public static class HostedSyncEndpoints
         Guid organizationId, Guid venueId, string recoveryPointId, Guid sessionId,
         ClaimsPrincipal user, HttpContext context, PlatformDbContext database,
         IHostedObjectStore store, TimeProvider timeProvider, CommercialStateService commercial,
+        MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
         var session = await GetSessionAsync(database, organizationId, venueId,
-            recoveryPointId, sessionId, user, cancellationToken);
+            recoveryPointId, sessionId, user, authorization, cancellationToken);
         if (session is null) return Results.Forbid();
         if (session.Status == "completed" && session.ReceiptJson is not null)
             return ReceiptResult(session.ReceiptJson, context.TraceIdentifier);
@@ -203,9 +207,11 @@ public static class HostedSyncEndpoints
         Guid organizationId, Guid venueId, string recoveryPointId,
         ClaimsPrincipal user, HttpContext context, PlatformDbContext database,
         IHostedObjectStore store,
+        MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
-        if (!await CanWriteAsync(database, organizationId, venueId, user, cancellationToken))
+        if (!await authorization.HasVenueAccessAsync(
+                organizationId, venueId, user, true, cancellationToken))
             return Results.Forbid();
         if (!store.IsAvailable) return Results.StatusCode(503);
         var receipt = await database.HostedSyncSessions.Where(session =>
@@ -234,30 +240,16 @@ public static class HostedSyncEndpoints
     private static async Task<HostedSyncSession?> GetSessionAsync(
         PlatformDbContext database, Guid organizationId, Guid venueId,
         string recoveryPointId, Guid sessionId, ClaimsPrincipal user,
+        MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
-        if (!await CanWriteAsync(database, organizationId, venueId, user, cancellationToken))
+        if (!await authorization.HasVenueAccessAsync(
+                organizationId, venueId, user, true, cancellationToken))
             return null;
         return await database.HostedSyncSessions.SingleOrDefaultAsync(session =>
             session.Id == sessionId && session.OrganizationId == organizationId &&
             session.VenueId == venueId && session.RecoveryPointId == recoveryPointId,
             cancellationToken);
-    }
-
-    private static async Task<bool> CanWriteAsync(
-        PlatformDbContext database, Guid organizationId, Guid venueId,
-        ClaimsPrincipal user, CancellationToken cancellationToken)
-    {
-        var subject = user.FindFirstValue("sub");
-        if (string.IsNullOrWhiteSpace(subject)) return false;
-        return await database.Memberships.AnyAsync(membership =>
-            membership.OrganizationId == organizationId &&
-            membership.IdentitySubject == subject &&
-            (membership.Role == OrganizationRole.Manager ||
-             membership.Role == OrganizationRole.Administrator ||
-             membership.Role == OrganizationRole.Owner) &&
-            database.Venues.Any(venue => venue.Id == venueId &&
-                venue.OrganizationId == organizationId), cancellationToken);
     }
 
     private static async Task InitializeZeroObjectsAsync(

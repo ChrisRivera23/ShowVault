@@ -64,10 +64,30 @@ public sealed class TenantIsolationTests(TenantApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenCreate.StatusCode);
     }
 
-    private HttpClient CreateClient(string subject)
+    [Fact]
+    public async Task Personal_beta_identity_cannot_create_an_organization()
+    {
+        var slug = $"personal-beta-{Guid.NewGuid():N}";
+        using var client = CreateClient(
+            "auth0|personal-beta",
+            ShowVault.Api.Security.PersonalBetaAuthenticationHandler.SchemeName);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/organizations",
+            new CreateOrganizationRequest("Personal beta denied", slug));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        Assert.False(database.Organizations.Any(value => value.Slug == slug));
+    }
+
+    private HttpClient CreateClient(string subject, string? authenticationType = null)
     {
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-Subject", subject);
+        if (authenticationType is not null)
+            client.DefaultRequestHeaders.Add("X-Test-Authentication-Type", authenticationType);
         return client;
     }
 
@@ -78,7 +98,8 @@ public sealed class TenantIsolationTests(TenantApiFactory factory)
     {
         using var scope = factory.Services.CreateScope();
         var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
-        database.Memberships.Add(Membership.Create(organizationId, subject, role));
+        database.Memberships.Add(Membership.Create(
+            organizationId, subject, role, DateTimeOffset.UtcNow));
         await database.SaveChangesAsync();
     }
 }
