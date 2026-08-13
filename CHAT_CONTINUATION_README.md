@@ -1,49 +1,47 @@
 # ShowVault active continuation handoff
 
 Read this file, `docs/LOCAL_FIRST_PRODUCT_BIBLE.md`,
-`docs/CONTROLLED_LOCAL_RESTORE.md`, and
-`docs/LOCAL_FIRST_MILESTONE_3_IMPLEMENTATION_2026-08-13.md` completely before
+`docs/LOCAL_FIRST_MILESTONE_4_EXTRACTION.md`,
+`docs/LOCAL_FIRST_MILESTONE_4_RECONSTRUCTION_REVIEW_2026-08-13.md`, and
+`docs/LOCAL_FIRST_MILESTONE_4_PLAN_HANDOFF_2026-08-13.md` completely before
 continuing work from this branch.
 
 ## Current checkpoint — 2026-08-13
 
-- Branch: `codex/local-first-milestone-3`
-- Worktree: `/private/tmp/showvault-local-first-m3-plan/worktree`
-- Exact authorized planning foundation:
-  `2d6c3d2241b582678a6c475fffd88a3f2fa940a7`
-- Source implementation head:
-  `88a9c5bbbf2ac0fbce32811fb6c5dd6f0ff72b8b`
-- Documentation/evidence commit:
-  `e915d8b39bad2545b3abe99db2124c2c93e88f5a`
+- Branch: `codex/local-first-milestone-4-plan`
+- Worktree: `/private/tmp/showvault-local-first-m4-plan/worktree`
+- Exact completed milestone-3 base:
+  `32f1b2c74241f89b6185c90db31a9f508f61739c`
+- Milestone-4 extraction/architecture commit:
+  `270b60954ebc66cd464df3f3bbb806d95dcec044`
 - Product outcome:
-  **Open local vault → select a verified point → Restore or Cancel → verify the
-  restored copy → retain path-free local evidence**
+  **Sign in → open a local vault → synchronize verified queued recovery points
+  or Cancel → verify an immutable hosted receipt → retain durable path-free
+  status**
 
-Milestone 3 is complete locally. Restore remains signed-out/offline and
-freshly verified-point-only. The packaged .NET engine retains package and
-selected-sandbox identities, stages and hashes exact content, publishes only
-the fixed `ShowVault Restored Files` child, reverifies it, and commits durable
-path-free SQLite/evidence state before returning Restored locally. Cancellation
-is honored before publication; exact-owned rollback and reselect repair
-preserve every unknown or ambiguous entry as Restore attention.
+Milestone 4 extraction and architecture planning is complete; implementation
+has not begun. The selected historical source is exactly `f016ad1`, `5f05f44`,
+and `a7eee0d`. The contract retains verified-only resumable behavior,
+tenant/role authorization, exact-offset idempotency, independent hosted
+verification, receipt-last completion, retry, cancellation, and UI refresh.
 
-Flutter owns only the warning, independent native target picker, progress,
-Cancel, Restored locally, and Restore attention surfaces. The host accepts only
-Save, inspect, Restore, and in-process Cancel records. It exposes no network,
-upload, arbitrary output, Agent identity/enrollment/command/service lifecycle,
-application/device loading, or Recovery Confidence behavior.
-
-Validation passed: local engine 60, including synthetic packaged-host Restore;
-Flutter 26; Agent 291; contracts 22; platform 15; API 19; EF model gate;
-zero-warning local-host, Agent, and API Release builds; format, plugin drift,
-project/plist, shell, packaging-guard, path-leak, and complete-diff checks.
+It replaces the historical Dart/JSON/filesystem authorities with the current
+.NET/per-vault SQLite authority, a separate network-capable .NET sync host,
+database-backed hosted sessions/receipts, and an immutable object abstraction.
+The existing Save/inspect/Restore host remains network-free. Customer backup
+content and relative filenames require explicit manual consent; tokens are
+ephemeral; all planning evidence is synthetic. Production object storage,
+cloud operations, account/billing administration, quota enforcement, and
+native proof are deferred.
 
 ## Authorization boundary
 
-No external product-system or native action is authorized by this checkpoint.
+No implementation, external product-system, cloud, or native action is
+authorized by this checkpoint.
 Do not fetch or push Git state, create or mutate a PR, dispatch a workflow,
-retrieve artifacts, build or install a meaningful native package, use
-equipment, access personal/customer/venue data, use cloud resources,
+retrieve artifacts, modify application/API/engine code or migrations, build or
+install a meaningful native package, use equipment, access
+personal/customer/venue data, use credentials or cloud resources,
 upload/synchronize, release, deploy, or clean up destructively without new
 explicit authorization.
 
@@ -54,12 +52,12 @@ equipment, and live application/device loading remain unproven.
 
 ## Next gated decision
 
-Stop for Product Owner direction. Per the ordered roadmap, the likely next
-bounded slice is hosted synchronization and account/billing administration,
-but no extraction, design, implementation, cloud action, or external-system
-mutation is pre-authorized here. Before implementation, select one exact
-outcome, account for its historical source, write its current security/data
-contract, and obtain explicit authorization.
+Stop for Product Owner direction. The next bounded action is implementation of
+the exact milestone-4 hosted-synchronization contract, using synthetic local
+fixtures only. It requires separate explicit implementation authorization.
+
+Account, role, subscription, quota, and billing administration remains a later
+independent slice and is not part of milestone 4.
 
 The existing untracked `NEXT_CONVERSATION.md` in the user's primary worktree
 is outside this branch and was not added or changed.
