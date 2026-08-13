@@ -343,3 +343,25 @@ the replacement body is in
 No remote or PR state changed. The next bounded step is the separately
 authorized exact source/body update and dual-workflow CI wait; ready transition
 and merge remain independent gates.
+
+### Milestone 7 second-repair publication and green dual CI
+
+The Product Owner authorized the exact source/body update. The explicit lease
+held, and the candidate plus draft PR #37 advanced by strict fast-forward from
+`3f2496a` to exact second-repair product `0e00171`. The PR body was replaced
+byte-for-byte with the pinned 5,807-byte proposal. Final readback confirms the
+unchanged base/title/draft state, 57 commits, 194 files, +29,288/-296, empty
+metadata/feedback, and GitHub mergeable state `clean`.
+
+Both required workflows triggered automatically and passed at exact `0e00171`.
+Push run `31716020102` passed API job `94500821235` and Flutter job
+`94500821182`. Pull-request run `31716026186` passed API job `94500840928` and
+Flutter job `94500841026`. All four current exact-head checks are green; only
+inherited non-failing Node.js deprecation annotations remain. No workflow was
+dispatched or rerun.
+
+Exact evidence is in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_RACE2_SOURCE_UPDATE_EVIDENCE_2026-08-13.md`.
+PR #37 remains draft. The next bounded step is a separately authorized
+read-only readiness preflight; ready transition and merge remain independent
+gates.
