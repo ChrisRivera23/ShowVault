@@ -1,23 +1,19 @@
 # Roadmap
 
-## Current: Sprint 1 — Foundation
+## Current: local-first milestone 1
 
-- Repository and solution foundation
-- API configuration, logging, health checks, and error contracts
-- Flutter shell, theme, routing, and dashboard
-- PostgreSQL development environment
-- Foundational tests and CI
+- Exact-candidate, signed-out desktop Scan
+- Tenant-scoped direct-scan persistence and newest-scan semantics
+- Opaque, independently server-allowlisted candidate keys
+- Guarded loopback-only personal-beta authentication scaffolding
+- Ad hoc macOS personal-test packaging script (not signed or notarized)
 
 ## Next
 
-1. Authentication and session infrastructure
-2. Organization, venue, and workspace model
-3. Discovery contracts and immutable snapshots
-4. Backup package creation and storage abstraction
-5. Verification and Recovery Confidence Score
-6. Guided restore and recovery execution
-7. Plugin SDK and initial production plugins
-8. Internal testing, beta, and public release
+1. Milestone 2: local Save, immutable recovery points, manifests, verification evidence, and durable upload queue
+2. Milestone 3: controlled local Restore and recovery evidence
+3. Hosted synchronization and account/billing administration
+4. Separately authorized native packaging, installation, and equipment proof
 
 ## Deferred
 

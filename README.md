@@ -1,6 +1,17 @@
 # ShowVault
 
-ShowVault is a venue-resilience platform that inventories production systems, creates verified recovery packages, and proves that critical show infrastructure can be restored.
+ShowVault is a local-first venue-resilience platform built around **Scan → Backup → Verify → Restore**.
+
+The current customer desktop outcome is intentionally small:
+
+> Install → Scan this computer → Sign in for cloud service
+
+Milestone 1 scans only exact catalog-defined locations for Resolume Arena and
+Serato DJ Pro on macOS and Windows. Exact paths stay transient in application
+memory; only opaque allowlisted candidate keys may be sent to the tenant-scoped
+API. A detection means only **detected**. It is not approval, protection,
+verification, backup, or recoverability evidence. The customer flow does not
+install or enroll a Venue Agent.
 
 The first product promise is intentionally focused:
 
@@ -8,7 +19,10 @@ The first product promise is intentionally focused:
 
 ## Current status
 
-ShowVault is in Sprint 1: Architecture and Foundation.
+ShowVault has completed the bounded local-first milestone-1 source
+reconstruction on top of the repaired foundation. Native packaging,
+installation, signing, protocol activation, and real-equipment proof remain
+separate gates and are not claimed here.
 
 Completed:
 
