@@ -100,6 +100,80 @@ class ShowVaultApi {
     return OrganizationPlan.fromJson(body['payload']! as Map<String, Object?>);
   }
 
+  Future<BillingOffering?> loadBillingOffering({
+    required String accessToken,
+    required String organizationId,
+  }) async {
+    final response = await _authorized(
+      'GET',
+      '/api/v1/organizations/$organizationId/billing/offering',
+      accessToken,
+    );
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    final payload = body['payload'];
+    return payload is Map<String, Object?>
+        ? BillingOffering.fromJson(payload)
+        : null;
+  }
+
+  Future<BillingHostedSession> createCheckoutSession({
+    required String accessToken,
+    required String organizationId,
+    required String offeringCode,
+  }) async {
+    final response = await _authorized(
+      'POST',
+      '/api/v1/organizations/$organizationId/billing/checkout-sessions',
+      accessToken,
+      body: {'offeringCode': offeringCode},
+    );
+    return _billingSession(response);
+  }
+
+  Future<BillingHostedSession> createPortalSession({
+    required String accessToken,
+    required String organizationId,
+  }) async => _billingSession(
+    await _authorized(
+      'POST',
+      '/api/v1/organizations/$organizationId/billing/portal-sessions',
+      accessToken,
+    ),
+  );
+
+  Future<http.Response> _authorized(
+    String method,
+    String path,
+    String accessToken, {
+    Map<String, Object?>? body,
+  }) async {
+    if (accessToken.trim().isEmpty) {
+      throw ArgumentError('An access token is required.');
+    }
+    final headers = <String, String>{
+      'Authorization': 'Bearer $accessToken',
+      if (body != null) 'Content-Type': 'application/json',
+    };
+    final response = method == 'GET'
+        ? await _client.get(_baseUri.resolve(path), headers: headers)
+        : await _client.post(
+            _baseUri.resolve(path),
+            headers: headers,
+            body: body == null ? null : jsonEncode(body),
+          );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    return response;
+  }
+
+  static BillingHostedSession _billingSession(http.Response response) {
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    return BillingHostedSession.fromJson(
+      body['payload']! as Map<String, Object?>,
+    );
+  }
+
   Future<int> submitComputerScan({
     required String accessToken,
     required RecoveryHistory history,
@@ -169,6 +243,44 @@ class ShowVaultApi {
     }
     return uri;
   }
+}
+
+class BillingOffering {
+  const BillingOffering({
+    required this.code,
+    required this.displayName,
+    required this.hasBillingAccount,
+  });
+
+  factory BillingOffering.fromJson(Map<String, Object?> json) =>
+      BillingOffering(
+        code: json['code']! as String,
+        displayName: json['displayName']! as String,
+        hasBillingAccount: json['hasBillingAccount']! as bool,
+      );
+
+  final String code;
+  final String displayName;
+  final bool hasBillingAccount;
+}
+
+class BillingHostedSession {
+  const BillingHostedSession({
+    required this.url,
+    required this.expiresAt,
+    required this.status,
+  });
+
+  factory BillingHostedSession.fromJson(Map<String, Object?> json) =>
+      BillingHostedSession(
+        url: Uri.parse(json['url']! as String),
+        expiresAt: DateTime.parse(json['expiresAt']! as String),
+        status: json['status']! as String,
+      );
+
+  final Uri url;
+  final DateTime expiresAt;
+  final String status;
 }
 
 class OrganizationPlan {

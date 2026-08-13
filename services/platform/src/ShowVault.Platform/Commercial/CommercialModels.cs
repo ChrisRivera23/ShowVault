@@ -10,9 +10,11 @@ public enum CommercialLicenseState
 
 public enum ServiceSubscriptionState
 {
+    Incomplete,
     Trialing,
     Active,
     PastDue,
+    Unpaid,
     Paused,
     Canceled
 }

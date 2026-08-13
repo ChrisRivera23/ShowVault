@@ -69,6 +69,39 @@ void main() {
     expect(plan.eligible, isTrue);
   });
 
+  test('requests hosted billing with only the internal offering code', () async {
+    late http.Request captured;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(
+          '{"payload":{"attemptId":"01900000-0000-7000-8000-000000000001",'
+          '"url":"https://checkout.stripe.test/session/fixture",'
+          '"expiresAt":"2026-08-13T12:30:00Z","status":"payment_processing"}}',
+          200,
+        );
+      }),
+      baseUrl: 'https://api.showvault.test',
+    );
+
+    final session = await api.createCheckoutSession(
+      accessToken: 'access-token',
+      organizationId: 'org-id',
+      offeringCode: 'showvault-standard',
+    );
+
+    expect(captured.method, 'POST');
+    expect(
+      captured.url.path,
+      '/api/v1/organizations/org-id/billing/checkout-sessions',
+    );
+    expect(jsonDecode(captured.body), {'offeringCode': 'showvault-standard'});
+    expect(captured.body, isNot(contains('price_')));
+    expect(captured.body, isNot(contains('customer')));
+    expect(session.url.scheme, 'https');
+    expect(session.status, 'payment_processing');
+  });
+
   test('rejects an insecure API origin before sending an access token', () {
     var requestSent = false;
     final client = MockClient((request) async {

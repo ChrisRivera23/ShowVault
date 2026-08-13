@@ -46,6 +46,27 @@ class _OwnerApi extends ShowVaultApi {
     eligible: true,
     reasonCode: 'eligible',
   );
+
+  @override
+  Future<BillingOffering?> loadBillingOffering({
+    required String accessToken,
+    required String organizationId,
+  }) async => const BillingOffering(
+    code: 'showvault-standard',
+    displayName: 'ShowVault standard',
+    hasBillingAccount: false,
+  );
+
+  @override
+  Future<BillingHostedSession> createCheckoutSession({
+    required String accessToken,
+    required String organizationId,
+    required String offeringCode,
+  }) async => BillingHostedSession(
+    url: Uri.parse('https://checkout.stripe.test/session/fixture'),
+    expiresAt: DateTime.utc(2026, 8, 13, 12, 30),
+    status: 'payment_processing',
+  );
 }
 
 class _ManagerApi extends _OwnerApi {
@@ -98,8 +119,36 @@ void main() {
     expect(find.text('512 B'), findsOneWidget);
     expect(find.text('100.0 MiB'), findsOneWidget);
     expect(find.text('Hosted synchronization eligible'), findsOneWidget);
-    expect(find.textContaining('payment'), findsNothing);
     expect(find.textContaining('invoice'), findsNothing);
+  });
+
+  testWidgets('owner opens only the server-returned HTTPS checkout session', (
+    tester,
+  ) async {
+    Uri? opened;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(_SignedInOwner()),
+          showVaultApiProvider.overrideWithValue(_OwnerApi()),
+          hostedBillingUrlOpenerProvider.overrideWithValue((url) async {
+            opened = url;
+            return true;
+          }),
+        ],
+        child: const MaterialApp(home: Scaffold(body: PlanStorageScreen())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Continue to secure checkout'));
+    await tester.pumpAndSettle();
+
+    expect(opened, Uri.parse('https://checkout.stripe.test/session/fixture'));
+    expect(
+      find.text('Payment processing—refresh plan status after checkout.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('manager does not request or see commercial details', (

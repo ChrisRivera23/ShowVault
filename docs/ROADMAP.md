@@ -18,12 +18,16 @@
 - Milestone 5 provider-independent license/subscription projection, Owner-only
   plan/storage view, atomic organization-wide hosted-sync quota reservation,
   exactly-once usage accounting, and minimized audit evidence
+- Milestone 6 local provider-billing contract: Owner-only hosted Checkout and
+  Portal session seams, durable idempotent purchase attempts, exact raw-body
+  signed event inbox, current-state reconciliation, refund/dispute attention,
+  normalized projections, and Flutter Plan-and-storage actions; production
+  provider/catalog remain disabled
 
 ## Next
 
-1. Milestone 6 Stripe-hosted Checkout/Billing Portal and signed reconciled
-   commercial projection (extraction and architecture complete;
-   implementation separately gated)
+1. Separately authorized Stripe sandbox/account configuration and operational
+   proof for the disabled Milestone 6 provider seam
 2. ShowVault-owned customer account portal, membership/invitation lifecycle,
    role administration, and internal support administration
 3. Production hosted-object provider, retention, migration, and operational

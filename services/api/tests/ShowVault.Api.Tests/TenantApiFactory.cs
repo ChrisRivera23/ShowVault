@@ -11,11 +11,14 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ShowVault.Api.Data;
+using ShowVault.Api.Billing;
+using ShowVault.Platform.Billing;
 
 namespace ShowVault.Api.Tests;
 
 public sealed class TenantApiFactory : WebApplicationFactory<Program>
 {
+    public SyntheticBillingProvider BillingProvider { get; } = new();
     private readonly SqliteConnection _connection = new(
         $"Data Source=showvault-{Guid.NewGuid():N};Mode=Memory;Cache=Shared;Default Timeout=30");
 
@@ -29,6 +32,22 @@ public sealed class TenantApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IDbContextOptionsConfiguration<PlatformDbContext>>();
             services.AddDbContext<PlatformDbContext>(options =>
                 options.UseSqlite(_connection.ConnectionString));
+            services.RemoveAll<IBillingProvider>();
+            services.RemoveAll<IBillingOfferingCatalog>();
+            services.AddSingleton<IBillingProvider>(BillingProvider);
+            services.AddSingleton<IBillingOfferingCatalog, TestBillingOfferingCatalog>();
+            services.PostConfigure<BillingOptions>(options =>
+            {
+                options.Environment = BillingProviderEnvironment.Sandbox;
+                options.ReturnOrigin = "https://account.showvault.test/";
+                options.ProviderApiVersion = "2026-07-01.fixture";
+                options.CheckoutLifetimeMinutes = 30;
+            });
+            services.PostConfigure<StripeWebhookOptions>(options =>
+            {
+                options.EndpointSecrets = ["whsec_local_fixture_only"];
+                options.TimestampToleranceSeconds = 300;
+            });
 
             services.AddAuthentication(options =>
             {
@@ -57,6 +76,55 @@ public sealed class TenantApiFactory : WebApplicationFactory<Program>
     }
 }
 
+public sealed class TestBillingOfferingCatalog : IBillingOfferingCatalog
+{
+    public static BillingOffering Offering { get; } = new(
+        "showvault-standard", "ShowVault standard", "synthetic.standard",
+        "showvault.perpetual", "price_recurring_fixture", "price_license_fixture",
+        "billing-fixture-1");
+    public BillingOffering? Find(string code) => code == Offering.Code ? Offering : null;
+    public BillingOffering? Current => Offering;
+}
+
+public sealed class SyntheticBillingProvider : IBillingProvider
+{
+    private readonly object _gate = new();
+    private readonly Dictionary<string, BillingHostedSession> _checkout = [];
+    public bool IsAvailable => true;
+    public int CheckoutCreationCount { get; private set; }
+    public int PortalCreationCount { get; private set; }
+    public BillingProviderSnapshot? Snapshot { get; set; }
+
+    public Task<BillingHostedSession> CreateCheckoutAsync(BillingCheckoutCommand command,
+        string idempotencyKey, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            if (_checkout.TryGetValue(idempotencyKey, out var existing))
+                return Task.FromResult(existing);
+            CheckoutCreationCount++;
+            var session = new BillingHostedSession("cs_test_" + command.AttemptId.ToString("N"),
+                new Uri("https://checkout.stripe.test/session/" + command.AttemptId.ToString("N")),
+                DateTimeOffset.UtcNow.AddMinutes(30));
+            _checkout[idempotencyKey] = session;
+            return Task.FromResult(session);
+        }
+    }
+
+    public Task<BillingHostedSession> CreatePortalAsync(string customerId, Uri returnUrl,
+        CancellationToken cancellationToken)
+    {
+        PortalCreationCount++;
+        return Task.FromResult(new BillingHostedSession("bps_test_fixture",
+            new Uri("https://billing.stripe.test/session/fixture"),
+            DateTimeOffset.UtcNow.AddMinutes(5)));
+    }
+
+    public Task<BillingProviderSnapshot?> RetrieveCurrentStateAsync(string eventType,
+        string providerObjectId, CancellationToken cancellationToken) =>
+        Task.FromResult(Snapshot);
+}
+
 internal sealed class TestAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
@@ -73,9 +141,12 @@ internal sealed class TestAuthenticationHandler(
             return Task.FromResult(AuthenticateResult.NoResult());
         }
 
+        var authenticationType = Request.Headers.TryGetValue("X-Test-Authentication-Type",
+            out var requestedType) && !string.IsNullOrWhiteSpace(requestedType)
+            ? requestedType.ToString() : SchemeName;
         var identity = new ClaimsIdentity(
             [new Claim("sub", subject.ToString())],
-            SchemeName);
+            authenticationType);
         var ticket = new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName);
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }

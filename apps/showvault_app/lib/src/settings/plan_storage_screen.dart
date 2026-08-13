@@ -3,6 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:showvault_app/src/api/showvault_api.dart';
 import 'package:showvault_app/src/auth/auth_provider.dart';
 import 'package:showvault_app/src/recovery/recovery_history_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+typedef HostedBillingUrlOpener = Future<bool> Function(Uri url);
+
+final hostedBillingUrlOpenerProvider = Provider<HostedBillingUrlOpener>(
+  (_) =>
+      (url) => launchUrl(url, mode: LaunchMode.externalApplication),
+);
 
 final organizationPlanProvider = FutureProvider<OrganizationPlan?>((ref) async {
   final session = ref.watch(authSessionProvider).valueOrNull;
@@ -14,6 +22,21 @@ final organizationPlanProvider = FutureProvider<OrganizationPlan?>((ref) async {
   return ref
       .watch(showVaultApiProvider)
       .loadOrganizationPlan(
+        accessToken: session.accessToken,
+        organizationId: history.organizationId,
+      );
+});
+
+final billingOfferingProvider = FutureProvider<BillingOffering?>((ref) async {
+  final session = ref.watch(authSessionProvider).valueOrNull;
+  if (session == null) return null;
+  final history = await ref.watch(recoveryHistoryProvider.future);
+  if (history.organizationRole != 'owner' || history.organizationId.isEmpty) {
+    return null;
+  }
+  return ref
+      .watch(showVaultApiProvider)
+      .loadBillingOffering(
         accessToken: session.accessToken,
         organizationId: history.organizationId,
       );
@@ -67,6 +90,8 @@ class PlanStorageScreen extends ConsumerWidget {
                         )
                       : _PlanView(
                           organizationName: history.organizationName,
+                          organizationId: history.organizationId,
+                          accessToken: session.accessToken,
                           plan: plan,
                         ),
                 );
@@ -75,11 +100,26 @@ class PlanStorageScreen extends ConsumerWidget {
   }
 }
 
-class _PlanView extends StatelessWidget {
-  const _PlanView({required this.organizationName, required this.plan});
+class _PlanView extends ConsumerStatefulWidget {
+  const _PlanView({
+    required this.organizationName,
+    required this.organizationId,
+    required this.accessToken,
+    required this.plan,
+  });
 
   final String organizationName;
+  final String organizationId;
+  final String accessToken;
   final OrganizationPlan plan;
+
+  @override
+  ConsumerState<_PlanView> createState() => _PlanViewState();
+}
+
+class _PlanViewState extends ConsumerState<_PlanView> {
+  bool _busy = false;
+  String? _message;
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
@@ -96,7 +136,7 @@ class _PlanView extends StatelessWidget {
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 4),
-            Text(organizationName),
+            Text(widget.organizationName),
             const SizedBox(height: 20),
             Card(
               child: Padding(
@@ -106,54 +146,100 @@ class _PlanView extends StatelessWidget {
                   children: [
                     _Value(
                       label: 'Plan',
-                      value: plan.planCode ?? 'Not assigned',
+                      value: widget.plan.planCode ?? 'Not assigned',
                     ),
-                    _Value(label: 'License', value: _words(plan.licenseStatus)),
+                    _Value(
+                      label: 'License',
+                      value: _words(widget.plan.licenseStatus),
+                    ),
                     _Value(
                       label: 'Subscription',
-                      value: _words(plan.subscriptionStatus),
+                      value: _words(widget.plan.subscriptionStatus),
                     ),
-                    if (plan.graceEndsAt != null)
+                    if (widget.plan.graceEndsAt != null)
                       _Value(
                         label: 'Grace ends',
-                        value: _date(plan.graceEndsAt!),
+                        value: _date(widget.plan.graceEndsAt!),
                       )
-                    else if (plan.currentPeriodEndsAt != null)
+                    else if (widget.plan.currentPeriodEndsAt != null)
                       _Value(
                         label: 'Current period ends',
-                        value: _date(plan.currentPeriodEndsAt!),
+                        value: _date(widget.plan.currentPeriodEndsAt!),
                       ),
                     const Divider(height: 28),
                     _Value(
                       label: 'Committed storage',
-                      value: _bytes(plan.committedBytes),
+                      value: _bytes(widget.plan.committedBytes),
                     ),
                     _Value(
                       label: 'Reserved uploads',
-                      value: _bytes(plan.reservedBytes),
+                      value: _bytes(widget.plan.reservedBytes),
                     ),
                     _Value(
                       label: 'Storage limit',
-                      value: _bytes(plan.logicalStorageLimitBytes),
+                      value: _bytes(widget.plan.logicalStorageLimitBytes),
                     ),
                     const SizedBox(height: 12),
                     Semantics(
-                      label: plan.eligible
+                      label: widget.plan.eligible
                           ? 'Hosted synchronization eligible'
                           : 'Hosted synchronization needs attention',
                       child: Chip(
                         avatar: Icon(
-                          plan.eligible
+                          widget.plan.eligible
                               ? Icons.check_circle_outline
                               : Icons.info_outline,
                         ),
                         label: Text(
-                          plan.eligible
+                          widget.plan.eligible
                               ? 'Hosted synchronization eligible'
                               : 'Plan attention required',
                         ),
                       ),
                     ),
+                    const SizedBox(height: 20),
+                    ref
+                        .watch(billingOfferingProvider)
+                        .when(
+                          loading: () => const LinearProgressIndicator(),
+                          error: (_, _) => const Text(
+                            'Secure billing actions are unavailable.',
+                          ),
+                          data: (offering) => offering == null
+                              ? const Text(
+                                  'Secure billing actions are unavailable.',
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      offering.hasBillingAccount
+                                          ? 'Billing is managed securely by Stripe.'
+                                          : '${offering.displayName}. Price and payment details are shown in secure checkout.',
+                                    ),
+                                    const SizedBox(height: 12),
+                                    FilledButton.icon(
+                                      onPressed: _busy
+                                          ? null
+                                          : () => _openBilling(offering),
+                                      icon: Icon(
+                                        offering.hasBillingAccount
+                                            ? Icons.open_in_new
+                                            : Icons.lock_outline,
+                                      ),
+                                      label: Text(
+                                        offering.hasBillingAccount
+                                            ? 'Manage billing'
+                                            : 'Continue to secure checkout',
+                                      ),
+                                    ),
+                                    if (_message != null) ...[
+                                      const SizedBox(height: 12),
+                                      Text(_message!),
+                                    ],
+                                  ],
+                                ),
+                        ),
                   ],
                 ),
               ),
@@ -163,6 +249,37 @@ class _PlanView extends StatelessWidget {
       ),
     ),
   );
+
+  Future<void> _openBilling(BillingOffering offering) async {
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      final api = ref.read(showVaultApiProvider);
+      final session = offering.hasBillingAccount
+          ? await api.createPortalSession(
+              accessToken: widget.accessToken,
+              organizationId: widget.organizationId,
+            )
+          : await api.createCheckoutSession(
+              accessToken: widget.accessToken,
+              organizationId: widget.organizationId,
+              offeringCode: offering.code,
+            );
+      if (session.url.scheme != 'https' ||
+          !await ref.read(hostedBillingUrlOpenerProvider)(session.url)) {
+        throw StateError('The secure billing page could not be opened.');
+      }
+      if (!offering.hasBillingAccount) {
+        _message = 'Payment processing—refresh plan status after checkout.';
+      }
+    } catch (_) {
+      _message = 'The secure billing page could not be opened safely.';
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   static String _words(String value) => value.replaceAll('_', ' ');
   static String _date(DateTime value) =>

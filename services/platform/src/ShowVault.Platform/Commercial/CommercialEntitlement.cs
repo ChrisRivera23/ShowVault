@@ -11,6 +11,7 @@ public static class CommercialReasonCodes
     public const string PlanUnsupported = "plan_unsupported";
     public const string StateInconsistent = "state_inconsistent";
     public const string QuotaExceeded = "quota_exceeded";
+    public const string BillingAttention = "billing_attention";
 }
 
 public sealed record CommercialPlanPolicy(

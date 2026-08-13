@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ShowVault.Api.Data;
@@ -11,9 +12,11 @@ using ShowVault.Api.Data;
 namespace ShowVault.Api.Data.Migrations
 {
     [DbContext(typeof(PlatformDbContext))]
-    partial class PlatformDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260813071436_AddProviderBilling")]
+    partial class AddProviderBilling
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -372,9 +375,6 @@ namespace ShowVault.Api.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("OrganizationId");
-
-                    b.HasIndex("Provider", "Environment", "InitialInvoiceId")
-                        .IsUnique();
 
                     b.HasIndex("Provider", "Environment", "ProviderCustomerId")
                         .IsUnique();

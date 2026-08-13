@@ -8,10 +8,13 @@
 
 #include <auth0_flutter/auth0_flutter_plugin_c_api.h>
 #include <file_selector_windows/file_selector_windows.h>
+#include <url_launcher_windows/url_launcher_windows.h>
 
 void RegisterPlugins(flutter::PluginRegistry* registry) {
   Auth0FlutterPluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("Auth0FlutterPluginCApi"));
   FileSelectorWindowsRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("FileSelectorWindows"));
+  UrlLauncherWindowsRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("UrlLauncherWindows"));
 }

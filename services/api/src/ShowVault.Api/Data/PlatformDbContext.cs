@@ -4,6 +4,7 @@ using ShowVault.Platform.Organizations;
 using ShowVault.Platform.Venues;
 using ShowVault.Api.HostedSync;
 using ShowVault.Platform.Commercial;
+using ShowVault.Platform.Billing;
 
 namespace ShowVault.Api.Data;
 
@@ -27,6 +28,10 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
         Set<OrganizationStorageUsage>();
     public DbSet<HostedSyncReservation> HostedSyncReservations => Set<HostedSyncReservation>();
     public DbSet<CommercialAuditEvent> CommercialAuditEvents => Set<CommercialAuditEvent>();
+    public DbSet<BillingAccountBinding> BillingAccountBindings => Set<BillingAccountBinding>();
+    public DbSet<BillingPurchaseAttempt> BillingPurchaseAttempts => Set<BillingPurchaseAttempt>();
+    public DbSet<BillingEventReceipt> BillingEventReceipts => Set<BillingEventReceipt>();
+    public DbSet<BillingAttention> BillingAttentions => Set<BillingAttention>();
 
     public override Task<int> SaveChangesAsync(
         CancellationToken cancellationToken = default)
@@ -283,6 +288,79 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.HasIndex(audit => new { audit.OrganizationId, audit.OccurredAt });
             entity.HasOne<Organization>().WithMany()
                 .HasForeignKey(audit => audit.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<BillingAccountBinding>(entity =>
+        {
+            entity.ToTable("billing_account_bindings");
+            entity.HasKey(binding => binding.OrganizationId);
+            entity.Property(binding => binding.Provider).HasMaxLength(32).IsRequired();
+            entity.Property(binding => binding.Environment).HasConversion<string>().HasMaxLength(16);
+            entity.Property(binding => binding.ProviderCustomerId).HasMaxLength(255).IsRequired();
+            entity.Property(binding => binding.ProviderSubscriptionId).HasMaxLength(255);
+            entity.Property(binding => binding.InitialInvoiceId).HasMaxLength(255);
+            entity.Property(binding => binding.OfferingCode).HasMaxLength(80).IsRequired();
+            entity.Property(binding => binding.ProviderRevision).HasMaxLength(120);
+            entity.Property(binding => binding.Revision).IsConcurrencyToken();
+            entity.HasIndex(binding => new
+                { binding.Provider, binding.Environment, binding.ProviderCustomerId }).IsUnique();
+            entity.HasIndex(binding => new
+                { binding.Provider, binding.Environment, binding.ProviderSubscriptionId }).IsUnique();
+            entity.HasIndex(binding => new
+                { binding.Provider, binding.Environment, binding.InitialInvoiceId }).IsUnique();
+            entity.HasOne<Organization>().WithOne()
+                .HasForeignKey<BillingAccountBinding>(binding => binding.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<BillingPurchaseAttempt>(entity =>
+        {
+            entity.ToTable("billing_purchase_attempts");
+            entity.HasKey(attempt => attempt.Id);
+            entity.Property(attempt => attempt.Provider).HasMaxLength(32).IsRequired();
+            entity.Property(attempt => attempt.Environment).HasConversion<string>().HasMaxLength(16);
+            entity.Property(attempt => attempt.OfferingCode).HasMaxLength(80).IsRequired();
+            entity.Property(attempt => attempt.State).HasConversion<string>().HasMaxLength(32);
+            entity.Property(attempt => attempt.ActiveSlot).HasMaxLength(16);
+            entity.Property(attempt => attempt.ProviderSessionId).HasMaxLength(255);
+            entity.Property(attempt => attempt.Revision).IsConcurrencyToken();
+            entity.HasIndex(attempt => new { attempt.OrganizationId, attempt.ActiveSlot }).IsUnique();
+            entity.HasIndex(attempt => new
+                { attempt.Provider, attempt.Environment, attempt.ProviderSessionId }).IsUnique();
+            entity.HasOne<Organization>().WithMany()
+                .HasForeignKey(attempt => attempt.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<BillingEventReceipt>(entity =>
+        {
+            entity.ToTable("billing_event_receipts");
+            entity.HasKey(receipt => receipt.Id);
+            entity.Property(receipt => receipt.Provider).HasMaxLength(32).IsRequired();
+            entity.Property(receipt => receipt.Environment).HasConversion<string>().HasMaxLength(16);
+            entity.Property(receipt => receipt.ProviderEventId).HasMaxLength(255).IsRequired();
+            entity.Property(receipt => receipt.EventType).HasMaxLength(100).IsRequired();
+            entity.Property(receipt => receipt.ProviderObjectId).HasMaxLength(255).IsRequired();
+            entity.Property(receipt => receipt.ApiVersion).HasMaxLength(40);
+            entity.Property(receipt => receipt.PayloadSha256).HasMaxLength(64).IsRequired();
+            entity.Property(receipt => receipt.State).HasConversion<string>().HasMaxLength(32);
+            entity.Property(receipt => receipt.OutcomeCode).HasMaxLength(80).IsRequired();
+            entity.Property(receipt => receipt.Revision).IsConcurrencyToken();
+            entity.HasIndex(receipt => new
+                { receipt.Provider, receipt.Environment, receipt.ProviderEventId }).IsUnique();
+            entity.HasIndex(receipt => new { receipt.State, receipt.ReceivedAt });
+        });
+
+        modelBuilder.Entity<BillingAttention>(entity =>
+        {
+            entity.ToTable("billing_attentions");
+            entity.HasKey(attention => attention.Id);
+            entity.Property(attention => attention.ReasonCode).HasMaxLength(80).IsRequired();
+            entity.Property(attention => attention.Revision).IsConcurrencyToken();
+            entity.HasIndex(attention => new { attention.OrganizationId, attention.ResolvedAt });
+            entity.HasOne<Organization>().WithMany()
+                .HasForeignKey(attention => attention.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

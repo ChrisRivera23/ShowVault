@@ -51,6 +51,11 @@ public sealed class CommercialStateService(
                 cancellationToken);
         var entitlement = CommercialEntitlementEvaluator.Evaluate(
             license, subscription, timeProvider.GetUtcNow(), policies);
+        if (await database.BillingAttentions.AsNoTracking().AnyAsync(value =>
+                value.OrganizationId == organizationId && value.ResolvedAt == null,
+                cancellationToken))
+            entitlement = new(false, CommercialReasonCodes.BillingAttention,
+                entitlement.Policy);
         return new(
             subscription?.PlanCode,
             LicenseStatus(license?.State),
@@ -91,6 +96,11 @@ public sealed class CommercialStateService(
                 value.OrganizationId == proposed.OrganizationId, cancellationToken);
             var entitlement = CommercialEntitlementEvaluator.Evaluate(
                 license, subscription, timeProvider.GetUtcNow(), policies);
+            if (await database.BillingAttentions.AsNoTracking().AnyAsync(value =>
+                    value.OrganizationId == proposed.OrganizationId &&
+                    value.ResolvedAt == null, cancellationToken))
+                entitlement = new(false, CommercialReasonCodes.BillingAttention,
+                    entitlement.Policy);
             if (!entitlement.Eligible)
             {
                 await RecordDecisionAsync(proposed.OrganizationId, actorSubject, correlationId,
@@ -226,8 +236,10 @@ public sealed class CommercialStateService(
     private static string SubscriptionStatus(ServiceSubscriptionState? value) => value switch
     {
         ServiceSubscriptionState.Trialing => "trialing",
+        ServiceSubscriptionState.Incomplete => "incomplete",
         ServiceSubscriptionState.Active => "active",
         ServiceSubscriptionState.PastDue => "past_due",
+        ServiceSubscriptionState.Unpaid => "unpaid",
         ServiceSubscriptionState.Paused => "paused",
         ServiceSubscriptionState.Canceled => "canceled",
         _ => "missing"

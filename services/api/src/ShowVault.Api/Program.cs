@@ -13,6 +13,7 @@ using ShowVault.AgentContracts;
 using ShowVault.Api.HostedSync;
 using ShowVault.Api.Commercial;
 using ShowVault.Platform.Commercial;
+using ShowVault.Api.Billing;
 
 var builder = WebApplication.CreateBuilder(args);
 var auth0Domain = builder.Configuration["Auth0:Domain"]
@@ -27,6 +28,14 @@ builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CommercialStateService>();
+builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection(BillingOptions.SectionName));
+builder.Services.Configure<StripeWebhookOptions>(builder.Configuration.GetSection(StripeWebhookOptions.SectionName));
+builder.Services.AddSingleton<IBillingProvider, DisabledBillingProvider>();
+builder.Services.AddSingleton<IBillingOfferingCatalog, DisabledBillingOfferingCatalog>();
+builder.Services.AddSingleton<IStripeWebhookSignatureVerifier, StripeWebhookSignatureVerifier>();
+builder.Services.AddScoped<BillingService>();
+builder.Services.AddScoped<BillingReconciliationService>();
+builder.Services.AddHostedService<BillingReconciliationWorker>();
 builder.Services.AddDbContext<PlatformDbContext>(options =>
     options.UseNpgsql(platformConnectionString));
 if (builder.Environment.IsDevelopment())
@@ -133,6 +142,7 @@ app.MapRecoveryHistoryEndpoints();
 app.MapRecoveryCandidateEndpoints();
 app.MapHostedSyncEndpoints();
 app.MapCommercialEndpoints();
+app.MapBillingEndpoints();
 
 app.Run();
 
