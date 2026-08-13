@@ -3,6 +3,7 @@ using ShowVault.Platform.Agents;
 using ShowVault.Platform.Organizations;
 using ShowVault.Platform.Venues;
 using ShowVault.Api.HostedSync;
+using ShowVault.Platform.Commercial;
 
 namespace ShowVault.Api.Data;
 
@@ -20,6 +21,21 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
     public DbSet<DesktopCatalogScanCandidate> DesktopCatalogScanCandidates =>
         Set<DesktopCatalogScanCandidate>();
     public DbSet<HostedSyncSession> HostedSyncSessions => Set<HostedSyncSession>();
+    public DbSet<CommercialLicense> CommercialLicenses => Set<CommercialLicense>();
+    public DbSet<ServiceSubscription> ServiceSubscriptions => Set<ServiceSubscription>();
+    public DbSet<OrganizationStorageUsage> OrganizationStorageUsages =>
+        Set<OrganizationStorageUsage>();
+    public DbSet<HostedSyncReservation> HostedSyncReservations => Set<HostedSyncReservation>();
+    public DbSet<CommercialAuditEvent> CommercialAuditEvents => Set<CommercialAuditEvent>();
+
+    public override Task<int> SaveChangesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (ChangeTracker.Entries<CommercialAuditEvent>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("Commercial audit events are append-only.");
+        return base.SaveChangesAsync(cancellationToken);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -168,11 +184,14 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
 
         modelBuilder.Entity<HostedSyncSession>(entity =>
         {
-            entity.ToTable("hosted_sync_sessions");
+            entity.ToTable("hosted_sync_sessions", table => table.HasCheckConstraint(
+                "CK_hosted_sync_sessions_manifest_total_bytes",
+                "\"ManifestTotalBytes\" >= 0"));
             entity.HasKey(session => session.Id);
             entity.Property(session => session.RecoveryPointId).HasMaxLength(64).IsRequired();
             entity.Property(session => session.ManifestDigest).HasMaxLength(64).IsRequired();
             entity.Property(session => session.ManifestJson).HasColumnType("jsonb").IsRequired();
+            entity.Property(session => session.ManifestTotalBytes).IsRequired();
             entity.Property(session => session.Status).HasMaxLength(32).IsRequired();
             entity.Property(session => session.ReceiptJson).HasColumnType("jsonb");
             entity.Property(session => session.Revision).IsConcurrencyToken();
@@ -187,6 +206,83 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<Venue>().WithMany()
                 .HasForeignKey(session => session.VenueId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<CommercialLicense>(entity =>
+        {
+            entity.ToTable("commercial_licenses");
+            entity.HasKey(license => license.Id);
+            entity.Property(license => license.LicenseTypeCode).HasMaxLength(80).IsRequired();
+            entity.Property(license => license.State).HasConversion<string>().HasMaxLength(32);
+            entity.Property(license => license.Revision).IsConcurrencyToken();
+            entity.HasIndex(license => license.OrganizationId).IsUnique();
+            entity.HasOne<Organization>().WithMany()
+                .HasForeignKey(license => license.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ServiceSubscription>(entity =>
+        {
+            entity.ToTable("service_subscriptions");
+            entity.HasKey(subscription => subscription.Id);
+            entity.Property(subscription => subscription.PlanCode).HasMaxLength(80).IsRequired();
+            entity.Property(subscription => subscription.State).HasConversion<string>()
+                .HasMaxLength(32);
+            entity.Property(subscription => subscription.Revision).IsConcurrencyToken();
+            entity.HasIndex(subscription => subscription.OrganizationId).IsUnique();
+            entity.HasOne<Organization>().WithMany()
+                .HasForeignKey(subscription => subscription.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<OrganizationStorageUsage>(entity =>
+        {
+            entity.ToTable("organization_storage_usage", table =>
+            {
+                table.HasCheckConstraint("CK_organization_storage_usage_committed_bytes",
+                    "\"CommittedBytes\" >= 0");
+                table.HasCheckConstraint("CK_organization_storage_usage_reserved_bytes",
+                    "\"ReservedBytes\" >= 0");
+            });
+            entity.HasKey(usage => usage.OrganizationId);
+            entity.Property(usage => usage.Revision).IsConcurrencyToken();
+            entity.HasOne<Organization>().WithMany()
+                .HasForeignKey(usage => usage.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<HostedSyncReservation>(entity =>
+        {
+            entity.ToTable("hosted_sync_reservations", table => table.HasCheckConstraint(
+                "CK_hosted_sync_reservations_logical_bytes", "\"LogicalBytes\" >= 0"));
+            entity.HasKey(reservation => reservation.HostedSyncSessionId);
+            entity.Property(reservation => reservation.State).HasConversion<string>()
+                .HasMaxLength(32);
+            entity.Property(reservation => reservation.Revision).IsConcurrencyToken();
+            entity.HasIndex(reservation => reservation.OrganizationId);
+            entity.HasOne<HostedSyncSession>().WithOne()
+                .HasForeignKey<HostedSyncReservation>(reservation =>
+                    reservation.HostedSyncSessionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<Organization>().WithMany()
+                .HasForeignKey(reservation => reservation.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<CommercialAuditEvent>(entity =>
+        {
+            entity.ToTable("commercial_audit_events");
+            entity.HasKey(audit => audit.Id);
+            entity.Property(audit => audit.ActorSubject).HasMaxLength(255);
+            entity.Property(audit => audit.Action).HasMaxLength(80).IsRequired();
+            entity.Property(audit => audit.Outcome).HasMaxLength(32).IsRequired();
+            entity.Property(audit => audit.ReasonCode).HasMaxLength(80).IsRequired();
+            entity.Property(audit => audit.CorrelationId).HasMaxLength(100).IsRequired();
+            entity.Property(audit => audit.PolicyVersion).HasMaxLength(80).IsRequired();
+            entity.HasIndex(audit => new { audit.OrganizationId, audit.OccurredAt });
+            entity.HasOne<Organization>().WithMany()
+                .HasForeignKey(audit => audit.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

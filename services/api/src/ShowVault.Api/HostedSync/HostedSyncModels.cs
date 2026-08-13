@@ -53,6 +53,7 @@ public sealed class HostedSyncSession
     public string RecoveryPointId { get; set; } = "";
     public string ManifestDigest { get; set; } = "";
     public string ManifestJson { get; set; } = "";
+    public long ManifestTotalBytes { get; set; }
     public string Status { get; set; } = "uploading";
     public string? ReceiptJson { get; set; }
     public DateTimeOffset CreatedAt { get; set; }

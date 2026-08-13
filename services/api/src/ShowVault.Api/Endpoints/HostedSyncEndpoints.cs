@@ -1,10 +1,12 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
 using ShowVault.Api.HostedSync;
+using ShowVault.Api.Commercial;
 using ShowVault.Platform.Organizations;
 
 namespace ShowVault.Api.Endpoints;
@@ -31,6 +33,7 @@ public static class HostedSyncEndpoints
         Guid organizationId, Guid venueId, string recoveryPointId,
         JsonElement requestBody, ClaimsPrincipal user, HttpContext context,
         PlatformDbContext database, IHostedObjectStore store, TimeProvider timeProvider,
+        CommercialStateService commercial,
         CancellationToken cancellationToken)
     {
         if (!await CanWriteAsync(database, organizationId, venueId, user, cancellationToken))
@@ -46,19 +49,6 @@ public static class HostedSyncEndpoints
         if (!HostedSyncValidator.TryValidate(recoveryPointId, request, out var manifestJson))
             return Results.BadRequest();
 
-        var existing = await database.HostedSyncSessions.SingleOrDefaultAsync(session =>
-            session.OrganizationId == organizationId && session.VenueId == venueId &&
-            session.RecoveryPointId == recoveryPointId, cancellationToken);
-        if (existing is not null)
-        {
-            if (existing.ManifestDigest != request.ManifestDigest) return Results.Conflict();
-            try { await InitializeZeroObjectsAsync(store, existing.Id, request.Manifest, cancellationToken); }
-            catch (HostedSyncUnavailableException) { return Results.StatusCode(503); }
-            return Results.Ok(ApiResponse<HostedSyncBeginResponse>.Success(
-                new(existing.Id.ToString("N"), HostedSyncValidator.MaximumChunkBytes,
-                    existing.Status == "completed"), context.TraceIdentifier));
-        }
-
         var now = timeProvider.GetUtcNow();
         var session = new HostedSyncSession
         {
@@ -68,29 +58,30 @@ public static class HostedSyncEndpoints
             RecoveryPointId = recoveryPointId,
             ManifestDigest = request.ManifestDigest,
             ManifestJson = manifestJson,
+            ManifestTotalBytes = request.Manifest.TotalBytes,
             CreatedAt = now,
             UpdatedAt = now
         };
-        database.HostedSyncSessions.Add(session);
-        try { await database.SaveChangesAsync(cancellationToken); }
-        catch (DbUpdateException)
+        var subject = user.FindFirstValue("sub")!;
+        HostedSyncReservationResult reservation;
+        try
         {
-            database.ChangeTracker.Clear();
-            var winner = await database.HostedSyncSessions.SingleOrDefaultAsync(value =>
-                value.OrganizationId == organizationId && value.VenueId == venueId &&
-                value.RecoveryPointId == recoveryPointId, cancellationToken);
-            if (winner is null || winner.ManifestDigest != request.ManifestDigest)
-                return Results.Conflict();
-            try { await InitializeZeroObjectsAsync(store, winner.Id, request.Manifest, cancellationToken); }
-            catch (HostedSyncUnavailableException) { return Results.StatusCode(503); }
-            return Results.Ok(ApiResponse<HostedSyncBeginResponse>.Success(
-                new(winner.Id.ToString("N"), HostedSyncValidator.MaximumChunkBytes,
-                    winner.Status == "completed"), context.TraceIdentifier));
+            reservation = await commercial.TryCreateSessionAsync(session, subject,
+                context.TraceIdentifier, cancellationToken);
         }
-        try { await InitializeZeroObjectsAsync(store, session.Id, request.Manifest, cancellationToken); }
+        catch (DbUpdateConcurrencyException) { return Results.Conflict(); }
+        if (reservation.Decision == HostedSyncReservationDecision.ManifestConflict)
+            return Results.Conflict();
+        if (reservation.Decision == HostedSyncReservationDecision.CommercialAccessRequired)
+            return CommercialDenied("commercial_access_required");
+        if (reservation.Decision == HostedSyncReservationDecision.QuotaExceeded)
+            return CommercialDenied("quota_exceeded");
+        var accepted = reservation.Session!;
+        try { await InitializeZeroObjectsAsync(store, accepted.Id, request.Manifest, cancellationToken); }
         catch (HostedSyncUnavailableException) { return Results.StatusCode(503); }
         return Results.Ok(ApiResponse<HostedSyncBeginResponse>.Success(
-            new(session.Id.ToString("N"), HostedSyncValidator.MaximumChunkBytes, false),
+            new(accepted.Id.ToString("N"), HostedSyncValidator.MaximumChunkBytes,
+                accepted.Status == "completed"),
             context.TraceIdentifier));
     }
 
@@ -148,7 +139,7 @@ public static class HostedSyncEndpoints
     private static async Task<IResult> CommitAsync(
         Guid organizationId, Guid venueId, string recoveryPointId, Guid sessionId,
         ClaimsPrincipal user, HttpContext context, PlatformDbContext database,
-        IHostedObjectStore store, TimeProvider timeProvider,
+        IHostedObjectStore store, TimeProvider timeProvider, CommercialStateService commercial,
         CancellationToken cancellationToken)
     {
         var session = await GetSessionAsync(database, organizationId, venueId,
@@ -188,15 +179,22 @@ public static class HostedSyncEndpoints
         session.Status = "completed";
         session.UpdatedAt = receipt.CompletedAt;
         session.Revision++;
+        await commercial.CommitReservationAsync(session, receipt.CompletedAt,
+            user.FindFirstValue("sub")!, context.TraceIdentifier, cancellationToken);
         try { await database.SaveChangesAsync(cancellationToken); }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception exception) when (exception is DbUpdateConcurrencyException or
+            DbUpdateException or DbException)
         {
             database.ChangeTracker.Clear();
-            var winner = await database.HostedSyncSessions.SingleAsync(value =>
-                value.Id == sessionId, cancellationToken);
-            if (winner.Status != "completed" || winner.ReceiptJson is null)
-                return Results.Conflict();
-            return ReceiptResult(winner.ReceiptJson, context.TraceIdentifier);
+            for (var attempt = 0; attempt < 10; attempt++)
+            {
+                var winner = await database.HostedSyncSessions.AsNoTracking()
+                    .SingleAsync(value => value.Id == sessionId, cancellationToken);
+                if (winner.Status == "completed" && winner.ReceiptJson is not null)
+                    return ReceiptResult(winner.ReceiptJson, context.TraceIdentifier);
+                await Task.Delay(10, cancellationToken);
+            }
+            return Results.Conflict();
         }
         return Results.Ok(ApiResponse<HostedSyncReceipt>.Success(receipt, context.TraceIdentifier));
     }
@@ -224,6 +222,11 @@ public static class HostedSyncEndpoints
             ?? throw new JsonException();
         return Results.Ok(ApiResponse<HostedSyncReceipt>.Success(receipt, correlationId));
     }
+
+    private static IResult CommercialDenied(string code) => Results.Problem(
+        statusCode: StatusCodes.Status409Conflict,
+        title: "Hosted synchronization cannot start.",
+        extensions: new Dictionary<string, object?> { ["code"] = code });
 
     private static HostedSyncManifest ParseManifest(string json) =>
         JsonSerializer.Deserialize<HostedSyncManifest>(json, JsonOptions) ?? throw new JsonException();

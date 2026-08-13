@@ -106,6 +106,12 @@ public sealed class LocalSyncEngine
                     _timeProvider.GetUtcNow().AddSeconds(delaySeconds), _timeProvider.GetUtcNow(),
                     CancellationToken.None);
             }
+            catch (HostedSyncPolicyException exception)
+            {
+                attention++;
+                await queue.RecordSyncAttentionAsync(record.RecoveryPointId,
+                    exception.Code, _timeProvider.GetUtcNow(), CancellationToken.None);
+            }
             catch (Exception exception) when (
                 exception is LocalEngineException or HostedSyncIntegrityException or
                 JsonException || !syncStateStarted &&
@@ -175,7 +181,8 @@ public sealed class LocalSyncEngine
                 message.Content = new ByteArrayContent(chunk);
                 message.Content.Headers.ContentType = new("application/octet-stream");
                 using var response = await _client.SendAsync(message, cancellationToken);
-                if (!response.IsSuccessStatusCode) ThrowForResponse(response.StatusCode);
+                if (!response.IsSuccessStatusCode) await ThrowForResponseAsync(response,
+                    cancellationToken);
                 offset += count;
                 progress?.Report(new("uploading", itemIndex + fileIndex, itemCount + manifest.Files.Count));
             }
@@ -196,7 +203,8 @@ public sealed class LocalSyncEngine
         };
         Authorize(message, token);
         using var response = await _client.SendAsync(message, cancellationToken);
-        if (!response.IsSuccessStatusCode) ThrowForResponse(response.StatusCode);
+        if (!response.IsSuccessStatusCode) await ThrowForResponseAsync(response,
+            cancellationToken);
         var envelope = await response.Content.ReadFromJsonAsync<HostedSyncEnvelope<TResponse>>(
             JsonOptions, cancellationToken) ?? throw new HostedSyncIntegrityException();
         if (envelope.Status != "success" || envelope.Version != "1.0")
@@ -210,7 +218,8 @@ public sealed class LocalSyncEngine
         using var message = new HttpRequestMessage(HttpMethod.Get, uri);
         Authorize(message, token);
         using var response = await _client.SendAsync(message, cancellationToken);
-        if (!response.IsSuccessStatusCode) ThrowForResponse(response.StatusCode);
+        if (!response.IsSuccessStatusCode) await ThrowForResponseAsync(response,
+            cancellationToken);
         var envelope = await response.Content.ReadFromJsonAsync<HostedSyncEnvelope<TResponse>>(
             JsonOptions, cancellationToken) ?? throw new HostedSyncIntegrityException();
         if (envelope.Status != "success" || envelope.Version != "1.0")
@@ -221,12 +230,30 @@ public sealed class LocalSyncEngine
     private static void Authorize(HttpRequestMessage message, string token) =>
         message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-    private static void ThrowForResponse(HttpStatusCode status)
+    private static async Task ThrowForResponseAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
     {
+        var status = response.StatusCode;
         if (status is HttpStatusCode.Unauthorized or HttpStatusCode.RequestTimeout or
             HttpStatusCode.TooManyRequests or HttpStatusCode.BadGateway or
             HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout)
             throw new HttpRequestException("Hosted synchronization is temporarily unavailable.");
+        if (status == HttpStatusCode.Conflict)
+        {
+            try
+            {
+                var problem = await response.Content.ReadFromJsonAsync<JsonElement>(
+                    JsonOptions, cancellationToken);
+                if (problem.TryGetProperty("code", out var codeElement))
+                {
+                    var code = codeElement.GetString();
+                    if (code is "commercial_access_required" or "quota_exceeded")
+                        throw new HostedSyncPolicyException(code);
+                }
+            }
+            catch (JsonException) { }
+        }
         throw new HostedSyncIntegrityException();
     }
 
@@ -292,4 +319,8 @@ public sealed class LocalSyncEngine
             char.IsAsciiLetterOrDigit(character) || character is '-' or '_');
 
     private sealed class HostedSyncIntegrityException : Exception;
+    private sealed class HostedSyncPolicyException(string code) : Exception
+    {
+        public string Code { get; } = code;
+    }
 }

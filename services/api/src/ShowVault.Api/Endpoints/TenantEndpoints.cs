@@ -69,7 +69,7 @@ public static class TenantEndpoints
             organization.Id,
             organization.Name,
             organization.Slug,
-            OrganizationRole.Owner);
+            "owner");
         return Results.Created(
             $"/api/v1/organizations/{organization.Id}",
             ApiResponse<OrganizationSummary>.Success(summary, context.TraceIdentifier));
@@ -99,7 +99,10 @@ public static class TenantEndpoints
                 result.organization.Id,
                 result.organization.Name,
                 result.organization.Slug,
-                result.membership.Role))
+                result.membership.Role == OrganizationRole.Owner ? "owner" :
+                result.membership.Role == OrganizationRole.Administrator ? "administrator" :
+                result.membership.Role == OrganizationRole.Manager ? "manager" :
+                result.membership.Role == OrganizationRole.Technician ? "technician" : "viewer"))
             .ToListAsync(cancellationToken);
 
         return Results.Ok(ApiResponse<IReadOnlyList<OrganizationSummary>>.Success(

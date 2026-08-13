@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
 using ShowVault.Api.HostedSync;
+using ShowVault.Platform.Commercial;
 using ShowVault.Platform.Organizations;
 using ShowVault.Platform.Venues;
 using LocalCatalogAuthorizer = ShowVault.LocalEngine.LocalCatalogAuthorizer;
@@ -76,6 +77,15 @@ public sealed class HostedSyncTests(TenantApiFactory factory) : IClassFixture<Te
         Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
         var fetched = await client.GetAsync(root + "/receipt");
         Assert.Equal(HttpStatusCode.OK, fetched.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var usage = database.OrganizationStorageUsages.Single(value =>
+            value.OrganizationId == tenant.OrganizationId);
+        Assert.Equal(content.Length, usage.CommittedBytes);
+        Assert.Equal(0, usage.ReservedBytes);
+        Assert.Equal(HostedSyncReservationState.Committed,
+            database.HostedSyncReservations.Single(value =>
+                value.OrganizationId == tenant.OrganizationId).State);
     }
 
     [Fact]
@@ -111,6 +121,69 @@ public sealed class HostedSyncTests(TenantApiFactory factory) : IClassFixture<Te
         var receipt = (await commit.Content.ReadFromJsonAsync<ApiResponse<HostedSyncReceipt>>())!
             .Payload;
         Assert.Equal(0, Assert.Single(receipt.Objects).Size);
+    }
+
+    [Fact]
+    public async Task Existing_reservation_can_commit_after_license_is_revoked()
+    {
+        var tenant = await CreateTenantAsync("revoked-after-begin-owner");
+        var content = Encoding.UTF8.GetBytes("accepted before revocation");
+        var request = BeginRequest(content);
+        var client = Client("revoked-after-begin-owner");
+        var root = Root(tenant, request.Manifest.RecoveryPointId);
+        var begin = (await (await client.PostAsJsonAsync(root + "/begin", request))
+            .Content.ReadFromJsonAsync<ApiResponse<HostedSyncBeginResponse>>())!.Payload;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            var license = database.CommercialLicenses.Single(value =>
+                value.OrganizationId == tenant.OrganizationId);
+            license.State = CommercialLicenseState.Revoked;
+            license.Revision++;
+            await database.SaveChangesAsync();
+        }
+        var path = Uri.EscapeDataString(request.Manifest.Files[0].RelativePath);
+        await PutChunkAsync(client, root, begin.SessionId, path, 0, content);
+
+        var commit = await client.PostAsJsonAsync(
+            root + $"/sessions/{begin.SessionId}/commit", new { });
+        var receipt = await client.GetAsync(root + "/receipt");
+
+        Assert.Equal(HttpStatusCode.OK, commit.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, receipt.StatusCode);
+        var deniedNew = BeginRequest(Encoding.UTF8.GetBytes("new point"));
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await client.PostAsJsonAsync(
+                Root(tenant, deniedNew.Manifest.RecoveryPointId) + "/begin", deniedNew)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Concurrent_commit_returns_one_immutable_winner_without_double_counting()
+    {
+        var tenant = await CreateTenantAsync("concurrent-commit-owner");
+        var content = Encoding.UTF8.GetBytes("concurrent immutable content");
+        var request = BeginRequest(content);
+        var client = Client("concurrent-commit-owner");
+        var root = Root(tenant, request.Manifest.RecoveryPointId);
+        var begin = (await (await client.PostAsJsonAsync(root + "/begin", request))
+            .Content.ReadFromJsonAsync<ApiResponse<HostedSyncBeginResponse>>())!.Payload;
+        var path = Uri.EscapeDataString(request.Manifest.Files[0].RelativePath);
+        await PutChunkAsync(client, root, begin.SessionId, path, 0, content);
+
+        var responses = await Task.WhenAll(
+            client.PostAsJsonAsync(root + $"/sessions/{begin.SessionId}/commit", new { }),
+            client.PostAsJsonAsync(root + $"/sessions/{begin.SessionId}/commit", new { }));
+
+        Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
+        using var scope = factory.Services.CreateScope();
+        var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var usage = database.OrganizationStorageUsages.Single(value =>
+            value.OrganizationId == tenant.OrganizationId);
+        Assert.Equal(content.Length, usage.CommittedBytes);
+        Assert.Equal(0, usage.ReservedBytes);
+        Assert.Single(database.CommercialAuditEvents.Where(value =>
+            value.OrganizationId == tenant.OrganizationId &&
+            value.Action == "hosted_sync_commit"));
     }
 
     [Theory]
@@ -235,6 +308,25 @@ public sealed class HostedSyncTests(TenantApiFactory factory) : IClassFixture<Te
         database.Venues.Add(venue);
         database.Memberships.Add(Membership.Create(organization.Id, subject,
             OrganizationRole.Owner));
+        var now = DateTimeOffset.UtcNow;
+        database.CommercialLicenses.Add(new CommercialLicense
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organization.Id,
+            LicenseTypeCode = "synthetic.perpetual",
+            State = CommercialLicenseState.Active,
+            EffectiveAt = now.AddDays(-1),
+            UpdatedAt = now
+        });
+        database.ServiceSubscriptions.Add(new ServiceSubscription
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organization.Id,
+            PlanCode = SyntheticCommercialPlanPolicyCatalog.PlanCode,
+            State = ServiceSubscriptionState.Active,
+            CurrentPeriodEndsAt = now.AddDays(30),
+            UpdatedAt = now
+        });
         await database.SaveChangesAsync();
         return (organization.Id, venue.Id);
     }

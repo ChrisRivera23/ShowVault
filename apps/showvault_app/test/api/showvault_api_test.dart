@@ -27,6 +27,7 @@ void main() {
     final history = await api.loadRecoveryHistory('access-token');
 
     expect(history.organizationName, 'ShowVault');
+    expect(history.organizationRole, 'owner');
     expect(history.venueName, 'Main Stage');
     expect(history.runs.single.agentName, 'Control Agent');
     expect(requestedPaths, [
@@ -34,6 +35,38 @@ void main() {
       '/api/v1/organizations/org-id/venues',
       '/api/v1/organizations/org-id/venues/venue-id/recovery-runs',
     ]);
+  });
+
+  test('loads only the minimized owner plan projection', () async {
+    late http.Request captured;
+    final api = ShowVaultApi(
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(
+          '{"payload":{"planCode":"synthetic.standard","licenseStatus":"active",'
+          '"subscriptionStatus":"past_due","currentPeriodEndsAt":null,'
+          '"graceEndsAt":"2026-08-20T00:00:00Z","logicalStorageLimitBytes":104857600,'
+          '"committedBytes":1024,"reservedBytes":512,"eligible":true,'
+          '"reasonCode":"eligible"}}',
+          200,
+        );
+      }),
+      baseUrl: 'https://api.showvault.test',
+    );
+
+    final plan = await api.loadOrganizationPlan(
+      accessToken: 'access-token',
+      organizationId: 'org-id',
+    );
+
+    expect(captured.url.path, '/api/v1/organizations/org-id/plan');
+    expect(captured.headers['Authorization'], 'Bearer access-token');
+    expect(plan.planCode, 'synthetic.standard');
+    expect(plan.subscriptionStatus, 'past_due');
+    expect(plan.graceEndsAt, DateTime.utc(2026, 8, 20));
+    expect(plan.committedBytes, 1024);
+    expect(plan.reservedBytes, 512);
+    expect(plan.eligible, isTrue);
   });
 
   test('rejects an insecure API origin before sending an access token', () {

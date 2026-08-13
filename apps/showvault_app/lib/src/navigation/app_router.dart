@@ -3,6 +3,7 @@ import 'package:showvault_app/src/dashboard/dashboard_screen.dart';
 import 'package:showvault_app/src/navigation/app_destination.dart';
 import 'package:showvault_app/src/navigation/app_shell.dart';
 import 'package:showvault_app/src/navigation/section_screen.dart';
+import 'package:showvault_app/src/settings/plan_storage_screen.dart';
 
 final GoRouter appRouter = GoRouter(
   routes: [
@@ -14,12 +15,17 @@ final GoRouter appRouter = GoRouter(
           path: AppDestination.dashboard.path,
           builder: (context, state) => const DashboardScreen(),
         ),
+        GoRoute(
+          path: AppDestination.settings.path,
+          builder: (context, state) => const PlanStorageScreen(),
+        ),
         for (final destination in AppDestination.values.skip(1))
-          GoRoute(
-            path: destination.path,
-            builder: (context, state) =>
-                SectionScreen(destination: destination),
-          ),
+          if (destination != AppDestination.settings)
+            GoRoute(
+              path: destination.path,
+              builder: (context, state) =>
+                  SectionScreen(destination: destination),
+            ),
       ],
     ),
   ],

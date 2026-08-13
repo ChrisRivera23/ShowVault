@@ -8,6 +8,7 @@ class RecoveryHistory {
   const RecoveryHistory({
     this.organizationId = '',
     required this.organizationName,
+    this.organizationRole = '',
     this.venueId = '',
     required this.venueName,
     required this.runs,
@@ -15,6 +16,7 @@ class RecoveryHistory {
 
   final String organizationId;
   final String organizationName;
+  final String organizationRole;
   final String venueId;
   final String venueName;
   final List<RecoveryRun> runs;
@@ -58,6 +60,7 @@ class ShowVaultApi {
       return RecoveryHistory(
         organizationId: organizationId,
         organizationName: organization['name']! as String,
+        organizationRole: organization['role']! as String,
         venueId: '',
         venueName: 'No venue',
         runs: const [],
@@ -72,10 +75,29 @@ class ShowVaultApi {
     return RecoveryHistory(
       organizationId: organizationId,
       organizationName: organization['name']! as String,
+      organizationRole: organization['role']! as String,
       venueId: venue['id']! as String,
       venueName: venue['name']! as String,
       runs: runs.map(RecoveryRun.fromJson).toList(growable: false),
     );
+  }
+
+  Future<OrganizationPlan> loadOrganizationPlan({
+    required String accessToken,
+    required String organizationId,
+  }) async {
+    if (accessToken.trim().isEmpty || organizationId.trim().isEmpty) {
+      throw ArgumentError('An access token and organization are required.');
+    }
+    final response = await _client.get(
+      _baseUri.resolve('/api/v1/organizations/$organizationId/plan'),
+      headers: {'Authorization': 'Bearer $accessToken'},
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ShowVaultApiException(response.statusCode);
+    }
+    final body = jsonDecode(response.body) as Map<String, Object?>;
+    return OrganizationPlan.fromJson(body['payload']! as Map<String, Object?>);
   }
 
   Future<int> submitComputerScan({
@@ -147,6 +169,49 @@ class ShowVaultApi {
     }
     return uri;
   }
+}
+
+class OrganizationPlan {
+  const OrganizationPlan({
+    required this.planCode,
+    required this.licenseStatus,
+    required this.subscriptionStatus,
+    required this.currentPeriodEndsAt,
+    required this.graceEndsAt,
+    required this.logicalStorageLimitBytes,
+    required this.committedBytes,
+    required this.reservedBytes,
+    required this.eligible,
+    required this.reasonCode,
+  });
+
+  factory OrganizationPlan.fromJson(Map<String, Object?> json) =>
+      OrganizationPlan(
+        planCode: json['planCode'] as String?,
+        licenseStatus: json['licenseStatus']! as String,
+        subscriptionStatus: json['subscriptionStatus']! as String,
+        currentPeriodEndsAt: _date(json['currentPeriodEndsAt']),
+        graceEndsAt: _date(json['graceEndsAt']),
+        logicalStorageLimitBytes: json['logicalStorageLimitBytes']! as int,
+        committedBytes: json['committedBytes']! as int,
+        reservedBytes: json['reservedBytes']! as int,
+        eligible: json['eligible']! as bool,
+        reasonCode: json['reasonCode']! as String,
+      );
+
+  final String? planCode;
+  final String licenseStatus;
+  final String subscriptionStatus;
+  final DateTime? currentPeriodEndsAt;
+  final DateTime? graceEndsAt;
+  final int logicalStorageLimitBytes;
+  final int committedBytes;
+  final int reservedBytes;
+  final bool eligible;
+  final String reasonCode;
+
+  static DateTime? _date(Object? value) =>
+      value is String ? DateTime.parse(value) : null;
 }
 
 class ShowVaultApiException implements Exception {

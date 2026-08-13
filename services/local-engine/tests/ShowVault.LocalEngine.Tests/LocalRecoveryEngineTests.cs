@@ -1028,6 +1028,35 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
         Assert.Equal("retry_scheduled", point.CloudStatus);
     }
 
+    [Theory]
+    [InlineData("commercial_access_required")]
+    [InlineData("quota_exceeded")]
+    public async Task Sync_commercial_denial_is_path_free_non_retry_attention(string code)
+    {
+        await CreateEngine().SaveAsync(new(Key, Source, Vault));
+        var handler = new SyntheticSyncHandler(Guid.NewGuid(), Guid.NewGuid())
+        {
+            PolicyCode = code
+        };
+
+        var result = await new LocalSyncEngine(new HttpClient(handler)).SynchronizeAsync(new(
+            Vault, handler.OrganizationId, handler.VenueId, "synthetic-token",
+            new Uri("https://sync.invalid/")));
+
+        Assert.Equal(1, result.AttentionCount);
+        Assert.Equal(0, result.RetryScheduledCount);
+        Assert.Equal("attention",
+            Assert.Single(await CreateEngine().InspectVaultAsync(Vault)).CloudStatus);
+        var databasePath = Path.Combine(Vault, "Upload Queue", LocalVaultLayout.QueueDatabaseName);
+        await using var connection = new SqliteConnection($"Data Source={databasePath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT last_error_code FROM local_sync_attempts;";
+        Assert.Equal(code, await command.ExecuteScalarAsync());
+        Assert.DoesNotContain(Vault, code, StringComparison.Ordinal);
+        Assert.DoesNotContain(Source, code, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Sync_tamper_enters_attention_and_uploads_nothing()
     {
@@ -1207,6 +1236,7 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
         public HostedSyncManifest? Manifest { get; private set; }
         public Dictionary<string, List<byte>> Objects { get; } = new(StringComparer.Ordinal);
         public bool Unavailable { get; init; }
+        public string? PolicyCode { get; init; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
@@ -1218,6 +1248,17 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
             var path = request.RequestUri!.AbsolutePath;
             if (path.EndsWith("/begin", StringComparison.Ordinal))
             {
+                if (PolicyCode is not null)
+                    return new(HttpStatusCode.Conflict)
+                    {
+                        Content = JsonContent.Create(new
+                        {
+                            type = "about:blank",
+                            title = "Hosted synchronization cannot start.",
+                            status = 409,
+                            code = PolicyCode
+                        }, options: Options)
+                    };
                 var begin = await request.Content!.ReadFromJsonAsync<HostedSyncBeginRequest>(
                     Options, cancellationToken);
                 Manifest = begin!.Manifest;
