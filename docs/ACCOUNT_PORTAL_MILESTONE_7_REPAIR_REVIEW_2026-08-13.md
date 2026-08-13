@@ -128,3 +128,29 @@ token fixes above, followed by another fresh review. Integration, deployment,
 Auth0 operational configuration, durable production portal sessions, Stripe
 sandbox operations, real-person onboarding, and production enablement remain
 separately gated.
+
+## Subsequent remediation checkpoint
+
+After this review, the Product Owner separately authorized its bounded next
+task. Commit `1541d5d` addresses the findings without changing the historical
+verdict for reviewed head `a874a49`:
+
+- malformed invitation codes now complete bounded parsing before the database
+  key-ring preflight, with an EF command-interceptor assertion proving zero
+  reader commands;
+- generated and decoded raw invitation-code buffers and transient decoded key
+  arrays are cleared with `CryptographicOperations.ZeroMemory`;
+- the personal-beta fixture now starts an ordinary hosted-sync session and
+  proves file-state, append, commit, and receipt denial while direct scan/list
+  remains available;
+- ordinary and step-up tests parse real challenge URLs and assert audience,
+  exact callback/scopes, no `offline_access`, PKCE, state, nonce, plus MFA
+  `acr_values` and `max_age`; a hostile forwarded host is ignored; and
+- the eight endpoint modules now execute all 40 active role combinations, 16
+  suspended/revoked cases, eight wrong-tenant/wrong-venue cases, and restoration.
+
+Post-remediation validation passes API 154, portal 15, Platform 30,
+local-engine 67, contracts 22, Agent 291, and Flutter 32 tests. Flutter analysis,
+EF pending-model check, five Release builds, focused formatting, and diff checks
+are clean. A fresh review of `1541d5d` remains the next gate; this appendix does
+not self-approve integration or production operation.

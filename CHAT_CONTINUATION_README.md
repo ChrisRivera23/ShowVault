@@ -210,6 +210,22 @@ the database key-ring preflight before pure rejection, and temporary raw-code/
 decoded-secret buffers are not zeroed where practical. The review changed
 documentation only and performed no external operation.
 
+### Milestone 7 repair-review remediation checkpoint
+
+The Product Owner authorized the bounded follow-up, implemented as `1541d5d`
+(`Close milestone 7 repair review findings`). Malformed invitation codes now
+prove zero database reader commands, temporary raw-code/key buffers are cleared,
+personal beta is denied across an ordinary identity's existing hosted-sync
+session, both ordinary and step-up tests parse complete real challenge URLs, and
+all 40 active role/surface plus state and tenant/venue mismatch combinations are
+executed.
+
+API 154, portal 15, Platform 30, local-engine 67, contracts 22, Agent 291, and
+Flutter 32 pass. Flutter analysis, EF consistency, five Release builds, focused
+formatting, and diff checks are clean. The next gate is a fresh review of
+`1541d5d`; this checkpoint does not authorize integration, deployment, Auth0 or
+Stripe mutation, production enablement, real-person data, or external Git work.
+
 ## Authorization boundary
 
 The Product Owner subsequently authorized the bounded Stripe sandbox/account

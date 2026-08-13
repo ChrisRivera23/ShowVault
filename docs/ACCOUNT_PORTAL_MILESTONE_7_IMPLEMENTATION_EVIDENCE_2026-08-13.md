@@ -16,9 +16,12 @@
 - Repair commit 1: `22212c8` (`Repair account API safety invariants`)
 - Repair commit 2: `5763fe3` (`Repair account portal security contract`)
 - Repair commit 3: `ffa996e` (`Complete account portal adversarial proof matrix`)
+- Repair review: `faa2e18` (`Review milestone 7 repair evidence`)
+- Review-remediation commit: `1541d5d`
+  (`Close milestone 7 repair review findings`)
 
-The repaired implementation spans 71 files from the planning base. The repair
-changes 25 files from the adversarial-review base, including this evidence and
+The repaired implementation spans 72 files from the planning base. The repair
+changes 27 files from the adversarial-review base, including this evidence and
 the continuation handoff. Generated `bin` and `obj` outputs remain ignored and
 uncommitted.
 
@@ -75,30 +78,35 @@ Passing suites:
 
 - local engine: 67;
 - platform: 30;
-- API: 105;
+- API: 154;
 - agent contracts: 22;
 - agent: 291;
 - account portal: 15; and
 - Flutter: 32, with `flutter analyze` reporting no issues.
 
-The 105 API cases include these exact repair additions over the original 68:
+The 154 API cases include these exact repair additions over the original 68:
 
 - four body/key/personal-beta safety cases;
-- fifteen account-administration cases covering every non-Owner role,
+- sixteen account-administration cases covering every non-Owner role,
   outsider/missing-subject/personal-beta, revocation, cross-tenant IDs,
   same-subject and other-subject races, existing active/suspended/revoked
   subjects, persisted expiry, role/state/revision rules, concurrent mutation,
-  rate limiting, retiring-key acceptance, and missing-pending-key denial;
-- seventeen active-versus-suspended/revoked endpoint cases across Tenant,
-  Recovery Candidates, Recovery History, Agent Enrollment, Commercial Plan,
-  Billing, Hosted Sync, and Account Administration, including role-preserving
-  restoration; and
+  rate limiting, retiring-key acceptance, missing-pending-key denial, and zero
+  database reader commands for malformed-code rejection;
+- sixty-five endpoint-authorization cases across Tenant, Recovery Candidates,
+  Recovery History, Agent Enrollment, Commercial Plan, Billing, Hosted Sync,
+  and Account Administration: all 40 active role/surface combinations, 16
+  suspended/revoked cases, eight wrong-tenant or wrong-venue cases, and
+  role-preserving restoration; and
 - one additional closed step-up-claim case. The hosted-sync personal-beta case
-  also proves its guarded direct recovery scan/list path remains available.
+  also proves its guarded direct recovery scan/list path remains available
+  while an ordinary identity's existing hosted-sync session denies personal-beta
+  file-state, append, commit, and receipt access.
 
 The 15 portal cases include the original eight plus bounded-store eviction,
-exact-origin and actual OIDC redirect parsing (`audience`, code response, PKCE,
-state, and nonce), step-up audience/scope/`acr_values`/`max_age`, generic error
+exact-origin and actual ordinary plus step-up OIDC redirect parsing (`audience`,
+exact scopes/callback, code response, PKCE, state, nonce, absence of
+`offline_access`, and step-up `acr_values`/`max_age`), generic error
 redaction, authenticated organization/member rendering, successful antiforgery
 mutation, bearer-token/subject exclusion, one-time invitation-code refresh,
 typed forbidden-to-step-up mapping, and rendered uniform invitation failure.
@@ -139,8 +147,8 @@ milestone-7 implementation.
 
 ## Next gated action
 
-The locally testable repair gate is satisfied. The next safe action is a fresh
-review of the repair commits and this exact evidence before integration.
+The review findings are implemented and locally validated. The next safe action
+is a fresh review of `1541d5d` and this exact evidence before integration.
 Auth0 operational configuration/deployed proof, durable production portal
 sessions, real-person onboarding/privacy policy, production enablement, and
 Stripe sandbox object proof remain independent, explicitly authorized gates.
