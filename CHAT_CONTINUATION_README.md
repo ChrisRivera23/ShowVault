@@ -107,6 +107,23 @@ adversarial proof matrix, privacy limits, and remaining decisions are in
 migration, Auth0 tenant, provider, deployment, personal data, or external state
 was changed by this extraction.
 
+### Milestone 7 reconstruction/architecture review
+
+The separately authorized review is complete in
+`docs/ACCOUNT_PORTAL_MILESTONE_7_RECONSTRUCTION_REVIEW_2026-08-13.md`. It
+identified all eight direct membership-authorization consumers and requires
+their atomic migration to a centralized active-membership service. It freezes
+the three-state non-Owner lifecycle, seven-day email-free invitation state
+machine, keyed token-digest rotation, five-minute MFA-backed step-up contract,
+append-only minimized audit, migration/API/status shapes, separate Razor Pages
+BFF boundary, three-commit implementation sequence, and adversarial validation
+matrix.
+
+The review used current official Auth0 step-up/PKCE guidance and ASP.NET Core
+OIDC/BFF/antiforgery guidance. No product source, migration, dependency, Auth0
+tenant/client/Action, personal data, provider, browser account, deployment, or
+external state changed.
+
 ## Authorization boundary
 
 The Product Owner subsequently authorized the bounded Stripe sandbox/account
@@ -129,10 +146,11 @@ up destructively without new explicit authorization.
 Two independent next actions are available. Stripe sandbox proof can resume
 after the Product Owner signs in through the handed-off Chrome tab; a public
 webhook proof additionally requires a separately authorized deployment or
-Stripe CLI install/forwarding session. The safe local roadmap action is a
-separately authorized reconstruction/architecture review of account-portal
-milestone 7; product implementation remains gated after that review. Internal
-staff Admin, production hosted-object storage, and native proof remain
+Stripe CLI install/forwarding session. The safe local roadmap action is now a
+separately authorized milestone-7 implementation plan/handoff mapping the three
+reviewed commits to exact files, tests, configuration, migration operations,
+and stop conditions. Product implementation remains gated after that plan.
+Internal staff Admin, production hosted-object storage, and native proof remain
 independently gated.
 
 The existing `NEXT_CONVERSATION.md` in the user's primary worktree is outside
