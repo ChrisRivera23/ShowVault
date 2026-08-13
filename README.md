@@ -6,10 +6,12 @@ The current customer desktop outcome is intentionally small:
 
 > Install → Scan this computer → Save locally → Sign in for cloud service
 
-Milestone 2 preserves exact catalog scanning and adds signed-out/offline Save
-for detected user-data roots. A packaged, closed-operation .NET local engine
-performs bounded stable capture, independent verification, immutable local
-publication, and a durable verified-only SQLite queue. Exact paths stay local
+Milestone 3 preserves exact catalog scanning and signed-out/offline Save, then
+adds attended signed-out/offline Restore for freshly verified points. A
+packaged, closed-operation .NET local engine performs bounded stable capture,
+independent verification, immutable local publication, a durable verified-only
+SQLite queue, fixed-child sandbox Restore, and path-free Restore evidence.
+Exact paths stay local
 and transient; only opaque allowlisted candidate keys may enter cloud-facing
 requests. The customer flow does not install or enroll a Venue Agent.
 
@@ -22,7 +24,7 @@ The first product promise is intentionally focused:
 
 ## Current status
 
-ShowVault has completed the bounded local-first milestone-2 source
+ShowVault has completed the bounded local-first milestone-3 source
 reconstruction on top of milestone 1. Native packaging,
 installation, signing, protocol activation, and real-equipment proof remain
 separate gates and are not claimed here.
@@ -77,10 +79,15 @@ Completed:
 - Verified recovery points contain deterministic manifests and verification evidence and are published without overwrite.
 - The local SQLite state machine queues only a freshly reverified package and surfaces failed durable state as Queue attention.
 - Restart vault inspection rehashes packages from the vault without rescanning the source.
+- Freshly verified local points can be restored while signed out/offline into
+  an independently selected empty sandbox.
+- Restore retains package/target identities, publishes one fixed child,
+  reverifies it, persists path-free evidence, and surfaces ambiguous state as
+  Restore attention without loading an application or device.
 
 Current local development branch:
 
-- `codex/local-first-milestone-2` — local Save, immutable verified recovery points, and durable verified-only queue.
+- `codex/local-first-milestone-3` — controlled local Restore and path-free durable evidence.
 
 The Auth0 Native application is registered. Windows callback forwarding and installer protocol registration still need to be implemented and proven together. Membership administration, user-requested command cancellation, digital signatures, NAS/cloud storage, and persistent control-plane package records have not been implemented yet.
 

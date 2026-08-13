@@ -10,12 +10,13 @@
 - Milestone 2 exact user-data Save, immutable verified recovery points,
   durable verified-only queue, quarantine/repair, and source-independent vault
   reopening
+- Milestone 3 controlled attended local Restore, fixed sandbox publication,
+  path-free durable evidence, cancellation, attention, and reselect repair
 
 ## Next
 
-1. Milestone 3: controlled attended local Restore and path-free recovery evidence
-2. Hosted synchronization and account/billing administration
-3. Separately authorized native packaging, installation, and equipment proof
+1. Hosted synchronization and account/billing administration
+2. Separately authorized native packaging, installation, and equipment proof
 
 ## Deferred
 

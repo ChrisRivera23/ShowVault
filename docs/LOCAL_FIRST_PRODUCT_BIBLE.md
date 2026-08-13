@@ -26,7 +26,8 @@ recoverability claim may be shown without its own recorded evidence.
   surface.
 - One packaged, venue-neutral .NET local engine performs bounded capture,
   verification, immutable publication, and SQLite queue persistence.
-- The packaged host accepts only Save, Cancel, and vault inspection records. It
+- The packaged host accepts only Save, vault inspection, Restore, and
+  in-process Cancel records. It
   is not installed, enrolled, or operated as a customer-facing Agent.
 - Scan and Save work while signed out and offline. Network or API failure never
   blocks access to verified local recovery points.
@@ -36,6 +37,9 @@ recoverability claim may be shown without its own recorded evidence.
   logs, queue records, or cloud-facing requests.
 - Folder grants are explicit and session-scoped. ShowVault creates no persistent
   bookmark or broad filesystem grant.
+- Restore is attended, signed-out/offline, freshly verified-point-only, and
+  publishes one fixed child into an independently selected empty sandbox. It
+  never loads a running application or device.
 
 ## Local protection model
 
@@ -50,10 +54,17 @@ Failure or cancellation cannot replace a prior recovery point. An unqueued
 package published immediately before a failure is moved to `Quarantine`; failed
 durable state is surfaced as Queue attention rather than success.
 
+Restore retains the verified package and selected sandbox identities, stages
+and rehashes a complete copy, and atomically publishes only `ShowVault Restored
+Files`. Durable path-free Restore state and evidence are completed only after
+post-publication verification. Ambiguous or unowned content is preserved and
+surfaced as Restore attention.
+
 ## Honest milestone boundary
 
-Milestone 2 implements local Save and verified-queue creation. It does not
-implement an upload executor, restore UI, dependency discovery, compatibility
+Milestone 3 implements controlled local Restore and path-free evidence. It does
+not implement an upload executor, application/device loading, dependency
+discovery, compatibility
 assessment, Recovery Confidence, release distribution, or venue/equipment
 proof. The legacy Agent remains an internal compatibility and controlled
 recovery subsystem; it is not the customer desktop lifecycle.

@@ -10,9 +10,18 @@ native directory pickers, and can cancel while the packaged .NET local engine
 captures and verifies. The UI never renders selected paths. It reports
 **Verified locally**, **Cloud queued**, and **Queue attention** separately.
 
+After **Open local vault** freshly reverifies a point, **Restore** confirms a
+copy-only warning and obtains independent native consent for an existing empty
+sandbox. The packaged engine publishes only `ShowVault Restored Files`, then
+rehashes it and commits path-free evidence before **Restored locally** appears.
+Cancel remains available before publication; interrupted or ambiguous state is
+preserved as **Restore attention**. Restore remains signed-out/offline and does
+not load a running application or device.
+
 The desktop build configuration publishes the local host into a private
-`local-engine` bundle directory. The host accepts only Save, Cancel, and vault
-inspection JSON records over standard input/output and has no network or
+`local-engine` bundle directory. The host accepts only Save, vault inspection,
+Restore, and in-process Cancel JSON records over standard input/output and has
+no network or
 arbitrary-command surface. Native build, signing, sandbox, installation, and
 real-data proof remain gated and are not implied by source-level validation.
 
