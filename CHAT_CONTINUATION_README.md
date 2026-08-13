@@ -270,3 +270,24 @@ independently gated.
 
 The existing `NEXT_CONVERSATION.md` in the user's primary worktree is outside
 this branch and was not added or changed.
+
+### Repaired milestone 7 mainline promotion
+
+The Product Owner authorized local promotion of repaired product head
+`cbffeb3e6e7776fade2424262f0053ae583b092d`. A new
+`codex/local-first-m7-mainline-candidate` worktree was created from pinned local
+`origin/main` `32c21cfbd51ea5f16bb5fe84c56f4efb125b1df4` and advanced by
+fast-forward only. The scope is 54 linear commits and 192 files.
+
+The complete gate passes: Platform 30, local-engine 67, contracts 22, Agent
+291, API 154, portal 15, and Flutter 32 tests; clean Flutter analysis and EF
+model consistency; five zero-warning Release builds; complete changed-file
+.NET/Dart formatting; diff/configuration/security scans; and no generated
+artifact drift. Exact evidence is in
+`docs/LOCAL_FIRST_MILESTONE_7_MAINLINE_PROMOTION_EVIDENCE_2026-08-13.md`.
+
+This is an approved local candidate only. `main`, the primary worktree, remote
+state, GitHub, deployment, production enablement, Auth0/Stripe configuration,
+real-person data, and native proof remain unchanged and separately gated. The
+next bounded task is a mainline-disposition preflight before any movement or
+publication.
