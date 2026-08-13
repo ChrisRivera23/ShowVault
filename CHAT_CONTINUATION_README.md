@@ -387,3 +387,24 @@ transition/readback sequence are in
 state changed. Ready transition does not authorize merge, metadata edits,
 reviewer requests, another push, workflow action, deployment, or provider/
 production/native operations.
+
+### Milestone 7 PR ready transition
+
+The Product Owner authorized the exact draft-to-ready transition. A final live
+gate matched the approved preflight: PR #37 was open, unmerged, draft,
+mergeable, and `clean` at exact head `0e00171` over exact `main` `32c21cf`,
+with exact title/body hashes, unchanged comparison counts, empty metadata and
+feedback, two successful workflows, and four successful checks.
+
+The GitHub connector marked only PR #37 ready for review. Post-transition
+connector and raw GitHub readback confirms it is open, unmerged, non-draft, and
+still `clean`, with every pinned ref/content/count value unchanged. No workflow
+was triggered; the same push and pull-request runs and all four API/Flutter
+checks remain successful. No manual workflow action occurred.
+
+Exact evidence is in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_READY_TRANSITION_EVIDENCE_2026-08-13.md`.
+No merge, auto-merge, reviewer request, metadata edit, push, deployment, or
+provider/production/native operation occurred. The next bounded step is a
+separately authorized read-only merge preflight; any merge remains a distinct
+later gate.
