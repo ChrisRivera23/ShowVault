@@ -365,3 +365,25 @@ Exact evidence is in
 PR #37 remains draft. The next bounded step is a separately authorized
 read-only readiness preflight; ready transition and merge remain independent
 gates.
+
+### Milestone 7 PR readiness preflight
+
+The Product Owner authorized the read-only readiness preflight. Fresh connector
+and raw GitHub inspection confirms PR #37 remains open, unmerged, draft,
+mergeable, and `clean` at exact head `0e00171` over exact `main` `32c21cf`.
+Title/body/counts are exact, metadata and feedback remain empty, and there are
+no newer runs or ref updates.
+
+Both current-head workflows remain successful. Push run `31716020102` and
+pull-request run `31716026186` provide four green API/Flutter checks. Repository
+policy has no protection or ruleset requiring a submitted review; auto-merge is
+disabled. The complete local no-findings review and 583 .NET/32 Flutter gate
+remain pinned to the published product.
+
+Verdict: approved for a separately authorized transition of PR #37 from draft
+to ready for review only. Exact evidence, stop conditions, and the connector
+transition/readback sequence are in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_READINESS_PREFLIGHT_2026-08-13.md`. No external
+state changed. Ready transition does not authorize merge, metadata edits,
+reviewer requests, another push, workflow action, deployment, or provider/
+production/native operations.
