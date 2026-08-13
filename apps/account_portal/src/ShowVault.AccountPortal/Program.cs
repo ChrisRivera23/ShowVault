@@ -11,6 +11,8 @@ var portal = builder.Configuration.GetSection(AccountPortalOptions.SectionName)
     .Get<AccountPortalOptions>() ?? new AccountPortalOptions();
 if (portal.Enabled && !portal.IsComplete(builder.Environment.IsDevelopment()))
     throw new InvalidOperationException("Enabled account portal configuration is incomplete.");
+if (portal.Enabled)
+    builder.Configuration["AllowedHosts"] = new Uri(portal.Origin!).Host;
 
 builder.Services.Configure<AccountPortalOptions>(
     builder.Configuration.GetSection(AccountPortalOptions.SectionName));
@@ -55,14 +57,14 @@ builder.Services.AddAuthentication(options =>
     options.Scope.Clear();
     options.Scope.Add("openid");
     options.Scope.Add("profile");
-    if (!string.IsNullOrWhiteSpace(portal.Auth0Audience))
-        options.Resource = portal.Auth0Audience;
     options.TokenValidationParameters = new TokenValidationParameters
     {
         NameClaimType = "name"
     };
     options.Events.OnRedirectToIdentityProvider = context =>
     {
+        if (!string.IsNullOrWhiteSpace(portal.Auth0Audience))
+            context.ProtocolMessage.SetParameter("audience", portal.Auth0Audience);
         if (context.Properties.Items.ContainsKey("showvault_step_up"))
         {
             context.ProtocolMessage.Scope = "openid profile manage:members";
@@ -85,7 +87,19 @@ builder.Services.AddHttpClient<ShowVaultAccountClient>(client =>
 }).RemoveAllLoggers();
 
 var app = builder.Build();
+app.UseExceptionHandler(error => error.Run(async context =>
+{
+    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    await Results.Problem(statusCode: StatusCodes.Status500InternalServerError,
+        title: "The account portal could not complete the request.",
+        extensions: new Dictionary<string, object?>
+        {
+            ["correlationId"] = context.TraceIdentifier
+        }).ExecuteAsync(context);
+}));
 app.UseMiddleware<PortalSecurityHeadersMiddleware>();
+if (portal.Enabled)
+    app.UseMiddleware<PortalOriginMiddleware>(new Uri(portal.Origin!));
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();

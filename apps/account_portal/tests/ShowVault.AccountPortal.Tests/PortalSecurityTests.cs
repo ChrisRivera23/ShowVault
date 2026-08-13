@@ -1,11 +1,14 @@
 using System.Net;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using ShowVault.AccountPortal.Configuration;
 using ShowVault.AccountPortal.Security;
 using Xunit;
@@ -77,6 +80,31 @@ public sealed class PortalSecurityTests
     }
 
     [Fact]
+    public async Task Ephemeral_stores_evict_at_their_fixed_capacity()
+    {
+        var now = DateTimeOffset.Parse("2026-08-13T12:00:00Z");
+        var time = new FixedTimeProvider(now);
+        var properties = new AuthenticationProperties { ExpiresUtc = now.AddMinutes(30) };
+        var ticket = new AuthenticationTicket(
+            new System.Security.Claims.ClaimsPrincipal(
+                new System.Security.Claims.ClaimsIdentity("Test")), properties,
+            CookieAuthenticationDefaults.AuthenticationScheme);
+        var tickets = new ServerSideTicketStore(time);
+        var handles = new List<string>();
+        for (var index = 0; index < 4100; index++)
+            handles.Add(await tickets.StoreAsync(ticket));
+        var retainedTickets = 0;
+        foreach (var handle in handles)
+            if (await tickets.RetrieveAsync(handle) is not null) retainedTickets++;
+        Assert.Equal(4096, retainedTickets);
+
+        var secrets = new OneTimeSecretStore(time);
+        var secretHandles = Enumerable.Range(0, 1030)
+            .Select(index => secrets.Put(index.ToString())).ToArray();
+        Assert.Equal(1024, secretHandles.Count(handle => secrets.Take(handle) is not null));
+    }
+
+    [Fact]
     public async Task Enabled_index_uses_secure_cookie_contract_and_antiforgery()
     {
         await using var factory = new EnabledPortalFactory();
@@ -104,6 +132,82 @@ public sealed class PortalSecurityTests
         Assert.Null(cookie.Domain);
     }
 
+    [Fact]
+    public async Task Enabled_portal_enforces_origin_and_sends_oauth_audience_with_pkce()
+    {
+        await using var factory = new EnabledPortalFactory();
+        using var wrongOrigin = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            BaseAddress = new Uri("https://evil.showvault.test/")
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, (await wrongOrigin.GetAsync("/")).StatusCode);
+
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            BaseAddress = new Uri("https://account.showvault.test/")
+        });
+        var challenge = await client.GetAsync("/Organizations/Select");
+
+        Assert.Equal(HttpStatusCode.Redirect, challenge.StatusCode);
+        var location = Assert.IsType<Uri>(challenge.Headers.Location);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(location.Query);
+        Assert.Equal("https://api.showvault.test", query["audience"]);
+        Assert.Equal("code", query["response_type"]);
+        Assert.Equal("S256", query["code_challenge_method"]);
+        Assert.False(string.IsNullOrWhiteSpace(query["code_challenge"]));
+        Assert.False(string.IsNullOrWhiteSpace(query["state"]));
+        Assert.False(string.IsNullOrWhiteSpace(query["nonce"]));
+    }
+
+    [Fact]
+    public async Task Step_up_redirect_event_preserves_audience_and_requests_fresh_mfa()
+    {
+        await using var factory = new EnabledPortalFactory();
+        var options = factory.Services.GetRequiredService<
+            IOptionsMonitor<OpenIdConnectOptions>>().Get(
+                OpenIdConnectDefaults.AuthenticationScheme);
+        var properties = new AuthenticationProperties();
+        properties.Items["showvault_step_up"] = "1";
+        var redirect = new RedirectContext(new DefaultHttpContext(),
+            new AuthenticationScheme(OpenIdConnectDefaults.AuthenticationScheme,
+                OpenIdConnectDefaults.AuthenticationScheme,
+                typeof(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectHandler)),
+            options, properties)
+        {
+            ProtocolMessage = new OpenIdConnectMessage()
+        };
+
+        await options.Events.RedirectToIdentityProvider(redirect);
+
+        Assert.Equal("https://api.showvault.test",
+            redirect.ProtocolMessage.GetParameter("audience"));
+        Assert.Equal("openid profile manage:members", redirect.ProtocolMessage.Scope);
+        Assert.Equal("http://schemas.openid.net/pape/policies/2007/06/multi-factor",
+            redirect.ProtocolMessage.AcrValues);
+        Assert.Equal("0", redirect.ProtocolMessage.MaxAge);
+    }
+
+    [Fact]
+    public async Task Unhandled_failures_return_only_generic_problem_details()
+    {
+        await using var factory = new EnabledPortalFactory(configureOidc: false);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            BaseAddress = new Uri("https://account.showvault.test/")
+        });
+
+        var response = await client.GetAsync("/Organizations/Select");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Contains("could not complete the request", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("IDX", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("identity.showvault.test", body, StringComparison.Ordinal);
+    }
+
     private static AccountPortalOptions Complete() => new()
     {
         Enabled = true,
@@ -123,7 +227,8 @@ public sealed class PortalSecurityTests
         public override DateTimeOffset GetUtcNow() => now;
     }
 
-    private sealed class EnabledPortalFactory : WebApplicationFactory<Program>
+    private sealed class EnabledPortalFactory(bool configureOidc = true)
+        : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
         {
@@ -135,6 +240,20 @@ public sealed class PortalSecurityTests
             builder.UseSetting("AccountPortal:Auth0Audience", "https://api.showvault.test");
             builder.UseSetting("AccountPortal:Auth0ClientId", "fixture-client");
             builder.UseSetting("AccountPortal:Auth0ClientSecret", "runtime-only-fixture");
+            if (configureOidc)
+                builder.ConfigureServices(services => services.PostConfigure<OpenIdConnectOptions>(
+                    OpenIdConnectDefaults.AuthenticationScheme, options =>
+                {
+                    var configuration = new OpenIdConnectConfiguration
+                    {
+                        AuthorizationEndpoint = "https://identity.showvault.test/authorize",
+                        TokenEndpoint = "https://identity.showvault.test/oauth/token",
+                        Issuer = "https://identity.showvault.test/"
+                    };
+                    options.Configuration = configuration;
+                    options.ConfigurationManager =
+                        new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
+                }));
         }
     }
 }

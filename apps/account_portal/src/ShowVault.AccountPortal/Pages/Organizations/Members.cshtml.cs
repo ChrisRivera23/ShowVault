@@ -12,6 +12,7 @@ public sealed class MembersModel(
     OneTimeSecretStore secrets) : PageModel
 {
     public Guid OrganizationId { get; private set; }
+    public string OrganizationName { get; private set; } = "Organization";
     public IReadOnlyList<MemberView> Members { get; private set; } = [];
     public IReadOnlyList<InvitationView> Invitations { get; private set; } = [];
     public string? InvitationCode { get; private set; }
@@ -21,6 +22,8 @@ public sealed class MembersModel(
     {
         OrganizationId = organizationId;
         InvitationCode = reveal is null ? null : secrets.Take(reveal);
+        OrganizationName = (await client.OrganizationsAsync(token))
+            .SingleOrDefault(value => value.Id == organizationId)?.Name ?? "Organization";
         Members = await client.MembersAsync(organizationId, token);
         Invitations = await client.InvitationsAsync(organizationId, token);
         return Page();

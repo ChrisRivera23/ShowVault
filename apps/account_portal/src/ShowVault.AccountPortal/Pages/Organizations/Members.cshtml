@@ -1,7 +1,7 @@
 @page "{organizationId:guid}"
 @model ShowVault.AccountPortal.Pages.Organizations.MembersModel
 @{ ViewData["Title"] = "Members"; }
-<h1>Members and invitations</h1>
+<h1>@Model.OrganizationName members and invitations</h1>
 @if (Model.InvitationCode is not null)
 {
   <section aria-label="New invitation code"><p>Copy this code now. It will not be shown again.</p><output id="invitation-code">@Model.InvitationCode</output><button type="button" data-copy-target="invitation-code">Copy code</button></section>
