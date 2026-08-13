@@ -1,49 +1,56 @@
 # ShowVault active continuation handoff
 
 Read this file, `docs/LOCAL_FIRST_PRODUCT_BIBLE.md`,
-`docs/LOCAL_FIRST_MILESTONE_4_EXTRACTION.md`,
-`docs/LOCAL_FIRST_MILESTONE_4_RECONSTRUCTION_REVIEW_2026-08-13.md`, and
-`docs/LOCAL_FIRST_MILESTONE_4_PLAN_HANDOFF_2026-08-13.md` completely before
+`docs/LOCAL_QUEUE_SYNC.md`,
+`docs/LOCAL_FIRST_MILESTONE_4_IMPLEMENTATION_2026-08-13.md`, and
+`docs/LOCAL_FIRST_MILESTONE_4_HANDOFF_2026-08-13.md` completely before
 continuing work from this branch.
 
 ## Current checkpoint — 2026-08-13
 
-- Branch: `codex/local-first-milestone-4-plan`
-- Worktree: `/private/tmp/showvault-local-first-m4-plan/worktree`
-- Exact completed milestone-3 base:
-  `32f1b2c74241f89b6185c90db31a9f508f61739c`
-- Milestone-4 extraction/architecture commit:
-  `270b60954ebc66cd464df3f3bbb806d95dcec044`
+- Branch: `codex/local-first-milestone-4`
+- Worktree: `/private/tmp/showvault-local-first-m4-implementation`
+- Exact authorized planning base:
+  `d1d0cdb6c9c3eba3675ff41640d7117da55b7508`
+- Source implementation commit:
+  `4b4e7632c3f349a2a70a528f31d4bad562d105e8`
+- Documentation/evidence commit:
+  `7c748fe15c027a8b914d00951910d5ba94ac1190`
 - Product outcome:
   **Sign in → open a local vault → synchronize verified queued recovery points
   or Cancel → verify an immutable hosted receipt → retain durable path-free
   status**
 
-Milestone 4 extraction and architecture planning is complete; implementation
-has not begun. The selected historical source is exactly `f016ad1`, `5f05f44`,
-and `a7eee0d`. The contract retains verified-only resumable behavior,
-tenant/role authorization, exact-offset idempotency, independent hosted
-verification, receipt-last completion, retry, cancellation, and UI refresh.
+Milestone 4 is complete locally. The separate packaged sync host takes only
+freshly verified SQLite queue records, retains exact local file handles,
+resumes bounded chunks, verifies an immutable tenant receipt, and atomically
+records path-free status. The existing local host remains network-free.
 
-It replaces the historical Dart/JSON/filesystem authorities with the current
-.NET/per-vault SQLite authority, a separate network-capable .NET sync host,
-database-backed hosted sessions/receipts, and an immutable object abstraction.
-The existing Save/inspect/Restore host remains network-free. Customer backup
-content and relative filenames require explicit manual consent; tokens are
-ephemeral; all planning evidence is synthetic. Production object storage,
-cloud operations, account/billing administration, quota enforcement, and
-native proof are deferred.
+The API has database-backed sessions/receipts, role and venue authorization,
+closed privacy-filtered manifests, immutable object keys, exact offset/replay,
+independent complete-object hashing, concurrency control, and receipt-last
+completion. Flutter provides signed-in informed consent, Cancel, path-free
+states, and durable refresh. Tokens are ephemeral and absent from SQLite and
+process output.
+
+Validation passed: local engine 65; API 29; Flutter 27 plus clean analysis;
+Agent 291; contracts 22; platform 15; EF model gate; zero-warning Release
+builds; and repository/packaging/security checks.
+
+All fixtures were synthetic. Development/test object bytes are in memory and
+not restart-durable. Non-Development synchronization is disabled. Production
+storage durability, cloud operations, account/billing, and native proof remain
+unproven and deferred.
 
 ## Authorization boundary
 
-No implementation, external product-system, cloud, or native action is
+No external product-system, cloud, account/billing, or native action is
 authorized by this checkpoint.
 Do not fetch or push Git state, create or mutate a PR, dispatch a workflow,
-retrieve artifacts, modify application/API/engine code or migrations, build or
-install a meaningful native package, use equipment, access
-personal/customer/venue data, use credentials or cloud resources,
-upload/synchronize, release, deploy, or clean up destructively without new
-explicit authorization.
+retrieve artifacts, build or install a meaningful native package, use
+equipment, access personal/customer/venue data, use credentials or cloud
+resources, upload/synchronize, release, deploy, or clean up destructively
+without new explicit authorization.
 
 No native-platform proof is claimed. macOS/Windows Flutter build, signing,
 sandbox/helper behavior, notarization, installation, upgrades, protocol
@@ -52,12 +59,14 @@ equipment, and live application/device loading remain unproven.
 
 ## Next gated decision
 
-Stop for Product Owner direction. The next bounded action is implementation of
-the exact milestone-4 hosted-synchronization contract, using synthetic local
-fixtures only. It requires separate explicit implementation authorization.
+Stop for Product Owner direction. Per the ordered roadmap, the next bounded
+slice is account, role, subscription, quota, and billing administration. Before
+implementation, select one exact outcome, account for its historical source,
+write its current authorization/data/provider contract, and obtain separate
+explicit authorization.
 
-Account, role, subscription, quota, and billing administration remains a later
-independent slice and is not part of milestone 4.
+Production hosted-object storage and operational durability proof is the
+following independent slice; native proof remains separately gated.
 
 The existing untracked `NEXT_CONVERSATION.md` in the user's primary worktree
 is outside this branch and was not added or changed.
