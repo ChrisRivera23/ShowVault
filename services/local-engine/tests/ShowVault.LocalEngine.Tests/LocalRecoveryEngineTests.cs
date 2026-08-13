@@ -618,7 +618,7 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Restore_cancel_before_publication_removes_only_owned_staging()
+    public async Task Restore_cancel_before_complete_stage_preserves_owned_restart_intent()
     {
         using var cancellation = new CancellationTokenSource();
         var engine = CreateEngine(testHook: stage =>
@@ -632,7 +632,9 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             engine.RestoreAsync(new(saved.RecoveryPointId, Vault, target), cancellation.Token));
 
-        Assert.Empty(Directory.EnumerateFileSystemEntries(target));
+        Assert.False(Directory.Exists(Path.Combine(target, LocalRestoreCoordinator.PublicationName)));
+        var stage = Assert.Single(Directory.EnumerateDirectories(target));
+        Assert.True(File.Exists(Path.Combine(stage, "intent.json")));
         await using var connection = new SqliteConnection(
             $"Data Source={Path.Combine(Vault, "Upload Queue", LocalVaultLayout.QueueDatabaseName)}");
         await connection.OpenAsync();
@@ -736,6 +738,30 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Restore_rollback_preserves_ambiguous_late_published_entry()
+    {
+        var target = Path.Combine(_root, "ambiguous-rollback-target");
+        Directory.CreateDirectory(target);
+        var engine = CreateEngine(testHook: stage =>
+        {
+            if (stage != "restore_published") return;
+            File.WriteAllText(Path.Combine(
+                target, LocalRestoreCoordinator.PublicationName, "operator-late-entry"),
+                "preserve");
+            throw new IOException("synthetic failure");
+        });
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+
+        await Assert.ThrowsAsync<LocalEngineException>(() => engine.RestoreAsync(
+            new(saved.RecoveryPointId, Vault, target)));
+
+        Assert.Equal("preserve", await File.ReadAllTextAsync(Path.Combine(
+            target, LocalRestoreCoordinator.PublicationName, "operator-late-entry")));
+        Assert.Contains(Directory.EnumerateDirectories(target), path =>
+            Path.GetFileName(path).StartsWith(".showvault-restore-", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Restore_preserves_unknown_staging_and_conflicting_publication()
     {
         var engine = CreateEngine();
@@ -798,7 +824,8 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
         await Assert.ThrowsAnyAsync<Exception>(() => engine.RestoreAsync(
             new(saved.RecoveryPointId, Vault, target)));
 
-        Assert.Empty(Directory.EnumerateFileSystemEntries(target));
+        Assert.False(Directory.Exists(Path.Combine(target, LocalRestoreCoordinator.PublicationName)));
+        Assert.Single(Directory.EnumerateDirectories(target));
     }
 
     [Fact]

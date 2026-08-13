@@ -153,12 +153,14 @@ internal sealed class LocalRestoreCoordinator(
         StableDirectoryTree? stage = null;
         StableDirectoryTree? restored = null;
         StableSourceSnapshot? stagedSnapshot = null;
+        FileStream? intentFile = null;
         var published = false;
         try
         {
             stage = target.CreateDirectory(stageName);
-            await WriteAsync(stage, IntentName, JsonSerializer.SerializeToUtf8Bytes(
-                new LocalRestoreIntent("1.0", request.RecoveryPointId, PublicationName), JsonOptions),
+            intentFile = await CreateRetainedFileAsync(
+                stage, IntentName, JsonSerializer.SerializeToUtf8Bytes(
+                    new LocalRestoreIntent("1.0", request.RecoveryPointId, PublicationName), JsonOptions),
                 timeout.Token);
             restored = stage.CreateDirectory("restored");
             for (var index = 0; index < source.Files.Count; index++)
@@ -215,16 +217,31 @@ internal sealed class LocalRestoreCoordinator(
         }
         catch (OperationCanceledException) when (!published)
         {
-            if (stage is not null) target.DeleteChildTreeIfSame(stageName, stage);
+            if (stage is not null && intentFile is not null && restored is not null &&
+                stagedSnapshot is not null)
+            {
+                await TryDeleteOwnedStageAsync(
+                    target, stageName, stage, intentFile, restored, stagedSnapshot);
+            }
             await queue.RecordRestoreTerminalAsync(
                 attemptId, "cancelled", "cancelled", timeProvider.GetUtcNow(), CancellationToken.None);
             throw;
         }
         catch (Exception exception)
         {
-            if (published && restored is not null)
-                target.DeleteChildTreeIfSame(PublicationName, restored);
-            if (stage is not null) target.DeleteChildTreeIfSame(stageName, stage);
+            var publishedRemoved = !published;
+            if (published && restored is not null && stagedSnapshot is not null)
+            {
+                publishedRemoved = await TryDeleteOwnedPublishedAsync(
+                    target, restored, stagedSnapshot);
+            }
+            if (publishedRemoved && stage is not null && intentFile is not null)
+            {
+                await TryDeleteOwnedStageAsync(
+                    target, stageName, stage, intentFile,
+                    published ? null : restored,
+                    published ? null : stagedSnapshot);
+            }
             await queue.RecordRestoreTerminalAsync(
                 attemptId, "failed", "restore_failed", timeProvider.GetUtcNow(), CancellationToken.None);
             throw exception is LocalEngineException
@@ -234,6 +251,7 @@ internal sealed class LocalRestoreCoordinator(
         finally
         {
             if (stagedSnapshot is not null) await stagedSnapshot.DisposeAsync();
+            if (intentFile is not null) await intentFile.DisposeAsync();
             restored?.Dispose();
             stage?.Dispose();
         }
@@ -477,15 +495,75 @@ internal sealed class LocalRestoreCoordinator(
         return bytes;
     }
 
-    private static async Task WriteAsync(
+    private static async Task<FileStream> CreateRetainedFileAsync(
         StableDirectoryTree directory,
         string name,
         byte[] bytes,
         CancellationToken cancellationToken)
     {
-        await using var stream = directory.CreateFile(name);
-        await stream.WriteAsync(bytes, cancellationToken);
-        await stream.FlushAsync(cancellationToken);
+        var stream = directory.CreateFile(name);
+        try
+        {
+            await stream.WriteAsync(bytes, cancellationToken);
+            await stream.FlushAsync(cancellationToken);
+            stream.Position = 0;
+            return stream;
+        }
+        catch
+        {
+            await stream.DisposeAsync();
+            throw;
+        }
+    }
+
+    private static async Task<bool> TryDeleteOwnedPublishedAsync(
+        StableDirectoryTree target,
+        StableDirectoryTree restored,
+        StableSourceSnapshot snapshot)
+    {
+        try
+        {
+            await snapshot.ValidateStableAtAsync(
+                target, PublicationName, rehashFiles: true, CancellationToken.None);
+            target.DeleteChildTreeIfSame(PublicationName, restored);
+            return !target.EnumerateNames().Contains(PublicationName, StringComparer.Ordinal);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<bool> TryDeleteOwnedStageAsync(
+        StableDirectoryTree target,
+        string stageName,
+        StableDirectoryTree stage,
+        FileStream intentFile,
+        StableDirectoryTree? restored,
+        StableSourceSnapshot? snapshot)
+    {
+        try
+        {
+            var expectedNames = restored is null
+                ? new[] { IntentName }
+                : new[] { IntentName, "restored" };
+            if (!stage.EnumerateNames().Order(StringComparer.Ordinal).SequenceEqual(
+                    expectedNames.Order(StringComparer.Ordinal)) ||
+                !stage.IsSameFileAt(IntentName, intentFile.SafeFileHandle))
+                return false;
+            if (restored is not null)
+            {
+                if (snapshot is null) return false;
+                await snapshot.ValidateStableAtAsync(
+                    stage, "restored", rehashFiles: true, CancellationToken.None);
+            }
+            target.DeleteChildTreeIfSame(stageName, stage);
+            return !target.EnumerateNames().Contains(stageName, StringComparer.Ordinal);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            return false;
+        }
     }
 
     private static DateTimeOffset ReadVerifiedAt(byte[] evidenceBytes)
