@@ -1,55 +1,62 @@
 # ShowVault active continuation handoff
 
-Read this file, `docs/LOCAL_FIRST_PRODUCT_BIBLE.md`, and
-`docs/LOCAL_FIRST_MILESTONE_2_IMPLEMENTATION_2026-08-13.md` before continuing
-work from this branch.
+Read this file, `docs/LOCAL_FIRST_PRODUCT_BIBLE.md`,
+`docs/LOCAL_FIRST_MILESTONE_3_EXTRACTION.md`, and
+`docs/LOCAL_FIRST_MILESTONE_3_RECONSTRUCTION_REVIEW_2026-08-13.md` completely
+before continuing work from this branch.
 
 ## Current checkpoint — 2026-08-13
 
-- Branch: `codex/local-first-milestone-2`
-- Worktree: `/private/tmp/showvault-local-first-m2/worktree`
-- Exact authorized planning foundation:
-  `5c881f1910a40c989a8dd96afec4cbb054751e92`
-- Implementation head: `3a0492d5b6a0cb2fa379efd62c7abf51fc677865`
-- Evidence commit: `1b139c2`
-- Product outcome:
-  **Install → Scan this computer → Save locally → Sign in for cloud service**
+- Branch: `codex/local-first-milestone-3-plan`
+- Worktree: `/private/tmp/showvault-local-first-m3-plan/worktree`
+- Exact milestone-2 foundation:
+  `e6121aa5481db6d195d0e7a0584433c2d392bd81`
+- Extraction/review commit:
+  `fc62f0ca72e780da01be6af6e5e9b5513ef065ac`
+- Selected outcome:
+  **Open local vault → select a verified point → Restore or Cancel → verify the
+  restored copy → retain path-free local evidence**
 
-Milestone 2 is complete locally. The desktop app keeps direct Scan and Auth0
-behavior, exposes Save only for exact detected user-data roots, obtains separate
-session-scoped source/vault consent, and provides path-free progress, Cancel,
-Verified locally, Cloud queued, Queue attention, and restart vault inspection.
+The bounded milestone-3 extraction and architecture plan is complete. The
+historical containing range is exact `c172e49..fff4434`: ten commits, 31 net
+paths, `+5,387/-76`, binary-diff SHA-256
+`7cb9d0c81ac5646353c9645eefd86844afa9706c8569fb2595afa241d188a317`,
+and sorted path-list SHA-256
+`751bd1a7eaceee71b89fd1a798ea4514acba92586c1e5479ebdae55a346ae0eb`.
 
-One packaged, venue-neutral .NET local engine owns stable bounded capture,
-deterministic manifests, independent verification evidence, non-overwriting
-atomic publication, canonical vault layout, transactional SQLite state, full
-restart reverify, and reverify-or-quarantine repair. It has no network,
-arbitrary-command, Agent enrollment/identity, or service-lifecycle surface.
-
-Validation passed: local engine 41; Flutter 25; contracts 22; platform 15;
-Agent 291; API 19; EF model gate; zero-warning local-host, Agent, and API Release
-builds; format, plugin-generation, shell/project/plist, packaging-guard,
-process-contract, privacy/path-leak, and diff checks.
+The historical Restore disposition is **replace/narrow**. Retain the attended,
+signed-out/offline, verified-point-only flow and fixed `ShowVault Restored
+Files` sandbox child. Replace the Dart filesystem engine by extending the
+packaged .NET local engine with retained package/target identities, durable
+path-free Restore state/evidence, atomic non-overwriting publication, and
+restart repair. Flutter remains native consent/status only. Hosted
+synchronization is the following roadmap slice, not part of milestone 3.
 
 ## Authorization boundary
 
-No external or native action is authorized by this checkpoint. Do not fetch,
-push, create or mutate a PR, dispatch a workflow, retrieve artifacts, build or
-install a meaningful native package, use equipment, access personal/customer/
-venue data, use cloud resources, release, deploy, or clean up destructively
-without new explicit authorization.
+This checkpoint is documentation and planning only. It does not authorize or
+contain Restore product implementation. Obtain new explicit local
+implementation authorization before changing product source or tests.
+
+No external or native action is authorized. Do not fetch, push, create or
+mutate a PR, dispatch a workflow, retrieve artifacts, build or install a
+meaningful native package, use equipment, access personal/customer/venue data,
+use cloud resources, upload/synchronize, release, deploy, or clean up
+destructively without separate explicit authorization.
 
 No native-platform proof is claimed. macOS/Windows Flutter build, signing,
 sandbox/helper behavior, notarization, installation, upgrades, protocol
 activation, Gatekeeper, personal-Keychain, and end-to-end login remain
-unproven. Upload, restore UI, Recovery Confidence, dependency completeness,
-compatibility, and license portability remain outside milestone 2.
+unproven. Application/device loading, Recovery Confidence, dependency
+completeness, compatibility, and license portability remain out of scope.
 
 ## Next gated decision
 
-Stop for Product Owner direction. A likely next slice is a bounded milestone-3
-extraction/reconstruction plan for upload synchronization or controlled local
-restore, but neither is authorized by this handoff. Before implementation,
-select one outcome, create its exact historical accounting and safety contract,
-and obtain explicit local implementation authorization. Preserve the current
-local commits and every external/native/data gate.
+Stop for Product Owner authorization. If local Restore implementation is
+authorized, follow `docs/LOCAL_FIRST_MILESTONE_3_EXTRACTION.md` in its stated
+reconstruction order and keep every external/native/data/cloud gate closed.
+Do not transplant the historical Dart implementation or widen the target to
+hosted synchronization.
+
+The existing untracked `NEXT_CONVERSATION.md` in the user's primary worktree
+is outside this branch and was not added or changed.
