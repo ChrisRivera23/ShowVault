@@ -306,6 +306,7 @@ public abstract class YamahaSettingsExportDiscoveryPluginBase(
         {
             YamahaTfSettingsExportDiscoveryPlugin.PluginId => new[] { ".TFP", ".TFS" },
             YamahaDm3SettingsExportDiscoveryPlugin.PluginId => new[] { ".DM3P", ".DM3S" },
+            YamahaProVisionaireDesignProjectDiscoveryPlugin.PluginId => new[] { ".pvksk" },
             YamahaProVisionaireControlDiscoveryPlugin.PluginId => new[] { ".pvksk" },
             _ => []
         };

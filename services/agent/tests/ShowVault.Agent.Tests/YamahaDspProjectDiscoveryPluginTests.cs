@@ -31,6 +31,41 @@ public sealed class YamahaDspProjectDiscoveryPluginTests : IDisposable
     }
 
     [Theory]
+    [InlineData("Lobby.pvksk")]
+    [InlineData("Lobby.PVKSK")]
+    public async Task ProVisionaire_preserves_Control_PLUS_controller_as_opaque_companion(
+        string controllerFile)
+    {
+        Directory.CreateDirectory(Path.Combine(_root, "controllers"));
+        await File.WriteAllTextAsync(Path.Combine(_root, "Venue.pvd"), "opaque-project");
+        await File.WriteAllTextAsync(
+            Path.Combine(_root, "controllers", controllerFile), "opaque-controller");
+
+        var result = await CreateProVisionaire(_root).DiscoverAsync(
+            new DiscoveryRequest(_root), default);
+
+        Assert.Contains(result.Files, file => file.RelativePath == "Venue.pvd");
+        Assert.Contains(result.Files, file =>
+            file.RelativePath == Path.Combine("controllers", controllerFile));
+        Assert.Equal([".PVKSK"], YamahaSettingsExportDiscoveryPluginBase.GetCompanionFormats(
+            result.PluginId,
+            result.Files.Select(file => file.RelativePath)));
+    }
+
+    [Theory]
+    [InlineData("Lobby.pvksk")]
+    [InlineData("Lobby.PVKSK")]
+    public async Task Control_PLUS_controller_without_pvd_cannot_authorize_capture(
+        string controllerFile)
+    {
+        Directory.CreateDirectory(_root);
+        await File.WriteAllTextAsync(Path.Combine(_root, controllerFile), "controller");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateProVisionaire(_root).DiscoverAsync(new DiscoveryRequest(_root), default));
+    }
+
+    [Theory]
     [InlineData("provisionaire", "Venue.mtx")]
     [InlineData("mtx-mrx", "Venue.pvd")]
     [InlineData("provisionaire", "Venue.DM3F")]

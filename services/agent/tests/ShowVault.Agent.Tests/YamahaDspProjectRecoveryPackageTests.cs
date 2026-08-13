@@ -62,6 +62,36 @@ public sealed class YamahaDspProjectRecoveryPackageTests : IDisposable
     }
 
     [Theory]
+    [InlineData("Lobby.pvksk")]
+    [InlineData("Lobby.PVKSK")]
+    public async Task ProVisionaire_package_records_model_neutral_Control_PLUS_companion_evidence(
+        string controllerFile)
+    {
+        var project = await CreateProjectAsync("provisionaire");
+        Directory.CreateDirectory(Path.Combine(project, "controllers"));
+        await File.WriteAllTextAsync(
+            Path.Combine(project, "controllers", controllerFile), "opaque-controller");
+        var plugin = CreatePlugin("provisionaire", project);
+        var discovery = await plugin.DiscoverAsync(new DiscoveryRequest(project), default);
+
+        var package = await CreateWriter("provisionaire", project).CreateAsync(
+            Guid.NewGuid(), Guid.NewGuid(), discovery, DateTimeOffset.UtcNow, default);
+
+        Assert.Contains(package.Manifest.Files, file =>
+            file.RelativePath == $"controllers/{controllerFile}");
+        var evidence = Assert.Single(package.Manifest.CompatibilityRules,
+            rule => rule.Kind == "opaque-companion-formats");
+        Assert.Contains(".PVKSK", evidence.Requirement, StringComparison.Ordinal);
+        Assert.Contains("separately created", evidence.Requirement, StringComparison.Ordinal);
+        Assert.Contains("may support a DME5/DME3", evidence.Requirement, StringComparison.Ordinal);
+        Assert.Contains("does not prove the DME model", evidence.Requirement, StringComparison.Ordinal);
+        Assert.Contains(".pvd project completeness", evidence.Requirement, StringComparison.Ordinal);
+        Assert.DoesNotContain(project, evidence.Requirement, StringComparison.Ordinal);
+        Assert.DoesNotContain("contains a DME5", evidence.Requirement, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("contains a DME3", evidence.Requirement, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
     [InlineData("addition")]
     [InlineData("deletion")]
     [InlineData("replacement")]
