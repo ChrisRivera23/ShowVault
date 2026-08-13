@@ -139,6 +139,27 @@ This planning step changed documentation only. It did not change product
 source, migrations, dependencies, Auth0 tenant/client/Action configuration,
 personal data, provider state, browser accounts, deployment, or external state.
 
+### Milestone 7 implementation checkpoint
+
+The separately authorized three-commit implementation is complete on
+`codex/account-portal-m7-implementation` from planning base `6985767`. The
+commits are `bb31c64` (membership authority and schema), `f250778` (invitation
+and account API), and `74db2fb` (secure account portal BFF). Exact implementation
+and validation evidence is in
+`docs/ACCOUNT_PORTAL_MILESTONE_7_IMPLEMENTATION_EVIDENCE_2026-08-13.md`.
+
+Local engine 67, platform 30, API 68, contracts 22, Agent 291, portal 8, and
+Flutter 32 tests pass; Flutter analysis, EF model check, Release builds, focused
+formatting, dependency/secret scans, and diff checks are clean. Checked-in
+account and portal configuration remains disabled and secret-free. Production
+portal enablement fails closed because this milestone intentionally includes no
+durable distributed ticket-store implementation.
+
+The open Chrome Stripe tab was confirmed already authenticated at the
+**ShowVault Pro sandbox** test dashboard. No Stripe object/API mutation occurred;
+that turn's next-step authorization was applied to the milestone-7 local
+implementation.
+
 ## Authorization boundary
 
 The Product Owner subsequently authorized the bounded Stripe sandbox/account
@@ -159,15 +180,14 @@ up destructively without new explicit authorization.
 ## Next gated decision
 
 Two independent next actions are available. Stripe sandbox proof can resume
-after the Product Owner signs in through the handed-off Chrome tab; a public
-webhook proof additionally requires a separately authorized deployment or
-Stripe CLI install/forwarding session. The safe local roadmap action is now the
-separately authorized milestone-7 implementation from the exact planning
-handoff commit, performed in a new scoped `codex/` branch/worktree as the three
-planned commits with synthetic fixtures, generated migration, local dependency
-restore, full validation, implementation evidence, and a new continuation
-handoff. Internal staff Admin, production hosted-object storage, and native
-proof remain independently gated.
+now that the Product Owner is signed into the sandbox dashboard, but still
+requires the fixture choice and a reachable HTTPS webhook route for complete
+proof. The safe local roadmap action is a separately authorized adversarial
+review of the three milestone-7 implementation commits, followed by bounded
+repairs if findings exist. Auth0 operational configuration/deployed proof,
+durable production portal sessions, real-person onboarding/privacy policy,
+internal staff Admin, production hosted-object storage, and native proof remain
+independently gated.
 
 The existing `NEXT_CONVERSATION.md` in the user's primary worktree is outside
 this branch and was not added or changed.
