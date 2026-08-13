@@ -110,6 +110,10 @@ builder.Services
         "Yamaha ProVisionaire Design Assisted recovery requires at most 32 unique absolute project roots.")
     .Validate(
         options => YamahaSettingsExportDiscoveryPluginBase.AreConfiguredRootsValid(
+            options.YamahaProVisionaireControlProjectRoots),
+        "Yamaha ProVisionaire Control PLUS Assisted recovery requires at most 32 unique absolute project roots.")
+    .Validate(
+        options => YamahaSettingsExportDiscoveryPluginBase.AreConfiguredRootsValid(
             options.YamahaMtxMrxProjectRoots),
         "Yamaha MTX/MRX Assisted recovery requires at most 32 unique absolute project roots.")
     .Validate(
@@ -120,6 +124,7 @@ builder.Services
             options.YamahaTfSettingsExportRoots,
             options.YamahaDm3SettingsExportRoots,
             options.YamahaProVisionaireDesignProjectRoots,
+            options.YamahaProVisionaireControlProjectRoots,
             options.YamahaMtxMrxProjectRoots),
         "A Yamaha export root cannot overlap another Yamaha product profile.")
     .Validate(
@@ -161,6 +166,7 @@ builder.Services.AddSingleton<IDiscoveryPlugin, YamahaClQlSettingsExportDiscover
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaTfSettingsExportDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaDm3SettingsExportDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaProVisionaireDesignProjectDiscoveryPlugin>();
+builder.Services.AddSingleton<IDiscoveryPlugin, YamahaProVisionaireControlDiscoveryPlugin>();
 builder.Services.AddSingleton<IDiscoveryPlugin, YamahaMtxMrxProjectDiscoveryPlugin>();
 builder.Services.AddSingleton<DiscoveryPluginRegistry>();
 builder.Services.AddSingleton<ISystemInventorySource, PlatformSystemInventorySource>();

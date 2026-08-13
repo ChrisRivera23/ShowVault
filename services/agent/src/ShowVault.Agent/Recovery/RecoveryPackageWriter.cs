@@ -428,10 +428,17 @@ public sealed class RecoveryPackageWriter
                 manifestFiles.Select(file => file.RelativePath));
             if (companionFormats.Count != 0)
             {
-                var companionRequirement = pluginId ==
-                    YamahaDm3SettingsExportDiscoveryPlugin.PluginId
-                    ? $"The package also preserves these opaque DM3 companion formats: {string.Join(", ", companionFormats)}. .DM3S scenes and .DM3P presets do not prove that the .DM3F settings export is complete or compatible."
-                    : $"The package also preserves these opaque TF companion formats: {string.Join(", ", companionFormats)}. .TFP presets and .TFS scenes do not prove that the .TFF settings export is complete.";
+                var companionRequirement = pluginId switch
+                {
+                    YamahaDm3SettingsExportDiscoveryPlugin.PluginId =>
+                        $"The package also preserves these opaque DM3 companion formats: {string.Join(", ", companionFormats)}. .DM3S scenes and .DM3P presets do not prove that the .DM3F settings export is complete or compatible.",
+                    YamahaProVisionaireControlDiscoveryPlugin.PluginId =>
+                        $"The package also preserves these opaque ProVisionaire Kiosk controller formats: {string.Join(", ", companionFormats)}. A .pvksk controller export does not replace or prove the completeness or compatibility of the editable .pvcppj project.",
+                    YamahaTfSettingsExportDiscoveryPlugin.PluginId =>
+                        $"The package also preserves these opaque TF companion formats: {string.Join(", ", companionFormats)}. .TFP presets and .TFS scenes do not prove that the .TFF settings export is complete.",
+                    _ => throw new InvalidOperationException(
+                        "Yamaha companion evidence profile is not supported.")
+                };
                 rules.Add(new RecoveryPackageCompatibilityRule(
                     "opaque-companion-formats",
                     companionRequirement));
