@@ -1,7 +1,7 @@
 name: showvault_app
 description: Cross-platform production resilience for entertainment venues.
 publish_to: none
-version: 0.1.0+1
+version: 0.2.0+2
 
 environment:
   sdk: ^3.8.0
