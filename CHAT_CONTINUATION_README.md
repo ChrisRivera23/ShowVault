@@ -160,6 +160,21 @@ The open Chrome Stripe tab was confirmed already authenticated at the
 that turn's next-step authorization was applied to the milestone-7 local
 implementation.
 
+### Milestone 7 adversarial review checkpoint
+
+The separately authorized adversarial review is complete in
+`docs/ACCOUNT_PORTAL_MILESTONE_7_ADVERSARIAL_REVIEW_2026-08-13.md`. Its result
+is **changes required; do not operationalize or deploy milestone 7**. It found
+three release blockers: personal beta can reach hosted-sync commercial
+mutations, the portal requests RFC `resource` without reliably sending Auth0's
+normal `audience` parameter, and the required adversarial test matrix was not
+implemented despite overbroad evidence language.
+
+Five bounded repairs cover same-subject concurrent invitation idempotency,
+persisted expiry, closed/bounded key rotation, configured-origin and generic
+portal errors, and chunked request-body limits. Production portal startup remains
+disabled, and no product source or external system changed during the review.
+
 ## Authorization boundary
 
 The Product Owner subsequently authorized the bounded Stripe sandbox/account
@@ -182,9 +197,9 @@ up destructively without new explicit authorization.
 Two independent next actions are available. Stripe sandbox proof can resume
 now that the Product Owner is signed into the sandbox dashboard, but still
 requires the fixture choice and a reachable HTTPS webhook route for complete
-proof. The safe local roadmap action is a separately authorized adversarial
-review of the three milestone-7 implementation commits, followed by bounded
-repairs if findings exist. Auth0 operational configuration/deployed proof,
+proof. The safe local roadmap action is the separately authorized three-step
+milestone-7 repair sequence frozen in the adversarial review: API safety, portal
+contract, then complete proof/evidence. Auth0 operational configuration/deployed proof,
 durable production portal sessions, real-person onboarding/privacy policy,
 internal staff Admin, production hosted-object storage, and native proof remain
 independently gated.
