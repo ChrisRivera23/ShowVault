@@ -35,6 +35,7 @@ public sealed class StripeBillingProvider(
         using var document = await SendFormAsync("v1/checkout/sessions", new()
         {
             ["mode"] = "subscription",
+            ["payment_method_types[0]"] = "card",
             ["line_items[0][price]"] = command.Offering.RecurringPriceId,
             ["line_items[0][quantity]"] = "1",
             ["line_items[1][price]"] = command.Offering.LicensePriceId,

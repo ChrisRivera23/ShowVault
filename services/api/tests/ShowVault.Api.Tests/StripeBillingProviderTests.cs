@@ -56,6 +56,7 @@ public sealed class StripeBillingProviderTests
         Assert.Equal(StripeBillingProvider.SupportedApiVersion, request.StripeVersion);
         Assert.Equal(attemptId.ToString("N"), request.IdempotencyKey);
         Assert.Equal("subscription", request.Form["mode"]);
+        Assert.Equal("card", request.Form["payment_method_types[0]"]);
         Assert.Equal(offering.RecurringPriceId, request.Form["line_items[0][price]"]);
         Assert.Equal(offering.LicensePriceId, request.Form["line_items[1][price]"]);
         Assert.Equal("1", request.Form["line_items[0][quantity]"]);
