@@ -53,27 +53,63 @@ fixtures. API 46, Platform 23, local-engine 67, Agent 291, contracts 22, and
 Flutter 32 tests pass; Flutter analysis, EF pending-model check, Release builds,
 formatting, and diff checks are clean.
 
+## Stripe sandbox operational slice — local checkpoint
+
+- Branch: `codex/stripe-sandbox-proof`
+- Worktree: `/private/tmp/showvault-stripe-sandbox-proof`
+- Exact milestone-6 handoff base:
+  `bb39cf630a67bedc9fa431cd5efbbbd280676247`
+- Fail-closed adapter/preflight commit:
+  `fd9a7d299034275446c441375a485ae88aef0ede`
+
+The authorized sandbox/operations slice is in progress. Local preflight is
+complete: a direct HTTP Stripe adapter pins API version
+`2026-07-29.dahlia`, accepts only a restricted sandbox `rk_test_` key, requires
+an exact configured offering, creates fixed mixed recurring/one-time Checkout
+and Portal sessions, and reconciles current Dahlia objects. Checked-in settings
+remain explicitly disabled and contain no Stripe key, endpoint secret, Price
+ID, account data, or personal/payment data.
+
+Deterministic tests cover unavailable configuration, restricted-key gating,
+exact Checkout/Portal requests, current subscription-item periods,
+invoice-parent links, Invoice Payments, Charge mapping, and hosted-domain
+validation. API 50, Platform 23, local-engine 67, Agent 291, contracts 22, and
+Flutter 32 tests pass; Flutter analysis, EF model check, Release builds,
+focused formatting, secret scan, and diff checks are clean. Full local evidence
+and the proposed sandbox fixture are in
+`docs/STRIPE_SANDBOX_OPERATIONAL_PREFLIGHT_2026-08-13.md`.
+
+Account-backed proof is blocked on interactive Stripe sign-in, Product Owner
+confirmation of the proposed sandbox-only USD 1 monthly + USD 1 one-time
+fixture (or replacement values), and a reachable HTTPS webhook route. Neither
+available browser had an authenticated Stripe session; Chrome was left at the
+Stripe login page for user handoff. No Stripe account resource or API call has
+occurred.
+
 ## Authorization boundary
 
-Milestone 6 implementation authorization has been consumed. This checkpoint
-authorizes no provider/account operation, credential or payment/customer data,
-cloud action, native action, external Git action, deployment, or destructive
-cleanup.
+The Product Owner subsequently authorized the bounded Stripe sandbox/account
+provisioning and operational-proof step. That authorization covers sandbox-only
+Products/Prices, portal configuration, a least-privilege restricted sandbox
+key, sandbox event destination/secret, synthetic test Customer/session/payment
+objects, and non-destructive operational proof after interactive authentication
+and the fixture choice. It does not include live-mode resources, real customer
+or payment data, real charges/refunds, deployment, production enablement,
+external Git action, native action, or destructive cleanup.
 
-Do not install the Stripe plugin, CLI, SDK, or another dependency; create or
-access provider resources, register webhooks, retrieve artifacts, use
-credentials or personal/customer/
-venue/payment data, mutate cloud state, build/install meaningful native
-packages, fetch/push Git state, create/mutate a PR, dispatch workflows,
-charge/refund, release, deploy, or clean up destructively without new explicit
-authorization.
+Do not use live mode; install the Stripe plugin, CLI, SDK, or another dependency;
+use real personal/customer/venue/payment data; perform a real charge/refund;
+deploy or enable production; build/install meaningful native packages;
+fetch/push Git state; create/mutate a PR; dispatch workflows; release; or clean
+up destructively without new explicit authorization.
 
 ## Next gated decision
 
-Stop for Product Owner direction. The next bounded action is Stripe
-sandbox/account provisioning and operational proof against the disabled
-provider seam. It requires separate explicit authorization. A ShowVault-owned
-account website, membership/role
+Ask the Product Owner to sign in through the handed-off Chrome Stripe tab and
+confirm or replace the proposed sandbox fixture. Then resume the already
+authorized sandbox provisioning. A public webhook proof also requires either a
+separately authorized deployment or an explicitly approved Stripe CLI install
+and forwarding session. A ShowVault-owned account website, membership/role
 administration, internal staff Admin, production hosted-object storage, and
 native proof remain independently gated.
 
