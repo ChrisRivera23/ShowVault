@@ -36,6 +36,7 @@ public static class HostedSyncEndpoints
         CommercialStateService commercial, MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
+        if (HumanIdentity.IsPersonalBeta(user)) return Results.Forbid();
         if (!await authorization.HasVenueAccessAsync(
                 organizationId, venueId, user, true, cancellationToken))
             return Results.Forbid();
@@ -210,6 +211,7 @@ public static class HostedSyncEndpoints
         MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
+        if (HumanIdentity.IsPersonalBeta(user)) return Results.Forbid();
         if (!await authorization.HasVenueAccessAsync(
                 organizationId, venueId, user, true, cancellationToken))
             return Results.Forbid();
@@ -243,6 +245,7 @@ public static class HostedSyncEndpoints
         MembershipAuthorizationService authorization,
         CancellationToken cancellationToken)
     {
+        if (HumanIdentity.IsPersonalBeta(user)) return null;
         if (!await authorization.HasVenueAccessAsync(
                 organizationId, venueId, user, true, cancellationToken))
             return null;

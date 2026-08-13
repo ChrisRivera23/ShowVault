@@ -109,6 +109,9 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.HasOne<Organization>().WithMany()
                 .HasForeignKey(invitation => invitation.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<Membership>().WithMany()
+                .HasForeignKey(invitation => invitation.AcceptedMembershipId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<AccountAuditEvent>(entity =>

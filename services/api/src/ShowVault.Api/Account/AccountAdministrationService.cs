@@ -71,7 +71,18 @@ public sealed class AccountAdministrationService(
             invitation.ObserveExpiry(now);
             changed |= revision != invitation.Revision;
         }
-        if (changed) await database.SaveChangesAsync(cancellationToken);
+        if (changed)
+        {
+            try { await database.SaveChangesAsync(cancellationToken); }
+            catch (DbUpdateConcurrencyException)
+            {
+                database.ChangeTracker.Clear();
+                invitations = await database.OrganizationInvitations.AsNoTracking()
+                    .Where(value => value.OrganizationId == organizationId)
+                    .OrderByDescending(value => value.CreatedAt)
+                    .ToListAsync(cancellationToken);
+            }
+        }
         return AccountResult<IReadOnlyList<AccountInvitationSummary>>.Success(
             invitations.Select(Summary).ToArray());
     }
@@ -83,7 +94,7 @@ public sealed class AccountAdministrationService(
         var access = await OwnerAccessAsync(organizationId, user, true, cancellationToken);
         if (access != AccountResultKind.Success)
             return AccountResult<CreatedAccountInvitation>.Failure(access);
-        if (!tokens.IsAvailable)
+        if (!await HasCompleteKeyRingAsync(cancellationToken))
             return AccountResult<CreatedAccountInvitation>.Failure(AccountResultKind.FeatureUnavailable);
 
         var now = timeProvider.GetUtcNow();
@@ -136,6 +147,13 @@ public sealed class AccountAdministrationService(
         if (invitation is null)
             return AccountResult<AccountInvitationSummary>.Failure(AccountResultKind.NotFound);
         var now = timeProvider.GetUtcNow();
+        invitation.ObserveExpiry(now);
+        if (invitation.State == OrganizationInvitationState.Expired)
+        {
+            try { await database.SaveChangesAsync(cancellationToken); }
+            catch (DbUpdateConcurrencyException) { database.ChangeTracker.Clear(); }
+            return AccountResult<AccountInvitationSummary>.Failure(AccountResultKind.Conflict);
+        }
         try { invitation.Revoke(invitation.Revision, now); }
         catch (InvalidOperationException)
         {
@@ -166,6 +184,8 @@ public sealed class AccountAdministrationService(
             return AccountResult<AcceptedAccountInvitation>.Failure(AccountResultKind.Unauthorized);
         if (HumanIdentity.IsPersonalBeta(user))
             return AccountResult<AcceptedAccountInvitation>.Failure(AccountResultKind.Forbidden);
+        if (!await HasCompleteKeyRingAsync(cancellationToken))
+            return AccountResult<AcceptedAccountInvitation>.Failure(AccountResultKind.FeatureUnavailable);
         var candidates = tokens.CandidateDigests(code);
         if (candidates.Count == 0)
             return AccountResult<AcceptedAccountInvitation>.Failure(
@@ -198,8 +218,15 @@ public sealed class AccountAdministrationService(
         var now = timeProvider.GetUtcNow();
         invitation.ObserveExpiry(now);
         if (invitation.State != OrganizationInvitationState.Pending)
+        {
+            if (invitation.State == OrganizationInvitationState.Expired)
+            {
+                try { await database.SaveChangesAsync(cancellationToken); }
+                catch (DbUpdateConcurrencyException) { database.ChangeTracker.Clear(); }
+            }
             return AccountResult<AcceptedAccountInvitation>.Failure(
                 AccountResultKind.InvitationUnavailable);
+        }
         var membership = Membership.Create(invitation.OrganizationId, subject,
             invitation.Role, now, invitation.DisplayLabel);
         try { invitation.Accept(membership.Id, subject, invitation.Revision, now); }
@@ -222,8 +249,8 @@ public sealed class AccountAdministrationService(
         {
             await transaction.RollbackAsync(cancellationToken);
             database.ChangeTracker.Clear();
-            return AccountResult<AcceptedAccountInvitation>.Failure(
-                AccountResultKind.InvitationUnavailable);
+            return await ResumeAcceptedInvitationAsync(
+                invitation.Id, subject, cancellationToken);
         }
         return AccountResult<AcceptedAccountInvitation>.Success(
             new AcceptedAccountInvitation(Summary(membership, subject)));
@@ -296,6 +323,44 @@ public sealed class AccountAdministrationService(
         if (sensitive && !stepUp.Evaluate(user).Authorized)
             return AccountResultKind.Forbidden;
         return AccountResultKind.Success;
+    }
+
+    private async Task<bool> HasCompleteKeyRingAsync(CancellationToken cancellationToken)
+    {
+        if (!tokens.IsAvailable) return false;
+        var keyIds = tokens.ConfiguredKeyIds;
+        var now = timeProvider.GetUtcNow();
+        // SQLite stores DateTimeOffset values as text and cannot translate ordering
+        // comparisons for them. Keep the state filter server-side, then apply the
+        // expiry check to the small set of pending invitation key references.
+        var pendingKeys = await database.OrganizationInvitations.AsNoTracking()
+            .Where(invitation => invitation.State == OrganizationInvitationState.Pending)
+            .Select(invitation => new { invitation.TokenKeyId, invitation.ExpiresAt })
+            .ToListAsync(cancellationToken);
+        var requiredKeyIds = pendingKeys
+            .Where(invitation => invitation.ExpiresAt > now)
+            .Select(invitation => invitation.TokenKeyId)
+            .Distinct(StringComparer.Ordinal);
+        return requiredKeyIds.All(keyIds.Contains);
+    }
+
+    private async Task<AccountResult<AcceptedAccountInvitation>> ResumeAcceptedInvitationAsync(
+        Guid invitationId, string subject, CancellationToken cancellationToken)
+    {
+        var winner = await database.OrganizationInvitations.AsNoTracking()
+            .SingleOrDefaultAsync(value => value.Id == invitationId, cancellationToken);
+        if (winner?.State != OrganizationInvitationState.Accepted ||
+            winner.AcceptedBySubject != subject || winner.AcceptedMembershipId is not { } membershipId)
+            return AccountResult<AcceptedAccountInvitation>.Failure(
+                AccountResultKind.InvitationUnavailable);
+        var membership = await database.Memberships.AsNoTracking().SingleOrDefaultAsync(value =>
+            value.Id == membershipId && value.OrganizationId == winner.OrganizationId &&
+            value.IdentitySubject == subject, cancellationToken);
+        return membership is null
+            ? AccountResult<AcceptedAccountInvitation>.Failure(
+                AccountResultKind.InvitationUnavailable)
+            : AccountResult<AcceptedAccountInvitation>.Success(
+                new AcceptedAccountInvitation(Summary(membership, subject)));
     }
 
     private static AccountMemberSummary Summary(Membership member, string currentSubject) => new(

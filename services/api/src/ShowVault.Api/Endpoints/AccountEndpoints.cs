@@ -94,7 +94,17 @@ public static class AccountEndpoints
     {
         if (!request.ContentType?.StartsWith("application/json", StringComparison.OrdinalIgnoreCase)
                 ?? true || request.ContentLength is > 4096) return null;
-        try { return await request.ReadFromJsonAsync<T>(StrictJson, cancellationToken); }
+        await using var buffer = new MemoryStream();
+        var chunk = new byte[1024];
+        while (true)
+        {
+            var count = await request.Body.ReadAsync(chunk, cancellationToken);
+            if (count == 0) break;
+            if (buffer.Length + count > 4096) return null;
+            await buffer.WriteAsync(chunk.AsMemory(0, count), cancellationToken);
+        }
+        buffer.Position = 0;
+        try { return await JsonSerializer.DeserializeAsync<T>(buffer, StrictJson, cancellationToken); }
         catch (JsonException) { return null; }
     }
 

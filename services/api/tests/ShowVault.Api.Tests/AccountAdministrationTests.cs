@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using ShowVault.Api.Contracts;
 using ShowVault.Api.Data;
@@ -130,6 +131,25 @@ public sealed class AccountAdministrationTests(TenantApiFactory factory)
             await unknown.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Chunked_account_body_is_bounded_without_content_length()
+    {
+        var owner = $"auth0|owner-{Guid.NewGuid():N}";
+        var organizationId = await SeedOrganizationAsync(owner);
+        using var ownerClient = Client(owner, steppedUp: true);
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/v1/organizations/{organizationId}/account/invitations")
+        {
+            Content = new UnknownLengthContent(Encoding.UTF8.GetBytes(
+                "{\"displayLabel\":\"" + new string('x', 5000) + "\",\"role\":\"viewer\"}"))
+        };
+        request.Content.Headers.ContentType = new("application/json");
+
+        var response = await ownerClient.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     private async Task<Guid> SeedOrganizationAsync(string owner)
     {
         using var scope = factory.Services.CreateScope();
@@ -155,5 +175,17 @@ public sealed class AccountAdministrationTests(TenantApiFactory factory)
                     System.Globalization.CultureInfo.InvariantCulture));
         }
         return client;
+    }
+
+    private sealed class UnknownLengthContent(byte[] bytes) : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream,
+            TransportContext? context) => stream.WriteAsync(bytes).AsTask();
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
     }
 }

@@ -10,6 +10,7 @@ using ShowVault.Api.HostedSync;
 using ShowVault.Platform.Commercial;
 using ShowVault.Platform.Organizations;
 using ShowVault.Platform.Venues;
+using ShowVault.Api.Security;
 using LocalCatalogAuthorizer = ShowVault.LocalEngine.LocalCatalogAuthorizer;
 using LocalRecoveryEngine = ShowVault.LocalEngine.LocalRecoveryEngine;
 using LocalSyncEngine = ShowVault.LocalEngine.LocalSyncEngine;
@@ -22,6 +23,22 @@ namespace ShowVault.Api.Tests;
 public sealed class HostedSyncTests(TenantApiFactory factory) : IClassFixture<TenantApiFactory>
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    [Fact]
+    public async Task Personal_beta_identity_cannot_use_hosted_sync()
+    {
+        var subject = $"personal-beta-{Guid.NewGuid():N}";
+        var tenant = await CreateTenantAsync(subject);
+        var beginRequest = BeginRequest(Encoding.UTF8.GetBytes("local-only backup"));
+        using var client = Client(subject,
+            PersonalBetaAuthenticationHandler.SchemeName);
+        var root = Root(tenant, beginRequest.Manifest.RecoveryPointId);
+
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await client.PostAsJsonAsync(root + "/begin", beginRequest)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await client.GetAsync(root + "/receipt")).StatusCode);
+    }
 
     [Fact]
     public async Task Owner_can_resume_identical_chunk_and_commit_receipt_last()
@@ -291,10 +308,12 @@ public sealed class HostedSyncTests(TenantApiFactory factory) : IClassFixture<Te
         }
     }
 
-    private HttpClient Client(string subject)
+    private HttpClient Client(string subject, string? authenticationType = null)
     {
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Test-Subject", subject);
+        if (authenticationType is not null)
+            client.DefaultRequestHeaders.Add("X-Test-Authentication-Type", authenticationType);
         return client;
     }
 

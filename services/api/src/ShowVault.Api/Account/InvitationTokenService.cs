@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.Options;
 
 namespace ShowVault.Api.Account;
@@ -12,6 +13,9 @@ public sealed class InvitationTokenService(IOptions<AccountInvitationOptions> op
     private readonly AccountInvitationOptions _options = options.Value;
 
     public bool IsAvailable => TryKeys(out _, out _);
+    public IReadOnlySet<string> ConfiguredKeyIds => TryKeys(out var keys, out _)
+        ? keys.Select(key => key.Id).ToHashSet(StringComparer.Ordinal)
+        : new HashSet<string>(StringComparer.Ordinal);
 
     public IssuedInvitationToken Issue()
     {
@@ -25,6 +29,7 @@ public sealed class InvitationTokenService(IOptions<AccountInvitationOptions> op
     public IReadOnlyList<InvitationTokenDigest> CandidateDigests(string code)
     {
         if (!TryKeys(out var keys, out _) || string.IsNullOrWhiteSpace(code) ||
+            Encoding.UTF8.GetByteCount(code) > _options.MaximumCodeBytes ||
             code.Length != 43 || !TryBase64UrlDecode(code, out var bytes) || bytes.Length != CodeBytes)
             return [];
         return keys.Select(key => new InvitationTokenDigest(
@@ -38,23 +43,25 @@ public sealed class InvitationTokenService(IOptions<AccountInvitationOptions> op
         if (!_options.Enabled || _options.LifetimeHours != 168 ||
             _options.MaximumCodeBytes is < 43 or > 64 ||
             string.IsNullOrWhiteSpace(_options.ActiveKeyId) ||
-            _options.Keys.Count is < 1 or > 2 ||
-            _options.Keys.Any(key => string.IsNullOrWhiteSpace(key.Id)) ||
-            _options.Keys.Select(key => key.Id).Distinct(StringComparer.Ordinal).Count() !=
-                _options.Keys.Count)
+            _options.Keys is not { Count: >= 1 and <= 2 })
             return false;
 
         var material = new List<KeyMaterial>(_options.Keys.Count);
         foreach (var key in _options.Keys)
         {
+            var id = key.Id?.Trim() ?? "";
+            if (id.Length is < 1 or > 80 ||
+                material.Any(value => value.Id == id)) return false;
+            if (string.IsNullOrWhiteSpace(key.SecretBase64)) return false;
             byte[] secret;
             try { secret = Convert.FromBase64String(key.SecretBase64); }
             catch (FormatException) { return false; }
             if (secret.Length != 32) return false;
-            material.Add(new KeyMaterial(key.Id.Trim(), secret));
+            material.Add(new KeyMaterial(id, secret));
         }
-        var resolved = material.SingleOrDefault(value =>
-            value.Id == _options.ActiveKeyId.Trim());
+        var activeId = _options.ActiveKeyId.Trim();
+        if (activeId.Length is < 1 or > 80) return false;
+        var resolved = material.FirstOrDefault(value => value.Id == activeId);
         if (resolved == default) return false;
         keys = material;
         active = resolved;

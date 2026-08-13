@@ -48,6 +48,25 @@ public sealed class InvitationTokenServiceTests
         Assert.False(new InvitationTokenService(options).IsAvailable);
     }
 
+    [Fact]
+    public void Key_ring_rejects_more_than_two_keys_and_normalized_duplicates()
+    {
+        var tooMany = Service(Key("active", 1), Key("retiring", 33), active: "active",
+            third: Key("old", 65));
+        Assert.False(tooMany.IsAvailable);
+
+        var duplicate = Service(Key(" active ", 1), Key("active", 33), active: "active");
+        Assert.False(duplicate.IsAvailable);
+    }
+
+    [Fact]
+    public void Key_ring_rejects_blank_or_oversized_identifiers()
+    {
+        Assert.False(Service(Key(" ", 1), active: " ").IsAvailable);
+        var oversized = new string('k', 81);
+        Assert.False(Service(Key(oversized, 1), active: oversized).IsAvailable);
+    }
+
     private static AccountInvitationKeyOptions Key(string id, int start) => new()
     {
         Id = id,
@@ -58,12 +77,14 @@ public sealed class InvitationTokenServiceTests
     private static InvitationTokenService Service(
         AccountInvitationKeyOptions first,
         AccountInvitationKeyOptions? second = null,
-        string active = "active") => new(Options.Create(new AccountInvitationOptions
+        string active = "active",
+        AccountInvitationKeyOptions? third = null) => new(Options.Create(new AccountInvitationOptions
         {
             Enabled = true,
             LifetimeHours = 168,
             MaximumCodeBytes = 64,
             ActiveKeyId = active,
-            Keys = second is null ? [first] : [first, second]
+            Keys = third is not null ? [first, second!, third]
+                : second is null ? [first] : [first, second]
         }));
 }

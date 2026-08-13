@@ -7,7 +7,7 @@ public sealed class AccountInvitationOptions
     public bool Enabled { get; set; }
     public int LifetimeHours { get; set; } = 168;
     public string? ActiveKeyId { get; set; }
-    public List<AccountInvitationKeyOptions> Keys { get; set; } = [];
+    public List<AccountInvitationKeyOptions>? Keys { get; set; } = [];
     public int MaximumCodeBytes { get; set; } = 64;
 }
 
