@@ -32,11 +32,13 @@ Agent protocol remain path-free.
 ## Compatibility boundary
 
 Yamaha documents `.pvd` as the general ProVisionaire Design project format.
-The extension does not prove that a project contains a DME7. DME7 is therefore
-only an operator-asserted Assisted use case. Yamaha documents `.mtx` as the
-MTX-MRX Editor project format, but ShowVault does not parse either opaque
-format or infer device identity, semantic validity, firmware compatibility,
-editor-version compatibility, external dependencies, or live-device state.
+The extension does not prove that a project contains a DME7 or a PC-D/DI
+amplifier. DME7 and PC412-D, PC412-DI, PC406-D, or PC406-DI are therefore only
+operator-asserted Assisted use cases of the same generic profile. Yamaha
+documents `.mtx` as the MTX-MRX Editor project format, but ShowVault does not
+parse either opaque format or infer device identity, semantic validity,
+firmware compatibility, editor-version compatibility, external dependencies,
+or live-device state.
 
 Restore only into a new empty ShowVault-controlled target. An operator must
 then open or import the verified files with compatible Yamaha software and
@@ -46,6 +48,8 @@ live Yamaha application tree or device.
 Primary vendor references:
 
 - [ProVisionaire Design overview](https://manual.yamaha.com/pa/pv/pvd/en/YJ-H0/01_AboutPV_en.html)
+- [PC-D/DI ProVisionaire Design workflow](https://manual.yamaha.com/pa/power_amps/pc-d_di/en/01_Introduction_en.html)
+- [PC Series in ProVisionaire Design](https://manual.yamaha.com/pa/pv/pvd/en/YJ-H0/17_DeviceSheet_PC_en.html)
 - [MTX-MRX Editor User Guide](https://europe.yamaha.com/en/download/files/2099916/)
 
 This slice provides synthetic macOS/Linux-compatible filesystem evidence only.
