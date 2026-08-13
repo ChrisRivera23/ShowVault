@@ -2,67 +2,71 @@
 
 Read this file, `docs/LOCAL_FIRST_PRODUCT_BIBLE.md`,
 `docs/LOCAL_QUEUE_SYNC.md`,
-`docs/LOCAL_FIRST_MILESTONE_5_EXTRACTION.md`,
-`docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md`,
-`docs/LOCAL_FIRST_MILESTONE_5_IMPLEMENTATION_2026-08-13.md`, and
-`docs/LOCAL_FIRST_MILESTONE_5_HANDOFF_2026-08-13.md` completely before
+`docs/LOCAL_FIRST_MILESTONE_6_EXTRACTION.md`,
+`docs/LOCAL_FIRST_MILESTONE_6_RECONSTRUCTION_REVIEW_2026-08-13.md`,
+`docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md`, and
+`docs/LOCAL_FIRST_MILESTONE_6_PLAN_HANDOFF_2026-08-13.md` completely before
 continuing work from this branch.
 
 ## Current checkpoint — 2026-08-13
 
-- Branch: `codex/local-first-milestone-5`
-- Worktree: `/private/tmp/showvault-local-first-m5-implementation`
-- Exact authorized planning base:
-  `3ebe9394536b8aabf7e9643be6af8f7de7ebfe6f`
-- Source implementation commit:
-  `3cb4452d64c4881d1451e47631cb1a907674c1d3`
+- Branch: `codex/local-first-milestone-6-plan`
+- Worktree: `/private/tmp/showvault-local-first-m6-plan`
+- Exact milestone-5 base:
+  `92a367fcefc1aa91522c7c1f648c1cebeed4f21f`
+- Extraction/architecture commit:
+  `1d32d96f956b09eaee4a8db8e3e4bc1124c6a795`
 - Product outcome:
-  **Sign in as an organization Owner → open Plan and storage → review
-  server-derived license/subscription eligibility and logical hosted usage →
-  allow or deny each new hosted-sync reservation from the same projection →
-  retain path-free audited evidence**
+  **Sign in as an organization Owner → choose one server-approved offering in
+  Plan and storage → continue to Stripe-hosted Checkout → return with access
+  still pending → accept and reconcile signed provider events into ShowVault's
+  license/subscription projection → refresh the normalized plan → open a
+  short-lived Stripe Billing Portal session**
 
-Milestone 5 is complete locally. Separate license/subscription projections,
-Development/test-only synthetic policy, organization committed/reserved byte
-accounting, hosted-session reservations, append-only minimized audit, Owner
-plan reads, bounded local attention, and Flutter Settings exposure are
-implemented. Concurrent/idempotent begin and commit do not double count, and
-already reserved uploads remain recoverable after later commercial
-ineligibility.
+Milestone 6 extraction and architecture planning are complete. The plan keeps
+milestone 5 as entitlement authority and places Stripe IDs, purchase attempts,
+minimal signed-event receipts, reconciliation cursors, and billing attention in
+a separate server-only layer. The desktop submits only an internal offering
+code and receives ephemeral HTTPS Checkout/Portal URLs. Redirect completion,
+email, metadata, and client claims never grant access.
 
-Validation passed: Platform 23; API 39; local engine 67; Flutter 30 plus clean
-analysis; Agent 291; contracts 22; EF model gate; zero-warning Release builds;
-formatting; diff checks; and changed-file secret/path checks.
+The raw webhook body is verified before parsing and never stored. Event IDs are
+durably deduplicated, delivery order is not trusted, and a bounded worker
+retrieves current provider state before updating normalized projections. With
+no approved grace duration, past-due denies new reservations. Refund, dispute,
+unknown, or inconsistent state denies/enters attention without deleting or
+stranding any recovery data.
 
-All fixtures were synthetic. No billing provider was selected, installed, or
-contacted. Non-Development commercial policy is disabled. Payment correctness,
-provider operations, customer/staff administration, production storage,
-deployment, native correctness, and equipment readiness remain unproven.
+No provider plugin/dependency was installed. No Stripe account/API, product,
+Price, Customer, session, event endpoint, key, secret, credential, payment or
+customer data, charge/refund, cloud mutation, deployment, native action, or
+external Git action was used. Only public official documentation was read.
 
 ## Authorization boundary
 
-No external product-system, billing-provider, cloud, administration, or native
-action is authorized by this checkpoint.
+This checkpoint authorizes no implementation, dependency installation,
+provider/account operation, credential or payment/customer data, cloud action,
+native action, external Git action, deployment, or destructive cleanup.
 
-Do not fetch or push Git state, create or mutate a PR, dispatch a workflow,
-install or contact a provider, retrieve artifacts, create checkout/customer
-records, use credentials or personal/customer/venue/payment data, mutate cloud
-resources, build or install a meaningful native package, use equipment,
-upload/synchronize, release, deploy, or clean up destructively without new
-explicit authorization.
+Do not modify application/API/engine source or migrations; install the Stripe
+plugin, CLI, SDK, or another dependency; create/access provider resources,
+register webhooks, retrieve artifacts, use credentials or personal/customer/
+venue/payment data, mutate cloud state, build/install meaningful native
+packages, fetch/push Git state, create/mutate a PR, dispatch workflows,
+charge/refund, release, deploy, or clean up destructively without new explicit
+authorization.
 
 ## Next gated decision
 
-Stop for Product Owner direction. Per the ordered roadmap, the next bounded
-slice is provider-backed billing, signed webhook projection, customer portal,
-and financial lifecycle policy. Before implementation, select one exact
-provider outcome, account for its historical source, write its current
-financial-data/authorization/lifecycle contract, and obtain separate explicit
-authorization.
+Stop for Product Owner direction. The next bounded action is local
+implementation of the exact milestone-6 contract with disabled-by-default
+provider configuration, deterministic synthetic adapters, and locally signed
+fixtures only. It requires separate explicit implementation authorization.
 
-Membership/invitation and role administration, internal support Admin,
-production hosted-object storage, and native proof remain separate gated
-slices.
+Provider sandbox/account provisioning and operational proof remain a later
+explicit gate. A ShowVault-owned account website, membership/role
+administration, internal staff Admin, production hosted-object storage, and
+native proof remain independently gated.
 
 The existing untracked `NEXT_CONVERSATION.md` in the user's primary worktree is
 outside this branch and was not added or changed.
