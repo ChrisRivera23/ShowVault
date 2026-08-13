@@ -326,6 +326,29 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
         await Assert.ThrowsAnyAsync<Exception>(() =>
             CreateEngine(new LocalEngineLimits(MaximumRelativePathLength: 1))
                 .SaveAsync(new(Key, Source, Path.Combine(_root, "vault-three"))));
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            CreateEngine(new LocalEngineLimits(MaximumTotalBytes: 5))
+                .SaveAsync(new(Key, Source, Path.Combine(_root, "vault-four"))));
+        Directory.CreateDirectory(Path.Combine(Source, "another-directory"));
+        await File.WriteAllTextAsync(Path.Combine(Source, "another-directory", "file"), "x");
+        Directory.CreateDirectory(Path.Combine(Source, "second-directory"));
+        await File.WriteAllTextAsync(Path.Combine(Source, "second-directory", "file"), "x");
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            CreateEngine(new LocalEngineLimits(MaximumDirectoryCount: 1))
+                .SaveAsync(new(Key, Source, Path.Combine(_root, "vault-five"))));
+    }
+
+    [Fact]
+    public async Task Save_enforces_duration_bound()
+    {
+        await File.WriteAllBytesAsync(
+            Path.Combine(Source, "bounded-large-file"), new byte[4 * 1024 * 1024]);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            CreateEngine(new LocalEngineLimits(Timeout: TimeSpan.Zero))
+                .SaveAsync(new(Key, Source, Vault)));
+
+        Assert.DoesNotContain("queued", await ReadAllStatusesAsync());
     }
 
     [Fact]

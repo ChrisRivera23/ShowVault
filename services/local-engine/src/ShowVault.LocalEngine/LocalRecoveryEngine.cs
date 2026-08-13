@@ -123,7 +123,8 @@ public sealed class LocalRecoveryEngine
                 $"ShowVault Pro recovery point\nSystem: {source.ProductName}\n" +
                 $"Created: {now:O}\nFiles: {snapshot.Files.Count}\n" +
                 $"Bytes: {snapshot.Files.Sum(file => file.Size)}\n" +
-                "Local protection: verification pending\nCloud synchronization: not queued\n"),
+                "Local protection: verified before publication\n" +
+                "Cloud synchronization: tracked separately\n"),
                 timeout.Token);
 
             progress?.Report(new("verifying", 0, 1));
@@ -173,7 +174,7 @@ public sealed class LocalRecoveryEngine
             var reverified = await VerifyPublishedAsync(
                 finalPath, Path.Combine(manifestsPath, recoveryPointId),
                 recoveryPointId, manifestBytes, evidenceBytes,
-                now, timeout.Token);
+                timeout.Token);
             await queue.RecordVerifiedAsync(
                 operationId, recoveryPointId, packageRelativePath,
                 reverified.VerifiedFileCount, reverified.VerifiedBytes, now, timeout.Token);
@@ -248,7 +249,7 @@ public sealed class LocalRecoveryEngine
             var evidenceBytes = await ReadBoundedFileAsync(evidencePath, 1024 * 1024, cancellationToken);
             var verified = await VerifyPublishedAsync(
                 packagePath, Path.GetDirectoryName(manifestPath)!, record.RecoveryPointId,
-                manifestBytes, evidenceBytes, _timeProvider.GetUtcNow(), cancellationToken);
+                manifestBytes, evidenceBytes, cancellationToken);
             summaries.Add(new(
                 record.RecoveryPointId, record.CandidateKey, record.ProductName,
                 verified.VerifiedFileCount, verified.VerifiedBytes, record.CreatedAt,
@@ -263,7 +264,6 @@ public sealed class LocalRecoveryEngine
         string recoveryPointId,
         byte[] expectedManifest,
         byte[] expectedEvidence,
-        DateTimeOffset now,
         CancellationToken cancellationToken)
     {
         var packageManifest = await ReadBoundedFileAsync(
@@ -282,8 +282,29 @@ public sealed class LocalRecoveryEngine
         {
             throw new LocalEngineException("Local recovery evidence does not match.");
         }
-        return await LocalRecoveryVerifier.VerifyAsync(
-            packagePath, recoveryPointId, now, _limits, cancellationToken);
+        LocalVerificationEvidence recorded;
+        try
+        {
+            recorded = JsonSerializer.Deserialize<LocalVerificationEvidence>(
+                expectedEvidence, JsonOptions) ?? throw new JsonException();
+        }
+        catch (JsonException)
+        {
+            throw new LocalEngineException("Local verification evidence is invalid.");
+        }
+        if (!recorded.Passed ||
+            !string.Equals(recorded.RecoveryPointId, recoveryPointId, StringComparison.Ordinal))
+        {
+            throw new LocalEngineException("Local verification evidence is not passing.");
+        }
+        var reverified = await LocalRecoveryVerifier.VerifyAsync(
+            packagePath, recoveryPointId, recorded.VerifiedAt, _limits, cancellationToken);
+        var reverifiedBytes = JsonSerializer.SerializeToUtf8Bytes(reverified, JsonOptions);
+        if (!expectedEvidence.AsSpan().SequenceEqual(reverifiedBytes))
+        {
+            throw new LocalEngineException("Local verification evidence is stale or invalid.");
+        }
+        return reverified;
     }
 
     private static void RejectOverlap(
