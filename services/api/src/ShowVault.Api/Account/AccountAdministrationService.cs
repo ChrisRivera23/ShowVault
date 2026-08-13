@@ -218,14 +218,15 @@ public sealed class AccountAdministrationService(
         var existing = await database.Memberships.SingleOrDefaultAsync(value =>
             value.OrganizationId == invitation.OrganizationId &&
             value.IdentitySubject == subject, cancellationToken);
-        if (invitation.State == OrganizationInvitationState.Accepted &&
-            invitation.AcceptedBySubject == subject && existing is not null &&
-            invitation.AcceptedMembershipId == existing.Id)
-            return AccountResult<AcceptedAccountInvitation>.Success(
-                new AcceptedAccountInvitation(Summary(existing, subject)));
-        if (existing is not null)
-            return AccountResult<AcceptedAccountInvitation>.Failure(
-                AccountResultKind.InvitationUnavailable);
+        if (invitation.State == OrganizationInvitationState.Accepted || existing is not null)
+        {
+            // The winning transaction can commit between the invitation and membership
+            // queries. Re-observe both records together instead of pairing a stale pending
+            // invitation with the winner's newly visible membership and denying the retry.
+            database.ChangeTracker.Clear();
+            return await ResumeAcceptedInvitationAsync(
+                invitation.Id, subject, cancellationToken);
+        }
 
         var now = timeProvider.GetUtcNow();
         invitation.ObserveExpiry(now);

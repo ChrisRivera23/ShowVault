@@ -99,17 +99,54 @@ public sealed class TenantApiFactory : WebApplicationFactory<Program>
 
 public sealed class CountingCommandInterceptor : DbCommandInterceptor
 {
+    private readonly object _gate = new();
     private int _readerCommands;
+    private Func<DbCommand, bool>? _beforeReaderPredicate;
+    private Func<CancellationToken, Task>? _beforeReader;
     public int ReaderCommands => Volatile.Read(ref _readerCommands);
     public int Reset() => Interlocked.Exchange(ref _readerCommands, 0);
 
-    public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+    public void BeforeNextReader(
+        Func<DbCommand, bool> predicate,
+        Func<CancellationToken, Task> action)
+    {
+        lock (_gate)
+        {
+            if (_beforeReader is not null)
+                throw new InvalidOperationException("A reader action is already configured.");
+            _beforeReaderPredicate = predicate;
+            _beforeReader = action;
+        }
+    }
+
+    public void ClearBeforeReader()
+    {
+        lock (_gate)
+        {
+            _beforeReaderPredicate = null;
+            _beforeReader = null;
+        }
+    }
+
+    public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
         DbCommand command, CommandEventData eventData,
         InterceptionResult<DbDataReader> result,
         CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref _readerCommands);
-        return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
+        Func<CancellationToken, Task>? action = null;
+        lock (_gate)
+        {
+            if (_beforeReaderPredicate?.Invoke(command) == true)
+            {
+                action = _beforeReader;
+                _beforeReaderPredicate = null;
+                _beforeReader = null;
+            }
+        }
+        if (action is not null)
+            await action(cancellationToken);
+        return await base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
     }
 }
 

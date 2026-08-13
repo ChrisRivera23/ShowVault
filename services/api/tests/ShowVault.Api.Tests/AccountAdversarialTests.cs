@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ShowVault.Api.Account;
@@ -77,6 +78,60 @@ public sealed class AccountAdversarialTests(TenantApiFactory factory)
 
         Assert.Equal(AccountResultKind.InvitationUnavailable, result.Kind);
         Assert.Equal(4, attempts);
+    }
+
+    [Fact]
+    public async Task Acceptance_reobserves_when_membership_appears_after_pending_invitation_read()
+    {
+        var owner = Subject("interleaving-owner");
+        var winner = Subject("interleaving-winner");
+        var organizationId = await SeedOrganizationAsync(owner);
+        using var ownerClient = Client(owner, steppedUp: true);
+        var created = await CreateInvitationAsync(ownerClient, organizationId, "viewer");
+        var injected = 0;
+        factory.Commands.BeforeNextReader(
+            command => command.CommandText.Contains(
+                "FROM \"memberships\"", StringComparison.Ordinal),
+            async cancellationToken =>
+            {
+                Interlocked.Increment(ref injected);
+                using var scope = factory.Services.CreateScope();
+                var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+                var invitation = await database.OrganizationInvitations.SingleAsync(value =>
+                    value.Id == created.Id, cancellationToken);
+                var now = DateTimeOffset.UtcNow;
+                var membership = Membership.Create(organizationId, winner,
+                    invitation.Role, now, invitation.DisplayLabel);
+                invitation.Accept(membership.Id, winner, invitation.Revision, now);
+                database.Memberships.Add(membership);
+                database.AccountAuditEvents.Add(AccountAuditEvent.Create(
+                    organizationId, winner, "invitation", invitation.Id,
+                    "invitation_accept", "success", "authorized",
+                    "deterministic-interleaving", "account-v1", now));
+                await database.SaveChangesAsync(cancellationToken);
+            });
+
+        try
+        {
+            using var member = Client(winner);
+            var response = await member.PostAsJsonAsync(
+                "/api/v1/account/invitations/accept",
+                new { invitationCode = created.InvitationCode });
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+        finally
+        {
+            factory.Commands.ClearBeforeReader();
+        }
+
+        Assert.Equal(1, injected);
+        using var verify = factory.Services.CreateScope();
+        var stored = verify.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        Assert.Single(stored.Memberships.Where(value =>
+            value.OrganizationId == organizationId && value.IdentitySubject == winner));
+        Assert.Single(stored.AccountAuditEvents.Where(value =>
+            value.OrganizationId == organizationId && value.Action == "invitation_accept"));
     }
 
     [Theory]
