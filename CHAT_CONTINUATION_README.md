@@ -195,6 +195,21 @@ This remains local synthetic proof only. No Auth0 or Stripe configuration,
 external API/object mutation, deployment, production enablement, real-person
 data, native installation, or external Git action occurred.
 
+### Milestone 7 repair review checkpoint
+
+The separately authorized fresh review of repair head `a874a49` is recorded in
+`docs/ACCOUNT_PORTAL_MILESTONE_7_REPAIR_REVIEW_2026-08-13.md`. Its result is
+**changes required before integration**. The product fixes are directionally
+sound and API 105/portal 15 still pass, but the evidence overclaims the frozen
+matrix: personal-beta existing-session append/commit/state paths, a complete
+ordinary and real step-up OIDC redirect contract, and the full eight-consumer
+active-role/wrong-tenant matrix remain unexecuted.
+
+Two bounded source fixes also remain: malformed invitation codes currently run
+the database key-ring preflight before pure rejection, and temporary raw-code/
+decoded-secret buffers are not zeroed where practical. The review changed
+documentation only and performed no external operation.
+
 ## Authorization boundary
 
 The Product Owner subsequently authorized the bounded Stripe sandbox/account
