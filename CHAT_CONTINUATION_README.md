@@ -454,3 +454,27 @@ Exact evidence is in
 deleted, and no release, tag, deployment, provider/production mutation, or
 native operation occurred. Any cleanup or later operational action remains a
 separate gate.
+
+### Milestone 7 post-merge closeout preflight
+
+The Product Owner authorized the read-only closeout preflight. GitHub remains
+exact: PR #37 is merged, `main` is `210b050`, candidate is `0e00171`, and the
+merge-SHA push run plus API/Flutter checks remain successful with no newer
+activity.
+
+All nine milestone-7/account-portal milestone-7 worktrees are clean, but broad
+repository cleanup is unsafe: fourteen registered worktrees have uncommitted
+files, including the primary worktree's pre-existing `NEXT_CONVERSATION.md`.
+The primary and every dirty historical worktree are excluded from cleanup.
+
+The active evidence branch held seven local-only documentation commits across
+nine paths before this preflight. The local branch named like the remote
+candidate is also a different historical documentation SHA, so name-only branch
+operations are unsafe. Verdict: do not delete branches or worktrees yet.
+
+Exact inventory, hashes, preservation order, and stop conditions are in
+`docs/LOCAL_FIRST_MILESTONE_7_POST_MERGE_CLOSEOUT_PREFLIGHT_2026-08-13.md`.
+The next bounded step is a separately authorized read-only preflight for a new
+docs-only evidence branch and draft PR. Evidence publication and any eventual
+destructive cleanup remain distinct later gates; release, deployment, and
+provider/production/native operations remain excluded.
