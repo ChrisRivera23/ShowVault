@@ -100,6 +100,7 @@ app.MapTenantEndpoints();
 app.MapAgentEnrollmentEndpoints();
 app.MapAgentCommunicationEndpoints();
 app.MapRecoveryHistoryEndpoints();
+app.MapRecoveryCandidateEndpoints();
 
 app.Run();
 

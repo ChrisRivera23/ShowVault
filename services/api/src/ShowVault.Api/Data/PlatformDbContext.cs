@@ -15,6 +15,9 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
     public DbSet<VenueAgent> VenueAgents => Set<VenueAgent>();
     public DbSet<ReceivedAgentEvent> ReceivedAgentEvents => Set<ReceivedAgentEvent>();
     public DbSet<IssuedAgentCommand> IssuedAgentCommands => Set<IssuedAgentCommand>();
+    public DbSet<DesktopCatalogScan> DesktopCatalogScans => Set<DesktopCatalogScan>();
+    public DbSet<DesktopCatalogScanCandidate> DesktopCatalogScanCandidates =>
+        Set<DesktopCatalogScanCandidate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -132,6 +135,32 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
             entity.HasOne<VenueAgent>()
                 .WithMany()
                 .HasForeignKey(command => command.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DesktopCatalogScan>(entity =>
+        {
+            entity.ToTable("desktop_catalog_scans");
+            entity.HasKey(scan => scan.Id);
+            entity.Property(scan => scan.CompletedAt).IsRequired();
+            entity.HasIndex(scan => new { scan.VenueId, scan.CompletedAt });
+            entity.HasOne<Venue>().WithMany().HasForeignKey(scan => scan.VenueId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DesktopCatalogScanCandidate>(entity =>
+        {
+            entity.ToTable("desktop_catalog_scan_candidates");
+            entity.HasKey(candidate => candidate.Id);
+            entity.Property(candidate => candidate.CandidateKey).HasMaxLength(120).IsRequired();
+            entity.Property(candidate => candidate.ProductName).HasMaxLength(200).IsRequired();
+            entity.Property(candidate => candidate.CandidateType).HasMaxLength(80).IsRequired();
+            entity.Property(candidate => candidate.Evidence).HasMaxLength(500).IsRequired();
+            entity.Property(candidate => candidate.DetectedAt).IsRequired();
+            entity.HasIndex(candidate => new { candidate.ScanId, candidate.CandidateKey }).IsUnique();
+            entity.HasOne<DesktopCatalogScan>().WithMany().HasForeignKey(candidate => candidate.ScanId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<Venue>().WithMany().HasForeignKey(candidate => candidate.VenueId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

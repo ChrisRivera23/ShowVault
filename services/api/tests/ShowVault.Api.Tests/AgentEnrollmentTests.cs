@@ -15,6 +15,63 @@ public sealed class AgentEnrollmentTests(TenantApiFactory factory)
     : IClassFixture<TenantApiFactory>
 {
     [Fact]
+    public async Task Manager_can_submit_only_allowlisted_path_free_desktop_scan_results()
+    {
+        using var ownerClient = CreateHumanClient($"auth0|desktop-owner-{Guid.NewGuid():N}");
+        using var outsiderClient = CreateHumanClient($"auth0|desktop-outsider-{Guid.NewGuid():N}");
+        var organizationId = await CreateOrganizationAsync(ownerClient);
+        var venueId = await CreateVenueAsync(ownerClient, organizationId);
+        var scanPath = $"/api/v1/organizations/{organizationId}/venues/{venueId}/computer-scans";
+        var candidatesPath =
+            $"/api/v1/organizations/{organizationId}/venues/{venueId}/recovery-candidates";
+
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await outsiderClient.PostAsJsonAsync(scanPath,
+                new SubmitComputerScanRequest(["macos.resolume-arena.application"]))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await ownerClient.PostAsJsonAsync(scanPath,
+                new SubmitComputerScanRequest(["/Applications/Private.app"]))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await ownerClient.PostAsJsonAsync(scanPath,
+                new SubmitComputerScanRequest(Enumerable.Repeat(
+                    "macos.resolume-arena.application", 129).ToArray()))).StatusCode);
+
+        var response = await ownerClient.PostAsJsonAsync(scanPath,
+            new SubmitComputerScanRequest([
+                "macos.resolume-arena.application",
+                "macos.serato-dj-pro.application"
+            ]));
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var scan = await response.Content.ReadFromJsonAsync<ApiResponse<SubmitComputerScanResponse>>();
+        Assert.NotNull(scan);
+        Assert.Equal(2, scan.Payload.CandidateCount);
+
+        var candidates = await ownerClient.GetFromJsonAsync<
+            ApiResponse<IReadOnlyList<DirectRecoveryCandidateSummary>>>(candidatesPath);
+        Assert.NotNull(candidates);
+        Assert.Equal(2, candidates.Payload.Count);
+        Assert.All(candidates.Payload, candidate =>
+        {
+            Assert.True(candidate.DirectDesktopScan);
+            Assert.Equal("detected", candidate.Decision);
+            Assert.DoesNotContain("/", candidate.Evidence, StringComparison.Ordinal);
+            Assert.DoesNotContain("\\", candidate.Evidence, StringComparison.Ordinal);
+        });
+
+        var emptyResponse = await ownerClient.PostAsJsonAsync(
+            scanPath, new SubmitComputerScanRequest([]));
+        Assert.Equal(HttpStatusCode.Created, emptyResponse.StatusCode);
+        var emptyCandidates = await ownerClient.GetFromJsonAsync<
+            ApiResponse<IReadOnlyList<DirectRecoveryCandidateSummary>>>(candidatesPath);
+        Assert.NotNull(emptyCandidates);
+        Assert.Empty(emptyCandidates.Payload);
+
+        using var scope = factory.Services.CreateScope();
+        var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        Assert.False(await database.VenueAgents.AnyAsync(agent => agent.VenueId == venueId));
+    }
+
+    [Fact]
     public async Task Enrollment_is_single_use_and_agent_credentials_are_revocable()
     {
         using var ownerClient = CreateHumanClient("auth0|agent-owner");
