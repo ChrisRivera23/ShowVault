@@ -408,3 +408,26 @@ No merge, auto-merge, reviewer request, metadata edit, push, deployment, or
 provider/production/native operation occurred. The next bounded step is a
 separately authorized read-only merge preflight; any merge remains a distinct
 later gate.
+
+### Milestone 7 PR merge preflight
+
+The Product Owner authorized the read-only merge preflight. Fresh connector and
+raw GitHub inspection confirms ready PR #37 remains open, unmerged, mergeable,
+and `clean` at exact head `0e00171` over exact `main` `32c21cf`. Title/body,
+comparison counts, empty metadata/feedback, both successful workflows, and all
+four successful API/Flutter checks remain exact. No newer activity appeared.
+
+Repository policy allows merge, squash, and rebase, but recent mainline history
+uses merge commits. There is no branch protection or ruleset, and no submitted
+review is required. A local merge calculation is conflict-free and produces
+tree `8e68dc9`, exactly matching the reviewed candidate. The approved proposal
+therefore uses the GitHub connector with merge method `merge`, expected head
+`0e00171`, and an explicit repository-conventional title/message. This
+preserves all 57 reviewed commits; squash would collapse them and rebase would
+rewrite them.
+
+Exact proposal, readback sequence, automatic mainline-CI wait, and stop
+conditions are in
+`docs/LOCAL_FIRST_MILESTONE_7_PR_MERGE_PREFLIGHT_2026-08-13.md`. No external
+state changed. The merge remains separately authorized and must stop before any
+branch deletion, release, deployment, or provider/production/native action.
