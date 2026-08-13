@@ -2,71 +2,64 @@
 
 Read this file, `docs/LOCAL_FIRST_PRODUCT_BIBLE.md`,
 `docs/LOCAL_QUEUE_SYNC.md`,
-`docs/LOCAL_FIRST_MILESTONE_4_IMPLEMENTATION_2026-08-13.md`, and
-`docs/LOCAL_FIRST_MILESTONE_4_HANDOFF_2026-08-13.md` completely before
+`docs/LOCAL_FIRST_MILESTONE_5_EXTRACTION.md`,
+`docs/LOCAL_FIRST_MILESTONE_5_RECONSTRUCTION_REVIEW_2026-08-13.md`,
+`docs/ACCOUNT_BILLING_ADMIN_ARCHITECTURE.md`, and
+`docs/LOCAL_FIRST_MILESTONE_5_PLAN_HANDOFF_2026-08-13.md` completely before
 continuing work from this branch.
 
 ## Current checkpoint — 2026-08-13
 
-- Branch: `codex/local-first-milestone-4`
-- Worktree: `/private/tmp/showvault-local-first-m4-implementation`
-- Exact authorized planning base:
-  `d1d0cdb6c9c3eba3675ff41640d7117da55b7508`
-- Source implementation commit:
-  `4b4e7632c3f349a2a70a528f31d4bad562d105e8`
-- Documentation/evidence commit:
-  `7c748fe15c027a8b914d00951910d5ba94ac1190`
+- Branch: `codex/local-first-milestone-5-plan`
+- Worktree: `/private/tmp/showvault-local-first-m5-plan/worktree`
+- Exact milestone-4 base:
+  `80fb1092df254f2f6bd3d11b209634b52beb7a15`
+- Extraction/architecture commit:
+  `a541c88b815e99ffcb64d00f0c9b15ffe11499b6`
 - Product outcome:
-  **Sign in → open a local vault → synchronize verified queued recovery points
-  or Cancel → verify an immutable hosted receipt → retain durable path-free
-  status**
+  **Sign in as an organization Owner → open Plan and storage → review
+  server-derived license/subscription eligibility and logical hosted usage →
+  allow or deny each new hosted-sync reservation from the same projection →
+  retain path-free audited evidence**
 
-Milestone 4 is complete locally. The separate packaged sync host takes only
-freshly verified SQLite queue records, retains exact local file handles,
-resumes bounded chunks, verifies an immutable tenant receipt, and atomically
-records path-free status. The existing local host remains network-free.
+Milestone 5 extraction and architecture planning are complete. The plan uses
+separate license/subscription projections, an Owner-only minimized read model,
+and the same server evaluator for new hosted-sync eligibility. Organization-wide
+logical bytes are reserved atomically with session creation and transferred to
+committed usage exactly once. Existing reserved sessions can still resume,
+commit, and recover receipts after a later commercial state change.
 
-The API has database-backed sessions/receipts, role and venue authorization,
-closed privacy-filtered manifests, immutable object keys, exact offset/replay,
-independent complete-object hashing, concurrency control, and receipt-last
-completion. Flutter provides signed-in informed consent, Cancel, path-free
-states, and durable refresh. Tokens are ephemeral and absent from SQLite and
-process output.
-
-Validation passed: local engine 65; API 29; Flutter 27 plus clean analysis;
-Agent 291; contracts 22; platform 15; EF model gate; zero-warning Release
-builds; and repository/packaging/security checks.
-
-All fixtures were synthetic. Development/test object bytes are in memory and
-not restart-durable. Non-Development synchronization is disabled. Production
-storage durability, cloud operations, account/billing, and native proof remain
-unproven and deferred.
+No payment provider was selected, installed, or contacted. There is no
+checkout, webhook, price, invoice, payment method, customer portal,
+membership/role mutation, internal staff Admin, deletion/reclamation,
+production object-storage change, cloud operation, or native proof in this
+checkpoint. Tests and Development implementation, if later authorized, use
+explicit synthetic commercial records; missing or unsupported production state
+denies new sessions.
 
 ## Authorization boundary
 
-No external product-system, cloud, account/billing, or native action is
-authorized by this checkpoint.
-Do not fetch or push Git state, create or mutate a PR, dispatch a workflow,
-retrieve artifacts, build or install a meaningful native package, use
-equipment, access personal/customer/venue data, use credentials or cloud
-resources, upload/synchronize, release, deploy, or clean up destructively
-without new explicit authorization.
+This checkpoint authorizes no implementation, migration, external product
+system, account/billing action, credential, customer/venue/payment data, cloud
+resource, native action, external Git action, deployment, or destructive
+cleanup.
 
-No native-platform proof is claimed. macOS/Windows Flutter build, signing,
-sandbox/helper behavior, notarization, installation, upgrades, protocol
-activation, Gatekeeper, personal-Keychain, privileged mount/reparse behavior,
-equipment, and live application/device loading remain unproven.
+Do not modify application/API/engine source or migrations; install or contact a
+billing provider; fetch or push Git state; create or mutate a PR; dispatch a
+workflow; retrieve artifacts; build or install a meaningful native package;
+use equipment; access personal/customer/venue/payment data; use credentials or
+cloud resources; upload/synchronize; release; deploy; or clean up destructively
+without new explicit authorization.
 
 ## Next gated decision
 
-Stop for Product Owner direction. Per the ordered roadmap, the next bounded
-slice is account, role, subscription, quota, and billing administration. Before
-implementation, select one exact outcome, account for its historical source,
-write its current authorization/data/provider contract, and obtain separate
-explicit authorization.
+Stop for Product Owner direction. The next bounded action is implementation of
+the exact milestone-5 provider-independent contract, using synthetic local
+fixtures only. It requires separate explicit implementation authorization.
 
-Production hosted-object storage and operational durability proof is the
-following independent slice; native proof remains separately gated.
+Provider-backed billing and webhooks, customer account portal,
+membership/invitation and role administration, internal staff Admin,
+production hosted-object storage, and native proof remain separately gated.
 
-The existing untracked `NEXT_CONVERSATION.md` in the user's primary worktree
-is outside this branch and was not added or changed.
+The existing untracked `NEXT_CONVERSATION.md` in the user's primary worktree is
+outside this branch and was not added or changed.
