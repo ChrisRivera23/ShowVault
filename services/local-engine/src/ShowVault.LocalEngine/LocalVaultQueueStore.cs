@@ -174,6 +174,57 @@ internal sealed class LocalVaultQueueStore(string databasePath)
         return records;
     }
 
+    public async Task<IReadOnlyList<RepairableRecoveryPoint>> ListRepairableAsync(
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT operation_id, recovery_point_id, product_name, package_relative_path,
+                   status
+            FROM local_recovery_points
+            WHERE status IN ('staging','verified')
+            ORDER BY created_at
+            LIMIT $limit;
+            """;
+        command.Parameters.AddWithValue("$limit", limit);
+        var records = new List<RepairableRecoveryPoint>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            records.Add(new(
+                reader.GetString(0),
+                reader.IsDBNull(1) ? null : reader.GetString(1),
+                reader.GetString(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3),
+                reader.GetString(4)));
+        }
+        return records;
+    }
+
+    public async Task<IReadOnlySet<string>> ListKnownPackagePathsAsync(
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT package_relative_path
+            FROM local_recovery_points
+            WHERE package_relative_path IS NOT NULL
+              AND status IN ('verified','queued')
+            LIMIT $limit;
+            """;
+        command.Parameters.AddWithValue("$limit", limit);
+        var comparer = OperatingSystem.IsWindows()
+            ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        var paths = new HashSet<string>(comparer);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken)) paths.Add(reader.GetString(0));
+        return paths;
+    }
+
     internal async Task<string?> GetStatusAsync(
         string operationId,
         CancellationToken cancellationToken)
@@ -194,6 +245,14 @@ internal sealed class LocalVaultQueueStore(string databasePath)
             SELECT COUNT(*) FROM local_recovery_points
             WHERE status IN ('staging','verified','failed');
             """;
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+    }
+
+    public async Task<int> CountRecoveryPointsAsync(CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM local_recovery_points;";
         return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
     }
 
@@ -236,3 +295,10 @@ internal sealed record QueuedRecoveryPoint(
     int FileCount,
     long TotalBytes,
     DateTimeOffset CreatedAt);
+
+internal sealed record RepairableRecoveryPoint(
+    string OperationId,
+    string? RecoveryPointId,
+    string ProductName,
+    string? PackageRelativePath,
+    string Status);

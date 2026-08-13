@@ -243,6 +243,25 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task File_identity_swap_during_copy_fails_closed()
+    {
+        var mutated = false;
+        var engine = CreateEngine(testHook: stage =>
+        {
+            if (stage != "file_copied" || mutated) return;
+            mutated = true;
+            var file = Path.Combine(Source, "database V2");
+            File.Move(file, $"{file}-old");
+            File.WriteAllText(file, "library");
+        });
+
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            engine.SaveAsync(new(Key, Source, Vault)));
+
+        Assert.DoesNotContain("queued", await ReadAllStatusesAsync());
+    }
+
+    [Fact]
     public async Task Failure_after_publication_moves_the_unqueued_package_to_quarantine()
     {
         var engine = CreateEngine(testHook: stage =>
@@ -260,6 +279,117 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
         var inspection = await CreateEngine().InspectVaultStateAsync(Vault);
         Assert.Empty(inspection.RecoveryPoints);
         Assert.Equal(1, inspection.QueueAttentionCount);
+    }
+
+    [Fact]
+    public async Task Restart_reverifies_and_queues_a_durable_verified_state()
+    {
+        var engine = CreateEngine();
+        var saved = await engine.SaveAsync(new(Key, Source, Vault));
+        await SetOnlyStatusAsync("verified");
+
+        var inspection = await CreateEngine().InspectVaultStateAsync(Vault);
+
+        Assert.Equal(saved.RecoveryPointId, inspection.RecoveryPoints.Single().RecoveryPointId);
+        Assert.Equal(0, inspection.QueueAttentionCount);
+        Assert.Equal(["queued"], await ReadAllStatusesAsync());
+    }
+
+    [Fact]
+    public async Task Restart_quarantines_interrupted_staging_and_marks_attention()
+    {
+        using var layout = LocalVaultLayout.OpenOrCreate(Vault);
+        var queue = new LocalVaultQueueStore(layout.QueueDatabasePath);
+        await queue.InitializeAsync(TestContext.Current.CancellationToken);
+        const string operationId = "0123456789abcdef0123456789abcdef";
+        await queue.RecordStagingAsync(
+            operationId, Key, "Serato DJ Pro", DateTimeOffset.UtcNow,
+            TestContext.Current.CancellationToken);
+        var staging = Path.Combine(
+            Vault, "Backups", "Serato DJ Pro", $".staging-{operationId}");
+        Directory.CreateDirectory(staging);
+        await File.WriteAllTextAsync(Path.Combine(staging, "partial"), "partial");
+
+        var inspection = await CreateEngine().InspectVaultStateAsync(Vault);
+
+        Assert.Empty(inspection.RecoveryPoints);
+        Assert.Equal(1, inspection.QueueAttentionCount);
+        Assert.Equal(["failed"], await ReadAllStatusesAsync());
+        Assert.Single(Directory.EnumerateDirectories(Path.Combine(Vault, "Quarantine")));
+    }
+
+    [Fact]
+    public async Task Restart_quarantines_an_untracked_package_directory()
+    {
+        var engine = CreateEngine();
+        await engine.SaveAsync(new(Key, Source, Vault));
+        var orphan = Path.Combine(Vault, "Backups", "Serato DJ Pro", "orphan-package");
+        Directory.CreateDirectory(orphan);
+        await File.WriteAllTextAsync(Path.Combine(orphan, "unknown"), "unknown");
+
+        var inspection = await engine.InspectVaultStateAsync(Vault);
+
+        Assert.Single(inspection.RecoveryPoints);
+        Assert.False(Directory.Exists(orphan));
+        Assert.Single(Directory.EnumerateDirectories(Path.Combine(Vault, "Quarantine")));
+    }
+
+    [Fact]
+    public async Task Restart_quarantines_a_verified_state_that_no_longer_reverifies()
+    {
+        await CreateEngine().SaveAsync(new(Key, Source, Vault));
+        await SetOnlyStatusAsync("verified");
+        var package = Assert.Single(Directory.EnumerateDirectories(
+            Path.Combine(Vault, "Backups", "Serato DJ Pro")));
+        var content = Path.Combine(package, "content", "database V2");
+        MakeWritable(content);
+        await File.WriteAllTextAsync(content, "changed");
+
+        var inspection = await CreateEngine().InspectVaultStateAsync(Vault);
+
+        Assert.Empty(inspection.RecoveryPoints);
+        Assert.Equal(1, inspection.QueueAttentionCount);
+        Assert.Equal(["failed"], await ReadAllStatusesAsync());
+        Assert.Single(Directory.EnumerateDirectories(Path.Combine(Vault, "Quarantine")));
+    }
+
+    [Fact]
+    public async Task SQLite_open_failure_publishes_nothing()
+    {
+        Directory.CreateDirectory(Path.Combine(
+            Vault, "Upload Queue", LocalVaultLayout.QueueDatabaseName));
+
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            CreateEngine().SaveAsync(new(Key, Source, Vault)));
+
+        Assert.Empty(Directory.EnumerateDirectories(Path.Combine(Vault, "Backups")));
+    }
+
+    [Theory]
+    [InlineData("duplicate")]
+    [InlineData("unsafe")]
+    public async Task Verifier_rejects_duplicate_or_unsafe_manifest_paths(string kind)
+    {
+        var package = Path.Combine(_root, $"malicious-{kind}");
+        Directory.CreateDirectory(Path.Combine(package, "content"));
+        var content = Path.Combine(package, "content", "file");
+        await File.WriteAllTextAsync(content, "content");
+        await File.WriteAllTextAsync(Path.Combine(package, "summary.txt"), "summary");
+        var hash = Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(content)));
+        var files = kind == "duplicate"
+            ? new[] { new LocalRecoveryFile("file", 7, hash), new LocalRecoveryFile("file", 7, hash) }
+            : new[] { new LocalRecoveryFile("../escape", 7, hash) };
+        var manifest = new LocalRecoveryManifest(
+            "1.0", Key, "showvault.test", "desktop-test", "Test", DateTimeOffset.UtcNow,
+            files, [], []);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(
+            manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        await File.WriteAllBytesAsync(Path.Combine(package, "manifest.json"), bytes);
+        var id = Convert.ToHexStringLower(SHA256.HashData(bytes));
+
+        await Assert.ThrowsAnyAsync<Exception>(() => LocalRecoveryVerifier.VerifyAsync(
+            package, id, DateTimeOffset.UtcNow, new LocalEngineLimits(),
+            TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -440,6 +570,17 @@ public sealed class LocalRecoveryEngineTests : IAsyncLifetime
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync()) result.Add(reader.GetString(0));
         return result;
+    }
+
+    private async Task SetOnlyStatusAsync(string status)
+    {
+        var database = Path.Combine(Vault, "Upload Queue", LocalVaultLayout.QueueDatabaseName);
+        await using var connection = new SqliteConnection($"Data Source={database}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE local_recovery_points SET status = $status;";
+        command.Parameters.AddWithValue("$status", status);
+        Assert.Equal(1, await command.ExecuteNonQueryAsync());
     }
 
     private static void MakeWritable(string path)

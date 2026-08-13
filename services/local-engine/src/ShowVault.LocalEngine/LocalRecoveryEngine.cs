@@ -236,6 +236,7 @@ public sealed class LocalRecoveryEngine
         using var vault = LocalVaultLayout.OpenOrCreate(selectedVault);
         var queue = new LocalVaultQueueStore(vault.QueueDatabasePath);
         await queue.InitializeAsync(cancellationToken);
+        await RepairInterruptedStateAsync(vault, queue, cancellationToken);
         var records = await queue.ListQueuedAsync(_limits.MaximumRecoveryPointCount, cancellationToken);
         var summaries = new List<LocalRecoveryPointSummary>();
         foreach (var record in records)
@@ -256,6 +257,146 @@ public sealed class LocalRecoveryEngine
                 "verified", "queued"));
         }
         return new(summaries, await queue.CountAttentionAsync(cancellationToken));
+    }
+
+    private async Task RepairInterruptedStateAsync(
+        LocalVaultLayout vault,
+        LocalVaultQueueStore queue,
+        CancellationToken cancellationToken)
+    {
+        if (await queue.CountRecoveryPointsAsync(cancellationToken) >
+            _limits.MaximumRecoveryPointCount)
+        {
+            throw new LocalEngineException(
+                "The local vault contains too many recovery-point records.");
+        }
+        var repairable = await queue.ListRepairableAsync(
+            _limits.MaximumRecoveryPointCount, cancellationToken);
+        foreach (var record in repairable)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (record.Status == "staging")
+            {
+                QuarantineInterruptedStaging(vault, record);
+                await queue.RecordTerminalAsync(
+                    record.OperationId, "failed", "restart_interrupted",
+                    _timeProvider.GetUtcNow(), cancellationToken);
+                continue;
+            }
+
+            try
+            {
+                if (record.RecoveryPointId is null || record.PackageRelativePath is null)
+                {
+                    throw new LocalEngineException("Verified local state is incomplete.");
+                }
+                var packagePath = ResolveContained(vault.RootPath, record.PackageRelativePath);
+                var independentPath = Path.Combine(
+                    vault.RootPath, "Manifests", record.RecoveryPointId);
+                var manifest = await ReadBoundedFileAsync(
+                    Path.Combine(independentPath, "manifest.json"),
+                    16 * 1024 * 1024, cancellationToken);
+                var evidence = await ReadBoundedFileAsync(
+                    Path.Combine(independentPath, "verification.json"),
+                    1024 * 1024, cancellationToken);
+                await VerifyPublishedAsync(
+                    packagePath, independentPath, record.RecoveryPointId,
+                    manifest, evidence, cancellationToken);
+                await queue.RecordQueuedAsync(
+                    record.OperationId, _timeProvider.GetUtcNow(), cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                if (record.PackageRelativePath is not null)
+                {
+                    TryQuarantineRelativePackage(
+                        vault, record.PackageRelativePath, $"repair-{record.OperationId}");
+                }
+                await queue.RecordTerminalAsync(
+                    record.OperationId, "failed", "restart_reverify_failed",
+                    _timeProvider.GetUtcNow(), cancellationToken);
+            }
+        }
+
+        var known = await queue.ListKnownPackagePathsAsync(
+            _limits.MaximumRecoveryPointCount, cancellationToken);
+        QuarantineUnknownPackages(vault, known, cancellationToken);
+    }
+
+    private static void QuarantineInterruptedStaging(
+        LocalVaultLayout vault,
+        RepairableRecoveryPoint record)
+    {
+        if (record.OperationId.Length != 32 ||
+            !record.OperationId.All(Uri.IsHexDigit)) return;
+        var productPath = Path.Combine(
+            vault.RootPath, "Backups", SafeName(record.ProductName));
+        if (!Directory.Exists(productPath)) return;
+        using var product = StableDirectoryTree.OpenReadOnlyNoFollowPath(productPath);
+        var name = $".staging-{record.OperationId}";
+        if (!product.EnumerateNames().Contains(name, StringComparer.Ordinal)) return;
+        using var staging = product.OpenDirectory(name);
+        using var quarantine = StableDirectoryTree.OpenReadOnlyNoFollowPath(
+            Path.Combine(vault.RootPath, "Quarantine"));
+        product.MoveDirectoryChildTo(
+            name, staging, quarantine, $"staging-{record.OperationId}");
+    }
+
+    private static bool TryQuarantineRelativePackage(
+        LocalVaultLayout vault,
+        string relativePath,
+        string quarantineName)
+    {
+        try
+        {
+            var segments = relativePath.Split('/');
+            if (segments.Length != 3 || segments[0] != "Backups") return false;
+            using var backups = StableDirectoryTree.OpenReadOnlyNoFollowPath(
+                Path.Combine(vault.RootPath, "Backups"));
+            using var product = backups.OpenDirectory(segments[1]);
+            using var package = product.OpenDirectory(segments[2]);
+            using var quarantine = StableDirectoryTree.OpenReadOnlyNoFollowPath(
+                Path.Combine(vault.RootPath, "Quarantine"));
+            product.MoveDirectoryChildTo(segments[2], package, quarantine, quarantineName);
+            return true;
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or Win32Exception)
+        {
+            return false;
+        }
+    }
+
+    private void QuarantineUnknownPackages(
+        LocalVaultLayout vault,
+        IReadOnlySet<string> known,
+        CancellationToken cancellationToken)
+    {
+        using var backups = StableDirectoryTree.OpenReadOnlyNoFollowPath(
+            Path.Combine(vault.RootPath, "Backups"));
+        using var quarantine = StableDirectoryTree.OpenReadOnlyNoFollowPath(
+            Path.Combine(vault.RootPath, "Quarantine"));
+        var inspected = 0;
+        foreach (var productName in backups.EnumerateNames())
+        {
+            using var product = backups.OpenDirectory(productName);
+            foreach (var packageName in product.EnumerateNames())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (++inspected > _limits.MaximumRecoveryPointCount)
+                {
+                    throw new LocalEngineException(
+                        "The local vault contains too many recovery points.");
+                }
+                var relative = $"Backups/{productName}/{packageName}";
+                if (known.Contains(relative)) continue;
+                using var package = product.OpenDirectory(packageName);
+                var digest = Convert.ToHexStringLower(
+                    SHA256.HashData(Encoding.UTF8.GetBytes(relative)))[..16];
+                product.MoveDirectoryChildTo(
+                    packageName, package, quarantine, $"orphan-{digest}");
+            }
+        }
     }
 
     private async Task<LocalVerificationEvidence> VerifyPublishedAsync(
