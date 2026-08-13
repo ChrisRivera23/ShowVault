@@ -40,6 +40,23 @@ public sealed class MembershipStepUpTests
         Assert.Equal("personal_beta_denied", result.ReasonCode);
     }
 
+    [Fact]
+    public void Missing_subject_and_invalid_or_missing_iat_deny_closed()
+    {
+        Assert.Equal("subject_missing",
+            _authorization.Evaluate(new ClaimsPrincipal()).ReasonCode);
+        var missingIat = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim("sub", "auth0|owner"),
+            new Claim("scope", "manage:members"),
+            new Claim(MembershipStepUpAuthorization.AuthenticationMethodsClaim, "mfa")
+        ], "Test"));
+        Assert.Equal("iat_missing", _authorization.Evaluate(missingIat).ReasonCode);
+        missingIat.Identities.Single().AddClaim(new Claim("iat", long.MaxValue.ToString(
+            System.Globalization.CultureInfo.InvariantCulture)));
+        Assert.Equal("iat_invalid", _authorization.Evaluate(missingIat).ReasonCode);
+    }
+
     private static ClaimsPrincipal Principal(string? scope, string mfa,
         DateTimeOffset issuedAt, string authenticationType = "Test")
     {

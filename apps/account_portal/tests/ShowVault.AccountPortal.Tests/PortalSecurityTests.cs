@@ -1,4 +1,8 @@
 using System.Net;
+using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -6,10 +10,12 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using ShowVault.AccountPortal.Configuration;
+using ShowVault.AccountPortal.Clients;
 using ShowVault.AccountPortal.Security;
 using Xunit;
 
@@ -208,6 +214,119 @@ public sealed class PortalSecurityTests
         Assert.DoesNotContain("identity.showvault.test", body, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Authenticated_pages_keep_tokens_and_subjects_server_side_and_reveal_code_once()
+    {
+        await using var factory = new EnabledPortalFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true,
+            BaseAddress = new Uri("https://account.showvault.test/")
+        });
+        client.DefaultRequestHeaders.Add("X-Portal-Test-Auth", "1");
+        var pagePath = $"/Organizations/Members/{factory.Api.OrganizationId}";
+        var page = await client.GetAsync(pagePath);
+        var html = await page.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+        Assert.Contains("Synthetic organization members", html, StringComparison.Ordinal);
+        Assert.Contains("Synthetic member", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("auth0|portal-test", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("portal-access-token", html, StringComparison.Ordinal);
+        var token = AntiforgeryToken(html);
+
+        var create = await client.PostAsync(pagePath + "?handler=Create",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token,
+                ["organizationId"] = factory.Api.OrganizationId.ToString(),
+                ["displayLabel"] = "Browser invite",
+                ["role"] = "viewer"
+            }));
+        Assert.Equal(HttpStatusCode.Redirect, create.StatusCode);
+        Assert.Contains("reveal=", create.Headers.Location!.OriginalString,
+            StringComparison.Ordinal);
+        Assert.Equal("Bearer portal-access-token", factory.Api.LastAuthorization);
+
+        var reveal = await client.GetAsync(create.Headers.Location);
+        var revealHtml = await reveal.Content.ReadAsStringAsync();
+        Assert.Contains("one-time-invitation-code", revealHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("auth0|portal-test", revealHtml, StringComparison.Ordinal);
+        var refreshed = await client.GetStringAsync(create.Headers.Location);
+        Assert.DoesNotContain("one-time-invitation-code", refreshed, StringComparison.Ordinal);
+
+        var mutate = await client.PostAsync(pagePath + "?handler=Mutate",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = AntiforgeryToken(revealHtml),
+                ["organizationId"] = factory.Api.OrganizationId.ToString(),
+                ["membershipId"] = factory.Api.MembershipId.ToString(),
+                ["action"] = "suspend",
+                ["revision"] = "1"
+            }));
+        Assert.Equal(HttpStatusCode.Redirect, mutate.StatusCode);
+        Assert.Equal("PATCH", factory.Api.LastMethod);
+        Assert.Contains("\"action\":\"suspend\"", factory.Api.LastBody,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Typed_api_forbidden_maps_to_explicit_step_up_redirect()
+    {
+        await using var factory = new EnabledPortalFactory();
+        factory.Api.ForbidMutation = true;
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true,
+            BaseAddress = new Uri("https://account.showvault.test/")
+        });
+        client.DefaultRequestHeaders.Add("X-Portal-Test-Auth", "1");
+        var pagePath = $"/Organizations/Members/{factory.Api.OrganizationId}";
+        var html = await client.GetStringAsync(pagePath);
+
+        var response = await client.PostAsync(pagePath + "?handler=Mutate",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = AntiforgeryToken(html),
+                ["organizationId"] = factory.Api.OrganizationId.ToString(),
+                ["membershipId"] = factory.Api.MembershipId.ToString(),
+                ["action"] = "suspend",
+                ["revision"] = "1"
+            }));
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith("/StepUp", response.Headers.Location!.OriginalString,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Invitation_failure_message_is_rendered_without_echoing_a_code()
+    {
+        await using var factory = new EnabledPortalFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://account.showvault.test/")
+        });
+        client.DefaultRequestHeaders.Add("X-Portal-Test-Auth", "1");
+
+        var html = await client.GetStringAsync("/Invitations/Accept?unavailable=true");
+
+        Assert.Contains("The invitation is unavailable.", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("one-time-invitation-code", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("portal-access-token", html, StringComparison.Ordinal);
+    }
+
+    private static string AntiforgeryToken(string html)
+    {
+        var match = Regex.Match(html,
+            "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"",
+            RegexOptions.CultureInvariant);
+        Assert.True(match.Success);
+        return WebUtility.HtmlDecode(match.Groups[1].Value);
+    }
+
     private static AccountPortalOptions Complete() => new()
     {
         Enabled = true,
@@ -230,6 +349,8 @@ public sealed class PortalSecurityTests
     private sealed class EnabledPortalFactory(bool configureOidc = true)
         : WebApplicationFactory<Program>
     {
+        public SyntheticAccountApiHandler Api { get; } = new();
+
         protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
         {
             builder.UseEnvironment("Development");
@@ -240,6 +361,17 @@ public sealed class PortalSecurityTests
             builder.UseSetting("AccountPortal:Auth0Audience", "https://api.showvault.test");
             builder.UseSetting("AccountPortal:Auth0ClientId", "fixture-client");
             builder.UseSetting("AccountPortal:Auth0ClientSecret", "runtime-only-fixture");
+            builder.ConfigureServices(services =>
+            {
+                services.AddAuthentication().AddScheme<AuthenticationSchemeOptions,
+                    PortalTestAuthenticationHandler>(
+                    PortalTestAuthenticationHandler.SchemeName, _ => { });
+                services.PostConfigure<AuthenticationOptions>(options =>
+                    options.DefaultAuthenticateScheme =
+                        PortalTestAuthenticationHandler.SchemeName);
+                services.AddHttpClient<ShowVaultAccountClient>()
+                    .ConfigurePrimaryHttpMessageHandler(() => Api);
+            });
             if (configureOidc)
                 builder.ConfigureServices(services => services.PostConfigure<OpenIdConnectOptions>(
                     OpenIdConnectDefaults.AuthenticationScheme, options =>
@@ -254,6 +386,80 @@ public sealed class PortalSecurityTests
                     options.ConfigurationManager =
                         new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
                 }));
+        }
+    }
+
+    private sealed class PortalTestAuthenticationHandler(
+        IOptionsMonitor<AuthenticationSchemeOptions> options,
+        ILoggerFactory logger,
+        UrlEncoder encoder)
+        : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    {
+        public const string SchemeName = "PortalTest";
+
+        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+        {
+            if (!Request.Headers.ContainsKey("X-Portal-Test-Auth"))
+                return Task.FromResult(AuthenticateResult.NoResult());
+            var principal = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim("sub", "auth0|portal-test")], SchemeName));
+            var properties = new AuthenticationProperties();
+            properties.StoreTokens([new AuthenticationToken
+            {
+                Name = "access_token",
+                Value = "portal-access-token"
+            }]);
+            return Task.FromResult(AuthenticateResult.Success(
+                new AuthenticationTicket(principal, properties, SchemeName)));
+        }
+    }
+
+    public sealed class SyntheticAccountApiHandler : HttpMessageHandler
+    {
+        public Guid OrganizationId { get; } = Guid.NewGuid();
+        public Guid MembershipId { get; } = Guid.NewGuid();
+        public bool ForbidMutation { get; set; }
+        public string? LastAuthorization { get; private set; }
+        public string? LastMethod { get; private set; }
+        public string? LastBody { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            LastAuthorization = request.Headers.Authorization?.ToString();
+            LastMethod = request.Method.Method;
+            LastBody = request.Content is null ? null :
+                await request.Content.ReadAsStringAsync(cancellationToken);
+            if (ForbidMutation && request.Method != HttpMethod.Get)
+                return new HttpResponseMessage(HttpStatusCode.Forbidden);
+            object payload = request.RequestUri!.AbsolutePath switch
+            {
+                "/api/v1/organizations" => new[]
+                {
+                    new OrganizationView(OrganizationId, "Synthetic organization",
+                        "synthetic", "owner")
+                },
+                var path when path.EndsWith("/account/members", StringComparison.Ordinal) =>
+                    new[]
+                    {
+                        new MemberView(MembershipId, "Synthetic member", "viewer", "active",
+                            false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 1)
+                    },
+                var path when path.EndsWith("/account/invitations", StringComparison.Ordinal) &&
+                    request.Method == HttpMethod.Get => Array.Empty<InvitationView>(),
+                var path when path.EndsWith("/account/invitations", StringComparison.Ordinal) =>
+                    new CreatedInvitationView(Guid.NewGuid(), "Browser invite", "viewer",
+                        "pending", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+                        DateTimeOffset.UtcNow.AddDays(7), 1, "one-time-invitation-code"),
+                var path when path.Contains("/account/members/", StringComparison.Ordinal) =>
+                    new MemberView(MembershipId, "Synthetic member", "viewer", "suspended",
+                        false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 2),
+                _ => throw new InvalidOperationException("Unexpected synthetic API request.")
+            };
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new { payload })
+            };
         }
     }
 }

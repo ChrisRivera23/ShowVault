@@ -33,6 +33,14 @@ public sealed class HostedSyncTests(TenantApiFactory factory) : IClassFixture<Te
         using var client = Client(subject,
             PersonalBetaAuthenticationHandler.SchemeName);
         var root = Root(tenant, beginRequest.Manifest.RecoveryPointId);
+        var directRoot = $"/api/v1/organizations/{tenant.OrganizationId}/venues/" +
+            $"{tenant.VenueId}";
+
+        Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync(
+            directRoot + "/computer-scans", new SubmitComputerScanRequest(
+                ["macos.serato-dj-pro.user-data"]))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK,
+            (await client.GetAsync(directRoot + "/recovery-candidates")).StatusCode);
 
         Assert.Equal(HttpStatusCode.Forbidden,
             (await client.PostAsJsonAsync(root + "/begin", beginRequest)).StatusCode);
