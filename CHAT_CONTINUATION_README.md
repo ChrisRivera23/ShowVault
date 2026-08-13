@@ -226,6 +226,20 @@ formatting, and diff checks are clean. The next gate is a fresh review of
 `1541d5d`; this checkpoint does not authorize integration, deployment, Auth0 or
 Stripe mutation, production enablement, real-person data, or external Git work.
 
+### Milestone 7 remediation review approval
+
+The separately authorized fresh review of remediation head `2caf703` is complete
+in `docs/ACCOUNT_PORTAL_MILESTONE_7_REMEDIATION_REVIEW_2026-08-13.md`. The
+verdict is **approved for the next local integration gate; no actionable
+findings**. API 154, portal 15, EF consistency, diff checks, and focused source
+scans were rerun during review; the prior full unchanged-suite and Release
+evidence remains valid.
+
+This is local synthetic approval only. Integration still requires explicit
+authorization, and Auth0/Stripe operations, deployment, production enablement,
+real-person data, native proof, and external Git publication remain separately
+gated.
+
 ## Authorization boundary
 
 The Product Owner subsequently authorized the bounded Stripe sandbox/account
