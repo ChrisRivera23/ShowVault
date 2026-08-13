@@ -46,24 +46,26 @@ internal static class LocalEngineHost
                 case "save" when Valid(request.CandidateKey) &&
                                       ValidPath(request.SelectedSource) &&
                                       ValidPath(request.SelectedVault):
-                    using var saveCancellation = CancellationTokenSource.CreateLinkedTokenSource(
-                        cancellation.Token);
-                    var cancelMonitor = MonitorCancelAsync(saveCancellation);
-                    var progress = new SynchronousProgress<LocalSaveProgress>(value =>
-                        Write(new HostEnvelope("progress", value, null)));
-                    try
                     {
-                        var result = await engine.SaveAsync(
-                            new(request.CandidateKey!, request.SelectedSource!, request.SelectedVault!),
-                            progress,
-                            saveCancellation.Token);
-                        Write(new HostEnvelope("result", result, null));
-                        return 0;
-                    }
-                    finally
-                    {
-                        saveCancellation.Cancel();
-                        try { await cancelMonitor; } catch (OperationCanceledException) { }
+                        using var saveCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                            cancellation.Token);
+                        var cancelMonitor = MonitorCancelAsync(saveCancellation);
+                        var progress = new SynchronousProgress<LocalSaveProgress>(value =>
+                            Write(new HostEnvelope("progress", value, null)));
+                        try
+                        {
+                            var result = await engine.SaveAsync(
+                                new(request.CandidateKey!, request.SelectedSource!, request.SelectedVault!),
+                                progress,
+                                saveCancellation.Token);
+                            Write(new HostEnvelope("result", result, null));
+                            return 0;
+                        }
+                        finally
+                        {
+                            saveCancellation.Cancel();
+                            try { await cancelMonitor; } catch (OperationCanceledException) { }
+                        }
                     }
                 case "inspect" when ValidPath(request.SelectedVault):
                     var summaries = await engine.InspectVaultStateAsync(
