@@ -28,7 +28,7 @@ class LocalCatalogScanner {
       ? DesktopPlatform.windows
       : DesktopPlatform.unsupported;
 
-  Future<List<String>> scan() async {
+  Future<List<LocalCatalogFinding>> scanFindings() async {
     final synthetic = _syntheticHome != null;
     final home = _syntheticHome ?? _environment['HOME'];
     final userProfile = _syntheticHome ?? _environment['USERPROFILE'];
@@ -61,14 +61,48 @@ class LocalCatalogScanner {
       ],
     ];
 
-    final detected = <String>[];
+    final detected = <LocalCatalogFinding>[];
     for (final candidate in candidates) {
       if (await _readType(candidate.$2) != FileSystemEntityType.notFound) {
-        detected.add(candidate.$1);
+        detected.add(
+          LocalCatalogFinding(
+            candidateKey: candidate.$1,
+            expectedPath: candidate.$2,
+            type: candidate.$1.endsWith('.user-data')
+                ? LocalCatalogFindingType.userDataRoot
+                : LocalCatalogFindingType.installedApplication,
+          ),
+        );
       }
     }
     return List.unmodifiable(detected);
   }
+
+  Future<List<String>> scan() async => List.unmodifiable(
+    (await scanFindings()).map((finding) => finding.candidateKey),
+  );
 }
 
 enum DesktopPlatform { macOs, windows, unsupported }
+
+enum LocalCatalogFindingType { installedApplication, userDataRoot }
+
+class LocalCatalogFinding {
+  const LocalCatalogFinding({
+    required this.candidateKey,
+    required this.expectedPath,
+    required this.type,
+  });
+
+  final String candidateKey;
+  final String expectedPath;
+  final LocalCatalogFindingType type;
+
+  bool get canSave => type == LocalCatalogFindingType.userDataRoot;
+
+  String get productName => candidateKey.contains('resolume')
+      ? 'Resolume Arena'
+      : candidateKey.contains('serato')
+      ? 'Serato DJ Pro'
+      : 'Recognized system';
+}

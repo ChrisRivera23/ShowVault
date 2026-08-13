@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,8 @@ import 'package:showvault_app/src/auth/auth_provider.dart';
 import 'package:showvault_app/src/auth/auth_service.dart';
 import 'package:showvault_app/src/auth/auth_session.dart';
 import 'package:showvault_app/src/dashboard/dashboard_screen.dart';
+import 'package:showvault_app/src/local_recovery/local_directory_consent.dart';
+import 'package:showvault_app/src/local_recovery/local_engine_client.dart';
 import 'package:showvault_app/src/recovery/recovery_run.dart';
 import 'package:showvault_app/src/scanning/local_catalog_scanner.dart';
 
@@ -17,7 +21,86 @@ class _SignedOutAuthService extends AuthService {
 
 class _SyntheticScanner extends LocalCatalogScanner {
   @override
-  Future<List<String>> scan() async => ['macos.resolume-arena.application'];
+  Future<List<LocalCatalogFinding>> scanFindings() async => const [
+    LocalCatalogFinding(
+      candidateKey: 'macos.resolume-arena.application',
+      expectedPath: '/synthetic/application',
+      type: LocalCatalogFindingType.installedApplication,
+    ),
+  ];
+}
+
+class _UserDataScanner extends LocalCatalogScanner {
+  @override
+  Future<List<LocalCatalogFinding>> scanFindings() async => const [
+    LocalCatalogFinding(
+      candidateKey: 'macos.serato-dj-pro.user-data',
+      expectedPath: '/synthetic/source',
+      type: LocalCatalogFindingType.userDataRoot,
+    ),
+  ];
+}
+
+class _SyntheticConsent extends LocalDirectoryConsent {
+  const _SyntheticConsent();
+
+  @override
+  Future<String?> selectExactSource() async => '/synthetic/source';
+
+  @override
+  Future<String?> selectVault() async => '/synthetic/vault';
+}
+
+class _SuccessfulLocalEngine extends LocalEngineClient {
+  @override
+  LocalSaveOperation startSave({
+    required String candidateKey,
+    required String selectedSource,
+    required String selectedVault,
+    required void Function(LocalSaveProgress progress) onProgress,
+  }) {
+    expect(candidateKey, 'macos.serato-dj-pro.user-data');
+    expect(selectedSource, '/synthetic/source');
+    expect(selectedVault, '/synthetic/vault');
+    onProgress(const LocalSaveProgress('verifying', 1, 1));
+    return LocalSaveOperation(
+      result: Future.value(
+        const LocalSaveResult(
+          recoveryPointId: 'opaque-id',
+          productName: 'Serato DJ Pro',
+          fileCount: 2,
+          totalBytes: 20,
+          localStatus: 'verified',
+          cloudStatus: 'queued',
+        ),
+      ),
+      cancel: () async {},
+    );
+  }
+
+  @override
+  Future<LocalVaultInspection> inspectVault(String selectedVault) async =>
+      const LocalVaultInspection(recoveryPoints: [], queueAttentionCount: 1);
+}
+
+class _CancellableLocalEngine extends _SuccessfulLocalEngine {
+  final Completer<LocalSaveResult> _result = Completer<LocalSaveResult>();
+
+  @override
+  LocalSaveOperation startSave({
+    required String candidateKey,
+    required String selectedSource,
+    required String selectedVault,
+    required void Function(LocalSaveProgress progress) onProgress,
+  }) {
+    onProgress(const LocalSaveProgress('copying', 1, 2));
+    return LocalSaveOperation(
+      result: _result.future,
+      cancel: () async {
+        _result.completeError(const LocalEngineClientException('cancelled'));
+      },
+    );
+  }
 }
 
 void main() {
@@ -56,6 +139,100 @@ void main() {
     expect(find.text('1 recognized candidate(s) detected.'), findsOneWidget);
     expect(find.textContaining('Agent'), findsNothing);
     expect(find.textContaining('enrollment'), findsNothing);
+  });
+
+  testWidgets('saves and verifies user data while signed out', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(_SignedOutAuthService()),
+          localCatalogScannerProvider.overrideWithValue(_UserDataScanner()),
+          localDirectoryConsentProvider.overrideWithValue(
+            const _SyntheticConsent(),
+          ),
+          localEngineClientProvider.overrideWithValue(_SuccessfulLocalEngine()),
+        ],
+        child: const ShowVaultApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Scan'));
+    await tester.pumpAndSettle();
+    expect(find.text('Save'), findsOneWidget);
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose folders'), findsOneWidget);
+    expect(find.textContaining('/synthetic/'), findsNothing);
+    await tester.tap(find.text('Choose folders'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Verified locally'), findsOneWidget);
+    expect(find.text('Cloud queued'), findsOneWidget);
+    expect(find.textContaining('/synthetic/'), findsNothing);
+  });
+
+  testWidgets('reopens a local vault and reports queue attention', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(_SignedOutAuthService()),
+          localDirectoryConsentProvider.overrideWithValue(
+            const _SyntheticConsent(),
+          ),
+          localEngineClientProvider.overrideWithValue(_SuccessfulLocalEngine()),
+        ],
+        child: const ShowVaultApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open local vault'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Queue attention: 1'), findsOneWidget);
+    expect(find.textContaining('/synthetic/'), findsNothing);
+  });
+
+  testWidgets('cancels a running local Save without publishing success', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(_SignedOutAuthService()),
+          localCatalogScannerProvider.overrideWithValue(_UserDataScanner()),
+          localDirectoryConsentProvider.overrideWithValue(
+            const _SyntheticConsent(),
+          ),
+          localEngineClientProvider.overrideWithValue(
+            _CancellableLocalEngine(),
+          ),
+        ],
+        child: const ShowVaultApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Scan'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose folders'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Cancel'));
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Save cancelled. No recovery point was published.'),
+      findsOneWidget,
+    );
+    expect(find.text('Verified locally'), findsNothing);
   });
 
   testWidgets('shows an honest empty live recovery history', (tester) async {

@@ -49,6 +49,24 @@ void main() {
     );
   });
 
+  test('marks only closed user-data candidates as saveable', () async {
+    final scanner = LocalCatalogScanner(
+      platform: DesktopPlatform.macOs,
+      environment: const {},
+      syntheticHome: '/synthetic/home',
+      readType: (path) async => path.endsWith('Music/_Serato_')
+          ? FileSystemEntityType.directory
+          : FileSystemEntityType.notFound,
+    );
+
+    final finding = (await scanner.scanFindings()).single;
+
+    expect(finding.candidateKey, 'macos.serato-dj-pro.user-data');
+    expect(finding.type, LocalCatalogFindingType.userDataRoot);
+    expect(finding.canSave, isTrue);
+    expect(finding.expectedPath, '/synthetic/home/Music/_Serato_');
+  });
+
   test('unsupported platforms do not inspect the filesystem', () async {
     var attempted = false;
     final scanner = LocalCatalogScanner(
