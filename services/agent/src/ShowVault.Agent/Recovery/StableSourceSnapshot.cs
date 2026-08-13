@@ -360,6 +360,11 @@ internal sealed class StableSourceSnapshot : IAsyncDisposable
 
             if (childDirectory is not null)
             {
+                if (!_root.HasSameVolume(childDirectory))
+                {
+                    childDirectory.Dispose();
+                    throw new IOException("Source contains a mounted filesystem substitution.");
+                }
                 if (_directories.Count - 1 == maximumDirectoryCount)
                 {
                     childDirectory.Dispose();

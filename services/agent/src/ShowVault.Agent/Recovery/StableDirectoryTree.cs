@@ -61,6 +61,10 @@ internal sealed class StableDirectoryTree : IDisposable
         ? WindowsNative.SameIdentity(_handle, other._handle)
         : UnixNative.SameIdentity(_handle, other._handle);
 
+    public bool HasSameVolume(StableDirectoryTree other) => OperatingSystem.IsWindows()
+        ? WindowsNative.SameVolume(_handle, other._handle)
+        : UnixNative.SameDevice(_handle, other._handle);
+
     public static StableDirectoryTree Open(string path)
     {
         var normalized = System.IO.Path.TrimEndingDirectorySeparator(
@@ -294,6 +298,36 @@ internal sealed class StableDirectoryTree : IDisposable
         }
 
         UnixNative.RenameAt(_handle, sourceName, _handle, destinationName);
+    }
+
+    public void MoveDirectoryChildTo(
+        string sourceName,
+        StableDirectoryTree expected,
+        StableDirectoryTree destination,
+        string destinationName)
+    {
+        ValidateName(sourceName);
+        ValidateName(destinationName);
+        if (!expected.IsSameDirectoryAt(this, sourceName))
+        {
+            throw new IOException("Restore directory identity changed before placement.");
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            WindowsNative.EnsureSameDirectory(_handle, _path);
+            WindowsNative.EnsureSameDirectory(destination._handle, destination._path);
+            WindowsNative.Rename(expected._handle, destination._handle, destinationName);
+        }
+        else
+        {
+            UnixNative.RenameAt(_handle, sourceName, destination._handle, destinationName);
+        }
+
+        if (!expected.IsSameDirectoryAt(destination, destinationName))
+        {
+            throw new IOException("Restore directory identity changed during placement.");
+        }
     }
 
     public void MoveChildTo(
@@ -558,6 +592,9 @@ internal sealed class StableDirectoryTree : IDisposable
             return leftIdentity == rightIdentity;
         }
 
+        public static bool SameDevice(SafeFileHandle left, SafeFileHandle right) =>
+            Identity(left).Device == Identity(right).Device;
+
         public static void RenameAt(
             SafeFileHandle sourceParent,
             string source,
@@ -756,6 +793,9 @@ internal sealed class StableDirectoryTree : IDisposable
                 leftInfo.FileIdLow == rightInfo.FileIdLow &&
                 leftInfo.FileIdHigh == rightInfo.FileIdHigh;
         }
+
+        public static bool SameVolume(SafeFileHandle left, SafeFileHandle right) =>
+            GetId(left).VolumeSerialNumber == GetId(right).VolumeSerialNumber;
 
         public static void Rename(
             SafeFileHandle source,
