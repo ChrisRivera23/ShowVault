@@ -124,6 +124,21 @@ OIDC/BFF/antiforgery guidance. No product source, migration, dependency, Auth0
 tenant/client/Action, personal data, provider, browser account, deployment, or
 external state changed.
 
+### Milestone 7 implementation plan handoff
+
+The separately authorized implementation plan is complete in
+`docs/ACCOUNT_PORTAL_MILESTONE_7_PLAN_HANDOFF_2026-08-13.md`. It maps the
+reviewed architecture into three bounded commits: centralized active-membership
+authority plus the complete schema/migration, invitation and account
+administration APIs with MFA-backed step-up, and a separate Razor Pages BFF
+account portal. The plan freezes the exact files, configuration keys, migration
+backfill, API routes, test fixtures, CI changes, verification commands, and
+per-commit stop conditions.
+
+This planning step changed documentation only. It did not change product
+source, migrations, dependencies, Auth0 tenant/client/Action configuration,
+personal data, provider state, browser accounts, deployment, or external state.
+
 ## Authorization boundary
 
 The Product Owner subsequently authorized the bounded Stripe sandbox/account
@@ -146,12 +161,13 @@ up destructively without new explicit authorization.
 Two independent next actions are available. Stripe sandbox proof can resume
 after the Product Owner signs in through the handed-off Chrome tab; a public
 webhook proof additionally requires a separately authorized deployment or
-Stripe CLI install/forwarding session. The safe local roadmap action is now a
-separately authorized milestone-7 implementation plan/handoff mapping the three
-reviewed commits to exact files, tests, configuration, migration operations,
-and stop conditions. Product implementation remains gated after that plan.
-Internal staff Admin, production hosted-object storage, and native proof remain
-independently gated.
+Stripe CLI install/forwarding session. The safe local roadmap action is now the
+separately authorized milestone-7 implementation from the exact planning
+handoff commit, performed in a new scoped `codex/` branch/worktree as the three
+planned commits with synthetic fixtures, generated migration, local dependency
+restore, full validation, implementation evidence, and a new continuation
+handoff. Internal staff Admin, production hosted-object storage, and native
+proof remain independently gated.
 
 The existing `NEXT_CONVERSATION.md` in the user's primary worktree is outside
 this branch and was not added or changed.
