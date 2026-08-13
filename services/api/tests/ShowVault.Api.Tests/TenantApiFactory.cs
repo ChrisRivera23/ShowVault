@@ -38,6 +38,7 @@ public sealed class TenantApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IBillingOfferingCatalog, TestBillingOfferingCatalog>();
             services.PostConfigure<BillingOptions>(options =>
             {
+                options.Enabled = true;
                 options.Environment = BillingProviderEnvironment.Sandbox;
                 options.ReturnOrigin = "https://account.showvault.test/";
                 options.ProviderApiVersion = "2026-07-01.fixture";

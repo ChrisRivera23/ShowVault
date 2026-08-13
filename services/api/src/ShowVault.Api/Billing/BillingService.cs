@@ -210,9 +210,9 @@ public sealed class BillingReconciliationService(
             await database.SaveChangesAsync(cancellationToken);
             return;
         }
-        if (binding?.ProviderModifiedAt > snapshot.ProviderModifiedAt ||
-            (binding?.ProviderModifiedAt == snapshot.ProviderModifiedAt &&
-             string.CompareOrdinal(binding.ProviderRevision, snapshot.ProviderRevision) >= 0))
+        if (string.Equals(binding?.ProviderRevision, snapshot.ProviderRevision,
+                StringComparison.Ordinal) ||
+            binding?.ProviderModifiedAt > snapshot.ProviderModifiedAt)
         {
             Complete(receipt, BillingEventProcessingState.Processed, "stale_noop");
             await database.SaveChangesAsync(cancellationToken);

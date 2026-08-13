@@ -97,6 +97,7 @@ public sealed class DisabledBillingProvider : IBillingProvider
 public sealed class BillingOptions
 {
     public const string SectionName = "Billing";
+    public bool Enabled { get; set; }
     public BillingProviderEnvironment Environment { get; set; } =
         BillingProviderEnvironment.Sandbox;
     public string? ReturnOrigin { get; set; }
@@ -111,8 +112,47 @@ public sealed class BillingOptions
             !string.IsNullOrEmpty(parsed.Query) || !string.IsNullOrEmpty(parsed.Fragment) ||
             parsed.AbsolutePath != "/") return false;
         origin = parsed;
-        return CheckoutLifetimeMinutes is >= 5 and <= 60 &&
+        return Enabled && Environment == BillingProviderEnvironment.Sandbox &&
+            CheckoutLifetimeMinutes is >= 30 and <= 60 &&
             !string.IsNullOrWhiteSpace(ProviderApiVersion) &&
             ProviderApiVersion.Length <= 40;
     }
+}
+
+public sealed class StripeApiOptions
+{
+    public const string SectionName = "Billing:Stripe";
+    public string? SecretKey { get; set; }
+    public int RequestTimeoutSeconds { get; set; } = 15;
+
+    public bool IsValid() => SecretKey is { Length: <= 255 } key &&
+        key.StartsWith("rk_test_", StringComparison.Ordinal) &&
+        RequestTimeoutSeconds is >= 2 and <= 30;
+}
+
+public sealed class BillingOfferingOptions
+{
+    public const string SectionName = "Billing:Offering";
+    public string? Code { get; set; }
+    public string? DisplayName { get; set; }
+    public string? PlanCode { get; set; }
+    public string? LicenseTypeCode { get; set; }
+    public string? RecurringPriceId { get; set; }
+    public string? LicensePriceId { get; set; }
+    public string? PolicyVersion { get; set; }
+
+    public BillingOffering? GetOffering()
+    {
+        if (!Bounded(Code, 80) || !Bounded(DisplayName, 120) ||
+            !Bounded(PlanCode, 80) || !Bounded(LicenseTypeCode, 80) ||
+            !Bounded(PolicyVersion, 80) || !Price(RecurringPriceId) ||
+            !Price(LicensePriceId) || RecurringPriceId == LicensePriceId) return null;
+        return new(Code!, DisplayName!, PlanCode!, LicenseTypeCode!,
+            RecurringPriceId!, LicensePriceId!, PolicyVersion!);
+    }
+
+    private static bool Bounded(string? value, int maximum) =>
+        !string.IsNullOrWhiteSpace(value) && value.Length <= maximum;
+    private static bool Price(string? value) =>
+        Bounded(value, 255) && value!.StartsWith("price_", StringComparison.Ordinal);
 }

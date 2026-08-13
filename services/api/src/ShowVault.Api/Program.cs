@@ -29,9 +29,13 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CommercialStateService>();
 builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection(BillingOptions.SectionName));
+builder.Services.Configure<StripeApiOptions>(builder.Configuration.GetSection(StripeApiOptions.SectionName));
+builder.Services.Configure<BillingOfferingOptions>(builder.Configuration.GetSection(BillingOfferingOptions.SectionName));
 builder.Services.Configure<StripeWebhookOptions>(builder.Configuration.GetSection(StripeWebhookOptions.SectionName));
-builder.Services.AddSingleton<IBillingProvider, DisabledBillingProvider>();
-builder.Services.AddSingleton<IBillingOfferingCatalog, DisabledBillingOfferingCatalog>();
+builder.Services.AddHttpClient<StripeBillingProvider>().RemoveAllLoggers();
+builder.Services.AddTransient<IBillingProvider>(services =>
+    services.GetRequiredService<StripeBillingProvider>());
+builder.Services.AddSingleton<IBillingOfferingCatalog, ConfiguredBillingOfferingCatalog>();
 builder.Services.AddSingleton<IStripeWebhookSignatureVerifier, StripeWebhookSignatureVerifier>();
 builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<BillingReconciliationService>();
