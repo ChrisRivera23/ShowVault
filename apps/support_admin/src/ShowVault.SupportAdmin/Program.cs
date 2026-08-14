@@ -88,12 +88,20 @@ if (portal.Enabled)
 }
 
 var app = builder.Build();
-app.UseExceptionHandler(error => error.Run(async context =>
+app.UseExceptionHandler(new ExceptionHandlerOptions
 {
-    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-    await Results.Problem(statusCode: StatusCodes.Status500InternalServerError,
-        title: "The Support portal could not complete the request.").ExecuteAsync(context);
-}));
+    ExceptionHandler = async context =>
+    {
+        context.RequestServices.GetRequiredService<ILoggerFactory>()
+            .CreateLogger("ShowVault.SupportAdmin")
+            .LogInformation("Support portal request {Outcome}; correlation {CorrelationId}",
+                "unexpected_failure", context.TraceIdentifier);
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await Results.Problem(statusCode: StatusCodes.Status500InternalServerError,
+            title: "The Support portal could not complete the request.").ExecuteAsync(context);
+    },
+    SuppressDiagnosticsCallback = _ => true
+});
 app.UseMiddleware<SupportSecurityHeadersMiddleware>();
 if (!portal.Enabled)
 {

@@ -130,6 +130,15 @@ public sealed class SupportAdminSecurityTests
             query["redirect_uri"]);
         Assert.False(string.IsNullOrWhiteSpace(query["state"]));
         Assert.False(string.IsNullOrWhiteSpace(query["nonce"]));
+        var challengeCookies = string.Join('\n', challenge.Headers.GetValues("Set-Cookie"));
+        Assert.Contains("__Host-showvault-support-correlation", challengeCookies,
+            StringComparison.Ordinal);
+        Assert.Contains("__Host-showvault-support-nonce", challengeCookies,
+            StringComparison.Ordinal);
+        Assert.Contains("path=/", challengeCookies, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("secure", challengeCookies, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("httponly", challengeCookies, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("samesite=none", challengeCookies, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -206,6 +215,46 @@ public sealed class SupportAdminSecurityTests
         Assert.DoesNotContain("provider-customer-fixture", failureBody, StringComparison.Ordinal);
         Assert.DoesNotContain(factory.Api.OrganizationId.ToString("D"), failureBody,
             StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(factory.Logs.Messages,
+            message => message.Contains("not-an-organization-id", StringComparison.Ordinal) ||
+                message.Contains(factory.Api.OrganizationId.ToString("D"),
+                    StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("support-access-token-fixture", StringComparison.Ordinal) ||
+                message.Contains("provider-customer-fixture", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Handled_exceptions_are_generic_and_do_not_emit_exception_diagnostics()
+    {
+        await using var factory = new EnabledSupportFactory();
+        factory.Api.ThrowUnhandled = true;
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            HandleCookies = true,
+            BaseAddress = new Uri("https://support.showvault.test/")
+        });
+        client.DefaultRequestHeaders.Add("X-Support-Test-Auth", "1");
+        var html = await client.GetStringAsync("/");
+
+        var response = await client.PostAsync("/", new FormUrlEncodedContent(
+            new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = AntiforgeryToken(html),
+                ["OrganizationId"] = factory.Api.OrganizationId.ToString("D")
+            }));
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Contains("could not complete the request", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("sensitive-upstream-exception-fixture", body,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("traceId", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("correlation", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(factory.Logs.Messages,
+            message => message.Contains("sensitive-upstream-exception-fixture",
+                StringComparison.Ordinal));
+        Assert.Contains(factory.Logs.Messages,
+            message => message.Contains("unexpected_failure", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -230,6 +279,14 @@ public sealed class SupportAdminSecurityTests
         Assert.Equal("__Host-showvault-support-correlation", oidc.CorrelationCookie.Name);
         Assert.Equal("/", oidc.NonceCookie.Path);
         Assert.Equal("/", oidc.CorrelationCookie.Path);
+        var antiforgery = factory.Services.GetRequiredService<IOptions<
+            Microsoft.AspNetCore.Antiforgery.AntiforgeryOptions>>().Value.Cookie;
+        Assert.Equal("__Host-showvault-support-csrf", antiforgery.Name);
+        Assert.True(antiforgery.HttpOnly);
+        Assert.Equal(CookieSecurePolicy.Always, antiforgery.SecurePolicy);
+        Assert.Equal(SameSiteMode.Strict, antiforgery.SameSite);
+        Assert.Equal("/", antiforgery.Path);
+        Assert.Null(antiforgery.Domain);
     }
 
     private static string AntiforgeryToken(string html)
@@ -264,11 +321,18 @@ public sealed class SupportAdminSecurityTests
     private sealed class EnabledSupportFactory : WebApplicationFactory<Program>
     {
         public SyntheticSupportApiHandler Api { get; } = new();
+        public CapturingLoggerProvider Logs { get; } = new();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Development");
             ConfigureComplete(builder);
+            builder.ConfigureLogging(logging =>
+            {
+                logging.ClearProviders();
+                logging.SetMinimumLevel(LogLevel.Trace);
+                logging.AddProvider(Logs);
+            });
             builder.ConfigureServices(services =>
             {
                 services.AddAuthentication().AddScheme<AuthenticationSchemeOptions,
@@ -333,6 +397,7 @@ public sealed class SupportAdminSecurityTests
     {
         public Guid OrganizationId { get; } = Guid.NewGuid();
         public bool Fail { get; set; }
+        public bool ThrowUnhandled { get; set; }
         public int RequestCount { get; private set; }
         public string? LastAuthorization { get; private set; }
         public string? LastMethod { get; private set; }
@@ -342,6 +407,8 @@ public sealed class SupportAdminSecurityTests
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
+            if (ThrowUnhandled)
+                throw new ApplicationException("sensitive-upstream-exception-fixture");
             RequestCount++;
             LastAuthorization = request.Headers.Authorization?.ToString();
             LastMethod = request.Method.Method;
@@ -368,6 +435,26 @@ public sealed class SupportAdminSecurityTests
             };
             response.Headers.CacheControl = new CacheControlHeaderValue { NoStore = true };
             return response;
+        }
+    }
+
+    public sealed class CapturingLoggerProvider : ILoggerProvider
+    {
+        public System.Collections.Concurrent.ConcurrentQueue<string> Messages { get; } = new();
+        public ILogger CreateLogger(string categoryName) => new CapturingLogger(Messages);
+        public void Dispose() { }
+
+        private sealed class CapturingLogger(
+            System.Collections.Concurrent.ConcurrentQueue<string> messages) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(LogLevel logLevel) => true;
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state,
+                Exception? exception, Func<TState, Exception?, string> formatter)
+            {
+                messages.Enqueue(formatter(state, exception));
+                if (exception is not null) messages.Enqueue(exception.ToString());
+            }
         }
     }
 }
