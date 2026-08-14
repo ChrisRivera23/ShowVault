@@ -108,6 +108,24 @@ if (supportOptions.Enabled)
         options.Authority = supportIdentity.Authority;
         options.Audience = supportIdentity.Audience;
         options.MapInboundClaims = false;
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                context.Response.Headers.CacheControl = "no-store";
+                return Task.CompletedTask;
+            },
+            OnChallenge = context =>
+            {
+                context.Response.Headers.CacheControl = "no-store";
+                return Task.CompletedTask;
+            },
+            OnForbidden = context =>
+            {
+                context.Response.Headers.CacheControl = "no-store";
+                return Task.CompletedTask;
+            }
+        };
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidIssuer = supportIdentity.Authority,

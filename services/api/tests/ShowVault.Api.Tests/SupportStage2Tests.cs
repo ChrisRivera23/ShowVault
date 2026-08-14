@@ -28,7 +28,13 @@ public sealed class SupportStage2Tests(TenantApiFactory factory) : IClassFixture
         { Enabled = true, Authority = "http://support.test/", Audience = "support" }
             .RequireValid("customer"));
         Assert.Throws<InvalidOperationException>(() => new SupportAdminOptions
+        { Enabled = true, Authority = $"https://{string.Join('.', Enumerable.Repeat(new string('a', 60), 5))}/", Audience = "support" }
+            .RequireValid("customer"));
+        Assert.Throws<InvalidOperationException>(() => new SupportAdminOptions
         { Enabled = true, Authority = Issuer, Audience = "customer" }
+            .RequireValid("customer"));
+        Assert.Throws<InvalidOperationException>(() => new SupportAdminOptions
+        { Enabled = true, Authority = Issuer, Audience = "support\napi" }
             .RequireValid("customer"));
         Assert.Equal((Issuer, "support"), new SupportAdminOptions
         { Enabled = true, Authority = Issuer, Audience = " support " }
@@ -52,7 +58,7 @@ public sealed class SupportStage2Tests(TenantApiFactory factory) : IClassFixture
     }
 
     [Fact]
-    public void Rate_limit_is_partitioned_and_bounded()
+    public async Task Rate_limit_is_partitioned_and_bounded()
     {
         var limiter = new SupportRequestRateLimiter(new FixedTimeProvider(Now));
         for (var count = 0; count < SupportRequestRateLimiter.PermitLimit; count++)
@@ -65,6 +71,16 @@ public sealed class SupportStage2Tests(TenantApiFactory factory) : IClassFixture
         for (var count = 0; count < SupportRequestRateLimiter.MaximumPartitions; count++)
             Assert.True(capacity.TryAcquire(Issuer, $"staff|{count}", "127.0.0.1"));
         Assert.False(capacity.TryAcquire(Issuer, "staff|overflow", "127.0.0.1"));
+        Assert.Equal(SupportRequestRateLimiter.MaximumPartitions, capacity.PartitionCount);
+
+        var concurrent = new SupportRequestRateLimiter(new FixedTimeProvider(Now));
+        for (var count = 0; count < SupportRequestRateLimiter.MaximumPartitions - 64; count++)
+            Assert.True(concurrent.TryAcquire(Issuer, $"staff|seed-{count}", "127.0.0.1"));
+        var attempts = Enumerable.Range(0, 128).Select(count => Task.Run(() =>
+            concurrent.TryAcquire(Issuer, $"staff|race-{count}", "127.0.0.1"))).ToArray();
+        var results = await Task.WhenAll(attempts);
+        Assert.Equal(64, results.Count(result => result));
+        Assert.Equal(SupportRequestRateLimiter.MaximumPartitions, concurrent.PartitionCount);
     }
 
     [Fact]
@@ -96,6 +112,12 @@ public sealed class SupportStage2Tests(TenantApiFactory factory) : IClassFixture
         Assert.Contains("HTTP: POST", route.DisplayName);
         Assert.Equal(SupportAdminOptions.SchemeName,
             route.Metadata.GetMetadata<IAuthorizeData>()!.AuthenticationSchemes);
+        var challenge = await enabled.CreateClient().PostAsync(
+            "/api/v1/support/organization-overview",
+            new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.Unauthorized, challenge.StatusCode);
+        Assert.Contains("no-store", challenge.Headers.CacheControl!.ToString(),
+            StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

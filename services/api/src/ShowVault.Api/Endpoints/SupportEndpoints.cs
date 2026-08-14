@@ -33,7 +33,8 @@ public static class SupportEndpoints
         context.Response.Headers.CacheControl = "no-store";
         var source = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var authority = authorization.Evaluate(user, expectedIssuer, source);
-        if (authority.Kind == SupportRequestAuthorizationKind.Forbidden) return Results.Forbid();
+        if (authority.Kind == SupportRequestAuthorizationKind.Forbidden)
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
         if (authority.Kind == SupportRequestAuthorizationKind.RateLimited)
             return Results.StatusCode(StatusCodes.Status429TooManyRequests);
         var body = await ParseAsync(request, cancellationToken);
@@ -43,7 +44,8 @@ public static class SupportEndpoints
         return result.Kind switch
         {
             SupportOverviewResultKind.Success => Results.Ok(result.Value),
-            SupportOverviewResultKind.StaffUnavailable => Results.Forbid(),
+            SupportOverviewResultKind.StaffUnavailable =>
+                Results.StatusCode(StatusCodes.Status403Forbidden),
             SupportOverviewResultKind.TargetUnavailable => Results.NotFound(new
             { code = "support_target_unavailable" }),
             _ => Results.Problem(statusCode: StatusCodes.Status500InternalServerError,

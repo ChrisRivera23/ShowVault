@@ -9,6 +9,8 @@ public sealed class SupportRequestRateLimiter(TimeProvider timeProvider)
     internal static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
     internal static readonly TimeSpan Retention = TimeSpan.FromMinutes(2);
     private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
+    private readonly object _partitionGate = new();
+    internal int PartitionCount => _entries.Count;
 
     public bool TryAcquire(string issuer, string subject, string source)
     {
@@ -16,12 +18,18 @@ public sealed class SupportRequestRateLimiter(TimeProvider timeProvider)
         var key = $"{issuer.Length}:{issuer}{subject.Length}:{subject}{source}";
         if (!_entries.TryGetValue(key, out var entry))
         {
-            if (_entries.Count >= MaximumPartitions)
+            lock (_partitionGate)
             {
-                Prune(now);
-                if (_entries.Count >= MaximumPartitions) return false;
+                if (!_entries.TryGetValue(key, out entry))
+                {
+                    if (_entries.Count >= MaximumPartitions)
+                    {
+                        Prune(now);
+                        if (_entries.Count >= MaximumPartitions) return false;
+                    }
+                    entry = _entries.GetOrAdd(key, _ => new(now));
+                }
             }
-            entry = _entries.GetOrAdd(key, _ => new(now));
         }
         lock (entry)
         {
