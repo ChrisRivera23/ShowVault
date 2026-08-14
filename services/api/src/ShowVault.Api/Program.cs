@@ -16,6 +16,7 @@ using ShowVault.Platform.Commercial;
 using ShowVault.Api.Billing;
 using ShowVault.Api.Authorization;
 using ShowVault.Api.Account;
+using ShowVault.Api.Support;
 
 var builder = WebApplication.CreateBuilder(args);
 var auth0Domain = builder.Configuration["Auth0:Domain"]
@@ -36,6 +37,8 @@ builder.Services.Configure<AccountInvitationOptions>(
 builder.Services.AddSingleton<InvitationTokenService>();
 builder.Services.AddSingleton<MembershipStepUpAuthorization>();
 builder.Services.AddScoped<AccountAdministrationService>();
+builder.Services.Configure<SupportAdminOptions>(
+    builder.Configuration.GetSection(SupportAdminOptions.SectionName));
 builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection(BillingOptions.SectionName));
 builder.Services.Configure<StripeApiOptions>(builder.Configuration.GetSection(StripeApiOptions.SectionName));
 builder.Services.Configure<BillingOfferingOptions>(builder.Configuration.GetSection(BillingOfferingOptions.SectionName));
