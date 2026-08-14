@@ -26,7 +26,7 @@ public sealed class SupportAdminPortalOptions
             ApiTimeoutSeconds is < 1 or > 30 ||
             MaximumApiResponseBytes is < 4096 or > 262_144)
             return false;
-        return !string.Equals(Origin, ApiBaseUri, StringComparison.OrdinalIgnoreCase);
+        return !SameOrigin(Origin!, ApiBaseUri!);
     }
 
     public static bool HttpsRoot(string? value) =>
@@ -34,6 +34,17 @@ public sealed class SupportAdminPortalOptions
         uri.Scheme == Uri.UriSchemeHttps && !string.IsNullOrEmpty(uri.Host) &&
         string.IsNullOrEmpty(uri.UserInfo) && string.IsNullOrEmpty(uri.Query) &&
         string.IsNullOrEmpty(uri.Fragment) && uri.AbsolutePath == "/";
+
+    private static bool SameOrigin(string left, string right)
+    {
+        var leftUri = new Uri(left, UriKind.Absolute);
+        var rightUri = new Uri(right, UriKind.Absolute);
+        return string.Equals(leftUri.Scheme, rightUri.Scheme,
+                   StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(leftUri.IdnHost, rightUri.IdnHost,
+                   StringComparison.OrdinalIgnoreCase) &&
+               leftUri.Port == rightUri.Port;
+    }
 
     private static bool Bounded(string? value) =>
         !string.IsNullOrWhiteSpace(value) && value.Length <= 255 &&

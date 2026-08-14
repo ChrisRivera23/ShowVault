@@ -59,6 +59,28 @@ public sealed class SupportAdminSecurityTests
         Assert.False(options.IsComplete(development: true));
     }
 
+    [Theory]
+    [InlineData("https://support.showvault.test:443/")]
+    [InlineData("https://SUPPORT.showvault.test/")]
+    public void Enabled_configuration_rejects_equivalent_portal_and_api_origins(
+        string apiBaseUri)
+    {
+        var options = Complete();
+        options.ApiBaseUri = apiBaseUri;
+        Assert.False(options.IsComplete(development: true));
+    }
+
+    [Theory]
+    [InlineData("https://support-api.showvault.test/")]
+    [InlineData("https://support.showvault.test:444/")]
+    public void Enabled_configuration_accepts_distinct_portal_and_api_origins(
+        string apiBaseUri)
+    {
+        var options = Complete();
+        options.ApiBaseUri = apiBaseUri;
+        Assert.True(options.IsComplete(development: true));
+    }
+
     [Fact]
     public void Enabled_non_development_startup_fails_closed()
     {
