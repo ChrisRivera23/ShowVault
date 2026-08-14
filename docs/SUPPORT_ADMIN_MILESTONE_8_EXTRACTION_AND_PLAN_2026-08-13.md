@@ -118,11 +118,16 @@ remain disabled and synthetic until that operational gate exists.
 Add a dedicated JWT bearer scheme, `ShowVault-Support`, with a distinct
 configured audience. It must never forward to personal-beta authentication and
 must not accept the customer API audience as staff proof. Checked-in Support
-configuration remains disabled.
+configuration remains disabled with null authority/audience. API enablement
+requires an exact HTTPS authority and non-empty audience distinct from the
+customer API; incomplete enabled API configuration fails startup. BFF
+enablement independently requires its complete origin/OIDC/API/session
+settings or fails startup. When disabled, the API does not map Support routes
+and the BFF serves only its generic `503` disabled response.
 
 The exact local authorization contract is:
 
-- authenticated stable `sub`;
+- authenticated exact configured issuer plus stable `sub`;
 - exact OAuth scope `support:organizations:read`;
 - exact MFA evidence in
   `https://showvault.app/authentication_methods`, accepting only exact `mfa`
@@ -143,8 +148,9 @@ staff roles.
 
 Plan three server-only entities:
 
-- `SupportStaffAssignment`: ID, normalized identity subject, `SupportReader`,
-  `Active|Suspended|Revoked`, created/updated times, revision;
+- `SupportStaffAssignment`: ID, normalized immutable identity issuer and
+  subject, `SupportReader`, `Active|Suspended|Revoked`, created/updated times,
+  revision;
 - `SupportOrganizationGrant`: ID, staff assignment ID, organization ID,
   `Active|Revoked`, created/updated times, revision; and
 - `SupportAuditEvent`: ID, nullable organization ID when no safe tenant is
@@ -153,35 +159,55 @@ Plan three server-only entities:
 
 Assignments and grants are provisioned only by synthetic test fixtures in this
 milestone. No staff-management endpoint is included. Relationships use
-restrictive deletion and unique active identity/assignment-organization
-invariants. Revisions are concurrency tokens. Support audits are append-only
-and cannot cascade-delete.
+restrictive deletion and unique `(issuer, subject)` and
+`(assignment, organization)` invariants. Revoked assignments and grants are
+terminal in this milestone. Revisions are concurrency tokens. Support audits
+are append-only and cannot cascade-delete.
 
 ### Decision order
 
 For every Support request:
 
-1. authenticate only with `ShowVault-Support`;
-2. resolve a bounded stable subject;
+1. authenticate only with `ShowVault-Support`, validating the exact configured
+   HTTPS issuer and distinct Support audience;
+2. resolve the normalized issuer-and-subject pair;
 3. validate exact scope, MFA evidence, and token freshness;
-4. resolve an active `SupportReader` assignment;
-5. resolve the exact organization without revealing whether it exists;
-6. resolve an active assignment-to-organization grant;
-7. create a minimized projection with `AsNoTracking` queries;
-8. append one allow/deny `support_overview_read` audit when it can be safely
-   attributed, then save once; and
-9. return the projection with `Cache-Control: no-store`.
+4. apply a bounded subject-plus-source rate limit before database resolution;
+5. start a serializable database transaction with bounded conflict retry;
+6. resolve an active `SupportReader` assignment inside that transaction;
+7. resolve the active grant and exact organization in one joined query so
+   missing and ungranted targets take the same branch and response;
+8. create a minimized projection with bounded `AsNoTracking` queries;
+9. append one `support_overview_read` audit, commit the transaction, and only
+   then return the projection with `Cache-Control: no-store`.
+
+The rate-limit source is the direct peer unless an independently configured
+trusted-proxy boundary supplies it; arbitrary forwarding headers are ignored.
+The issuer-subject/source partition is kept server-side, never returned or
+logged, and has a fixed expiration/capacity.
 
 Missing, malformed, inactive, wrong-tenant, ungranted, stale, or raced state
-denies closed. Unknown and ungranted organization IDs share the same response.
-An audit-write failure fails the request; inspection without evidence is not
-success.
+denies closed. Unknown, ungranted, and grant-revoked targets share one generic
+`support_target_unavailable` response, and no requested organization ID is
+written to audit until the joined lookup establishes an active grant. An
+attributable denial may record the active staff assignment and uniform reason
+with a null organization. Authentication failures that occur before a trusted
+staff assignment exists remain bounded security telemetry, not durable Support
+audit rows. An audit/commit failure or serialization conflict returns no
+overview; inspection without committed evidence is not success.
 
 ## Exact first read-only contract
 
 Add one endpoint only:
 
-`GET /api/v1/support/organizations/{organizationId}/overview`
+`POST /api/v1/support/organization-overview`
+
+The strict JSON body contains only `organizationId`, rejects unknown members,
+non-JSON content, empty IDs, duplicate members, and bodies over 4 KiB. A POST
+query is intentional: the read creates mandatory audit state and keeps the
+organization ID out of request paths, query strings, browser history, proxy
+access logs, and referrers. The endpoint is never cacheable and accepts no
+idempotency or write-action field.
 
 It returns a closed `SupportOrganizationOverview` containing:
 
@@ -192,14 +218,21 @@ It returns a closed `SupportOrganizationOverview` containing:
   times, eligibility boolean/reason, and committed/reserved/limit bytes;
 - open billing-attention count, distinct bounded reason codes, and oldest open
   time;
-- hosted-sync session counts grouped by closed state and latest activity time;
+- hosted-sync session counts mapped only from exact current persisted statuses
+  `uploading|completed`, plus latest `UpdatedAt` activity time;
   and
 - last account/commercial activity times only, not audit rows or actors.
 
-Every collection has a deterministic maximum and closed sort. Counts are
-non-negative and timestamps are UTC. Unknown database enum/state, inconsistent
-usage, excessive result cardinality, or projection failure returns a generic
-error and no partial data.
+The organization display name remains bounded to its current 200-character
+domain limit. The member matrix contains exactly the five current roles crossed with the
+three current lifecycle states (15 non-negative counts in closed enum order).
+Billing-attention reason codes are distinct ordinal-sorted closed bounded
+strings of at most 80 characters with an exact maximum of eight; more than
+eight fails the projection.
+Hosted-sync counts contain exactly `uploading` then `completed`. Counts use
+checked 64-bit conversion and timestamps are UTC. Unknown database enum/state,
+inconsistent usage, excessive result cardinality, arithmetic overflow, or
+projection failure returns a generic error and no partial data.
 
 The response excludes staff/customer identity subjects, membership and target
 IDs, invitation labels/codes/digests, email/name claims, provider customer/
@@ -208,10 +241,13 @@ payloads, prices, payment methods/cards, credentials/tokens/secrets, IP/user
 agent, correlation IDs, filesystem paths, filenames, manifests, backup
 contents, restore contents, and signed URLs.
 
-The first site accepts an exact organization GUID in a protected POST form and
-redirects to a server-held opaque result handle. The GUID is not placed in
-analytics or logs. No organization list, search, autocomplete, export, or raw
-JSON browser is included.
+The first site accepts an exact organization GUID in a protected POST form,
+calls the API POST server-side, and renders the returned minimized overview
+directly in the same `no-store` response. It does not redirect with the GUID or
+persist an overview/result handle. API and BFF request-body logging is disabled;
+structured logs use only a generated correlation ID and bounded outcome code.
+No organization list, search, autocomplete, export, or raw JSON browser is
+included.
 
 ## Staged implementation plan
 
@@ -220,34 +256,39 @@ local commits.
 
 ### Commit 1 — staff authority, grants, and immutable evidence
 
-Add the three platform entities, exact closed enums/invariants, EF mappings,
-one generated migration, append-only enforcement, disabled Support options,
-and domain/persistence tests. Add no endpoint or UI. Synthetic fixtures are the
-only assignment/grant provisioning mechanism.
+Add the three platform entities, exact closed enums/invariants, issuer-subject
+and assignment-organization uniqueness, restrictive relationships, EF
+mappings, one generated migration, append-only enforcement, disabled Support
+options, and domain/persistence tests. Add no endpoint or UI. Synthetic
+fixtures are the only assignment/grant provisioning mechanism.
 
 Stop if the migration weakens an existing constraint, adds cascade deletion,
 stores email/name/password/token material, or permits a write-capable role.
 
 ### Commit 2 — dedicated Support authentication and overview API
 
-Add the separate bearer scheme/audience, frozen step-up evaluator,
-`SupportAuthorizationService`, closed response contracts,
-`SupportOrganizationOverviewService`, and the single GET endpoint. Query only
-the fields needed for the frozen projection. Record allow/deny evidence and
-require `no-store` responses. Add no customer-route change.
+Add the separate exact-issuer bearer scheme/audience, frozen step-up evaluator,
+subject-plus-source rate limit, `SupportAuthorizationService`, closed request/
+response contracts, `SupportOrganizationOverviewService`, joined grant-target
+lookup, serializable audited query transaction, and the single strict POST
+endpoint. Query only the fields needed for the frozen projection. Record
+bounded evidence and require `no-store` responses. Add no customer-route
+change.
 
 Stop if customer authentication can satisfy the Support scheme, organization
 membership can grant Support access, an ungranted organization is
 distinguishable from a missing one, or entity serialization exposes a banned
-field.
+field. Also stop if a grant can be revoked concurrently while an overview is
+returned without a committed audit of the same serializable decision.
 
 ### Commit 3 — separate disabled-by-default Support BFF
 
 Add `apps/support_admin` as a server-rendered .NET application with its own OIDC
 client, exact origin, host-only cookie names, antiforgery, CSP/referrer/cache
 headers, server-side ticket/token storage seam, removed HTTP body/header
-logging, generic errors, and an exact-ID lookup page. Do not share the account
-portal cookie, OIDC client, session store namespace, or pages.
+logging, generic errors, and an exact-ID POST lookup page that renders without
+a redirect or result store. Do not share the account portal cookie, OIDC
+client, session store namespace, or pages.
 
 Local Development may use an explicitly synthetic bounded ticket store. Any
 non-Development enablement must fail startup until a reviewed durable encrypted
@@ -268,15 +309,24 @@ Implementation is incomplete without tests for:
 - absent/malformed subject, wrong audience, customer scheme, personal beta,
   missing/wrong scope, missing/malformed MFA, absent/negative/stale/future
   `iat`, and ordinary customer Owner denial;
-- missing/suspended/revoked staff assignment, wrong role, missing/revoked/
-  cross-tenant grant, unknown organization, and grant revocation races;
-- no organization enumeration or distinguishable missing/ungranted response;
+- wrong issuer, issuer-subject collision, missing/suspended/revoked staff
+  assignment, wrong role, missing/revoked/cross-tenant grant, unknown
+  organization, and assignment/grant revocation races;
+- no organization enumeration or distinguishable missing/ungranted response,
+  including status, body, headers, durable reason, query count, and bounded
+  timing class;
+- strict POST body/content-type/size/duplicate/unknown-member rejection and no
+  organization ID in URL, referrer, access log, structured log, or analytics;
+- disabled routes, generic disabled BFF response, incomplete-enabled startup
+  failure, exact HTTPS issuer, and distinct-audience configuration;
 - exact minimized shape and banned-field absence in success, error, logs,
   audit, HTML, cookies, and snapshots;
-- unknown state, inconsistent quota, excessive cardinality, canceled request,
+- unknown hosted-sync status, inconsistent quota, excessive cardinality,
+  canceled request,
   database failure, and audit-write failure returning no partial overview;
-- append-only support audit, restrictive deletion, optimistic concurrency, and
-  one bounded event per attributable decision;
+- append-only support audit, restrictive deletion, uniqueness, optimistic
+  concurrency, serializable retry exhaustion, and one bounded committed event
+  per attributable completed decision, whether allow or uniform denial;
 - exact-origin, PKCE, nonce/state, no offline access, fresh MFA challenge,
   secure host-only cookie, server-side token, CSRF, session expiry/revocation,
   CSP/frame/referrer/cache protections, and generic portal failures; and
