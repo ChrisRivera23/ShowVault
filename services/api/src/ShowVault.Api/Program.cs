@@ -16,12 +16,18 @@ using ShowVault.Platform.Commercial;
 using ShowVault.Api.Billing;
 using ShowVault.Api.Authorization;
 using ShowVault.Api.Account;
+using ShowVault.Api.Support;
 
 var builder = WebApplication.CreateBuilder(args);
 var auth0Domain = builder.Configuration["Auth0:Domain"]
     ?? throw new InvalidOperationException("Auth0:Domain configuration is required.");
 var auth0Audience = builder.Configuration["Auth0:Audience"]
     ?? throw new InvalidOperationException("Auth0:Audience configuration is required.");
+var supportOptions = builder.Configuration.GetSection(SupportAdminOptions.SectionName)
+    .Get<SupportAdminOptions>() ?? new SupportAdminOptions();
+var supportIdentity = supportOptions.Enabled
+    ? supportOptions.RequireValid(auth0Audience)
+    : default;
 var platformConnectionString = builder.Configuration.GetConnectionString("Platform")
     ?? throw new InvalidOperationException("The Platform connection string is required.");
 
@@ -36,6 +42,12 @@ builder.Services.Configure<AccountInvitationOptions>(
 builder.Services.AddSingleton<InvitationTokenService>();
 builder.Services.AddSingleton<MembershipStepUpAuthorization>();
 builder.Services.AddScoped<AccountAdministrationService>();
+builder.Services.Configure<SupportAdminOptions>(
+    builder.Configuration.GetSection(SupportAdminOptions.SectionName));
+builder.Services.AddSingleton<SupportStepUpAuthorization>();
+builder.Services.AddSingleton<SupportRequestRateLimiter>();
+builder.Services.AddSingleton<SupportAuthorizationService>();
+builder.Services.AddScoped<SupportOrganizationOverviewService>();
 builder.Services.Configure<BillingOptions>(builder.Configuration.GetSection(BillingOptions.SectionName));
 builder.Services.Configure<StripeApiOptions>(builder.Configuration.GetSection(StripeApiOptions.SectionName));
 builder.Services.Configure<BillingOfferingOptions>(builder.Configuration.GetSection(BillingOfferingOptions.SectionName));
@@ -62,7 +74,7 @@ else
     builder.Services.AddSingleton<ICommercialPlanPolicyCatalog,
         DisabledCommercialPlanPolicyCatalog>();
 }
-builder.Services
+var authentication = builder.Services
     .AddAuthentication(options =>
     {
         options.DefaultAuthenticateScheme = "ShowVault-User";
@@ -89,6 +101,40 @@ builder.Services
     .AddScheme<AuthenticationSchemeOptions, PersonalBetaAuthenticationHandler>(
         PersonalBetaAuthenticationHandler.SchemeName,
         _ => { });
+if (supportOptions.Enabled)
+{
+    authentication.AddJwtBearer(SupportAdminOptions.SchemeName, options =>
+    {
+        options.Authority = supportIdentity.Authority;
+        options.Audience = supportIdentity.Audience;
+        options.MapInboundClaims = false;
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                context.Response.Headers.CacheControl = "no-store";
+                return Task.CompletedTask;
+            },
+            OnChallenge = context =>
+            {
+                context.Response.Headers.CacheControl = "no-store";
+                return Task.CompletedTask;
+            },
+            OnForbidden = context =>
+            {
+                context.Response.Headers.CacheControl = "no-store";
+                return Task.CompletedTask;
+            }
+        };
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidIssuer = supportIdentity.Authority,
+            ValidAudience = supportIdentity.Audience,
+            NameClaimType = "name",
+            RoleClaimType = "roles"
+        };
+    });
+}
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, AgentAuthenticationHandler>(
         AgentAuthenticationHandler.SchemeName,
@@ -178,6 +224,8 @@ app.MapHostedSyncEndpoints();
 app.MapCommercialEndpoints();
 app.MapBillingEndpoints();
 app.MapAccountEndpoints();
+if (supportOptions.Enabled)
+    app.MapSupportEndpoints(supportIdentity.Authority);
 
 app.Run();
 

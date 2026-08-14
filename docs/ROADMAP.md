@@ -23,17 +23,22 @@
   signed event inbox, current-state reconciliation, refund/dispute attention,
   normalized projections, and Flutter Plan-and-storage actions; production
   provider/catalog remain disabled
+- Milestone 7 ShowVault-owned customer account portal with Owner-managed,
+  email-free invitations, non-Owner membership/role lifecycle, fresh step-up,
+  centralized active-membership enforcement, and minimized account auditing
+- Controlled Stripe sandbox account provisioning and operational lifecycle
+  proof, including the bounded invoice-payment and scheduled-cancellation
+  compatibility corrections; checked-in billing remains disabled
+- Milestone 8 separately authenticated internal SupportReader administration:
+  explicit organization grants, one minimized audited read-only overview API,
+  and an isolated disabled-by-default Support BFF; production identity,
+  durable sessions, deployment, and operational enablement remain gated
 
 ## Next
 
-1. Separately authorized Stripe sandbox/account configuration and operational
-   proof for the disabled Milestone 6 provider seam
-2. ShowVault-owned customer account portal with Owner-managed, email-free
-   invitation and non-Owner membership/role lifecycle
-3. Separately gated internal ShowVault support administration
-4. Production hosted-object provider, retention, migration, and operational
+1. Production hosted-object provider, retention, migration, and operational
    durability proof
-5. Separately authorized native packaging, installation, and equipment proof
+2. Separately authorized native packaging, installation, and equipment proof
 
 ## Deferred
 

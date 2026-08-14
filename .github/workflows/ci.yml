@@ -23,6 +23,9 @@ jobs:
       - run: dotnet restore apps/account_portal/tests/ShowVault.AccountPortal.Tests/ShowVault.AccountPortal.Tests.csproj
       - run: dotnet test apps/account_portal/tests/ShowVault.AccountPortal.Tests/ShowVault.AccountPortal.Tests.csproj --configuration Release
       - run: dotnet build apps/account_portal/src/ShowVault.AccountPortal/ShowVault.AccountPortal.csproj --configuration Release --no-restore
+      - run: dotnet restore apps/support_admin/tests/ShowVault.SupportAdmin.Tests/ShowVault.SupportAdmin.Tests.csproj
+      - run: dotnet test apps/support_admin/tests/ShowVault.SupportAdmin.Tests/ShowVault.SupportAdmin.Tests.csproj --configuration Release
+      - run: dotnet build apps/support_admin/src/ShowVault.SupportAdmin/ShowVault.SupportAdmin.csproj --configuration Release --no-restore
 
   flutter:
     runs-on: ubuntu-latest

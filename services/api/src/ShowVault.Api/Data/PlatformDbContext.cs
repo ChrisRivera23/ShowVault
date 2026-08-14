@@ -5,6 +5,7 @@ using ShowVault.Platform.Venues;
 using ShowVault.Api.HostedSync;
 using ShowVault.Platform.Commercial;
 using ShowVault.Platform.Billing;
+using ShowVault.Platform.Support;
 
 namespace ShowVault.Api.Data;
 
@@ -34,16 +35,22 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
     public DbSet<BillingPurchaseAttempt> BillingPurchaseAttempts => Set<BillingPurchaseAttempt>();
     public DbSet<BillingEventReceipt> BillingEventReceipts => Set<BillingEventReceipt>();
     public DbSet<BillingAttention> BillingAttentions => Set<BillingAttention>();
+    public DbSet<SupportStaffAssignment> SupportStaffAssignments => Set<SupportStaffAssignment>();
+    public DbSet<SupportOrganizationGrant> SupportOrganizationGrants => Set<SupportOrganizationGrant>();
+    public DbSet<SupportAuditEvent> SupportAuditEvents => Set<SupportAuditEvent>();
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        EnsureAuditsAreAppendOnly();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
 
     public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
         CancellationToken cancellationToken = default)
     {
-        if (ChangeTracker.Entries<CommercialAuditEvent>().Any(entry =>
-                entry.State is EntityState.Modified or EntityState.Deleted) ||
-            ChangeTracker.Entries<AccountAuditEvent>().Any(entry =>
-                entry.State is EntityState.Modified or EntityState.Deleted))
-            throw new InvalidOperationException("Audit events are append-only.");
-        return base.SaveChangesAsync(cancellationToken);
+        EnsureAuditsAreAppendOnly();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -132,6 +139,72 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
                 audit.TargetEntityType,
                 audit.TargetEntityId
             });
+            entity.HasOne<Organization>().WithMany()
+                .HasForeignKey(audit => audit.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SupportStaffAssignment>(entity =>
+        {
+            entity.ToTable("support_staff_assignments", table =>
+            {
+                table.HasCheckConstraint("CK_support_staff_assignments_role",
+                    "\"Role\" = 'SupportReader'");
+                table.HasCheckConstraint("CK_support_staff_assignments_state",
+                    "\"State\" IN ('Active', 'Suspended', 'Revoked')");
+            });
+            entity.HasKey(assignment => assignment.Id);
+            entity.Property(assignment => assignment.IdentityIssuer).HasMaxLength(255).IsRequired();
+            entity.Property(assignment => assignment.IdentitySubject).HasMaxLength(255).IsRequired();
+            entity.Property(assignment => assignment.Role).HasConversion<string>().HasMaxLength(32);
+            entity.Property(assignment => assignment.State).HasConversion<string>().HasMaxLength(32);
+            entity.Property(assignment => assignment.CreatedAt).IsRequired();
+            entity.Property(assignment => assignment.UpdatedAt).IsRequired();
+            entity.Property(assignment => assignment.Revision).IsConcurrencyToken();
+            entity.HasIndex(assignment => new
+            {
+                assignment.IdentityIssuer,
+                assignment.IdentitySubject
+            }).IsUnique();
+        });
+
+        modelBuilder.Entity<SupportOrganizationGrant>(entity =>
+        {
+            entity.ToTable("support_organization_grants", table =>
+                table.HasCheckConstraint("CK_support_organization_grants_state",
+                    "\"State\" IN ('Active', 'Revoked')"));
+            entity.HasKey(grant => grant.Id);
+            entity.Property(grant => grant.State).HasConversion<string>().HasMaxLength(32);
+            entity.Property(grant => grant.CreatedAt).IsRequired();
+            entity.Property(grant => grant.UpdatedAt).IsRequired();
+            entity.Property(grant => grant.Revision).IsConcurrencyToken();
+            entity.HasIndex(grant => new
+            {
+                grant.StaffAssignmentId,
+                grant.OrganizationId
+            }).IsUnique();
+            entity.HasOne<SupportStaffAssignment>().WithMany()
+                .HasForeignKey(grant => grant.StaffAssignmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<Organization>().WithMany()
+                .HasForeignKey(grant => grant.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SupportAuditEvent>(entity =>
+        {
+            entity.ToTable("support_audit_events");
+            entity.HasKey(audit => audit.Id);
+            entity.Property(audit => audit.ActorIssuer).HasMaxLength(255).IsRequired();
+            entity.Property(audit => audit.ActorSubject).HasMaxLength(255).IsRequired();
+            entity.Property(audit => audit.Action).HasMaxLength(80).IsRequired();
+            entity.Property(audit => audit.Outcome).HasMaxLength(32).IsRequired();
+            entity.Property(audit => audit.ReasonCode).HasMaxLength(80).IsRequired();
+            entity.Property(audit => audit.CorrelationId).HasMaxLength(100).IsRequired();
+            entity.Property(audit => audit.PolicyVersion).HasMaxLength(80).IsRequired();
+            entity.Property(audit => audit.OccurredAt).IsRequired();
+            entity.HasIndex(audit => audit.OccurredAt);
+            entity.HasIndex(audit => new { audit.OrganizationId, audit.OccurredAt });
             entity.HasOne<Organization>().WithMany()
                 .HasForeignKey(audit => audit.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -428,5 +501,16 @@ public sealed class PlatformDbContext(DbContextOptions<PlatformDbContext> option
                 .HasForeignKey(attention => attention.OrganizationId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+    }
+
+    private void EnsureAuditsAreAppendOnly()
+    {
+        if (ChangeTracker.Entries<CommercialAuditEvent>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted) ||
+            ChangeTracker.Entries<AccountAuditEvent>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted) ||
+            ChangeTracker.Entries<SupportAuditEvent>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new InvalidOperationException("Audit events are append-only.");
     }
 }

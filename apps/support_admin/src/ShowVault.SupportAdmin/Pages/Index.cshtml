@@ -1,0 +1,51 @@
+@page
+@model ShowVault.SupportAdmin.Pages.IndexModel
+@{ ViewData["Title"] = "Organization overview"; }
+<h1>ShowVault Support</h1>
+<form method="post" asp-page-handler="SignOut"><button type="submit">Sign out</button></form>
+<p>Enter the exact organization ID supplied through an approved support case.</p>
+<form method="post">
+  <label asp-for="OrganizationId">Organization ID</label>
+  <input asp-for="OrganizationId" autocomplete="off" spellcheck="false" />
+  <button type="submit">View minimized overview</button>
+  <div asp-validation-summary="ModelOnly" role="alert"></div>
+</form>
+@if (Model.Overview is { } overview)
+{
+  <section>
+    <h2>@overview.DisplayName</h2>
+    <p>Organization ID: @overview.OrganizationId</p>
+    <h3>Members</h3>
+    <table><thead><tr><th>Role</th><th>State</th><th>Count</th></tr></thead><tbody>
+    @foreach (var item in overview.Members)
+    {
+      <tr><td>@item.Role</td><td>@item.State</td><td>@item.Count</td></tr>
+    }
+    </tbody></table>
+    <h3>Commercial state</h3>
+    <dl>
+      <dt>Plan</dt><dd>@(overview.Commercial.PlanCode ?? "none")</dd>
+      <dt>License</dt><dd>@overview.Commercial.LicenseState</dd>
+      <dt>Subscription</dt><dd>@overview.Commercial.SubscriptionState</dd>
+      <dt>Current period ends</dt><dd>@overview.Commercial.CurrentPeriodEndsAt</dd>
+      <dt>Grace ends</dt><dd>@overview.Commercial.GraceEndsAt</dd>
+      <dt>Eligible</dt><dd>@overview.Commercial.Eligible</dd>
+      <dt>Eligibility reason</dt><dd>@overview.Commercial.EligibilityReason</dd>
+      <dt>Committed bytes</dt><dd>@overview.Commercial.CommittedBytes</dd>
+      <dt>Reserved bytes</dt><dd>@overview.Commercial.ReservedBytes</dd>
+      <dt>Limit bytes</dt><dd>@overview.Commercial.LimitBytes</dd>
+    </dl>
+    <h3>Billing attention</h3>
+    <p>Open: @overview.BillingAttention.OpenCount</p>
+    <p>Oldest open: @overview.BillingAttention.OldestOpenedAt</p>
+    <ul>@foreach (var reason in overview.BillingAttention.ReasonCodes) { <li>@reason</li> }</ul>
+    <h3>Hosted sync</h3>
+    <ul>@foreach (var item in overview.HostedSync.Counts) { <li>@item.Status: @item.Count</li> }</ul>
+    <p>Latest activity: @overview.HostedSync.LatestActivityAt</p>
+    <h3>Activity</h3>
+    <dl>
+      <dt>Last account activity</dt><dd>@overview.Activity.LastAccountActivityAt</dd>
+      <dt>Last commercial activity</dt><dd>@overview.Activity.LastCommercialActivityAt</dd>
+    </dl>
+  </section>
+}
