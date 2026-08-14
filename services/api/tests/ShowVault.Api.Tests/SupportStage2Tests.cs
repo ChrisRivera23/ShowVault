@@ -81,6 +81,19 @@ public sealed class SupportStage2Tests(TenantApiFactory factory) : IClassFixture
         var results = await Task.WhenAll(attempts);
         Assert.Equal(64, results.Count(result => result));
         Assert.Equal(SupportRequestRateLimiter.MaximumPartitions, concurrent.PartitionCount);
+
+        var time = new MutableTimeProvider(Now);
+        var expiry = new SupportRequestRateLimiter(time);
+        Assert.True(expiry.TryAcquire(Issuer, "staff|active", "127.0.0.1"));
+        for (var count = 1; count < SupportRequestRateLimiter.MaximumPartitions; count++)
+            Assert.True(expiry.TryAcquire(Issuer, $"staff|stale-{count}", "127.0.0.1"));
+        time.Now = Now + SupportRequestRateLimiter.Retention + TimeSpan.FromSeconds(1);
+        Assert.True(expiry.TryAcquire(Issuer, "staff|active", "127.0.0.1"));
+        Assert.True(expiry.TryAcquire(Issuer, "staff|replacement", "127.0.0.1"));
+        Assert.Equal(2, expiry.PartitionCount);
+        for (var count = 0; count < SupportRequestRateLimiter.PermitLimit - 1; count++)
+            Assert.True(expiry.TryAcquire(Issuer, "staff|active", "127.0.0.1"));
+        Assert.False(expiry.TryAcquire(Issuer, "staff|active", "127.0.0.1"));
     }
 
     [Fact]
@@ -209,5 +222,11 @@ public sealed class SupportStage2Tests(TenantApiFactory factory) : IClassFixture
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = now;
+        public override DateTimeOffset GetUtcNow() => Now;
     }
 }
