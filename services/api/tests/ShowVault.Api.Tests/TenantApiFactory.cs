@@ -21,6 +21,10 @@ namespace ShowVault.Api.Tests;
 
 public sealed class TenantApiFactory : WebApplicationFactory<Program>
 {
+    private readonly bool _supportEnabled;
+    public TenantApiFactory() { }
+    private TenantApiFactory(bool supportEnabled) => _supportEnabled = supportEnabled;
+    public static TenantApiFactory WithSupportEnabled() => new(true);
     public SyntheticBillingProvider BillingProvider { get; } = new();
     public CountingCommandInterceptor Commands { get; } = new();
     private readonly SqliteConnection _connection = new(
@@ -28,6 +32,12 @@ public sealed class TenantApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        if (_supportEnabled)
+        {
+            builder.UseSetting("SupportAdmin:Enabled", "true");
+            builder.UseSetting("SupportAdmin:Authority", "https://support-identity.showvault.test/");
+            builder.UseSetting("SupportAdmin:Audience", "https://support-api.showvault.test");
+        }
         _connection.Open();
 
         builder.ConfigureServices(services =>
