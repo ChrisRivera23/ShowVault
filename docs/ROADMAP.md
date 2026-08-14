@@ -29,13 +29,16 @@
 - Controlled Stripe sandbox account provisioning and operational lifecycle
   proof, including the bounded invoice-payment and scheduled-cancellation
   compatibility corrections; checked-in billing remains disabled
+- Milestone 8 separately authenticated internal SupportReader administration:
+  explicit organization grants, one minimized audited read-only overview API,
+  and an isolated disabled-by-default Support BFF; production identity,
+  durable sessions, deployment, and operational enablement remain gated
 
 ## Next
 
-1. Separately gated internal ShowVault support administration
-2. Production hosted-object provider, retention, migration, and operational
+1. Production hosted-object provider, retention, migration, and operational
    durability proof
-3. Separately authorized native packaging, installation, and equipment proof
+2. Separately authorized native packaging, installation, and equipment proof
 
 ## Deferred
 
