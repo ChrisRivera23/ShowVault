@@ -56,6 +56,7 @@ public sealed class StripeBillingProviderTests
         Assert.Equal(StripeBillingProvider.SupportedApiVersion, request.StripeVersion);
         Assert.Equal(attemptId.ToString("N"), request.IdempotencyKey);
         Assert.Equal("subscription", request.Form["mode"]);
+        Assert.Equal("card", request.Form["payment_method_types[0]"]);
         Assert.Equal(offering.RecurringPriceId, request.Form["line_items[0][price]"]);
         Assert.Equal(offering.LicensePriceId, request.Form["line_items[1][price]"]);
         Assert.Equal("1", request.Form["line_items[0][quantity]"]);
@@ -128,6 +129,7 @@ public sealed class StripeBillingProviderTests
                 status = "active",
                 created = now,
                 cancel_at_period_end = false,
+                cancel_at = now + 2592000,
                 items = new
                 {
                     data = new[]
@@ -163,7 +165,10 @@ public sealed class StripeBillingProviderTests
                     type = "subscription_details",
                     subscription_details = new { subscription = "sub_fixture" }
                 },
-                payments = new
+                status_transitions = new { paid_at = now }
+            })),
+            "/v1/invoice_payments?invoice=in_fixture&limit=10" => Ok(
+                JsonSerializer.Serialize(new
                 {
                     data = new[]
                     {
@@ -176,9 +181,7 @@ public sealed class StripeBillingProviderTests
                         }
                     },
                     has_more = false
-                },
-                status_transitions = new { paid_at = now }
-            })),
+                })),
             "/v1/invoices/in_fixture/lines?limit=100" => Ok(
                 "{\"data\":[{\"price\":{\"id\":\"price_recurring_fixture\"}},{\"pricing\":{\"price_details\":{\"price\":\"price_license_fixture\"}}}],\"has_more\":false}"),
             "/v1/payment_intents/pi_fixture" => Ok(
@@ -208,6 +211,7 @@ public sealed class StripeBillingProviderTests
         Assert.Equal("in_fixture", snapshot.InitialInvoiceId);
         Assert.Equal(BillingLicensePaymentState.Paid, snapshot.LicensePaymentState);
         Assert.Equal("active", snapshot.SubscriptionStatus);
+        Assert.True(snapshot.CancelAtPeriodEnd);
         Assert.Equal(64, snapshot.ProviderRevision.Length);
         Assert.All(handler.Requests, request =>
             Assert.Equal(StripeBillingProvider.SupportedApiVersion, request.StripeVersion));

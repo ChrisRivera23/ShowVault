@@ -35,6 +35,7 @@ public sealed class StripeBillingProvider(
         using var document = await SendFormAsync("v1/checkout/sessions", new()
         {
             ["mode"] = "subscription",
+            ["payment_method_types[0]"] = "card",
             ["line_items[0][price]"] = command.Offering.RecurringPriceId,
             ["line_items[0][quantity]"] = "1",
             ["line_items[1][price]"] = command.Offering.LicensePriceId,
@@ -199,7 +200,9 @@ public sealed class StripeBillingProvider(
         var paymentState = PaymentState(initialInvoice, charge);
         var status = RequiredString(subscriptionRoot, "status", 40);
         var periodEnd = OptionalInt64(recurringItems[0], "current_period_end");
-        var cancelAtPeriodEnd = OptionalBoolean(subscriptionRoot, "cancel_at_period_end");
+        var cancelAt = OptionalInt64(subscriptionRoot, "cancel_at");
+        var cancelAtPeriodEnd = OptionalBoolean(subscriptionRoot, "cancel_at_period_end") ||
+            cancelAt is not null && cancelAt == periodEnd;
         var modifiedSeconds = new[]
         {
             RequiredInt64(root, "created"), RequiredInt64(subscriptionRoot, "created"),
@@ -208,7 +211,7 @@ public sealed class StripeBillingProvider(
             charge is null ? 0 : RequiredInt64(charge.Value, "created")
         }.Max();
         var revision = Revision(sessionId, customerId!, subscriptionId!, initialInvoiceId,
-            checkoutPrices, status, periodEnd, cancelAtPeriodEnd, paymentState, charge);
+            checkoutPrices, status, periodEnd, cancelAt, cancelAtPeriodEnd, paymentState, charge);
         return new(organizationId, offeringCode, sessionId, customerId!, subscriptionId!,
             initialInvoiceId, configured.RecurringPriceId, configured.LicensePriceId,
             status, periodEnd is null ? null : DateTimeOffset.FromUnixTimeSeconds(periodEnd.Value),
@@ -219,8 +222,11 @@ public sealed class StripeBillingProvider(
     private async Task<JsonElement?> InitialChargeAsync(JsonElement invoice,
         CancellationToken cancellationToken)
     {
-        if (!invoice.TryGetProperty("payments", out var payments) ||
-            payments.GetProperty("has_more").GetBoolean()) return null;
+        var invoiceId = RequiredString(invoice, "id", 255);
+        using var invoicePayments = await GetAsync(
+            $"v1/invoice_payments?invoice={Escape(invoiceId)}&limit=10", cancellationToken);
+        var payments = invoicePayments.RootElement;
+        if (payments.GetProperty("has_more").GetBoolean()) return null;
         var paymentIntentIds = payments.GetProperty("data").EnumerateArray()
             .Where(value => string.Equals(OptionalString(value.GetProperty("payment"), "type"),
                 "payment_intent", StringComparison.Ordinal))
@@ -353,7 +359,7 @@ public sealed class StripeBillingProvider(
 
     private static string Revision(string sessionId, string customerId,
         string subscriptionId, string invoiceId, IEnumerable<string> prices,
-        string status, long? periodEnd, bool cancelAtPeriodEnd,
+        string status, long? periodEnd, long? cancelAt, bool cancelAtPeriodEnd,
         BillingLicensePaymentState paymentState, JsonElement? charge)
     {
         var material = string.Join('|', new[]
@@ -361,6 +367,7 @@ public sealed class StripeBillingProvider(
             sessionId, customerId, subscriptionId, invoiceId,
             string.Join(',', prices.Order(StringComparer.Ordinal)), status,
             periodEnd?.ToString(CultureInfo.InvariantCulture) ?? "",
+            cancelAt?.ToString(CultureInfo.InvariantCulture) ?? "",
             cancelAtPeriodEnd ? "1" : "0", paymentState.ToString(),
             charge is null ? "" : RequiredInt64(charge.Value, "amount_refunded")
                 .ToString(CultureInfo.InvariantCulture),

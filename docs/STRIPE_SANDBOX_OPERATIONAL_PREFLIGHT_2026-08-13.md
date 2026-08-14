@@ -37,8 +37,9 @@ secret store, never checked into configuration, logs, evidence, shell history,
 or chat.
 
 Checkout sends exactly two quantity-one Price references in subscription mode:
-the recurring Price and the one-time license Price. It fixes success/cancel
-URLs, a 30–60 minute expiry, an idempotency key, and bounded opaque
+the recurring Price and the one-time license Price. It explicitly limits the
+session to the `card` payment-method type, fixes success/cancel URLs, a 30–60
+minute expiry, an idempotency key, and bounded opaque
 organization/offering/attempt metadata. It sends no customer email or amount.
 Returned URLs must use Stripe's exact hosted domains. Portal creation sends
 only the already-bound Customer ID and fixed return URL.
